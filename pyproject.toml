@@ -1,6 +1,6 @@
 [project]
 name = "openadmet-challenge"
-version = "0.0.0"
+version = "0.0.1"
 description = "Tools and experiments for the OpenADMET challenge"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,6 +24,8 @@ dependencies = [
     # ML infra
     "mlflow>=2.0",
     "ray[tune]>=2.4",
+    "transformers>=4.30",
+    "datasets>=2.10",
     # visualization
     "matplotlib>=3.6",
     "seaborn>=0.12",
@@ -31,7 +33,34 @@ dependencies = [
     # CLI, testing, typing
     "typer[all]>=0.7",
     "pytest>=7.0",
+    # util
+    "tqdm>=4.64",
 ]
 
 [project.optional-dependencies]
-dev = ["black", "isort", "flake8"]
+dev = ["black", "isort", "flake8", "mypy", "pytest-cov"]
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests*"]
+
+[tool.black]
+line-length = 109
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 109
+src_paths = ["src"]
+
+[tool.flake8]
+max-line-length = 109
+extend-ignore = "E203, W503"
+exclude = ".git,__pycache__,.venv,env,build,dist"
