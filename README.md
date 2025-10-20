@@ -1,6 +1,6 @@
 # OpenADMET + ExpansionRx Blind Challenge
 
-**Authors**: Alec Glisman, PhD
+**Authors**: Alec Glisman, PhD  
 **Date**: October 2025
 
 ## Getting Started
@@ -114,6 +114,13 @@ We will attempt to augment the provided training dataset with additional publicl
 - [Benchmarking](https://practicalcheminformatics.blogspot.com/2023/08/we-need-better-benchmarks-for-machine.html)
 - [Comparisons](https://practicalcheminformatics.blogspot.com/2025/03/even-more-thoughts-on-ml-method.html)
 - [Practically Significant Method Comparison Protocols for Machine Learning in Small Molecule Drug Discovery](https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c01609)
+
+### Examples
+
+- [DataBricks Chemprop Training](https://community.databricks.com/t5/technical-blog/ai-drug-discovery-made-easy-your-complete-guide-to-chemprop-on/ba-p/111750#h_324287967181751055572426)
+- [Chemprop Data Splitting](https://chemprop.readthedocs.io/en/latest/tutorial/python/data/splitting.html)
+- [Chemprop Multitask Model](https://chemprop.readthedocs.io/en/latest/multi_task.html)
+- [CheMeleon Foundation Finetuning](https://chemprop.readthedocs.io/en/latest/chemeleon_foundation_finetuning.html)
 
 ### Coding Assistants
 
