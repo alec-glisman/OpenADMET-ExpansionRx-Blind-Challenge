@@ -1,0 +1,50 @@
+# MacOSX
+**/*.DS_Store
+
+# virtual environments
+env/**
+
+# build directories
+build/**
+cache/**
+
+# caches
+*.cache
+**/.pytest_cache/**
+*.pyc
+*.pkl
+*.tar.xz
+*.pkl.xz
+
+# rendering
+*.eps
+*.png
+*.dat
+*.tga
+*.pdf
+*.vmd
+
+# movies
+*.mpg
+*.mp4
+
+# data files
+*.db
+*.cpt
+*.edr
+*.gro
+*.log
+*.mdp
+*.out
+*.pdb
+*.ndx
+*.tpr
+*.trr
+*.xml
+*.xtc
+*.xvg
+*.xpm
+*.csv
+*.npz
+*.parquet
+
