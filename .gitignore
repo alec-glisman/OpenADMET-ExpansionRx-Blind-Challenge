@@ -15,6 +15,7 @@ cache/**
 *.pkl
 *.tar.xz
 *.pkl.xz
+*.egg-info
 
 # rendering
 *.eps

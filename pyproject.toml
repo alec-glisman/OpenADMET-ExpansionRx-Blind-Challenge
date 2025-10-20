@@ -1,0 +1,37 @@
+[project]
+name = "openadmet-challenge"
+version = "0.0.0"
+description = "Tools and experiments for the OpenADMET challenge"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    # data science
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "scipy>=1.9",
+    # cheminformatics & chem ML
+    "chemprop>=2",
+    "rdkit",
+    # machine learning
+    "scikit-learn>=1.1",
+    "xgboost>=1.7",
+    # deep learning
+    "torch>=2.5",
+    "torchvision>=0.10",
+    "torchaudio>=0.10",
+    "torchmetrics>=0.11",
+    # ML infra
+    "mlflow>=2.0",
+    "ray[tune]>=2.4",
+    # visualization
+    "matplotlib>=3.6",
+    "seaborn>=0.12",
+    "colorcet>=3.0",
+    # CLI, testing, typing
+    "typer[all]>=0.7",
+    "pytest>=7.0",
+]
+
+[project.optional-dependencies]
+dev = ["black", "isort", "flake8"]

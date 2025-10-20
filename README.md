@@ -3,6 +3,13 @@
 **Authors**: Alec Glisman, PhD
 **Date**: October 2025
 
+## Getting Started
+
+This repository contains code and documentation for participating in the OpenADMET + ExpansionRx Blind Challenge. The goal of this challenge is to develop machine learning models to predict various ADMET properties of small molecules using the provided dataset.
+
+To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
+You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
+
 ## Goals
 
 #### Models
