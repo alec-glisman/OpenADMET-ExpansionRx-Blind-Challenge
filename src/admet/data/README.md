@@ -16,6 +16,11 @@
 | MBPB                         | % Unbound   |   float   | Mouse Brain Protein Binding |
 | MGMB.                        | % Unbound   |   float   | Mouse Gastrocnemius Muscle Binding |
 
+### Questions
+
+- [ ] What pH is used for LogD measurements?
+- [ ] What pH is used for KSol measurements?
+
 ## External Datasets
 
 - [ ] [KERMT](https://figshare.com/articles/dataset/Datasets_for_Multitask_finetuning_and_acceleration_of_chemical_pretrained_models_for_small_molecule_drug_property_prediction_/30350548/2)
@@ -35,4 +40,28 @@ TODO
 
 - Dataset size:
 - Endpoints included:
-  - TODO
+  - CL_microsome_human
+  - CL_microsome_mouse
+  - CL_microsome_rat
+  - CL_total_dog
+  - CL_total_human
+  - CL_total_monkey
+  - CL_total_rat
+  - CYP2C8_inhibition
+  - CYP2C9_inhibition
+  - CYP2D6_inhibition
+  - CYP3A4_inhibition
+  - Dog_fraction_unbound_plasma
+  - Human_fraction_unbound_plasma
+  - Monkey_fraction_unbound_plasma
+  - Rat_fraction_unbound_plasma
+  - Papp_Caco2
+  - Pgp_human
+  - hERG_binding
+  - **LogD_pH_7.4**
+  - kinetic_logSaq
+  - thermo_logSaq
+  - VDss_dog
+  - VDss_human
+  - VDss_monkey
+  - VDss_rat
