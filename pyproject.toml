@@ -35,7 +35,7 @@ dependencies = [
     # datasets & data download
     "polaris-lib",
     "datasets>=2.10",
-    "tdc",
+    "PyTDC ",
     # util
     "tqdm>=4.64",
     "requests>=2.28",

@@ -10,6 +10,7 @@ import logging
 import pandas as pd
 import polaris as po
 from tqdm import tqdm
+from tdc.benchmark_group import admet_group
 
 from admet.data.constants import DATASETS, DEFAULT_DATASET_DIR
 
@@ -64,6 +65,35 @@ def download_polaris_dataset_to_csv(
     logger.debug("Download and save complete.")
 
 
+def download_tdc_dataset_to_csv(
+    dataset_uri: str,
+    output_file: Union[str, Path],
+) -> None:
+    """Download a TDC ADMET_Group dataset and save it to a CSV file.
+
+    Args:
+        dataset_uri (str): TDC benchmark name (e.g., 'Caco2_Wang').
+        output_file (Union[str, Path]): The path to the output CSV file.
+    """
+    logger.debug(f"Loading TDC benchmark: {dataset_uri}...")
+    group = admet_group(path="/tmp/tdc_download/")
+    benchmark = group.get(dataset_uri)
+    name = benchmark["name"]
+    train_val, test = benchmark["train_val"], benchmark["test"]
+
+    logger.info(f"Converting TDC benchmark '{name}' to DataFrame...")
+    # Concatenate train/val and test splits
+    import pandas as pd
+
+    df = pd.concat([pd.DataFrame(train_val), pd.DataFrame(test)], ignore_index=True)
+    # tqdm progress bar for demonstration (not needed for concat, but for row-wise ops)
+    # for _ in tqdm(df.iterrows(), total=len(df), desc="Converting rows", unit="row"):
+    #     pass
+    logger.info(f"Saving dataset to {output_file}...")
+    df.to_csv(output_file, index=False)
+    logger.debug("Download and save complete.")
+
+
 class Downloader:
     """Dataset downloader class.
 
@@ -104,6 +134,8 @@ class Downloader:
             download_hf_dataset_to_csv(dataset_uri, output_file)
         elif dataset_type == "polaris":
             download_polaris_dataset_to_csv(dataset_uri, output_file)
+        elif dataset_type == "tdc":
+            download_tdc_dataset_to_csv(dataset_uri, output_file)
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
