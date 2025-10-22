@@ -8,7 +8,8 @@ from pathlib import Path
 import logging
 
 import pandas as pd
-
+import polaris as po
+from tqdm import tqdm
 
 from admet.data.constants import DATASETS, DEFAULT_DATASET_DIR
 
@@ -28,6 +29,36 @@ def download_hf_dataset_to_csv(
     """
     logger.debug(f"Loading dataset from {dataset_uri}...")
     df = pd.read_csv(dataset_uri)
+    logger.info(f"Saving dataset to {output_file}...")
+    df.to_csv(output_file, index=False)
+    logger.debug("Download and save complete.")
+
+
+def download_polaris_dataset_to_csv(
+    dataset_uri: Union[str, Path],
+    output_file: Union[str, Path],
+) -> None:
+    """Download a Polaris dataset and save it to a CSV file.
+
+    Args:
+        dataset_uri (Union[str, Path]): The identifier of the Polaris dataset
+            (e.g., 'asap-discovery/antiviral-admet-2025-unblinded').
+        output_file (Union[str, Path]): The path to the output CSV file.
+    """
+    logger.debug(f"Loading Polaris dataset: {dataset_uri}...")
+    dataset = po.load_dataset(str(dataset_uri))
+    logger.info(f"Dataset loaded with size {dataset.size()}")
+    print(f"Dataset loaded with size {dataset.size()}")
+
+    logger.info("Converting Polaris dataset to DataFrame...")
+
+    # Convert Polaris dataset to pandas DataFrame with tqdm progress bar
+    data = []
+    for i in tqdm(range(dataset.size()[0]), desc="Converting rows", unit="row"):
+        row = dataset[i]
+        data.append(row)
+    df = pd.DataFrame(data)
+
     logger.info(f"Saving dataset to {output_file}...")
     df.to_csv(output_file, index=False)
     logger.debug("Download and save complete.")
@@ -59,7 +90,8 @@ class Downloader:
         """Download a dataset and save it to a CSV file.
 
         Args:
-            dataset_type (str): The type of the dataset (e.g., 'huggingface').
+            dataset_type (str): The type of the dataset
+                (e.g., 'huggingface', 'polaris').
             dataset_uri (Union[str, Path]): The URI of the dataset.
             output_file (Union[str, Path]): The path to the output CSV file.
 
@@ -70,6 +102,8 @@ class Downloader:
 
         if dataset_type == "huggingface":
             download_hf_dataset_to_csv(dataset_uri, output_file)
+        elif dataset_type == "polaris":
+            download_polaris_dataset_to_csv(dataset_uri, output_file)
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 

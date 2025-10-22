@@ -25,7 +25,6 @@ dependencies = [
     "mlflow>=2.0",
     "ray[tune]>=2.4",
     "transformers>=4.30",
-    "datasets>=2.10",
     # visualization
     "matplotlib>=3.6",
     "seaborn>=0.12",
@@ -33,6 +32,10 @@ dependencies = [
     # CLI, testing, typing
     "typer[all]>=0.7",
     "pytest>=7.0",
+    # datasets & data download
+    "polaris-lib",
+    "datasets>=2.10",
+    "tdc",
     # util
     "tqdm>=4.64",
     "requests>=2.28",

@@ -20,5 +20,15 @@ DATASETS: Mapping[str, DatasetInfo] = {
             "hf://datasets/openadmet/" "openadmet-expansionrx-challenge-teaser/" "expansion_data_teaser.csv"
         ),
         "output_file": "expansion_teaser.csv",
-    }
+    },
+    "antiviral_admet_2025": {
+        "type": "polaris",
+        "uri": "asap-discovery/antiviral-admet-2025-unblinded",
+        "output_file": "antiviral_admet_2025_unblinded.csv",
+    },
+    "biogen_admet": {
+        "type": "polaris",
+        "uri": "biogen/adme-fang-v1",
+        "output_file": "biogen_admet.csv",
+    },
 }
