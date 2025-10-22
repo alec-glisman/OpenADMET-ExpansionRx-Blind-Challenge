@@ -10,7 +10,7 @@ import logging
 import pandas as pd
 
 
-from admet.data.constants import DATASETS
+from admet.data.constants import DATASETS, DEFAULT_DATASET_DIR
 
 
 logger = logging.getLogger(__name__)
@@ -75,8 +75,19 @@ class Downloader:
 
     def download_all(
         self,
+        output_dir: Optional[Path] = None,
     ) -> None:
-        """Download all datasets defined in DATASETS constant."""
+        """Download all datasets defined in DATASETS constant.
+
+        Args:
+            output_dir (Optional[Path]): Output directory for datasets.
+                Defaults to DEFAULT_DATASET_DIR.
+        """
+        if output_dir is None:
+            output_dir = DEFAULT_DATASET_DIR
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         for dataset_name, dataset_info in DATASETS.items():
             dataset_type = dataset_info.get("type")
             dataset_uri = dataset_info.get("uri")
@@ -84,6 +95,8 @@ class Downloader:
 
             if dataset_type and dataset_uri and output_file:
                 self.logger.info(f"Downloading dataset: {dataset_name}")
-                self.download(dataset_type, dataset_uri, output_file)
+                output_file_path = output_dir / Path(str(output_file))
+                self.download(dataset_type, dataset_uri, output_file_path)
             else:
-                self.logger.warning(f"Dataset info incomplete for {dataset_name}, skipping.")
+                msg = f"Dataset info incomplete for {dataset_name}, " "skipping."
+                self.logger.warning(msg)

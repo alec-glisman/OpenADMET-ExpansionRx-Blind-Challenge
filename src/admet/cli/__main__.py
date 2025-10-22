@@ -6,6 +6,8 @@ application defined in :mod:`admet.cli` (the package's ``app``).
 
 from __future__ import annotations
 
+from admet.cli import app
+
 
 def main() -> None:  # pragma: no cover - trivial wrapper
     """Run the Typer CLI application."""
