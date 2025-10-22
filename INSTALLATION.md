@@ -6,10 +6,10 @@ These instructions create a virtual environment at `env/dev` and install the run
 
 ```bash
 # create venv
-uv venv env/dev
+uv venv venv
 
 # activate (zsh)
-source env/dev/bin/activate
+source env/venv/activate
 
 # upgrade packaging tools inside the venv via uv
 uv pip install -e '.[dev]'
