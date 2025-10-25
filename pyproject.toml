@@ -13,6 +13,7 @@ dependencies = [
     # cheminformatics & chem ML
     "chemprop>=2",
     "rdkit",
+    "useful_rdkit_utils",
     # machine learning
     "scikit-learn>=1.1",
     "xgboost>=1.7",
@@ -29,14 +30,14 @@ dependencies = [
     "matplotlib>=3.6",
     "seaborn>=0.12",
     "colorcet>=3.0",
-    # CLI, testing, typing
-    "typer>=0.7",
-    "rich",
-    "pytest>=7.0",
     # datasets & data download
     "polaris-lib",
     "datasets",
     "PyTDC",
+    # CLI, testing, typing
+    "typer>=0.7",
+    "rich",
+    "pytest>=7.0",
     # util
     "tqdm>=4.64",
     "requests>=2.28",
