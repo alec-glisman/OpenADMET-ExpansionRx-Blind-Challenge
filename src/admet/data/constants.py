@@ -1,4 +1,4 @@
-from typing import Mapping, TypedDict
+from typing import Mapping, TypedDict, Any, Callable, Dict
 from pathlib import Path
 from tdc import utils
 
@@ -31,6 +31,11 @@ DATASETS["expansion_teaser"] = {
     ),
     "output_file": "expansion_teaser.csv",
 }
+DATASETS["expansion"] = {
+    "type": "huggingface",
+    "uri": ("hf://datasets/openadmet/openadmet-expansionrx-challenge-train-data/expansion_data_train.csv"),
+    "output_file": "expansion.csv",
+}
 DATASETS["antiviral_admet_2025"] = {
     "type": "polaris",
     "uri": "asap-discovery/antiviral-admet-2025-unblinded",
@@ -41,3 +46,45 @@ DATASETS["biogen_admet"] = {
     "uri": "biogen/adme-fang-v1",
     "output_file": "biogen_admet.csv",
 }
+
+# ---------------------------------------------------------------------------
+# EDA constants and lightweight numeric transformations
+# ---------------------------------------------------------------------------
+
+# Column names with units for ExpansionRX and related datasets
+COLS_WITH_UNITS: Dict[str, str] = {
+    "Molecule Name": "(None)",
+    "LogD": "(None)",
+    "KSOL": "(uM)",
+    "HLM CLint": "(mL/min/kg)",
+    "MLM CLint": "(mL/min/kg)",
+    "Caco-2 Permeability Papp A>B": "(10^-6 cm/s)",
+    "Caco-2 Permeability Efflux": "(None)",
+    "MPPB": "(% unbound)",
+    "MBPB": "(% unbound)",
+    "MGMB": "(% unbound)",
+}
+
+# Simple numeric transformations used during dataset harmonization
+TRANSFORMATIONS: Dict[str, Callable[..., Any]] = {
+    "None": lambda x: x,
+    "10^(x+6)": lambda x: 10.0 ** (x + 6.0),
+    "10^(x)": lambda x: 10.0 ** (x),
+    "10^(x); /mg to /kg": lambda x: (10.0**x) / 1.0e-6,
+    # requires MW in g/mol; converts ug/mL to uM
+    "ug/mL to uM": lambda x, mw: (x * 1000) / mw if (mw is not None and mw > 0) else float("nan"),
+}
+
+# Backwards-compatible lowercase aliases matching earlier module
+cols_with_units = COLS_WITH_UNITS
+transformations = TRANSFORMATIONS
+
+__all__ = [
+    "DatasetInfo",
+    "DEFAULT_DATASET_DIR",
+    "DATASETS",
+    "COLS_WITH_UNITS",
+    "TRANSFORMATIONS",
+    "cols_with_units",
+    "transformations",
+]

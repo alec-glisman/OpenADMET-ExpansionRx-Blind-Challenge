@@ -1,9 +1,9 @@
 # MacOSX
 **/*.DS_Store
 
-
 # virtual environments
 env/**
+.venv/**
 
 # build directories
 build/**

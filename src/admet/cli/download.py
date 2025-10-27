@@ -82,3 +82,7 @@ def download(
         downloader.download(str(dataset_type), str(dataset_uri), output_file_path)
         msg = f"Dataset '{dataset_name}' downloaded successfully " f"to {output_file_path}."
         typer.echo(msg)
+
+
+if __name__ == "__main__":
+    typer.run(download)
