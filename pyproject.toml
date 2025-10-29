@@ -7,7 +7,7 @@ requires-python = ">=3.11,<3.12"
 
 dependencies = [
     # data science
-    "numpy>=1.23",
+    "numpy>=1.23,<2",
     "pandas>=1.5",
     "scipy>=1.9",
     # cheminformatics
