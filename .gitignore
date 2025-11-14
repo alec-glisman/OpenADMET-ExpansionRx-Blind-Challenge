@@ -4,6 +4,7 @@
 # virtual environments
 env/**
 .venv/**
+__marimo__
 
 # build directories
 build/**

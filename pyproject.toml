@@ -47,6 +47,10 @@ dependencies = [
     "ipympl",
     "ipywidgets",
     "ipykernel",
+    # marimo
+    "marimo",
+    "altair",
+    # "bblean",
 ]
 
 [project.optional-dependencies]
