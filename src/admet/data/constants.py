@@ -1,4 +1,5 @@
 from typing import Mapping, TypedDict, Any, Callable, Dict
+import numpy as np
 from pathlib import Path
 from tdc import utils
 
@@ -68,11 +69,18 @@ COLS_WITH_UNITS: Dict[str, str] = {
 # Simple numeric transformations used during dataset harmonization
 TRANSFORMATIONS: Dict[str, Callable[..., Any]] = {
     "None": lambda x: x,
-    "10^(x+6)": lambda x: 10.0 ** (x + 6.0),
-    "10^(x)": lambda x: 10.0 ** (x),
-    "10^(x); /mg to /kg": lambda x: (10.0**x) / 1.0e-6,
+    "log10(x)": lambda x: np.log10(x + 1e-6),
+    "e^(x)": lambda x: np.exp(x),
+    "10^(x+6)": lambda x: np.power(10.0, x + 6.0),
+    "10^(x)": lambda x: np.power(10.0, x),
+    "10^(x); 1/g to 1/kg": lambda x: np.power(10.0, x) * 1.0e3,
+    "10^(x); 1/kg to 1/g": lambda x: np.power(10.0, x) * 1.0e-3,
     # requires MW in g/mol; converts ug/mL to uM
-    "ug/mL to uM": lambda x, mw: (x * 1000) / mw if (mw is not None and mw > 0) else float("nan"),
+    "ug/mL to uM": lambda x, mw: (x / mw) * 1.0e3 if (mw is not None and mw > 0) else float("nan"),
+    # unit conversions
+    "nM to uM": lambda x: x / 1000.0,
+    "g to kg": lambda x: x / 1000.0,
+    "kg to g": lambda x: x * 1000.0,
 }
 
 # Backwards-compatible lowercase aliases matching earlier module
