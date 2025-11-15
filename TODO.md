@@ -11,7 +11,7 @@
 - [x] Download project datasets from Hugging Face.
 - [x] Perform EDA to understand data distributions, missing values, and correlations.
 - [x] Visualize key features using libraries like Matplotlib and Seaborn.
-- [ ] Generate summary statistics and visualizations to inform model selection. Output to `assets/eda/project` with PNG images and MD report.
+- [x] Generate summary statistics and visualizations to inform model selection. Output to `assets/eda/project` with PNG images and MD report.
 
 Look at Pat Walters's blog posts for further inspiration on EDA: <https://patwalters.github.io/OpenADMET-ExpansionRx-Data-Analysis/>
 
@@ -19,14 +19,14 @@ Look at Pat Walters's blog posts for further inspiration on EDA: <https://patwal
 
 - [x] Investigate external datasets (KERMT, Polaris Antiviral, TDC, etc.) for potential augmentation.
 - [x] Implement data augmentation techniques to enhance training data diversity.
-- [ ] Evaluate the impact of augmented data on dataset size, quality, and endpoint distributions.
-- [ ] Document augmentation strategies and results in `assets/augmentation` with PNG images and MD report.
-- [ ] Update EDA to reflect changes post-augmentation in `assets/eda/augmented`.
-- [ ] Create a summary report comparing original and augmented datasets.
+- [x] Evaluate the impact of augmented data on dataset size, quality, and endpoint distributions.
+- [x] Document augmentation strategies and results in `assets/augmentation` with PNG images and MD report.
+- [x] Update EDA to reflect changes post-augmentation in `assets/eda/augmented`.
+- [x] Create a summary report comparing original and augmented datasets.
 
 ## Data Preprocessing
 
-- [ ] Standardize molecular representations (e.g., SMILES canonicalization).
+- [x] Standardize molecular representations (e.g., SMILES canonicalization).
 - [ ] Handle missing values and outliers.
 - [ ] Normalize or scale features as needed.
 - [ ] Split data into training, validation, and test sets. Allow for ensembe and cross validation. Split on Taylor-Butina clusters to avoid data leakage.
