@@ -1,6 +1,6 @@
 ---
 description: "Python coding conventions and guidelines"
-applyTo: "**/*.py"
+applyTo: "**/*.py,**/*.ipynb"
 ---
 
 # Python Coding Conventions
@@ -33,6 +33,7 @@ The code itself should be modular and easily extendable with a consistent API ac
 
 ## Code Style and Formatting
 
+- Import standard libraries first, followed by third-party libraries, and then local application imports. Separate each group with a blank line and place all imports at the top of the file.
 - Follow the **PEP 8** style guide for Python.
 - Maintain proper indentation (use 4 spaces for each level of indentation).
 - Ensure lines do not exceed 79 characters.

@@ -3,6 +3,8 @@
 
 # virtual environments
 env/**
+.venv/**
+__marimo__
 
 # build directories
 build/**
@@ -30,6 +32,7 @@ cache/**
 *.mp4
 
 # data files
+assets
 *.db
 *.cpt
 *.edr

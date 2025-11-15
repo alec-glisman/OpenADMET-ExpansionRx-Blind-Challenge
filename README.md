@@ -99,14 +99,16 @@ We will attempt to augment the provided training dataset with additional publicl
 
 ### External Datasets
 
-- [KERMT](https://figshare.com/articles/dataset/Datasets_for_Multitask_finetuning_and_acceleration_of_chemical_pretrained_models_for_small_molecule_drug_property_prediction_/30350548/2)
-- [Polaris Antiviral](https://polarishub.io/datasets/asap-discovery/antiviral-admet-2025-unblinded)
-- [Polaris ADME Fang](https://polarishub.io/datasets/biogen/adme-fang-v1)
-- [TDC](https://tdcommons.ai/benchmark/admet_group/overview/)
-- [PharmaBench](https://github.com/mindrank-ai/PharmaBench)
-- [NCATS](https://opendata.ncats.nih.gov/adme/data)
-- [admetSAR 3.0](https://pmc.ncbi.nlm.nih.gov/articles/PMC11223829/#:~:text=Data%20collection,are%20available%20in%20Text%20S2.)
-- [admetics](https://github.com/datagrok-ai/admetica)
+- [x] [KERMT](https://figshare.com/articles/dataset/Datasets_for_Multitask_finetuning_and_acceleration_of_chemical_pretrained_models_for_small_molecule_drug_property_prediction_/30350548/2)
+- [x] [Polaris Antiviral](https://polarishub.io/datasets/asap-discovery/antiviral-admet-2025-unblinded)
+- [x] [Polaris ADME Fang](https://polarishub.io/datasets/biogen/adme-fang-v1)
+- [x] [TDC](https://tdcommons.ai/benchmark/admet_group/overview/)
+- [x] [PharmaBench](https://github.com/mindrank-ai/PharmaBench)
+- [x] [NCATS](https://opendata.ncats.nih.gov/adme/data)
+- [ ] [admetSAR 3.0](https://pmc.ncbi.nlm.nih.gov/articles/PMC11223829/#:~:text=Data%20collection,are%20available%20in%20Text%20S2.)
+  - NOTE: Appears to be proprietary data
+- [x] [admetica](https://github.com/datagrok-ai/admetica)
+- [x] [ChEMBL ADMET](https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest)
 
 ### Papers and Blogs
 

@@ -2,21 +2,23 @@
 
 ## Dataset Acquisition
 
-- [ ] Download the full training dataset from Hugging Face.
-- [ ] Add any additional external datasets identified for augmentation.
-- [ ] Check endpoint consistency and compatibility across datasets.
+- [x] Download the full training dataset from Hugging Face.
+- [x] Add any additional external datasets identified for augmentation.
+- [x] Check endpoint consistency and compatibility across datasets.
 
 ## Exploratory Data Analysis (EDA)
 
-- [ ] Download project datasets from Hugging Face.
-- [ ] Perform EDA to understand data distributions, missing values, and correlations.
-- [ ] Visualize key features using libraries like Matplotlib and Seaborn.
+- [x] Download project datasets from Hugging Face.
+- [x] Perform EDA to understand data distributions, missing values, and correlations.
+- [x] Visualize key features using libraries like Matplotlib and Seaborn.
 - [ ] Generate summary statistics and visualizations to inform model selection. Output to `assets/eda/project` with PNG images and MD report.
-  
+
+Look at Pat Walters's blog posts for further inspiration on EDA: <https://patwalters.github.io/OpenADMET-ExpansionRx-Data-Analysis/>
+
 ## Data Augmentation
 
-- [ ] Investigate external datasets (KERMT, Polaris Antiviral, TDC, etc.) for potential augmentation.
-- [ ] Implement data augmentation techniques to enhance training data diversity.
+- [x] Investigate external datasets (KERMT, Polaris Antiviral, TDC, etc.) for potential augmentation.
+- [x] Implement data augmentation techniques to enhance training data diversity.
 - [ ] Evaluate the impact of augmented data on dataset size, quality, and endpoint distributions.
 - [ ] Document augmentation strategies and results in `assets/augmentation` with PNG images and MD report.
 - [ ] Update EDA to reflect changes post-augmentation in `assets/eda/augmented`.
@@ -35,9 +37,11 @@
 
 ## Model Training
 
-- [ ] Implement and train baseline models (Chemprop Multitask, CheMeleon, ChemBERTa, KERMT).
-- [ ] Fine-tune models using pre-trained weights where applicable.
-- [ ] Use cross-validation to assess model robustness.
+- [ ] Try overweighting ExpansionRX data during training to improve performance on the target dataset.
+- [ ] Explore training objectives that prioritize leaderboard metrics (e.g., MAE on individual tasks and MA-RAE across all tasks).
+- [ ] Implement and train baseline models (Random Forest, XGBoost, LightGBM, Chemprop Multitask, CheMeleon, KERMT, ChemBERTa)
+- [ ] Fine-tune models using pre-trained weights where applicable (CheMeleon, KERMT, ChemBERTa).
+- [ ] Use cross-validation to assess model robustness (5x5 using useful_rdkit_utils with Taylor-Butina clustering, time-based splits on ExpansionRX dataset).
 - [ ] Perform hyperparameter tuning using grid search or Bayesian optimization with `ray[tune]` to optimize model performance.
 - [ ] Document model architectures, training procedures, and hyperparameter choices.
 - [ ] Save trained models and training logs in `assets/models`.
