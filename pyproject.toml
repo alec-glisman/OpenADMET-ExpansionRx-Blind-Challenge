@@ -33,6 +33,7 @@ dependencies = [
     "matplotlib>=3.6",
     "seaborn>=0.12",
     "colorcet>=3.0",
+    "scienceplots==2.1.1",
     # datasets & data download
     "polaris-lib",
     "datasets",
