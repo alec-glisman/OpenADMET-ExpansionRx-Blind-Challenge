@@ -8,7 +8,11 @@ from pathlib import Path
 import logging
 
 import pandas as pd
-import polaris as po
+
+try:
+    import polaris as po
+except (ImportError, AttributeError):
+    po = None  # type: ignore
 from tqdm import tqdm
 from tdc.benchmark_group import admet_group
 

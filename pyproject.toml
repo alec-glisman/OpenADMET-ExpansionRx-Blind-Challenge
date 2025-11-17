@@ -13,11 +13,12 @@ dependencies = [
     # cheminformatics
     "chemprop>=2",
     "rdkit",
-    "scikit-fingerprints",
     "useful_rdkit_utils",
     # machine learning
     "statsmodels==0.14.5",
     "scikit-learn>=1.1",
+    "umap-learn==0.5.9.post2",
+    "hdbscan==0.8.40",
     "lightgbm==4.6.0",
     "xgboost>=1.7",
     # deep learning
