@@ -10,6 +10,19 @@ This repository contains code and documentation for participating in the OpenADM
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
 
+### Quick start: Train XGBoost baseline
+
+Once you have train/val/test CSVs and a YAML with XGBoost params, you can kick off training:
+
+```bash
+python scripts/train_xgb.py \
+  --data-root assets/dataset/eda/data/set/scaffold-split \
+  --config configs/xgb.yaml \
+  --out-dir runs/xgb_scaffold_seed0
+```
+
+This runs the per-endpoint XGBoost trainer and writes a model folder and metrics.json to the output directory.
+
 ## Goals
 
 #### Models
