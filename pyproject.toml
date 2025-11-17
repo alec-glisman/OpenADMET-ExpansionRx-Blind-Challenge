@@ -25,6 +25,7 @@ dependencies = [
     "torchvision>=0.10",
     "torchaudio>=0.10",
     "torchmetrics>=0.11",
+    "ray[data,train,tune,serve]",
     # ML infra
     "mlflow>=2.0",
     "ray[tune]>=2.4",
