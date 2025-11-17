@@ -27,6 +27,7 @@
     - Ensemble training: They should run N-split, K-fold cross-validation as per the dataset splits. Each model should also have a random seed and can be trained in parallel. Hyperparameter configuration should be supported for all models. Expose all default hyperparameters for each model and allow user overrides via Typer CLI.
     - Weighted loss: Allow for weighted loss functions to handle class (`Dataset` metadata) imbalance if needed. This should be an optional parameter that dictates the weighting scheme for each class in the loss function. Unspecified classes should default to a weight of 1.
     - Early stopping: Implement early stopping based on validation loss to prevent overfitting. Allow user to specify patience and minimum delta for early stopping via Typer CLI.
+    - Archive trained models: Save trained models in a structured directory tree similar to the input datasets for easy retrieval and comparison.
 4. **Model Evaluation**: Evaluate the trained models on the test sets and record performance metrics.
     - Metrics to compute:
       - For each endpoint, compute RMSE, MAE, R², and others as needed. MAE is the primary metric for ranking models and should be used for training models.
@@ -37,3 +38,5 @@
       - 2. Transformed outputs. For all non `LogD` columns transform by `10^x` for easier comparison with experimental values.
       - On both predictions, plot the histograms (Seaborn with KDE) of the predicted values for each endpoint on a single figure with subplots. Each dataset (train, validation, test) should have its own figure.
       - For each endpoint, plot predicted vs experimental values with a parity line for each dataset (train, validation, test). Each dataset should have its own figure with subplots for each endpoint.
+      - Plot the correlation heatmap (Seaborn) of predicted vs experimental values for each endpoint on the datasets.
+      - Plot the correlation heatmap (Seaborn) of predicted values between each endpoint on the datasets.
