@@ -28,6 +28,7 @@
     - Weighted loss: Allow for weighted loss functions to handle class (`Dataset` metadata) imbalance if needed. This should be an optional parameter that dictates the weighting scheme for each class in the loss function. Unspecified classes should default to a weight of 1.
     - Early stopping: Implement early stopping based on validation loss to prevent overfitting. Allow user to specify patience and minimum delta for early stopping via Typer CLI.
     - Archive trained models: Save trained models in a structured directory tree similar to the input datasets for easy retrieval and comparison.
+    - Ensemble policy: Final reported predictions for any dataset (including the blinded test set) are produced as ensembles of models trained across the specified splits and folds, with endpoint-wise means and standard errors aggregated across models.
 4. **Model Evaluation**: Evaluate the trained models on the test sets and record performance metrics.
     - Metrics to compute:
       - For each endpoint, compute RMSE, MAE, R², and others as needed. MAE is the primary metric for ranking models and should be used for training models.
@@ -40,6 +41,11 @@
       - For each endpoint, plot predicted vs experimental values with a parity line for each dataset (train, validation, test). Each dataset should have its own figure with subplots for each endpoint.
       - Plot the correlation heatmap (Seaborn) of predicted vs experimental values for each endpoint on the datasets.
       - Plot the correlation heatmap (Seaborn) of predicted values between each endpoint on the datasets.
+
+## Scope
+
+- No hyperparameter optimization or tuning is included in this plan; models will be trained with default or user-specified hyperparameters.
+- No uncertainty quantification or conformal prediction is included in this plan.
 
 ## Detailed Implementation Plan
 
