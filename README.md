@@ -10,6 +10,18 @@ This repository contains code and documentation for participating in the OpenADM
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
 
+### Split the dataset
+
+To create train/validation/test splits of the dataset, run the dataset split pipeline:
+
+```bash
+admet split datasets \
+  assets/dataset/eda/data/set \
+  --log-level DEBUG \
+  --output assets/dataset/splits \
+  --overwrite
+```
+
 ### Quick start: Train XGBoost baseline
 
 Once you have train/val/test CSVs and a YAML with XGBoost params, you can kick off training:
