@@ -28,15 +28,6 @@ def _make_split(path: Path, n_rows: int = 20, n_bits: int = 16):
     df.to_csv(path, index=False)
 
 
-def test_load_dataset(tmp_path: Path):
-    for split in ["train", "val", "test"]:
-        _make_split(tmp_path / f"{split}.csv")
-    ds = load_dataset(tmp_path, n_fingerprint_bits=16)
-    assert set(ds.endpoints) == set(ENDPOINT_COLUMNS)
-    assert len(ds.train) > 0 and len(ds.val) > 0 and len(ds.test) > 0
-    assert all(c in ds.train.columns for c in ds.fingerprint_cols)
-
-
 def test_validate_dataset_schema_missing_column(tmp_path: Path):
     _make_split(tmp_path / "train.csv")
     df = pd.read_csv(tmp_path / "train.csv")

@@ -19,9 +19,9 @@ def _make_synthetic():
 
 def test_plot_generation(tmp_path: Path):
     endpoints, y_true, y_pred, mask = _make_synthetic()
-    y_true_dict = {"train": y_true, "val": y_true, "test": y_true}
-    y_pred_dict = {"train": y_pred, "val": y_pred, "test": y_pred}
-    mask_dict = {"train": mask, "val": mask, "test": mask}
+    y_true_dict = {"train": y_true, "validation": y_true, "test": y_true}
+    y_pred_dict = {"train": y_pred, "validation": y_pred, "test": y_pred}
+    mask_dict = {"train": mask, "validation": mask, "test": mask}
 
     fig_root = tmp_path / "figures"
     for space in ["log", "linear"]:

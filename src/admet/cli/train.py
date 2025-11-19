@@ -65,7 +65,7 @@ def xgb(
         seed=seed,
     )
     # output macro metrics for train, val, and test with 4 decimal places
-    for split in ["train", "val", "test"]:
+    for split in ["train", "validation", "test"]:
         typer.echo(f"Metrics for {split} split:")
         macro_metrics = metrics[split]["macro"]
 

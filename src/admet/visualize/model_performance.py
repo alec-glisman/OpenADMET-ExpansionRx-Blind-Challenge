@@ -100,7 +100,7 @@ def _plot_parity_worker(
 
     This function is picklable and suitable for running in a multi-process pool.
     """
-    splits = ["train", "val", "test"]
+    splits = ["train", "validation", "test"]
     title_space = "(log10)" if space == "log" else "(linear)"
     fig, axes = plt.subplots(1, 3, figsize=(15, 5), dpi=dpi)
     fig.suptitle(f"Parity Plots - {ep} {title_space}", fontsize=18)
@@ -143,6 +143,7 @@ def _plot_parity_worker(
                 0.5,
                 0.5,
                 "No valid points",
+                fontsize=10,
                 ha="center",
                 va="center",
                 transform=ax.transAxes,
@@ -151,7 +152,7 @@ def _plot_parity_worker(
                     "edgecolor": "black",
                     "boxstyle": "round,pad=0.3",
                     "linewidth": 0.6,
-                    "alpha": 0.8,
+                    "alpha": 0.7,
                 },
             )
             ax.set_xlim(x_min, x_max)
@@ -172,6 +173,7 @@ def _plot_parity_worker(
 
         stats = _compute_stats(y_t_valid, y_p_valid)
         stats_text = (
+            f"n: {y_t_valid.shape[0]}\n"
             f"MAE: {stats['mae']:.3g}\n"
             f"RMSE: {stats['rmse']:.3g}\n"
             f"$R^2$: {stats['R2']:.3g}\n"
@@ -184,7 +186,7 @@ def _plot_parity_worker(
             0.95,
             stats_text,
             transform=ax.transAxes,
-            fontsize=12,
+            fontsize=10,
             va="top",
             ha="left",
             bbox={
@@ -192,7 +194,7 @@ def _plot_parity_worker(
                 "edgecolor": "black",
                 "boxstyle": "round,pad=0.3",
                 "linewidth": 0.6,
-                "alpha": 0.8,
+                "alpha": 0.7,
             },
         )
 
@@ -215,12 +217,12 @@ def _metric_plot_worker(
     This function is module-scoped and picklable; it may be executed in a
     separate process using ProcessPoolExecutor.
     """
-    splits = ["train", "val", "test"]
+    splits = ["train", "validation", "test"]
     labels = [ep.replace(" ", "\n") for ep in endpoints]
     x = np.arange(len(endpoints))
     width = 0.2
 
-    fig, ax = plt.subplots(figsize=(max(6, len(endpoints) * 0.65), 6), dpi=dpi)
+    fig, ax = plt.subplots(figsize=(max(6, len(endpoints) * 1.0), 6), dpi=dpi)
     for i, s in enumerate(splits):
         vals = np.array(
             [per_split_metrics[s][ep].get(metric_key, float("nan")) for ep in endpoints],
@@ -240,11 +242,11 @@ def _metric_plot_worker(
         ax.set_ylim(0.0, 1.0)
         ax.set_title(f"Pearson $r^2$ by Endpoint ({space})", fontsize=16)
     elif key_lower == "spearman_rho2":
-        ax.set_ylabel(r"Spearman $\\rho^2$", fontsize=14)
+        ax.set_ylabel(r"Spearman $\rho^2$", fontsize=14)
         ax.set_ylim(0.0, 1.0)
         ax.set_title(f"Spearman $\\rho^2$ by Endpoint ({space})", fontsize=16)
     elif key_lower == "kendall_tau":
-        ax.set_ylabel(r"Kendall $\\tau$", fontsize=14)
+        ax.set_ylabel(r"Kendall $\tau$", fontsize=14)
         ax.set_ylim(-1.0, 1.0)
         ax.set_title(f"Kendall $\\tau$ by Endpoint ({space})", fontsize=16)
     else:
@@ -260,7 +262,7 @@ def _metric_plot_worker(
         title_fontsize=12,
         frameon=True,
         edgecolor="black",
-        framealpha=0.9,
+        framealpha=0.8,
     )
 
     fig.tight_layout()
@@ -331,7 +333,7 @@ def plot_metric_bars(
     save_path_spr2 = Path(save_path_spr2)
     save_path_spr2.parent.mkdir(parents=True, exist_ok=True)
 
-    splits = ["train", "val", "test"]
+    splits = ["train", "validation", "test"]
     # Compute per-split metrics for all endpoints at once using compute_metrics
     per_split_metrics: dict[str, dict] = {}
     for s in splits:

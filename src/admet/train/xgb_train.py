@@ -84,7 +84,7 @@ def train_xgb_models(
 
     metrics = {
         "train": compute_metrics_log_and_linear(Y_train, pred_train, mask_train, endpoints),
-        "val": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
+        "validation": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
         "test": compute_metrics_log_and_linear(Y_test, pred_test, mask_test, endpoints),
     }
 
@@ -98,9 +98,9 @@ def train_xgb_models(
         logger.info(f"Using {n_cpus} CPU cores for plotting.")
 
         # Compose dicts for plotting utilities
-        y_true = {"train": Y_train, "val": Y_val, "test": Y_test}
-        y_pred = {"train": pred_train, "val": pred_val, "test": pred_test}
-        y_mask = {"train": mask_train, "val": mask_val, "test": mask_test}
+        y_true = {"train": Y_train, "validation": Y_val, "test": Y_test}
+        y_pred = {"train": pred_train, "validation": pred_val, "test": pred_test}
+        y_mask = {"train": mask_train, "validation": mask_val, "test": mask_test}
         fig_root = output_dir / "figures"
         for space in ["log", "linear"]:
             space_dir = fig_root / space
