@@ -12,6 +12,7 @@ from admet.data.load import LoadedDataset
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.utils import set_global_seeds
 from admet.evaluate.metrics import compute_metrics_log_and_linear
+from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,26 @@ def train_xgb_models(
         output_dir.mkdir(parents=True, exist_ok=True)
         model.save(str(output_dir / "model"))
         (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+        # Compose dicts for plotting utilities
+        y_true = {"train": Y_train, "val": Y_val, "test": Y_test}
+        y_pred = {"train": pred_train, "val": pred_val, "test": pred_test}
+        y_mask = {"train": mask_train, "val": mask_val, "test": mask_test}
+        fig_root = output_dir / "figures"
+        for space in ["log", "linear"]:
+            space_dir = fig_root / space
+            space_dir.mkdir(parents=True, exist_ok=True)
+            # Parity plots: one file per endpoint
+            plot_parity_grid(y_true, y_pred, y_mask, endpoints, space=space, save_dir=space_dir)
+            # Metric bars
+            plot_metric_bars(
+                y_true,
+                y_pred,
+                y_mask,
+                endpoints,
+                space=space,
+                save_path_r2=space_dir / "metrics_r2.png",
+                save_path_spr2=space_dir / "metrics_spearman_rho2.png",
+            )
     return metrics
 
 

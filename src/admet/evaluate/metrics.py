@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Dict, Sequence
 import numpy as np
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
+from scipy.stats import spearmanr, pearsonr, kendalltau
 
 
 def _apply_linear_transform(y: np.ndarray, endpoints: Sequence[str]) -> np.ndarray:
@@ -24,22 +26,6 @@ def _masked(y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray) -> tuple[n
     return y_true[valid], y_pred[valid]
 
 
-def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    return float(np.mean(np.abs(y_true - y_pred))) if y_true.size else float("nan")
-
-
-def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    return float(np.sqrt(np.mean((y_true - y_pred) ** 2))) if y_true.size else float("nan")
-
-
-def r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    if y_true.size == 0:
-        return float("nan")
-    ss_res = np.sum((y_true - y_pred) ** 2)
-    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    return float(1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
-
-
 def compute_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
@@ -51,25 +37,44 @@ def compute_metrics(
     Returns dict: { endpoint: { mae, rmse, r2 }, "macro": {...} }
     """
     results: Dict[str, Dict[str, float]] = {}
+
     per_mae = []
     per_rmse = []
     per_r2 = []
+    per_pearson = []
+    per_spearman = []
+    per_tau = []
     for j, ep in enumerate(endpoints):
         mt, mp = _masked(y_true[:, j : j + 1], y_pred[:, j : j + 1], mask[:, j : j + 1])
-        m_mae = mae(mt, mp)
-        m_rmse = rmse(mt, mp)
-        m_r2 = r2(mt, mp)
-        results[ep] = {"mae": m_mae, "rmse": m_rmse, "r2": m_r2}
-        if not np.isnan(m_mae):
-            per_mae.append(m_mae)
-        if not np.isnan(m_rmse):
-            per_rmse.append(m_rmse)
-        if not np.isnan(m_r2):
-            per_r2.append(m_r2)
+        m_mae = mean_absolute_error(mt, mp)
+        m_rmse = root_mean_squared_error(mt, mp)
+        m_R2 = r2_score(mt, mp)
+        m_r2 = pearsonr(mt, mp).statistic ** 2 if mt.size >= 2 else float("nan")
+        m_rho2 = spearmanr(mt, mp).statistic ** 2 if mt.size >= 2 else float("nan")
+        m_tau = kendalltau(mt, mp).statistic if mt.size >= 2 else float("nan")
+
+        results[ep] = {
+            "mae": float(m_mae),
+            "rmse": float(m_rmse),
+            "R2": float(m_R2),
+            "pearson_r2": float(m_r2),
+            "spearman_rho2": float(m_rho2),
+            "kendall_tau": float(m_tau),
+        }
+        per_mae.append(m_mae)
+        per_rmse.append(m_rmse)
+        per_r2.append(m_R2)
+        per_pearson.append(m_r2)
+        per_spearman.append(m_rho2)
+        per_tau.append(m_tau)
+
     results["macro"] = {
-        "mae": float(np.mean(per_mae)) if per_mae else float("nan"),
-        "rmse": float(np.mean(per_rmse)) if per_rmse else float("nan"),
-        "r2": float(np.mean(per_r2)) if per_r2 else float("nan"),
+        "mae": float(np.nanmean(per_mae)) if per_mae else float("nan"),
+        "rmse": float(np.nanmean(per_rmse)) if per_rmse else float("nan"),
+        "R2": float(np.nanmean(per_r2)) if per_r2 else float("nan"),
+        "pearson_r2": float(np.nanmean(per_pearson)) if per_pearson else float("nan"),
+        "spearman_rho2": float(np.nanmean(per_spearman)) if per_spearman else float("nan"),
+        "kendall_tau": float(np.nanmean(per_tau)) if per_tau else float("nan"),
     }
     return results
 
@@ -89,7 +94,7 @@ def compute_metrics_log_and_linear(
     y_pred_lin = _apply_linear_transform(y_pred, endpoints)
     linear_metrics = compute_metrics(y_true_lin, y_pred_lin, mask, endpoints)
     combined: Dict[str, Dict[str, Dict[str, float]]] = {}
-    for ep in endpoints + ["macro"]:
+    for ep in list(endpoints) + ["macro"]:
         combined[ep] = {"log": log_metrics[ep], "linear": linear_metrics[ep]}
     return combined
 
