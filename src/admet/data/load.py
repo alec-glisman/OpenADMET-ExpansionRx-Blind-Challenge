@@ -12,11 +12,9 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple, cast
 import logging
 
+from datasets import load_from_disk
 import pandas as pd
 import numpy as np
-
-# Note: Hugging Face `datasets` is imported lazily inside the HF loader so
-# environments without the package don't fail at module import time.
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +37,7 @@ ENDPOINT_COLUMNS: Sequence[str] = [
 ]
 
 
-def expected_fingerprint_columns(n_bits: int = 16) -> List[str]:  # small for tests
+def expected_fingerprint_columns(n_bits: int = 2046) -> List[str]:  # small for tests
     """Return list of fingerprint column names.
 
     NOTE: Full implementation will use 2048 bits; a reduced size is used for
@@ -58,11 +56,6 @@ class LoadedDataset:
     endpoints: Sequence[str]
     fingerprint_cols: Sequence[str]
 
-    def all_splits(self) -> Iterable[Tuple[str, pd.DataFrame]]:
-        yield "train", self.train
-        yield "val", self.val
-        yield "test", self.test
-
 
 def validate_dataset_schema(
     df: pd.DataFrame,
@@ -72,13 +65,14 @@ def validate_dataset_schema(
     """Validate required columns and types. Raises ValueError on failure."""
     missing = [c for c in REQUIRED_BASE_COLUMNS if c not in df.columns]
     if missing:
-        raise ValueError(f"Missing required base columns: {missing}")
+        raise ValueError(f"Missing required base columns: {missing}. Found: {df.columns.tolist()}")
     fp_missing = [c for c in fingerprint_cols if c not in df.columns]
     if fp_missing:
-        raise ValueError(f"Missing fingerprint columns: {fp_missing[:10]} ...")
+        raise ValueError(f"Missing fingerprint columns: {fp_missing[:10]} .... Found: {df.columns.tolist()}")
     ep_missing = [c for c in endpoints if c not in df.columns]
     if ep_missing:
-        raise ValueError(f"Missing endpoint columns: {ep_missing}")
+        raise ValueError(f"Missing endpoint columns: {ep_missing}. Found: {df.columns.tolist()}")
+
     # Basic dtype checks (float for endpoints)
     bad_types = []
     for c in endpoints:
@@ -91,74 +85,34 @@ def validate_dataset_schema(
         raise ValueError(f"Endpoint columns not float-like: {bad_types}")
 
 
-def _load_split_csv(root: Path, name: str) -> pd.DataFrame:
-    path = root / f"{name}.csv"
-    if not path.exists():
-        raise FileNotFoundError(f"Expected split file: {path}")
-    df = pd.read_csv(path)
-    return df
-
-
 def load_dataset_from_hf(
     root: Path,
     *,
     endpoints: Optional[Sequence[str]] = None,
-    n_fingerprint_bits: int = 16,
+    n_fingerprint_bits: int = 2048,
 ) -> LoadedDataset:
-    """Load a Hugging Face `DatasetDict` saved with `save_to_disk`.
+    """Load a Hugging Face DatasetDict saved with save_to_disk.
 
-    This expects a directory containing a serialized DatasetDict with keys
-    'train', 'validation' (or 'val'), and 'test'. Each split is converted to a
-    pandas.DataFrame and validated with the existing `validate_dataset_schema`.
+    Expects a directory containing a serialized DatasetDict with keys
+    'train', 'validation', and 'test'. Each split is converted to a
+    pandas.DataFrame and validated.
     """
-    try:
-        from datasets import load_from_disk  # type: ignore
-    except ImportError as e:  # pragma: no cover - environment-dependent
-        raise ImportError(
-            "The 'datasets' package is required to load HF datasets. "
-            "Install with `pip install datasets` and try again.`"
-        ) from e
+    dset = load_from_disk(str(root))
 
-    # Accept either the directory itself or a subdirectory `hf_dataset`.
-    tried = []
-    dset = None
-    candidates = [root, root / "hf_dataset"]
-    for p in candidates:
-        tried.append(str(p))
-        if not p.exists():
-            continue
-        try:
-            loaded = load_from_disk(str(p))
-        except (OSError, ValueError):
-            # Try next candidate on IO/parsing errors
-            continue
-        # Basic structural check for a DatasetDict-like object with splits
-        if not hasattr(loaded, "keys"):
-            continue
-        if not ("train" in loaded and "test" in loaded and ("validation" in loaded or "val" in loaded)):
-            continue
-        dset = loaded
-        break
-
-    if dset is None:
-        raise FileNotFoundError(
-            f"No HF dataset found at any candidate paths: {tried}. "
-            "Ensure you saved with `DatasetDict(...).save_to_disk(...)`."
-        )
-
-    # Determine validation split key name
-    val_key = "validation" if "validation" in dset else ("val" if "val" in dset else None)
-    if val_key is None or "train" not in dset or "test" not in dset:
-        raise ValueError("HF dataset missing required splits 'train','validation'/'val' or 'test'")
+    # Check for required splits
+    required_splits = ["train", "validation", "test"]
+    missing = [s for s in required_splits if s not in dset]
+    if missing:
+        raise ValueError(f"HF dataset missing required splits: {missing}")
 
     train_df = cast(pd.DataFrame, dset["train"].to_pandas())  # type: ignore[attr-defined]
-    val_df = cast(pd.DataFrame, dset[val_key].to_pandas())  # type: ignore[attr-defined]
+    val_df = cast(pd.DataFrame, dset["validation"].to_pandas())  # type: ignore[attr-defined]
     test_df = cast(pd.DataFrame, dset["test"].to_pandas())  # type: ignore[attr-defined]
 
     endpoints = endpoints or ENDPOINT_COLUMNS
     fp_cols = expected_fingerprint_columns(n_fingerprint_bits)
 
-    for name, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
+    for name, df in [("train", train_df), ("validation", val_df), ("test", test_df)]:
         try:
             validate_dataset_schema(df, fp_cols, endpoints)
         except Exception as e:  # pragma: no cover - surface errors to user
@@ -177,35 +131,13 @@ def load_dataset(
     root: Path,
     *,
     endpoints: Optional[Sequence[str]] = None,
-    n_fingerprint_bits: int = 16,
+    n_fingerprint_bits: int = 2048,
 ) -> LoadedDataset:
-    """Load train/val/test CSVs from a directory and validate schema.
+    """Load train/validation/test splits from a saved Hugging Face DatasetDict.
 
-    Expected files: train.csv, val.csv, test.csv.
-    This function is a bootstrap utility; later versions will integrate the
-    full HF dataset + split hierarchy logic.
+    Expected directory containing DatasetDict with splits: 'train', 'validation', 'test'.
     """
-    # Prefer Hugging Face DatasetDict saved with `save_to_disk`.
-    root = Path(root)
-    try:
-        return load_dataset_from_hf(root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
-    except (FileNotFoundError, ImportError, ValueError) as hf_err:
-        # If HF loader isn't available or the path doesn't contain HF data,
-        # fall back to CSV loader (for backward compatibility) and log the
-        # reason for inspection.
-        logger.debug("HF dataset load failed (%s); falling back to CSV loader", hf_err)
-
-    endpoints = endpoints or ENDPOINT_COLUMNS
-    fp_cols = expected_fingerprint_columns(n_fingerprint_bits)
-    train = _load_split_csv(root, "train")
-    val = _load_split_csv(root, "val")
-    test = _load_split_csv(root, "test")
-    for name, df in [("train", train), ("val", val), ("test", test)]:
-        try:
-            validate_dataset_schema(df, fp_cols, endpoints)
-        except Exception as e:  # pragma: no cover - re-raise with context
-            raise ValueError(f"Schema validation failed for split '{name}': {e}") from e
-    return LoadedDataset(train=train, val=val, test=test, endpoints=endpoints, fingerprint_cols=fp_cols)
+    return load_dataset_from_hf(root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
 
 
 def load_blinded_dataset(path: Path) -> pd.DataFrame:

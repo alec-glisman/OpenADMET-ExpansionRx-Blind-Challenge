@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Dict, List, Sequence, Optional
+import logging
 import numpy as np
+from tqdm import tqdm
 from xgboost import XGBRegressor
 
 from .base import BaseModel
@@ -35,6 +37,7 @@ class XGBoostMultiEndpoint(BaseModel):
             "tree_method": "hist",
         }
         self.random_state = random_state
+        self.logger = logging.getLogger(__name__)
         # Dict of endpoint -> model (None if no training data for that endpoint)
         self.models = {}  # type: Dict[str, Optional[XGBRegressor]]
 
@@ -52,7 +55,8 @@ class XGBoostMultiEndpoint(BaseModel):
     ) -> None:
         _, n_endpoints = Y_train.shape
         assert n_endpoints == len(self.endpoints)
-        for j, ep in enumerate(self.endpoints):
+        self.logger.info(f"Training XGBoost models for {n_endpoints} endpoints")
+        for j, ep in enumerate(tqdm(self.endpoints, desc="Training endpoints")):
             mask_j = Y_mask[:, j] == 1
             if not np.any(mask_j):
                 # No data for this endpoint; skip but create placeholder model (None)
@@ -69,16 +73,17 @@ class XGBoostMultiEndpoint(BaseModel):
                     eval_set = [(X_val[mask_val_j], Y_val[mask_val_j, j])]
                     if sample_weight is not None:
                         eval_sample_weight = [sample_weight[mask_val_j]]
-            params = {**self.model_params, "random_state": self.random_state}
+            params = {
+                **self.model_params,
+                "random_state": self.random_state,
+                "early_stopping_rounds": early_stopping_rounds,
+            }
             model = XGBRegressor(**params)
             fit_kwargs = {
                 "sample_weight": sw_ep,
                 "eval_set": eval_set,
                 "verbose": False,
             }
-            # XGBRegressor's early_stopping_rounds only applies if eval_set provided
-            if early_stopping_rounds and eval_set is not None:
-                fit_kwargs["early_stopping_rounds"] = early_stopping_rounds
             if eval_sample_weight is not None:
                 fit_kwargs["sample_weight_eval_set"] = eval_sample_weight
             model.fit(X_tr_ep, y_tr_ep, **fit_kwargs)

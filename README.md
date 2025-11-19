@@ -22,22 +22,23 @@ admet split datasets \
   --overwrite
 ```
 
-### Quick start: Train XGBoost baseline
+### Train XGBoost Model
 
-Once you have train/val/test CSVs and a YAML with XGBoost params, you can kick off training:
+To train an XGBoost model, you will need to create a YAML configuration file with the desired hyperparameters. You can use the provided [configs/xgb.yaml](./configs/xgb.yaml) as a template.
 
 ```bash
-python scripts/train_xgb.py \
-  --data-root assets/dataset/eda/data/set/scaffold-split \
-  --config configs/xgb.yaml \
-  --out-dir runs/xgb_scaffold_seed0
+admet train xgb \
+    'assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset' \
+    --config configs/xgb.yaml \
+    --output-dir temp/xgb_artifacts \
+    --seed 42 
 ```
 
 This runs the per-endpoint XGBoost trainer and writes a model folder and metrics.json to the output directory.
 
 ## Goals
 
-#### Models
+### Models
 
 We plan to benchmark the following models:
 

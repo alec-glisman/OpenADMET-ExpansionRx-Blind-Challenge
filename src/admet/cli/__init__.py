@@ -19,7 +19,7 @@ download_app.command()(download.download)
 app.add_typer(download_app, name="download")
 
 train_app = typer.Typer(help="Model training commands.")
-train_app.command()(train_module.train_xgb)
+train_app.command()(train_module.xgb)
 app.add_typer(train_app, name="train")
 
 split_app = typer.Typer(help="Dataset splitting commands.")
