@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Dict, Sequence, Optional
 import logging
+import multiprocessing
+
 import numpy as np
 
 from admet.data.load import LoadedDataset
@@ -90,6 +92,11 @@ def train_xgb_models(
         output_dir.mkdir(parents=True, exist_ok=True)
         model.save(str(output_dir / "model"))
         (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+
+        # get number of CPUs for parallel plotting
+        n_cpus = multiprocessing.cpu_count()
+        logger.info(f"Using {n_cpus} CPU cores for plotting.")
+
         # Compose dicts for plotting utilities
         y_true = {"train": Y_train, "val": Y_val, "test": Y_test}
         y_pred = {"train": pred_train, "val": pred_val, "test": pred_test}
@@ -99,7 +106,15 @@ def train_xgb_models(
             space_dir = fig_root / space
             space_dir.mkdir(parents=True, exist_ok=True)
             # Parity plots: one file per endpoint
-            plot_parity_grid(y_true, y_pred, y_mask, endpoints, space=space, save_dir=space_dir)
+            plot_parity_grid(
+                y_true,
+                y_pred,
+                y_mask,
+                endpoints,
+                space=space,
+                save_dir=space_dir,
+                n_jobs=n_cpus,
+            )
             # Metric bars
             plot_metric_bars(
                 y_true,
@@ -109,6 +124,7 @@ def train_xgb_models(
                 space=space,
                 save_path_r2=space_dir / "metrics_r2.png",
                 save_path_spr2=space_dir / "metrics_spearman_rho2.png",
+                n_jobs=n_cpus,
             )
     return metrics
 

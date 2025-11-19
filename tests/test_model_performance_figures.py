@@ -37,6 +37,15 @@ def test_plot_generation(tmp_path: Path):
         # metric bars
         r2_path = space_dir / "metrics_r2.png"
         spr2_path = space_dir / "metrics_spearman_rho2.png"
+        # metric bars for all supported metrics
+        metric_paths = [
+            space_dir / "metrics_mae.png",
+            space_dir / "metrics_rmse.png",
+            space_dir / "metrics_r2.png",
+            space_dir / "metrics_pearson_r2.png",
+            space_dir / "metrics_spearman_rho2.png",
+            space_dir / "metrics_kendall_tau.png",
+        ]
         plot_metric_bars(
             y_true_dict,
             y_pred_dict,
@@ -47,5 +56,5 @@ def test_plot_generation(tmp_path: Path):
             save_path_spr2=spr2_path,
             n_jobs=2,
         )
-        assert r2_path.exists() and r2_path.stat().st_size > 0
-        assert spr2_path.exists() and spr2_path.stat().st_size > 0
+        for p in metric_paths:
+            assert p.exists() and p.stat().st_size > 0

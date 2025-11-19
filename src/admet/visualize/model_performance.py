@@ -60,9 +60,18 @@ def _compute_stats(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     """
     y_true = np.asarray(y_true).ravel()
     y_pred = np.asarray(y_pred).ravel()
+
     n = y_true.shape[0]
     if n == 0:
-        return {"mae": float("nan"), "rmse": float("nan"), "r2": float("nan"), "spearman": float("nan")}
+        return {
+            "mae": float("nan"),
+            "rmse": float("nan"),
+            "R2": float("nan"),
+            "pearson_r2": float("nan"),
+            "spearman_rho2": float("nan"),
+            "kendall_tau": float("nan"),
+        }
+
     mask = np.ones((n, 1), dtype=int)
     metrics = eval_metrics.compute_metrics(
         y_true.reshape(-1, 1), y_pred.reshape(-1, 1), mask, endpoints=["ep"]
@@ -91,22 +100,10 @@ def _plot_parity_worker(
 
     This function is picklable and suitable for running in a multi-process pool.
     """
-    # Use local matplotlib state inside worker to avoid backend/style issues in
-    # multiprocessing child processes.
-    import matplotlib as mpl
-
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt  # type: ignore
-
-    try:
-        plt.style.use("science")
-    except Exception:
-        pass
-
     splits = ["train", "val", "test"]
     title_space = "(log10)" if space == "log" else "(linear)"
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6), dpi=dpi)
-    fig.suptitle(f"Parity Plots - {ep} {title_space}")
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5), dpi=dpi)
+    fig.suptitle(f"Parity Plots - {ep} {title_space}", fontsize=18)
 
     # Prepare pooled axis limits for consistent scale
     pooled_vals = []
@@ -142,11 +139,25 @@ def _plot_parity_worker(
             y_p_valid = np.power(10.0, y_p_valid)
 
         if y_t_valid.size == 0:
-            ax.text(0.5, 0.5, "No valid points", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "No valid points",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": "black",
+                    "boxstyle": "round,pad=0.3",
+                    "linewidth": 0.6,
+                    "alpha": 0.8,
+                },
+            )
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(x_min, x_max)
-            ax.set_xlabel("True")
-            ax.set_ylabel("Predicted")
+            ax.set_xlabel("True", fontsize=14)
+            ax.set_ylabel("Predicted", fontsize=14)
             continue
 
         ax.scatter(y_t_valid, y_p_valid, alpha=0.7, s=10)
@@ -154,8 +165,10 @@ def _plot_parity_worker(
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(x_min, x_max)
         ax.plot([x_min, x_max], [x_min, x_max], ls="--", color="gray")
-        ax.set_xlabel("True")
-        ax.set_ylabel("Predicted")
+        ax.set_xlabel("True", fontsize=14)
+        ax.set_ylabel("Predicted", fontsize=14)
+        ax.set_title(f"Dataset Split: {s.capitalize()}", fontsize=16)
+        ax.grid(True)
 
         stats = _compute_stats(y_t_valid, y_p_valid)
         stats_text = (
@@ -166,12 +179,92 @@ def _plot_parity_worker(
             f"Spearman $\\rho^2$: {stats['spearman_rho2']:.3g}\n"
             f"Kendall $\\tau$: {stats['kendall_tau']:.3g}"
         )
-        ax.text(0.02, 0.95, stats_text, ha="left", va="top", transform=ax.transAxes, fontsize=9)
-        ax.grid(True)
+        ax.text(
+            0.05,
+            0.95,
+            stats_text,
+            transform=ax.transAxes,
+            fontsize=12,
+            va="top",
+            ha="left",
+            bbox={
+                "facecolor": "white",
+                "edgecolor": "black",
+                "boxstyle": "round,pad=0.3",
+                "linewidth": 0.6,
+                "alpha": 0.8,
+            },
+        )
 
     fig.tight_layout(rect=(0, 0.03, 1, 0.95))
     fpath = Path(save_dir) / f"parity_{ep.replace(' ', '_').replace('/', '_')}.png"
     fig.savefig(fpath, dpi=dpi)
+    plt.close(fig)
+
+
+def _metric_plot_worker(
+    metric_key: str,
+    per_split_metrics: Dict[str, Dict[str, Dict[str, float]]],
+    endpoints: Sequence[str],
+    save_path: Path,
+    space: str,
+    dpi: int = 600,
+) -> None:
+    """Worker that creates a grouped bar chart for a single metric.
+
+    This function is module-scoped and picklable; it may be executed in a
+    separate process using ProcessPoolExecutor.
+    """
+    splits = ["train", "val", "test"]
+    labels = [ep.replace(" ", "\n") for ep in endpoints]
+    x = np.arange(len(endpoints))
+    width = 0.2
+
+    fig, ax = plt.subplots(figsize=(max(6, len(endpoints) * 0.65), 6), dpi=dpi)
+    for i, s in enumerate(splits):
+        vals = np.array(
+            [per_split_metrics[s][ep].get(metric_key, float("nan")) for ep in endpoints],
+            dtype=float,
+        )
+        ax.bar(x + (i - 1) * width, vals, width, label=s)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=30, ha="right")
+
+    key_lower = metric_key.lower()
+    if key_lower == "r2":
+        ax.set_ylabel(r"$R^2$", fontsize=14)
+        ax.set_ylim(-1.0, 1.0)
+        ax.set_title(f"$R^2$ by Endpoint ({space})", fontsize=16)
+    elif key_lower == "pearson_r2":
+        ax.set_ylabel(r"Pearson $r^2$", fontsize=14)
+        ax.set_ylim(0.0, 1.0)
+        ax.set_title(f"Pearson $r^2$ by Endpoint ({space})", fontsize=16)
+    elif key_lower == "spearman_rho2":
+        ax.set_ylabel(r"Spearman $\\rho^2$", fontsize=14)
+        ax.set_ylim(0.0, 1.0)
+        ax.set_title(f"Spearman $\\rho^2$ by Endpoint ({space})", fontsize=16)
+    elif key_lower == "kendall_tau":
+        ax.set_ylabel(r"Kendall $\\tau$", fontsize=14)
+        ax.set_ylim(-1.0, 1.0)
+        ax.set_title(f"Kendall $\\tau$ by Endpoint ({space})", fontsize=16)
+    else:
+        ax.set_ylabel(metric_key.upper(), fontsize=14)
+        ax.set_title(f"{metric_key.upper()} by Endpoint ({space})", fontsize=16)
+
+    ax.grid(axis="y")
+
+    # add legend with border box
+    ax.legend(
+        title="Dataset Split",
+        fontsize=12,
+        title_fontsize=12,
+        frameon=True,
+        edgecolor="black",
+        framealpha=0.9,
+    )
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=dpi)
     plt.close(fig)
 
 
@@ -196,10 +289,6 @@ def plot_parity_grid(
     """
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        plt.style.use("science")
-    except Exception:
-        pass
 
     # nothing to precompute here; workers handle splits per endpoint
     # Run plotting sequentially or in parallel with progress bar
@@ -237,87 +326,53 @@ def plot_metric_bars(
 
     save_path_{r2,spr2}: file-like Path to save.
     """
-    try:
-        plt.style.use("science")
-    except Exception:
-        pass
-
     save_path_r2 = Path(save_path_r2)
     save_path_r2.parent.mkdir(parents=True, exist_ok=True)
     save_path_spr2 = Path(save_path_spr2)
     save_path_spr2.parent.mkdir(parents=True, exist_ok=True)
 
     splits = ["train", "val", "test"]
-    r2_vals = {s: [] for s in splits}
-    spr2_vals = {s: [] for s in splits}
-
-    for j, ep in enumerate(endpoints):
-        for s in splits:
-            y_t = y_true_dict[s][:, j]
-            y_p = y_pred_dict[s][:, j]
-            mask = mask_dict[s][:, j]
-            valid = mask == 1
-            if not np.any(valid):
-                r2_vals[s].append(float("nan"))
-                spr2_vals[s].append(float("nan"))
-                continue
-            y_t_v = y_t[valid]
-            y_p_v = y_p[valid]
-            if space == "linear" and ep != "LogD":
-                y_t_v = np.power(10.0, y_t_v)
-                y_p_v = np.power(10.0, y_p_v)
-            try:
-                mask_local = np.ones((y_t_v.shape[0], 1), dtype=int)
-                mloc = eval_metrics.compute_metrics(
-                    y_t_v.reshape(-1, 1), y_p_v.reshape(-1, 1), mask_local, endpoints=[ep]
-                )
-                r2_vals[s].append(mloc[ep].get("r2", float("nan")))
-                spr2_vals[s].append(mloc[ep].get("spearman_rho2", float("nan")))
-            except Exception:
-                r2_vals[s].append(float("nan"))
-                spr2_vals[s].append(float("nan"))
+    # Compute per-split metrics for all endpoints at once using compute_metrics
+    per_split_metrics: dict[str, dict] = {}
+    for s in splits:
+        y_t = y_true_dict[s]
+        y_p = y_pred_dict[s]
+        mask = mask_dict[s]
+        # If requested, transform to linear space for non-LogD endpoints
+        if space == "linear":
+            y_t_plot = _apply_transform_space(y_t, endpoints, space)
+            y_p_plot = _apply_transform_space(y_p, endpoints, space)
+        else:
+            y_t_plot = y_t
+            y_p_plot = y_p
+        per_split_metrics[s] = eval_metrics.compute_metrics(y_t_plot, y_p_plot, mask, endpoints)
 
     # Convert lists to arrays for plotting
     labels = [ep.replace(" ", "\n") for ep in endpoints]
     x = np.arange(len(endpoints))
     width = 0.2
 
-    def _save_r2():
-        fig, ax = plt.subplots(figsize=(max(8, len(endpoints) * 0.6), 6), dpi=dpi)
-        for i, s in enumerate(splits):
-            vals = np.array(r2_vals[s], dtype=float)
-            ax.bar(x + (i - 1) * width, vals, width, label=s)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=30, ha="right")
-        ax.set_ylabel(r"$R^2$")
-        ax.set_ylim(-1.0, 1.0)
-        ax.set_title(f"$R^2$ by Endpoint ({space})")
-        ax.legend()
-        ax.grid(axis="y")
-        fig.tight_layout()
-        fig.savefig(save_path_r2, dpi=dpi)
-        plt.close(fig)
+    metrics_to_plot = ["mae", "rmse", "R2", "pearson_r2", "spearman_rho2", "kendall_tau"]
 
-    def _save_spr2():
-        fig, ax = plt.subplots(figsize=(max(8, len(endpoints) * 0.6), 6), dpi=dpi)
-        for i, s in enumerate(splits):
-            vals = np.array(spr2_vals[s], dtype=float)
-            # Replace NaN with 0 for plotting but we'll hatch bars that were NaN
-            vals_plot = np.nan_to_num(vals, nan=0.0)
-            bars = ax.bar(x + (i - 1) * width, vals_plot, width, label=s)
-            for k, v in enumerate(vals):
-                if np.isnan(v):
-                    bars[k].set_hatch("//")
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=30, ha="right")
-        ax.set_ylabel(r"Spearman $\rho^2$")
-        ax.set_ylim(0.0, 1.0)
-        ax.set_title(f"Spearman $\rho^2$ by Endpoint ({space})")
-        ax.legend()
-        ax.grid(axis="y")
-        fig.tight_layout()
-        fig.savefig(save_path_spr2, dpi=dpi)
-        plt.close(fig)
+    # Save all metrics to separate PNGs in save_path_r2.parent
+    base_dir = Path(save_path_r2).parent
+    tasks = []
+    for metric_key in metrics_to_plot:
+        out_path = base_dir / f"metrics_{metric_key.lower().replace(' ', '_')}.png"
+        tasks.append((metric_key, str(out_path)))
 
-    for fn in tqdm([_save_r2, _save_spr2], desc="Metric bars"):
-        fn()
+    if n_jobs is None or n_jobs <= 1:
+        for metric_key, out_str in tqdm(tasks, desc="Metric bars"):
+            _metric_plot_worker(metric_key, per_split_metrics, endpoints, Path(out_str), space, dpi)
+    else:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as ex:
+            futures = [
+                ex.submit(
+                    _metric_plot_worker, metric_key, per_split_metrics, endpoints, Path(out_str), space, dpi
+                )
+                for metric_key, out_str in tasks
+            ]
+            for fut in tqdm(
+                concurrent.futures.as_completed(futures), total=len(futures), desc="Metric bars"
+            ):
+                fut.result()
