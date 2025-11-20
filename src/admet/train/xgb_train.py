@@ -41,22 +41,48 @@ def _infer_split_metadata(hf_path: Path, root: Path) -> Dict[str, str]:
     logging and output directory naming.
     """
 
-    rel = hf_path.relative_to(root)
-    parts: List[str] = [p for p in rel.parts if p]
-    meta: Dict[str, str] = {
-        "relative_path": str(rel),
-    }
+    # Prefer a relative path provided the `root` is a parent of the HF dataset
+    try:
+        rel = hf_path.relative_to(root)
+        rel_parts: List[str] = [p for p in rel.parts if p]
+        meta: Dict[str, str] = {"relative_path": str(rel)}
+    except Exception:
+        rel = None
+        rel_parts = []
+        meta = {"relative_path": str(hf_path)}
+
+    # Add the full/unqualified path for cases where `root` is too deep
+    # to contain cluster metadata. This enables the caller to determine
+    # cluster methods and quality tags from the full filesystem layout.
+    try:
+        # Normalize the full path, but avoid failing if path doesn't exist
+        full_path = str(hf_path.resolve())
+    except Exception:
+        full_path = str(hf_path)
+    full_parts: List[str] = [p for p in Path(full_path).parts if p and p != "/"]
+    meta["full_path"] = full_path
 
     # Heuristic extraction for common layout:
-    #   .../<cluster_method>/split_<i>/fold_<j>/hf_dataset
-    for part in parts:
+    #   /path/to/assets/<quality>/<cluster_method>/split_<i>/fold_<j>/hf_dataset
+    for part in rel_parts:
         if part.startswith("split_"):
             meta["split"] = part.replace("split_", "")
         elif part.startswith("fold_"):
             meta["fold"] = part.replace("fold_", "")
-        elif part not in {"hf_dataset"} and "cluster_method" not in meta:
-            # First non-generic directory is treated as cluster method.
-            meta["cluster_method"] = part
+
+    if len(rel_parts) > 3:
+        meta["cluster"] = f"{rel_parts[-4]}-{rel_parts[-3]}"
+    elif full_parts:
+        # Similar fallback for cluster: take two segments prior to split if
+        # available (e.g., 'high_quality/random_cluster').
+        for i, part in enumerate(full_parts):
+            if part.startswith("split_") and i > 1:
+                meta["cluster"] = f"{full_parts[i - 2]}/{full_parts[i - 1]}"
+                break
+
+    print(meta)
+
+    logger.info("Inferred metadata for %s: %s", rel, meta)
 
     return meta
 
@@ -188,7 +214,7 @@ def _train_single_xgb_remote(
     if output_root is not None:
         base = Path(output_root)
         # Compose hierarchical output path encoding cluster, split, and fold
-        cluster = meta.get("cluster_method", "unknown_cluster")
+        cluster = meta.get("cluster", "unknown_method")
         split = meta.get("split", "unknown_split")
         fold = meta.get("fold", "unknown_fold")
         out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
@@ -234,7 +260,7 @@ def train_xgb_models_ray(
     logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
 
     if not ray.is_initialized():
-        if ray_address:
+        if ray_address and ray_address.lower() != "local":
             logger.info("Connecting to existing Ray cluster at %s", ray_address)
             ray.init(address=ray_address, ignore_reinit_error=True)
         else:

@@ -62,9 +62,12 @@ def xgb(
     data:
       endpoints: [LogD, KSOL, ...]
     """
-    cfg = yaml.safe_load(config.read_text())
-    endpoints = cfg.get("data", {}).get("endpoints")
-    xgb_cfg = cfg.get("models", {}).get("xgboost", {})
+    cfg = yaml.safe_load(config.read_text()) or {}
+    # Use `or {}` to guard against keys being present with a null value in YAML
+    # (yaml.safe_load can return None for empty files, and a key that maps to
+    # `null` will cause cfg.get("...", {}) to return None instead of a dict).
+    endpoints = (cfg.get("data") or {}).get("endpoints")
+    xgb_cfg = (cfg.get("models") or {}).get("xgboost") or {}
     model_params = xgb_cfg.get("model_params", {})
     objective = xgb_cfg.get("objective", "rmse")
     if objective == "mae":
@@ -74,7 +77,7 @@ def xgb(
         model_params["objective"] = "reg:squarederror"
         model_params["eval_metric"] = "rmse"
     early_stopping_rounds = xgb_cfg.get("early_stopping_rounds", 50)
-    sw_cfg = cfg.get("training", {}).get("sample_weights", {})
+    sw_cfg = (cfg.get("training") or {}).get("sample_weights") or {}
     sw_enabled = sw_cfg.get("enabled", False)
     sw_mapping = sw_cfg.get("weights") if sw_enabled else None
 
@@ -115,9 +118,10 @@ def xgb(
             formatted_metrics = {k: _format_value(v) for k, v in macro_metrics.items()}
             typer.echo(json.dumps(formatted_metrics, indent=2))
     else:
-        # Optional Ray configuration from YAML
-        ray_cfg = cfg.get("ray", {})
-        num_cpus = ray_cfg.get("num_cpus")
+        # Optional Ray configuration from YAML. Guard against `ray: null` cases
+        # which would cause cfg.get("ray", {}) to return None and break .get.
+        ray_cfg = cfg.get("ray") or {}
+        num_cpus = ray_cfg.get("num_cpus", None)
         # CLI flag takes precedence over config file for address
         ray_addr_effective = ray_address or ray_cfg.get("address")
 

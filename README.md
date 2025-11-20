@@ -49,11 +49,11 @@ admet train xgb \
     --output-dir temp/xgb_artifacts/ensemble \
     --seed 123 \
     --multi \
-    --ray-address "auto"
+    --ray-address "local"
 ```
 
 A Ray cluster can be pre-initialized to accelerate multi-model training.
-If one is not already running, the job will create a local Ray cluster instance.
+If one is not already running, the job will create a local Ray cluster instance if `--ray-address "local"` is specified or will run without Ray if `--ray-address` is not provided.
 
 ## Goals
 
