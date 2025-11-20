@@ -26,15 +26,34 @@ admet split datasets \
 
 To train an XGBoost model, you will need to create a YAML configuration file with the desired hyperparameters. You can use the provided [configs/xgb.yaml](./configs/xgb.yaml) as a template.
 
+#### Single Model Training
+
+To train a single XGBoost model on a specific fold, run the following command:
+
 ```bash
 admet train xgb \
     'assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset' \
     --config configs/xgb.yaml \
-    --output-dir temp/xgb_artifacts \
-    --seed 42 
+    --output-dir temp/xgb_artifacts/single_model \
+    --seed 123
 ```
 
-This runs the per-endpoint XGBoost trainer and writes a model folder and metrics.json to the output directory.
+#### Multi-Model Training
+
+To train multiple XGBoost models across all folds, run the following command:
+
+```bash
+admet train xgb \
+    'assets/dataset/splits/high_quality/random_cluster' \
+    --config configs/xgb.yaml \
+    --output-dir temp/xgb_artifacts/ensemble \
+    --seed 123 \
+    --multi \
+    --ray-address "auto"
+```
+
+A Ray cluster can be pre-initialized to accelerate multi-model training.
+If one is not already running, the job will create a local Ray cluster instance.
 
 ## Goals
 

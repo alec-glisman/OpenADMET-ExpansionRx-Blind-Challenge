@@ -20,6 +20,11 @@ training:
     weights:
       default: 1.0
 
+ray:
+  # Optional Ray configuration for multi-dataset training
+  # address: "auto"        # connect to existing cluster (overridden by --ray-address)
+  # num_cpus: 8            # limit local Ray runtime to N CPUs (defaults to all)
+
 data:
   endpoints:
     - "LogD"

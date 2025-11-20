@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Sequence, Optional
+from typing import Dict, List, Sequence, Optional, Tuple
 import logging
 import multiprocessing
 
 import numpy as np
+import pandas as pd
+import ray
 
 from admet.data.load import LoadedDataset
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
@@ -29,6 +31,34 @@ def _extract_targets(df, endpoints: Sequence[str]) -> np.ndarray:
 
 def _target_mask(y: np.ndarray) -> np.ndarray:
     return (~np.isnan(y)).astype(int)
+
+
+def _infer_split_metadata(hf_path: Path, root: Path) -> Dict[str, str]:
+    """Infer split/fold/cluster metadata from an ``hf_dataset`` path.
+
+    This inspects the relative path from ``root`` to the provided
+    ``hf_dataset`` directory and extracts best-effort metadata for
+    logging and output directory naming.
+    """
+
+    rel = hf_path.relative_to(root)
+    parts: List[str] = [p for p in rel.parts if p]
+    meta: Dict[str, str] = {
+        "relative_path": str(rel),
+    }
+
+    # Heuristic extraction for common layout:
+    #   .../<cluster_method>/split_<i>/fold_<j>/hf_dataset
+    for part in parts:
+        if part.startswith("split_"):
+            meta["split"] = part.replace("split_", "")
+        elif part.startswith("fold_"):
+            meta["fold"] = part.replace("fold_", "")
+        elif part not in {"hf_dataset"} and "cluster_method" not in meta:
+            # First non-generic directory is treated as cluster method.
+            meta["cluster_method"] = part
+
+    return meta
 
 
 def train_xgb_models(
@@ -129,4 +159,175 @@ def train_xgb_models(
     return metrics
 
 
-__all__ = ["train_xgb_models"]
+@ray.remote
+def _train_single_xgb_remote(
+    hf_path: str,
+    root_dir: str,
+    model_params: Optional[Dict[str, object]] = None,
+    early_stopping_rounds: int = 50,
+    sample_weight_mapping: Optional[Dict[str, float]] = None,
+    output_root: Optional[str] = None,
+    seed: Optional[int] = None,
+) -> Tuple[str, Dict[str, object]]:
+    """Ray-remote wrapper to train a single XGBoost model on one HF dataset.
+
+    Parameters are serialized-friendly wrappers around :func:`train_xgb_models`.
+    Returns the relative hf-dataset path (key) and the metrics dictionary.
+    """
+
+    hf_dir = Path(hf_path)
+    root = Path(root_dir)
+    from admet.data.load import load_dataset  # local import for Ray workers
+
+    meta = _infer_split_metadata(hf_dir, root)
+    rel_key = meta.get("relative_path", hf_dir.name)
+
+    dataset = load_dataset(hf_dir)
+
+    out_dir: Optional[Path] = None
+    if output_root is not None:
+        base = Path(output_root)
+        # Compose hierarchical output path encoding cluster, split, and fold
+        cluster = meta.get("cluster_method", "unknown_cluster")
+        split = meta.get("split", "unknown_split")
+        fold = meta.get("fold", "unknown_fold")
+        out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
+
+    metrics = train_xgb_models(
+        dataset=dataset,
+        model_params=model_params,
+        early_stopping_rounds=early_stopping_rounds,
+        sample_weight_mapping=sample_weight_mapping,
+        output_dir=out_dir,
+        seed=seed,
+    )
+
+    return rel_key, {"metrics": metrics, "meta": meta}
+
+
+def train_xgb_models_ray(
+    root: Path,
+    *,
+    model_params: Optional[Dict[str, object]] = None,
+    early_stopping_rounds: int = 50,
+    sample_weight_mapping: Optional[Dict[str, float]] = None,
+    output_root: Optional[Path] = None,
+    seed: Optional[int] = None,
+    num_cpus: Optional[int] = None,
+    ray_address: Optional[str] = None,
+) -> Dict[str, Dict[str, object]]:
+    """Train XGBoost models for all discovered HF datasets using Ray.
+
+    The function searches ``root`` recursively for directories named
+    ``hf_dataset`` and launches a Ray task for each directory. Each task
+    trains a model, writes artifacts/figures mirroring the split/fold/
+    cluster method layout, and returns its metrics.
+    """
+
+    if output_root is None:
+        output_root = Path("xgb_artifacts")
+
+    hf_paths: List[Path] = [p for p in root.rglob("hf_dataset") if p.is_dir()]
+    if not hf_paths:
+        raise ValueError(f"No 'hf_dataset' directories found under {root}.")
+
+    logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
+
+    if not ray.is_initialized():
+        if ray_address:
+            logger.info("Connecting to existing Ray cluster at %s", ray_address)
+            ray.init(address=ray_address, ignore_reinit_error=True)
+        else:
+            # If num_cpus is not provided, let Ray use all available cores.
+            cpu_count = num_cpus or multiprocessing.cpu_count()
+            logger.info("Starting local Ray runtime with %d CPUs", cpu_count)
+            ray.init(num_cpus=cpu_count, ignore_reinit_error=True)
+
+    # Deterministic per-model seeds derived from base seed and sorted paths.
+    sorted_hf_paths = sorted(hf_paths, key=lambda p: str(p.relative_to(root)))
+    base_seed = seed if seed is not None else 0
+
+    remote_tasks = []
+    for idx, hf_path in enumerate(sorted_hf_paths):
+        model_seed = base_seed + idx
+        rel = hf_path.relative_to(root)
+        logger.info("Scheduling training for %s with seed %d", rel, model_seed)
+        remote_tasks.append(
+            _train_single_xgb_remote.remote(
+                str(hf_path),
+                str(root),
+                model_params=model_params,
+                early_stopping_rounds=early_stopping_rounds,
+                sample_weight_mapping=sample_weight_mapping,
+                output_root=str(output_root),
+                seed=model_seed,
+            )
+        )
+
+    # Track progress as Ray tasks complete.
+    remaining = set(remote_tasks)
+    results: List[Tuple[str, Dict[str, object]]] = []
+    total = len(remote_tasks)
+    completed = 0
+    logger.info("Starting Ray training for %d models", total)
+    while remaining:
+        # Number of tasks currently executing or queued but not yet finished
+        in_progress = len(remaining)
+        logger.info(
+            "Progress: %d/%d completed, %d in progress",
+            completed,
+            total,
+            in_progress,
+        )
+
+        done, remaining = ray.wait(list(remaining), num_returns=1)
+        for d in done:
+            rel_key, payload = ray.get(d)
+            results.append((rel_key, payload))
+            completed += 1
+            logger.info(
+                "Completed %d/%d models (%s) - %d still in progress",
+                completed,
+                total,
+                rel_key,
+                len(remaining),
+            )
+
+    aggregated: Dict[str, Dict[str, object]] = {rel_key: payload for rel_key, payload in results}
+
+    # Build and persist a summary of macro metrics across all datasets.
+    summary_rows: List[Dict[str, object]] = []
+    for rel_key, payload in aggregated.items():
+        metrics = payload.get("metrics", {})  # type: ignore[assignment]
+        meta = payload.get("meta", {})  # type: ignore[assignment]
+        for split_name in ["train", "validation", "test"]:
+            split_metrics = metrics.get(split_name, {})  # type: ignore[assignment]
+            macro = split_metrics.get("macro", {})
+            row: Dict[str, object] = {
+                "dataset": rel_key,
+                "split": split_name,
+            }
+            # include metadata such as cluster_method, split, fold if present
+            if isinstance(meta, dict):
+                for k, v in meta.items():
+                    row[f"meta_{k}"] = v
+            # flatten macro metrics one level
+            if isinstance(macro, dict):
+                for k, v in macro.items():
+                    row[k] = v
+            summary_rows.append(row)
+
+    if summary_rows:
+        summary_df = pd.DataFrame(summary_rows)
+        summary_root = output_root
+        summary_root.mkdir(parents=True, exist_ok=True)
+        summary_csv = summary_root / "metrics_summary.csv"
+        summary_json = summary_root / "metrics_summary.json"
+        summary_df.to_csv(summary_csv, index=False)
+        summary_json.write_text(summary_df.to_json(orient="records", indent=2))
+        logger.info("Wrote metrics summary to %s and %s", summary_csv, summary_json)
+
+    return aggregated
+
+
+__all__ = ["train_xgb_models", "train_xgb_models_ray"]
