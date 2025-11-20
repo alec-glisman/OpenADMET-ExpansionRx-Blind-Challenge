@@ -22,7 +22,8 @@ def _apply_linear_transform(y: np.ndarray, endpoints: Sequence[str]) -> np.ndarr
 def _masked(y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     assert y_true.shape == y_pred.shape == mask.shape
     # Flatten only valid entries
-    valid = mask == 1
+    # Accept both integer and boolean masks
+    valid = mask.astype(bool)
     return y_true[valid], y_pred[valid]
 
 

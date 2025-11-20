@@ -57,7 +57,8 @@ class XGBoostMultiEndpoint(BaseModel):
         assert n_endpoints == len(self.endpoints)
         self.logger.info(f"Training XGBoost models for {n_endpoints} endpoints")
         for j, ep in enumerate(tqdm(self.endpoints, desc="Training endpoints")):
-            mask_j = Y_mask[:, j] == 1
+            # Accept both boolean and integer masks
+            mask_j = Y_mask[:, j].astype(bool)
             if not np.any(mask_j):
                 # No data for this endpoint; skip but create placeholder model (None)
                 self.models[ep] = None  # type: ignore
@@ -68,7 +69,7 @@ class XGBoostMultiEndpoint(BaseModel):
             eval_set = None
             eval_sample_weight = None
             if X_val is not None and Y_val is not None and Y_val_mask is not None:
-                mask_val_j = Y_val_mask[:, j] == 1
+                mask_val_j = Y_val_mask[:, j].astype(bool)
                 if np.any(mask_val_j):
                     eval_set = [(X_val[mask_val_j], Y_val[mask_val_j, j])]
                     if sample_weight is not None:
@@ -86,7 +87,16 @@ class XGBoostMultiEndpoint(BaseModel):
             }
             if eval_sample_weight is not None:
                 fit_kwargs["sample_weight_eval_set"] = eval_sample_weight
-            model.fit(X_tr_ep, y_tr_ep, **fit_kwargs)
+            try:
+                model.fit(X_tr_ep, y_tr_ep, **fit_kwargs)
+            except Exception as exc:  # pragma: no cover - fallback when GPU not available
+                self.logger.warning(
+                    "Initial model.fit failed (likely GPU issue), retrying with CPU params: %s", exc
+                )
+                cpu_params = {k: v for k, v in params.items() if k not in ("device", "device_id")}
+                cpu_params["tree_method"] = "hist"
+                model = XGBRegressor(**cpu_params)
+                model.fit(X_tr_ep, y_tr_ep, **fit_kwargs)
             self.models[ep] = model
 
     def predict(self, X: np.ndarray) -> np.ndarray:

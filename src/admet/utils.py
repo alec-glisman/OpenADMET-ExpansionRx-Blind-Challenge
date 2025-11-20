@@ -55,4 +55,6 @@ def set_global_seeds(seed: Optional[int]) -> None:
         pass
 
 
-__all__ = ["set_global_seeds"]
+from admet.logging import configure_logging  # re-export for backwards compatibility
+
+__all__ = ["set_global_seeds", "configure_logging"]

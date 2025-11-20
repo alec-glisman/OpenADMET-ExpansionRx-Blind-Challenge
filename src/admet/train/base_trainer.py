@@ -20,6 +20,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
+from dataclasses import dataclass
 
 import numpy as np
 import ray
@@ -29,6 +30,7 @@ import multiprocessing
 from admet.data.load import LoadedDataset
 from admet.model.base import BaseModel
 import logging
+from admet.utils import set_global_seeds
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,39 @@ def infer_split_metadata(hf_path: Path, root: Path) -> Dict[str, object]:
     return meta
 
 
+@dataclass
+class SplitMetadata:
+    """Typed representation of dataset split metadata.
+
+    This dataclass mirrors the keys returned by :func:`infer_split_metadata`
+    and is provided to help avoid dictionary-key typos in user code.
+    """
+
+    relative_path: str
+    absolute_path: str
+    full_path: str
+    quality: Optional[str] = None
+    cluster: Optional[str] = None
+    split: Optional[str] = None
+    fold: Optional[str] = None
+
+
+def metadata_from_dict(d: Dict[str, object]) -> SplitMetadata:
+    def _opt_str(k: str) -> Optional[str]:
+        v = d.get(k)
+        return str(v) if v is not None else None
+
+    return SplitMetadata(
+        relative_path=str(d.get("relative_path", "")),
+        absolute_path=str(d.get("absolute_path", "")),
+        full_path=str(d.get("full_path", "")),
+        quality=_opt_str("quality"),
+        cluster=_opt_str("cluster"),
+        split=_opt_str("split"),
+        fold=_opt_str("fold"),
+    )
+
+
 @ray.remote
 def _train_single_dataset_remote(
     trainer_cls: Type[BaseModelTrainer],
@@ -103,6 +138,9 @@ def _train_single_dataset_remote(
     sample_weight_mapping: Optional[Dict[str, float]] = None,
     output_root: Optional[str] = None,
     seed: Optional[int] = None,
+    log_level: Optional[str] = None,
+    log_file: Optional[str] = None,
+    log_json: bool = False,
 ) -> Tuple[str, Dict[str, object]]:
     """Run a single dataset trainer in a Ray worker.
 
@@ -140,26 +178,39 @@ def _train_single_dataset_remote(
     meta = infer_split_metadata(hf_dir, root)
     rel_key = str(meta.get("relative_path", hf_dir.name))
 
-    dataset = _load_dataset(hf_dir)
+    try:
+        # Configure logging inside the worker to match the originating process
+        from admet.logging import configure_logging
 
-    out_dir: Optional[Path] = None
-    if output_root is not None:
-        base = Path(output_root)
-        cluster = str(meta.get("cluster", "unknown_method"))
-        split = str(meta.get("split", "unknown_split"))
-        fold = str(meta.get("fold", "unknown_fold"))
-        out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
+        if log_level or log_file or log_json:
+            configure_logging(level=log_level or "INFO", file=log_file, structured=log_json)
+    except Exception:
+        # ignore logging configuration failures in remote worker
+        pass
 
-    # Construct trainer instance and run
-    trainer = trainer_cls(**trainer_kwargs)
-    metrics = trainer.run(
-        dataset,
-        sample_weight_mapping=sample_weight_mapping,
-        early_stopping_rounds=early_stopping_rounds,
-        output_dir=out_dir,
-    )
+    try:
+        dataset = _load_dataset(hf_dir)
+        out_dir: Optional[Path] = None
+        if output_root is not None:
+            base = Path(output_root)
+            cluster = str(meta.get("cluster", "unknown_method"))
+            split = str(meta.get("split", "unknown_split"))
+            fold = str(meta.get("fold", "unknown_fold"))
+            out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
 
-    return rel_key, {"metrics": metrics, "meta": meta}
+        # Construct trainer instance and run
+        trainer = trainer_cls(**trainer_kwargs)
+        metrics = trainer.run(
+            dataset,
+            sample_weight_mapping=sample_weight_mapping,
+            early_stopping_rounds=early_stopping_rounds,
+            output_dir=out_dir,
+        )
+
+        return rel_key, {"metrics": metrics, "meta": meta}
+    except Exception as exc:  # pragma: no cover - can't reason about ray worker internals
+        logger.exception("Dataset training failed for %s: %s", rel_key, exc)
+        return rel_key, {"metrics": None, "meta": meta, "error": str(exc)}
 
 
 class BaseModelTrainer(ABC):
@@ -376,6 +427,7 @@ class BaseModelTrainer(ABC):
         early_stopping_rounds: int = 50,
         output_dir: Optional[Path] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False,
     ) -> Dict[str, Dict[str, Any]]:  # pragma: no cover - abstract
         """End-to-end training and evaluation on a single dataset.
 
@@ -404,7 +456,78 @@ class BaseModelTrainer(ABC):
             Nested metrics dictionary keyed by split; identical to the
             prior API of :func:`train_xgb_models`.
         """
-        raise NotImplementedError
+        # Default orchestration for typical trainers: prepare -> build -> fit -> predict -> metrics -> save
+        # Seed global RNGs early for reproducibility
+        set_global_seeds(self.seed)
+        logger.info("Using seed=%s for training", self.seed)
+
+        endpoints: List[str] = list(dataset.endpoints)
+        # Basic validation
+        if dry_run:
+            logger.info("Dry-run enabled; will not fit models.")
+        if not endpoints:
+            raise ValueError("No endpoints found in dataset; cannot train model.")
+        logger.info("Preparing features/targets for endpoints: %s", endpoints)
+        X_train, X_val, X_test = self.prepare_features(dataset)
+        Y_train, Y_val, Y_test = self.prepare_targets(dataset)
+        mask_train, mask_val, mask_test = self.prepare_masks(Y_train, Y_val, Y_test)
+        logger.info(
+            "Prepared dataset splits: X_train=%s, X_val=%s, X_test=%s; Y_train=%s; masks=%s",
+            getattr(X_train, "shape", None),
+            getattr(X_val, "shape", None),
+            getattr(X_test, "shape", None),
+            getattr(Y_train, "shape", None),
+            getattr(mask_train, "shape", None),
+        )
+
+        sample_weight = self.build_sample_weights(dataset, sample_weight_mapping)
+        logger.info("Built sample_weight with shape=%s", getattr(sample_weight, "shape", None))
+        logger.info("Built sample_weight with shape=%s", getattr(sample_weight, "shape", None))
+
+        if dry_run:
+            logger.info("Dry-run: skip model construction and training")
+            # Return minimal metrics structure
+            return {
+                "train": {"macro": {}},
+                "validation": {"macro": {}},
+                "test": {"macro": {}},
+            }
+
+        model = self.build_model(endpoints)
+        logger.info("Built model: %s", type(model).__name__)
+        model.fit(
+            X_train,
+            Y_train,
+            Y_mask=mask_train,
+            X_val=X_val,
+            Y_val=Y_val,
+            Y_val_mask=mask_val,
+            sample_weight=sample_weight,
+            early_stopping_rounds=early_stopping_rounds,
+        )
+
+        # Predictions
+        pred_train = model.predict(X_train)
+        pred_val = model.predict(X_val)
+        pred_test = model.predict(X_test)
+
+        metrics = self.compute_metrics(
+            Y_train,
+            Y_val,
+            Y_test,
+            pred_train,
+            pred_val,
+            pred_test,
+            mask_train,
+            mask_val,
+            mask_test,
+            endpoints,
+        )
+
+        if output_dir is not None:
+            self.save_artifacts(model, metrics, output_dir, dataset=dataset, extra_meta=extra_meta)
+
+        return metrics
 
 
 class BaseRayMultiDatasetTrainer(ABC):
@@ -464,6 +587,7 @@ class BaseRayMultiDatasetTrainer(ABC):
 
         logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
 
+        started_local_ray = False
         if not ray.is_initialized():
             if ray_address and ray_address.lower() != "local":
                 logger.info("Connecting to existing Ray cluster at %s", ray_address)
@@ -472,9 +596,18 @@ class BaseRayMultiDatasetTrainer(ABC):
                 cpu_count = num_cpus or multiprocessing.cpu_count()
                 logger.info("Starting local Ray runtime with %d CPUs", cpu_count)
                 ray.init(num_cpus=cpu_count, ignore_reinit_error=True)
+                started_local_ray = True
 
         sorted_hf_paths = sorted(hf_paths, key=lambda p: str(p.relative_to(root)))
         base_seed = seed if seed is not None else 0
+
+        # Decide logging config for workers based on our current logging root
+        try:
+            from admet.logging import get_logging_config
+
+            log_cfg = get_logging_config()
+        except Exception:
+            log_cfg = {"level": "INFO", "file": None, "structured": False}
 
         tasks = []
         for idx, hf_path in enumerate(sorted_hf_paths):
@@ -489,6 +622,9 @@ class BaseRayMultiDatasetTrainer(ABC):
                     sample_weight_mapping=sample_weight_mapping,
                     output_root=str(output_root),
                     seed=model_seed,
+                    log_level=log_cfg.get("level"),
+                    log_file=log_cfg.get("file"),
+                    log_json=log_cfg.get("structured") or False,
                 )
             )
 
@@ -516,8 +652,8 @@ class BaseRayMultiDatasetTrainer(ABC):
         # Build and persist a summary of macro metrics across all datasets.
         summary_rows: List[Dict[str, object]] = []
         for rel_key, payload in aggregated.items():
-            metrics = payload.get("metrics", {})  # type: ignore[assignment]
-            meta = payload.get("meta", {})  # type: ignore[assignment]
+            metrics = payload.get("metrics") or {}  # type: ignore[assignment]
+            meta = payload.get("meta") or {}  # type: ignore[assignment]
             for split_name in ["train", "validation", "test"]:
                 split_metrics = metrics.get(split_name, {})  # type: ignore[assignment]
                 macro = split_metrics.get("macro", {})
@@ -539,6 +675,13 @@ class BaseRayMultiDatasetTrainer(ABC):
             summary_df.to_csv(summary_csv, index=False)
             summary_json.write_text(summary_df.to_json(orient="records", indent=2))
             logger.info("Wrote metrics summary to %s and %s", summary_csv, summary_json)
+
+        # shutdown ray runtime if we started it locally
+        if started_local_ray:
+            try:
+                ray.shutdown()
+            except Exception:
+                logger.warning("ray.shutdown() raised an exception during cleanup", exc_info=True)
 
         return aggregated
 

@@ -25,7 +25,8 @@ import numpy as np
 from admet.data.load import LoadedDataset
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.model.base import BaseModel
-from admet.utils import set_global_seeds
+
+# Note: seed setting is handled in BaseModelTrainer.run
 from admet.evaluate.metrics import compute_metrics_log_and_linear
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
 from admet.train.base_trainer import BaseModelTrainer, BaseRayMultiDatasetTrainer, infer_split_metadata
@@ -83,7 +84,8 @@ def _target_mask(y: np.ndarray) -> np.ndarray:
         Integer mask array where 1 indicates a present target and 0 indicates
         a missing target.
     """
-    return (~np.isnan(y)).astype(int)
+    # Return a boolean mask for presence of targets; callers can convert to int if needed
+    return ~np.isnan(y)
 
 
 class XGBoostTrainer(BaseModelTrainer):
@@ -116,6 +118,8 @@ class XGBoostTrainer(BaseModelTrainer):
             ``(X_train, X_val, X_test)`` arrays suitable for training.
         """
         fp_cols = dataset.fingerprint_cols
+        if not fp_cols:
+            raise ValueError("No fingerprint columns found in dataset; cannot prepare features.")
         # Reuse existing helpers to keep behavior identical.
         X_train = _extract_features(dataset.train, fp_cols)
         X_val = _extract_features(dataset.val, fp_cols)
@@ -136,6 +140,8 @@ class XGBoostTrainer(BaseModelTrainer):
             ``(Y_train, Y_val, Y_test)`` numpy arrays with NaNs for missing targets.
         """
         endpoints = dataset.endpoints
+        if not endpoints:
+            raise ValueError("No endpoints found in dataset; cannot prepare targets.")
         Y_train = _extract_targets(dataset.train, endpoints)
         Y_val = _extract_targets(dataset.val, endpoints)
         Y_test = _extract_targets(dataset.test, endpoints)
@@ -165,10 +171,11 @@ class XGBoostTrainer(BaseModelTrainer):
         """
         if not sample_weight_mapping:
             return None
-        sw: List[float] = []
-        for ds_name in dataset.train["Dataset"].astype(str):
-            sw.append(sample_weight_mapping.get(ds_name, sample_weight_mapping.get("default", 1.0)))
-        return np.array(sw, dtype=float)
+        mapping = sample_weight_mapping
+        default = mapping.get("default", 1.0)
+        # Use pandas vectorized mapping for performance
+        sw_series = dataset.train["Dataset"].astype(str).map(lambda x: mapping.get(x, default))
+        return sw_series.to_numpy(dtype=float)
 
     def build_model(self, endpoints: List[str]) -> XGBoostMultiEndpoint:
         """Build and return an XGBoostMultiEndpoint instance.
@@ -183,10 +190,10 @@ class XGBoostTrainer(BaseModelTrainer):
         XGBoostMultiEndpoint
             Backend model instance configured with ``self.model_params``.
         """
-        # XGBoostMultiEndpoint already conforms to BaseModel.
-        return XGBoostMultiEndpoint(
-            endpoints=endpoints, model_params=self.model_params, random_state=self.seed
-        )
+        # Instantiate model using self.model_cls to support dependency injection/testability.
+        # We type-hint the return as XGBoostMultiEndpoint for callers expecting the XGBoost wrapper,
+        # but construct via `self.model_cls` so other model classes can be injected in tests.
+        return self.model_cls(endpoints=endpoints, model_params=self.model_params, random_state=self.seed)
 
     def compute_metrics(
         self,
@@ -305,56 +312,22 @@ class XGBoostTrainer(BaseModelTrainer):
         early_stopping_rounds: int = 50,
         output_dir: Optional[Path] = None,
         extra_meta: Optional[Dict[str, object]] = None,
+        dry_run: bool = False,
     ) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
         """Perform the complete train -> predict -> eval flow.
 
         High-level orchestration that calls the hooks implemented by the
         concrete trainer and returns a nested metrics dictionary.
         """
-        # Seed global RNGs early for reproducibility
-        set_global_seeds(self.seed)
-
-        endpoints: List[str] = list(dataset.endpoints)
-        X_train, X_val, X_test = self.prepare_features(dataset)
-        Y_train, Y_val, Y_test = self.prepare_targets(dataset)
-        mask_train, mask_val, mask_test = self.prepare_masks(Y_train, Y_val, Y_test)
-
-        sample_weight = self.build_sample_weights(dataset, sample_weight_mapping)
-
-        model = self.build_model(endpoints)
-        model.fit(
-            X_train,
-            Y_train,
-            Y_mask=mask_train,
-            X_val=X_val,
-            Y_val=Y_val,
-            Y_val_mask=mask_val,
-            sample_weight=sample_weight,
+        # Delegate full orchestration to BaseModelTrainer.run
+        return super().run(
+            dataset,
+            sample_weight_mapping=sample_weight_mapping,
             early_stopping_rounds=early_stopping_rounds,
+            output_dir=output_dir,
+            extra_meta=extra_meta,
+            dry_run=dry_run,
         )
-
-        # Predictions
-        pred_train = model.predict(X_train)
-        pred_val = model.predict(X_val)
-        pred_test = model.predict(X_test)
-
-        metrics = self.compute_metrics(
-            Y_train,
-            Y_val,
-            Y_test,
-            pred_train,
-            pred_val,
-            pred_test,
-            mask_train,
-            mask_val,
-            mask_test,
-            endpoints,
-        )
-
-        if output_dir is not None:
-            self.save_artifacts(model, metrics, output_dir, dataset=dataset, extra_meta=extra_meta)
-
-        return metrics
 
 
 class XGBoostRayMultiDatasetTrainer(BaseRayMultiDatasetTrainer):

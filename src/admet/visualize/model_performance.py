@@ -14,9 +14,6 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
-import seaborn as sns
-from scipy.stats import spearmanr
-
 from admet.evaluate import metrics as eval_metrics
 
 
@@ -47,7 +44,7 @@ def _apply_transform_space(y: np.ndarray, endpoints: Sequence[str], space: str) 
 def _masked_arrays(
     y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, j: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    valid = mask[:, j] == 1
+    valid = mask[:, j].astype(bool)
     return y_true[valid, j], y_pred[valid, j]
 
 
@@ -111,7 +108,7 @@ def _plot_parity_worker(
         y_t = y_true_dict[s][:, j]
         y_p = y_pred_dict[s][:, j]
         mask = mask_dict[s][:, j]
-        valid = mask == 1
+        valid = mask.astype(bool)
         if np.any(valid):
             t = y_t[valid]
             p = y_p[valid]
