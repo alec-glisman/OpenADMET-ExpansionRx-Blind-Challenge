@@ -46,6 +46,7 @@ def xgb(
         ),
     ),
     seed: int | None = typer.Option(None, help="Random seed for reproducibility."),
+    n_fingerprint_bits: int = typer.Option(2048, help="Number of fingerprint bits for dataset loading."),
 ) -> None:
     """Train XGBoost per-endpoint models using a simplified config.
 
@@ -101,7 +102,7 @@ def xgb(
         return str(v)
 
     if not multi:
-        dataset = load_dataset(data_root, endpoints=endpoints, n_fingerprint_bits=2048)
+        dataset = load_dataset(data_root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
         metrics = train_xgb_models(
             dataset,
             model_params=model_params,
@@ -134,6 +135,7 @@ def xgb(
             seed=seed,
             num_cpus=num_cpus,
             ray_address=ray_addr_effective,
+            n_fingerprint_bits=n_fingerprint_bits,
         )
 
         # Print metrics per discovered dataset

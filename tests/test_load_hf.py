@@ -43,15 +43,22 @@ def test_load_hf_roundtrip(tmp_path: Path):
 
     loaded = load_dataset(out, endpoints=["LogD", "KSOL"], n_fingerprint_bits=16)
 
-    assert loaded.train.shape[0] == 8
-    assert loaded.val.shape[0] == 2
-    assert loaded.test.shape[0] == 3
+    if loaded.train.shape[0] != 8:
+        pytest.fail(f"Expected 8 rows in train, got {loaded.train.shape[0]}")
+    if loaded.val.shape[0] != 2:
+        pytest.fail(f"Expected 2 rows in val, got {loaded.val.shape[0]}")
+    if loaded.test.shape[0] != 3:
+        pytest.fail(f"Expected 3 rows in test, got {loaded.test.shape[0]}")
 
     # check fingerprint columns exist
     for i in range(16):
-        assert f"Morgan_FP_{i}" in loaded.train.columns
+        if f"Morgan_FP_{i}" not in loaded.train.columns:
+            pytest.fail(f"Expected fingerprint column Morgan_FP_{i} in train columns")
 
     # spot-check endpoint presence and dtype
-    assert "LogD" in loaded.train.columns
-    assert "KSOL" in loaded.train.columns
-    assert loaded.train["LogD"].dtype.kind in "fi"
+    if "LogD" not in loaded.train.columns:
+        pytest.fail("Expected LogD in train columns")
+    if "KSOL" not in loaded.train.columns:
+        pytest.fail("Expected KSOL in train columns")
+    if loaded.train["LogD"].dtype.kind not in "fi":
+        pytest.fail("Expected LogD dtype to be float or int kind")

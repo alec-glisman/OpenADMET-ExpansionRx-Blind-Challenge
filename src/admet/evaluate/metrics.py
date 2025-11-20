@@ -5,7 +5,7 @@ Supports log-space and linear-space evaluation (10^x for non-LogD).
 
 from __future__ import annotations
 
-from typing import Dict, Sequence
+from typing import Dict, Sequence, TypedDict
 import numpy as np
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
 from scipy.stats import spearmanr, pearsonr, kendalltau
@@ -27,12 +27,27 @@ def _masked(y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray) -> tuple[n
     return y_true[valid], y_pred[valid]
 
 
+Endpoints = Sequence[str]
+
+
+class EndpointMetrics(TypedDict):
+    mae: float
+    rmse: float
+    R2: float
+    pearson_r2: float
+    spearman_rho2: float
+    kendall_tau: float
+
+
+SplitMetrics = Dict[str, EndpointMetrics]
+
+
 def compute_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     mask: np.ndarray,
-    endpoints: Sequence[str],
-) -> Dict[str, Dict[str, float]]:
+    endpoints: Endpoints,
+) -> SplitMetrics:
     """Compute per-endpoint metrics (log space) and macro averages.
 
     Returns dict: { endpoint: { mae, rmse, r2 }, "macro": {...} }
@@ -80,12 +95,15 @@ def compute_metrics(
     return results
 
 
+EndpointSpaceMetrics = Dict[str, Dict[str, float]]
+
+
 def compute_metrics_log_and_linear(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     mask: np.ndarray,
-    endpoints: Sequence[str],
-) -> Dict[str, Dict[str, Dict[str, float]]]:
+    endpoints: Endpoints,
+) -> Dict[str, EndpointSpaceMetrics]:
     """Compute metrics in both log space and linear space.
 
     Output structure: { endpoint: { "log": {...}, "linear": {...} }, "macro": {...} }
@@ -94,7 +112,7 @@ def compute_metrics_log_and_linear(
     y_true_lin = _apply_linear_transform(y_true, endpoints)
     y_pred_lin = _apply_linear_transform(y_pred, endpoints)
     linear_metrics = compute_metrics(y_true_lin, y_pred_lin, mask, endpoints)
-    combined: Dict[str, Dict[str, Dict[str, float]]] = {}
+    combined: Dict[str, EndpointSpaceMetrics] = {}
     for ep in list(endpoints) + ["macro"]:
         combined[ep] = {"log": log_metrics[ep], "linear": linear_metrics[ep]}
     return combined
@@ -103,4 +121,12 @@ def compute_metrics_log_and_linear(
 __all__ = [
     "compute_metrics",
     "compute_metrics_log_and_linear",
+    "EndpointMetrics",
+    "SplitMetrics",
+    "EndpointSpaceMetrics",
+    "AllMetrics",
 ]
+
+
+# AllMetrics is the full run-level metrics structure: per-split mapping to endpoint-space metrics.
+AllMetrics = Dict[str, Dict[str, Dict[str, Dict[str, float]]]]

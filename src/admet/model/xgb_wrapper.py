@@ -38,6 +38,7 @@ class XGBoostMultiEndpoint(BaseModel):
         }
         self.random_state = random_state
         self.logger = logging.getLogger(__name__)
+        self.n_features_: Optional[int] = None
         # Dict of endpoint -> model (None if no training data for that endpoint)
         self.models = {}  # type: Dict[str, Optional[XGBRegressor]]
 
@@ -53,9 +54,22 @@ class XGBoostMultiEndpoint(BaseModel):
         sample_weight: np.ndarray | None = None,
         early_stopping_rounds: int | None = 50,
     ) -> None:
+        if X_train.ndim != 2:
+            raise ValueError("X_train must be a 2D numpy array")
+        if Y_train.ndim != 2:
+            raise ValueError("Y_train must be a 2D numpy array")
+        if X_train.shape[0] != Y_train.shape[0]:
+            raise ValueError("X_train and Y_train must have the same number of rows")
+        # record feature count for inference time validation
+        self.n_features_ = X_train.shape[1]
         _, n_endpoints = Y_train.shape
-        assert n_endpoints == len(self.endpoints)
-        self.logger.info(f"Training XGBoost models for {n_endpoints} endpoints")
+        if n_endpoints != len(self.endpoints):
+            raise ValueError(
+                "Mismatch in endpoints: "
+                f"model expects {len(self.endpoints)} endpoints, "
+                f"but Y_train has {n_endpoints} columns (shape={Y_train.shape})."
+            )
+        self.logger.info("Training XGBoost models for %d endpoints", n_endpoints)
         for j, ep in enumerate(tqdm(self.endpoints, desc="Training endpoints")):
             # Accept both boolean and integer masks
             mask_j = Y_mask[:, j].astype(bool)
@@ -100,6 +114,13 @@ class XGBoostMultiEndpoint(BaseModel):
             self.models[ep] = model
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        if X.ndim != 2:
+            raise ValueError("X must be a 2D numpy array for prediction")
+        if self.n_features_ is None:
+            # model was not fit
+            raise ValueError("Model has not been fit yet; call `.fit` before `predict`.")
+        if X.shape[1] != self.n_features_:
+            raise ValueError("Input feature dimension mismatch with trained model")
         preds: List[np.ndarray] = []
         for ep in self.endpoints:
             mdl = self.models.get(ep)
@@ -117,6 +138,7 @@ class XGBoostMultiEndpoint(BaseModel):
             "endpoints": self.endpoints,
             "model_params": self.model_params,
             "random_state": self.random_state,
+            "n_features": self.n_features_,
         }
         (out_dir / "config.json").write_text(json.dumps(meta, indent=2))
         for ep, mdl in self.models.items():
@@ -133,6 +155,8 @@ class XGBoostMultiEndpoint(BaseModel):
             model_params=meta["model_params"],
             random_state=meta["random_state"],
         )
+        # restore recorded feature dimension
+        obj.n_features_ = meta.get("n_features")
         for ep in obj.endpoints:
             ep_path = in_dir / f"{ep}.json"
             if not ep_path.exists():

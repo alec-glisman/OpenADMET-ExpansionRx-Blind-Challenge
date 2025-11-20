@@ -1,4 +1,5 @@
 import logging
+import pytest
 from typer.testing import CliRunner
 
 from admet.cli import app
@@ -13,12 +14,14 @@ def test_cli_sets_log_level_debug():
     result = runner.invoke(
         app, ["--log-level", "DEBUG", "download", "--help"]
     )  # callback invoked before subcommand
-    assert result.exit_code == 0
+    if result.exit_code != 0:
+        pytest.fail(f"CLI invocation failed with exit code {result.exit_code}: {result.output}")
     assert logging.getLogger().level == logging.DEBUG
 
 
 def test_default_log_level_is_info():
     runner = CliRunner()
     result = runner.invoke(app, ["download", "--help"])  # callback invoked
-    assert result.exit_code == 0
+    if result.exit_code != 0:
+        pytest.fail(f"CLI invocation failed with exit code {result.exit_code}: {result.output}")
     assert logging.getLogger().level == logging.INFO

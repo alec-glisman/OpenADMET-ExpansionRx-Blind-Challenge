@@ -1,5 +1,6 @@
 import numpy as np
 from admet.evaluate.metrics import compute_metrics_log_and_linear
+import pytest
 
 
 def test_metrics_log_and_linear_masking():
@@ -9,8 +10,12 @@ def test_metrics_log_and_linear_masking():
     mask = (~np.isnan(y_true)).astype(int)
     metrics = compute_metrics_log_and_linear(y_true, y_pred, mask, endpoints)
     # KSOL second row ignored due to NaN
-    assert "LogD" in metrics
-    assert "KSOL" in metrics
-    assert not np.isnan(metrics["LogD"]["log"]["mae"])  # some numeric value
+    if "LogD" not in metrics:
+        pytest.fail("LogD not present in metrics")
+    if "KSOL" not in metrics:
+        pytest.fail("KSOL not present in metrics")
+    if np.isnan(metrics["LogD"]["log"]["mae"]):
+        pytest.fail("Expected numeric MAE for LogD metric, found NaN")
     # linear transform for KSOL uses 10^x
-    assert metrics["KSOL"]["linear"]["mae"] >= 0.0
+    if metrics["KSOL"]["linear"]["mae"] < 0.0:
+        pytest.fail("Expected non-negative MAE for KSOL linear metric")

@@ -21,6 +21,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 from dataclasses import dataclass
+import datetime
 
 import numpy as np
 import ray
@@ -28,9 +29,10 @@ import pandas as pd
 import multiprocessing
 
 from admet.data.load import LoadedDataset
-from admet.model.base import BaseModel
+from admet.model.base import BaseModel, ModelProtocol
 import logging
 from admet.utils import set_global_seeds
+from admet.evaluate.metrics import AllMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +130,35 @@ def metadata_from_dict(d: Dict[str, object]) -> SplitMetadata:
     )
 
 
+@dataclass
+class RunOutputs:
+    """Container for arrays computed during a single run.
+
+    Attributes
+    ----------
+    endpoints: list of str
+        Endpoint names for the output columns.
+    X_train, X_val, X_test: numpy arrays
+    Y_train, Y_val, Y_test: numpy arrays with NaNs for missing targets
+    mask_train, mask_val, mask_test: numpy arrays (bool or int) masks
+    pred_train, pred_val, pred_test: numpy arrays (predictions)
+    """
+
+    endpoints: List[str]
+    X_train: np.ndarray
+    X_val: np.ndarray
+    X_test: np.ndarray
+    Y_train: np.ndarray
+    Y_val: np.ndarray
+    Y_test: np.ndarray
+    mask_train: np.ndarray
+    mask_val: np.ndarray
+    mask_test: np.ndarray
+    pred_train: np.ndarray
+    pred_val: np.ndarray
+    pred_test: np.ndarray
+
+
 @ray.remote
 def _train_single_dataset_remote(
     trainer_cls: Type[BaseModelTrainer],
@@ -141,6 +172,9 @@ def _train_single_dataset_remote(
     log_level: Optional[str] = None,
     log_file: Optional[str] = None,
     log_json: bool = False,
+    dry_run: bool = False,
+    max_duration_seconds: Optional[float] = None,
+    n_fingerprint_bits: Optional[int] = None,
 ) -> Tuple[str, Dict[str, object]]:
     """Run a single dataset trainer in a Ray worker.
 
@@ -178,6 +212,8 @@ def _train_single_dataset_remote(
     meta = infer_split_metadata(hf_dir, root)
     rel_key = str(meta.get("relative_path", hf_dir.name))
 
+    start_ts = datetime.datetime.utcnow()
+    start_time = start_ts.isoformat()
     try:
         # Configure logging inside the worker to match the originating process
         from admet.logging import configure_logging
@@ -189,7 +225,10 @@ def _train_single_dataset_remote(
         pass
 
     try:
-        dataset = _load_dataset(hf_dir)
+        if n_fingerprint_bits is not None:
+            dataset = _load_dataset(hf_dir, n_fingerprint_bits=n_fingerprint_bits)
+        else:
+            dataset = _load_dataset(hf_dir)
         out_dir: Optional[Path] = None
         if output_root is not None:
             base = Path(output_root)
@@ -199,18 +238,72 @@ def _train_single_dataset_remote(
             out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
 
         # Construct trainer instance and run
+        # Ensure per-run seed is passed into trainer kwargs so BaseModelTrainer.run uses it
+        if seed is not None:
+            trainer_kwargs = dict(trainer_kwargs)
+            trainer_kwargs.setdefault("seed", seed)
         trainer = trainer_cls(**trainer_kwargs)
         metrics = trainer.run(
             dataset,
             sample_weight_mapping=sample_weight_mapping,
             early_stopping_rounds=early_stopping_rounds,
             output_dir=out_dir,
+            dry_run=dry_run,
         )
+        # Compute end time / duration
+        end_ts = datetime.datetime.utcnow()
+        end_time = end_ts.isoformat()
+        duration_seconds = (end_ts - start_ts).total_seconds()
 
-        return rel_key, {"metrics": metrics, "meta": meta}
+        # Choose status heuristically
+        status = "ok"
+
+        if dry_run:
+            status = "skipped"
+
+        # If metrics is None, treat as error
+        if metrics is None:
+            status = "error"
+
+        # If any expected split is missing or a macro is missing, mark partial
+        elif isinstance(metrics, dict):
+            expected_splits = {"train", "validation", "test"}
+            present = set(metrics.keys())
+            if not expected_splits.issubset(present):
+                status = "partial"
+            else:
+                # Check if all macro fields present
+                for split in expected_splits:
+                    if not isinstance(metrics.get(split, {}), dict) or "macro" not in metrics[split]:
+                        status = "partial"
+                        break
+
+        if max_duration_seconds is not None and duration_seconds > max_duration_seconds:
+            status = "timeout"
+
+        return rel_key, {
+            "metrics": metrics,
+            "meta": meta,
+            "status": status,
+            "start_time": start_time,
+            "end_time": end_time,
+            "duration_seconds": duration_seconds,
+        }
+
     except Exception as exc:  # pragma: no cover - can't reason about ray worker internals
         logger.exception("Dataset training failed for %s: %s", rel_key, exc)
-        return rel_key, {"metrics": None, "meta": meta, "error": str(exc)}
+        end_ts = datetime.datetime.now()
+        end_time = end_ts.isoformat()
+        duration_seconds = (end_ts - start_ts).total_seconds()
+        return rel_key, {
+            "metrics": None,
+            "meta": meta,
+            "error": str(exc),
+            "status": "error",
+            "start_time": start_time,
+            "end_time": end_time,
+            "duration_seconds": duration_seconds,
+        }
 
 
 class BaseModelTrainer(ABC):
@@ -240,10 +333,11 @@ class BaseModelTrainer(ABC):
 
     def __init__(
         self,
-        model_cls: Type[BaseModel],
+        model_cls: Type[ModelProtocol],
         *,
         model_params: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
+        n_fingerprint_bits: Optional[int] = None,
         device: Optional[str] = None,
         mixed_precision: bool = False,
     ) -> None:
@@ -365,7 +459,7 @@ class BaseModelTrainer(ABC):
         mask_val: np.ndarray,
         mask_test: np.ndarray,
         endpoints: List[str],
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> AllMetrics:
         """Compute all metrics for the provided true and predicted values.
 
         Parameters
@@ -392,8 +486,9 @@ class BaseModelTrainer(ABC):
     def save_artifacts(
         self,
         model: BaseModel,
-        metrics: Dict[str, Dict[str, Any]],
+        metrics: AllMetrics,
         output_dir: Path,
+        outputs: "RunOutputs",
         *,
         dataset: LoadedDataset,
         extra_meta: Optional[Dict[str, Any]] = None,
@@ -467,6 +562,9 @@ class BaseModelTrainer(ABC):
             logger.info("Dry-run enabled; will not fit models.")
         if not endpoints:
             raise ValueError("No endpoints found in dataset; cannot train model.")
+        # Ensure dataset has required splits
+        if not (hasattr(dataset, "train") and hasattr(dataset, "val") and hasattr(dataset, "test")):
+            raise ValueError("LoadedDataset must provide 'train','val','test' splits")
         logger.info("Preparing features/targets for endpoints: %s", endpoints)
         X_train, X_val, X_test = self.prepare_features(dataset)
         Y_train, Y_val, Y_test = self.prepare_targets(dataset)
@@ -524,8 +622,23 @@ class BaseModelTrainer(ABC):
             endpoints,
         )
 
+        outputs = RunOutputs(
+            endpoints=endpoints,
+            X_train=X_train,
+            X_val=X_val,
+            X_test=X_test,
+            Y_train=Y_train,
+            Y_val=Y_val,
+            Y_test=Y_test,
+            mask_train=mask_train,
+            mask_val=mask_val,
+            mask_test=mask_test,
+            pred_train=pred_train,
+            pred_val=pred_val,
+            pred_test=pred_test,
+        )
         if output_dir is not None:
-            self.save_artifacts(model, metrics, output_dir, dataset=dataset, extra_meta=extra_meta)
+            self.save_artifacts(model, metrics, output_dir, outputs, dataset=dataset, extra_meta=extra_meta)
 
         return metrics
 
@@ -572,6 +685,9 @@ class BaseRayMultiDatasetTrainer(ABC):
         num_cpus: Optional[int] = None,
         ray_address: Optional[str] = None,
         seed: Optional[int] = None,
+        dry_run: bool = False,
+        max_duration_seconds: Optional[float] = None,
+        n_fingerprint_bits: Optional[int] = None,
     ) -> Dict[str, Dict[str, object]]:
         """Default Ray orchestration for all datasets discovered under `root`.
 
@@ -625,6 +741,9 @@ class BaseRayMultiDatasetTrainer(ABC):
                     log_level=log_cfg.get("level"),
                     log_file=log_cfg.get("file"),
                     log_json=log_cfg.get("structured") or False,
+                    dry_run=dry_run,
+                    max_duration_seconds=max_duration_seconds,
+                    n_fingerprint_bits=n_fingerprint_bits,
                 )
             )
 
@@ -651,13 +770,28 @@ class BaseRayMultiDatasetTrainer(ABC):
 
         # Build and persist a summary of macro metrics across all datasets.
         summary_rows: List[Dict[str, object]] = []
+        success_count = 0
+        failure_count = 0
         for rel_key, payload in aggregated.items():
+            status = str(payload.get("status", "ok"))
+            if status == "ok":
+                success_count += 1
+            else:
+                failure_count += 1
             metrics = payload.get("metrics") or {}  # type: ignore[assignment]
             meta = payload.get("meta") or {}  # type: ignore[assignment]
+            # include timing information in the summary rows
+            start_time = payload.get("start_time")
+            end_time = payload.get("end_time")
+            duration_seconds = payload.get("duration_seconds")
             for split_name in ["train", "validation", "test"]:
                 split_metrics = metrics.get(split_name, {})  # type: ignore[assignment]
                 macro = split_metrics.get("macro", {})
                 row: Dict[str, object] = {"dataset": rel_key, "split": split_name}
+                row["status"] = status
+                row["start_time"] = start_time
+                row["end_time"] = end_time
+                row["duration_seconds"] = duration_seconds
                 if isinstance(meta, dict):
                     for k, v in meta.items():
                         row[f"meta_{k}"] = v
@@ -675,6 +809,7 @@ class BaseRayMultiDatasetTrainer(ABC):
             summary_df.to_csv(summary_csv, index=False)
             summary_json.write_text(summary_df.to_json(orient="records", indent=2))
             logger.info("Wrote metrics summary to %s and %s", summary_csv, summary_json)
+            logger.info("Ray training summary: %d succeeded, %d failed", success_count, failure_count)
 
         # shutdown ray runtime if we started it locally
         if started_local_ray:

@@ -24,10 +24,11 @@ import numpy as np
 
 from admet.data.load import LoadedDataset
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
+from admet.train.base_trainer import RunOutputs
 from admet.model.base import BaseModel
 
 # Note: seed setting is handled in BaseModelTrainer.run
-from admet.evaluate.metrics import compute_metrics_log_and_linear
+from admet.evaluate.metrics import compute_metrics_log_and_linear, AllMetrics
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
 from admet.train.base_trainer import BaseModelTrainer, BaseRayMultiDatasetTrainer, infer_split_metadata
 
@@ -172,12 +173,15 @@ class XGBoostTrainer(BaseModelTrainer):
         if not sample_weight_mapping:
             return None
         mapping = sample_weight_mapping
+        # Ensure the 'Dataset' column is present when building sample weights
+        if "Dataset" not in dataset.train.columns:
+            raise ValueError("Training split missing 'Dataset' column needed for sample weight mapping")
         default = mapping.get("default", 1.0)
         # Use pandas vectorized mapping for performance
         sw_series = dataset.train["Dataset"].astype(str).map(lambda x: mapping.get(x, default))
         return sw_series.to_numpy(dtype=float)
 
-    def build_model(self, endpoints: List[str]) -> XGBoostMultiEndpoint:
+    def build_model(self, endpoints: List[str]) -> BaseModel:
         """Build and return an XGBoostMultiEndpoint instance.
 
         Parameters
@@ -193,7 +197,12 @@ class XGBoostTrainer(BaseModelTrainer):
         # Instantiate model using self.model_cls to support dependency injection/testability.
         # We type-hint the return as XGBoostMultiEndpoint for callers expecting the XGBoost wrapper,
         # but construct via `self.model_cls` so other model classes can be injected in tests.
-        return self.model_cls(endpoints=endpoints, model_params=self.model_params, random_state=self.seed)
+        # Construct model via the injected model class; some model classes may
+        # accept different initialization signatures, so we forward positional
+        # args for the common XGBoostMultiEndpoint constructor.
+        from typing import cast, Any
+
+        return cast(Any, self.model_cls)(endpoints, self.model_params, self.seed)
 
     def compute_metrics(
         self,
@@ -207,7 +216,7 @@ class XGBoostTrainer(BaseModelTrainer):
         mask_val: np.ndarray,
         mask_test: np.ndarray,
         endpoints: List[str],
-    ) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
+    ) -> AllMetrics:
         """Compute macro and per-endpoint metrics for all splits.
 
         Parameters
@@ -235,8 +244,9 @@ class XGBoostTrainer(BaseModelTrainer):
     def save_artifacts(
         self,
         model: "BaseModel",
-        metrics: Dict[str, Dict[str, Dict[str, Dict[str, float]]]],
+        metrics: AllMetrics,
         output_dir: Path,
+        outputs: "RunOutputs",
         *,
         dataset: LoadedDataset,
         extra_meta: Optional[Dict[str, object]] = None,
@@ -265,15 +275,11 @@ class XGBoostTrainer(BaseModelTrainer):
         n_cpus = multiprocessing.cpu_count()
         logger.info("Using %d CPU cores for plotting.", n_cpus)
 
-        endpoints = dataset.endpoints
-        # Compose dicts for plotting utilities
-        X_train, X_val, X_test = self.prepare_features(dataset)
-        Y_train, Y_val, Y_test = self.prepare_targets(dataset)
-        mask_train, mask_val, mask_test = self.prepare_masks(Y_train, Y_val, Y_test)
-
-        pred_train = model.predict(X_train)
-        pred_val = model.predict(X_val)
-        pred_test = model.predict(X_test)
+        # Use precomputed outputs to avoid re-extracting/recomputing
+        endpoints = outputs.endpoints
+        Y_train, Y_val, Y_test = outputs.Y_train, outputs.Y_val, outputs.Y_test
+        mask_train, mask_val, mask_test = outputs.mask_train, outputs.mask_val, outputs.mask_test
+        pred_train, pred_val, pred_test = outputs.pred_train, outputs.pred_val, outputs.pred_test
 
         y_true = {"train": Y_train, "validation": Y_val, "test": Y_test}
         y_pred = {"train": pred_train, "validation": pred_val, "test": pred_test}
@@ -313,7 +319,7 @@ class XGBoostTrainer(BaseModelTrainer):
         output_dir: Optional[Path] = None,
         extra_meta: Optional[Dict[str, object]] = None,
         dry_run: bool = False,
-    ) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
+    ) -> AllMetrics:
         """Perform the complete train -> predict -> eval flow.
 
         High-level orchestration that calls the hooks implemented by the
@@ -360,7 +366,7 @@ def train_xgb_models(
     sample_weight_mapping: Optional[Dict[str, float]] = None,
     output_dir: Optional[Path] = None,
     seed: Optional[int] = None,
-) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
+) -> AllMetrics:
     """Convenience wrapper to train a single HF dataset using XGBoost.
 
     Parameters
@@ -406,8 +412,11 @@ def train_xgb_models_ray(
     sample_weight_mapping: Optional[Dict[str, float]] = None,
     output_root: Optional[Path] = None,
     seed: Optional[int] = None,
+    n_fingerprint_bits: Optional[int] = None,
     num_cpus: Optional[int] = None,
     ray_address: Optional[str] = None,
+    dry_run: bool = False,
+    max_duration_seconds: Optional[float] = None,
 ) -> Dict[str, Dict[str, object]]:
     """Train XGBoost models in parallel via Ray across multiple HF datasets.
 
@@ -448,6 +457,9 @@ def train_xgb_models_ray(
         sample_weight_mapping=sample_weight_mapping,
         num_cpus=num_cpus,
         ray_address=ray_address,
+        dry_run=dry_run,
+        max_duration_seconds=max_duration_seconds,
+        n_fingerprint_bits=n_fingerprint_bits,
         seed=seed,
     )
 

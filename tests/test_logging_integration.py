@@ -2,15 +2,21 @@ import json
 from pathlib import Path
 from typer.testing import CliRunner
 
+import numpy as np
+import pandas as pd
+from datasets import Dataset, DatasetDict
+
 from admet.logging import configure_logging
 from admet.cli import app
 from admet.train.xgb_train import train_xgb_models_ray
+from admet.data.load import expected_fingerprint_columns, ENDPOINT_COLUMNS
+import pytest
 
 
 def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Path:
     """Create a minimal on-disk HF DatasetDict layout that ``load_dataset`` can load."""
 
-    fp_cols = expected_fingerprint_columns(2048)
+    fp_cols = expected_fingerprint_columns(n_bits)
     splits = {}
     for split in ["train", "validation", "test"]:
         data = {
@@ -54,8 +60,6 @@ def test_ray_worker_writes_structured_json_log(tmp_path: Path):
     # Create a dataset and config
     ds_root = tmp_path / "splits" / "high_quality" / "random_cluster" / "split_0" / "fold_0" / "hf_dataset"
     ds_root.mkdir(parents=True)
-    # Build a very small dataset using helper used elsewhere
-    from .test_xgb_train import _make_hf_like_dataset
 
     _make_hf_like_dataset(ds_root, n_rows=10, n_bits=16)
     # configure logging to write to file in structured JSON
@@ -69,13 +73,17 @@ def test_ray_worker_writes_structured_json_log(tmp_path: Path):
         output_root=tmp_path / "out",
         seed=42,
         num_cpus=1,
+        n_fingerprint_bits=16,
     )
-    assert results
-    assert logfile.exists()
+    if not results:
+        pytest.fail("Expected results from train_xgb_models_ray but got empty/None")
+    if not logfile.exists():
+        pytest.fail("Expected log file to exist after Ray worker run")
     # Ensure file contains JSON lines
     with logfile.open("r") as fh:
         lines = [ln.strip() for ln in fh if ln.strip()]
-    assert lines
+    if not lines:
+        pytest.fail("Expected log file to contain at least one non-empty line")
     json.loads(lines[0])  # should parse
 
 
@@ -83,7 +91,6 @@ def test_cli_log_file_option_creates_file(tmp_path: Path):
     # create dataset and config
     ds_root = tmp_path / "hf_dataset"
     ds_root.mkdir(parents=True)
-    from .test_xgb_train import _make_hf_like_dataset
 
     _make_hf_like_dataset(ds_root, n_rows=10, n_bits=16)
     cfg_path = _make_config(tmp_path)
@@ -101,11 +108,15 @@ def test_cli_log_file_option_creates_file(tmp_path: Path):
         str(cfg_path),
         "--output-dir",
         str(tmp_path / "out"),
+        "--n-fingerprint-bits",
+        "16",
     ]
     _ = runner.invoke(app, cmd)
     # CLI might exit with non-zero if training fails for other reasons, but logging should have been created
-    assert logfile.exists()
+    if not logfile.exists():
+        pytest.fail("Expected CLI-created logfile to exist")
     with logfile.open("r") as fh:
         lines = [ln.strip() for ln in fh if ln.strip()]
-    assert lines
+    if not lines:
+        pytest.fail("Expected CLI log file to contain at least one non-empty line")
     json.loads(lines[0])

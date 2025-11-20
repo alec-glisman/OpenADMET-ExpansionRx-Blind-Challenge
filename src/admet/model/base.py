@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, Sequence, Protocol, runtime_checkable
 import numpy as np
 
 
@@ -52,3 +52,35 @@ class BaseModel(ABC):
     @abstractmethod
     def get_metadata(self) -> Dict[str, Any]:  # pragma: no cover - interface
         pass
+
+
+@runtime_checkable
+class ModelProtocol(Protocol):
+    """Structural protocol for models used by trainers.
+
+    This protocol keeps the required surface small and allows non-BaseModel
+    conforming classes to be used in tests and future backends.
+    """
+
+    endpoints: Sequence[str]
+    input_type: str
+
+    def fit(
+        self,
+        X_train: np.ndarray,
+        Y_train: np.ndarray,
+        *,
+        Y_mask: np.ndarray,
+        X_val: np.ndarray | None = None,
+        Y_val: np.ndarray | None = None,
+        Y_val_mask: np.ndarray | None = None,
+        sample_weight: np.ndarray | None = None,
+        early_stopping_rounds: int | None = None,
+    ) -> None: ...
+
+    def predict(self, X: np.ndarray) -> np.ndarray: ...
+
+    def save(self, path: str) -> None: ...
+
+    @classmethod
+    def load(cls, path: str) -> "ModelProtocol": ...

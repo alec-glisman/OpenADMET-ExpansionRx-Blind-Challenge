@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
+import pytest
 
 
 def _make_synthetic():
@@ -32,7 +33,8 @@ def test_plot_generation(tmp_path: Path):
         # check at least one file exists per endpoint
         for ep in endpoints:
             fname = space_dir / f"parity_{ep.replace(' ', '_').replace('/', '_')}.png"
-            assert fname.exists() and fname.stat().st_size > 0
+            if not (fname.exists() and fname.stat().st_size > 0):
+                pytest.fail(f"Expected plot file to be present with content: {fname}")
 
         # metric bars
         r2_path = space_dir / "metrics_r2.png"
@@ -57,4 +59,5 @@ def test_plot_generation(tmp_path: Path):
             n_jobs=2,
         )
         for p in metric_paths:
-            assert p.exists() and p.stat().st_size > 0
+            if not (p.exists() and p.stat().st_size > 0):
+                pytest.fail(f"Expected metric plot file to be present with content: {p}")

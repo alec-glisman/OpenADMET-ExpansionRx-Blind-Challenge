@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 from pathlib import Path
 
 from admet.data.load import (
@@ -35,9 +36,6 @@ def test_validate_dataset_schema_missing_column(tmp_path: Path):
     fp_cols = expected_fingerprint_columns(16)
     remove_col = fp_cols[0]
     df = df.drop(columns=[remove_col])
-    try:
+    with pytest.raises(ValueError) as exc_info:
         validate_dataset_schema(df, fp_cols, ENDPOINT_COLUMNS)
-    except ValueError as e:
-        assert "Missing fingerprint" in str(e)
-    else:
-        raise AssertionError("Expected ValueError for missing fingerprint column")
+    assert "Missing fingerprint" in str(exc_info.value)
