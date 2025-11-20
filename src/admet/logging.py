@@ -1,9 +1,22 @@
-"""Centralized logging helpers for the ADMET application.
+"""Logging Utilities
+====================
 
-This module provides a `configure_logging` function to set a global logging
-handler and optionally enable structured JSON logs. It's intentionally
-lightweight and avoids hard dependencies on structured logging libraries, but
-supports using the `json` module for very simple structured logs.
+Centralized logging helpers for the ADMET application.
+
+This module provides utilities to configure root logging for both the CLI
+and Ray workers. It intentionally avoids external structured logging
+dependencies while supporting a minimal JSON formatter.
+
+Contents
+--------
+Classes
+^^^^^^^
+* :class:`JsonFormatter` – Lightweight JSON log formatter.
+
+Functions
+^^^^^^^^^
+* :func:`configure_logging` – Configure root logger (optionally structured).
+* :func:`get_logging_config` – Introspect current root logging configuration.
 """
 
 from __future__ import annotations
@@ -15,7 +28,29 @@ from pathlib import Path
 
 
 class JsonFormatter(logging.Formatter):
+    """Minimal JSON log formatter.
+
+    Serializes standard log record fields plus an optional exception stack.
+
+    Notes
+    -----
+    This formatter is intentionally small; if richer structured logging is
+    desired a third‑party library can be integrated later.
+    """
+
     def format(self, record: logging.LogRecord) -> str:  # pragma: no cover - simple serializer
+        """Format a log record as a JSON string.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            The record emitted by the logger.
+
+        Returns
+        -------
+        str
+            JSON encoded representation of the log record.
+        """
         payload = {
             "time": self.formatTime(record, self.datefmt),
             "name": record.name,
@@ -35,16 +70,24 @@ def configure_logging(
 ) -> None:
     """Configure application-wide logging.
 
+    Sets the root logger level, replaces existing handlers, and optionally
+    enables structured JSON logging.
+
     Parameters
     ----------
-    level:
-        String level name - DEBUG, INFO, WARNING, ERROR, CRITICAL
-    fmt:
-        Optional log format string - ignored when `structured=True` as JSON format used.
-    file:
-        Optional path to a file to write logs into in addition to stderr.
-    structured:
-        If True, emit logs as JSON objects using the builtin JsonFormatter.
+    level : str, default="INFO"
+        Logging level name (``DEBUG``, ``INFO``, ``WARNING``, ``ERROR``, ``CRITICAL``).
+    fmt : str, optional
+        Log format string. Ignored when ``structured=True``.
+    file : str, optional
+        Path to a file to append logs to (same formatter as stderr).
+    structured : bool, default=False
+        If ``True`` use :class:`JsonFormatter` for structured logs.
+
+    Returns
+    -------
+    None
+        This function configures global state and returns nothing.
     """
     try:
         lvl = getattr(logging, str(level).upper())
@@ -86,7 +129,17 @@ __all__ = ["configure_logging", "JsonFormatter"]
 
 
 def get_logging_config() -> dict:
-    """Return a dict describing the current root logging configuration."""
+    """Return current root logging configuration.
+
+    Inspects the root logger to determine level, file handler (if present),
+    and whether structured logging is active.
+
+    Returns
+    -------
+    dict
+        Mapping with keys: ``level`` (str), ``file`` (str|None),
+        ``structured`` (bool).
+    """
     root = logging.getLogger()
     level = logging.getLevelName(root.level)
     file_path = None

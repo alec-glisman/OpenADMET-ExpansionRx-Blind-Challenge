@@ -1,4 +1,45 @@
-"""CLI entrypoint for training XGBoost models (initial)."""
+"""admet.cli.train
+===================
+
+Train XGBoost models for ADMET endpoints via Typer CLI.
+
+Features
+--------
+* Single HF ``DatasetDict`` training.
+* Multi-dataset batch training using Ray (``--multi``).
+* YAML-driven configuration (objective, early stopping, endpoints, sample weights).
+* Automatic objective mapping shortcuts (``mae``/``rmse``).
+
+Configuration File (YAML)
+-------------------------
+Example minimal structure::
+
+        data:
+            endpoints: [LogD, KSOL, HLM CLint]
+        models:
+            xgboost:
+                objective: rmse
+                early_stopping_rounds: 75
+                model_params:
+                    max_depth: 6
+                    learning_rate: 0.05
+        training:
+            sample_weights:
+                enabled: true
+                weights:
+                    default: 1.0
+                    expansion_teaser: 1.2
+
+Usage Examples
+--------------
+Single dataset training::
+
+        openadmet train xgb path/to/hf_dataset --config cfg.yaml
+
+Multi-dataset Ray training::
+
+        openadmet train xgb path/to/parent --multi --config cfg.yaml --ray-address auto
+"""
 
 from __future__ import annotations
 
@@ -48,20 +89,25 @@ def xgb(
     seed: int | None = typer.Option(None, help="Random seed for reproducibility."),
     n_fingerprint_bits: int = typer.Option(2048, help="Number of fingerprint bits for dataset loading."),
 ) -> None:
-    """Train XGBoost per-endpoint models using a simplified config.
+    """Train per-endpoint XGBoost models using a YAML configuration.
 
-    The YAML config should define:
-
-    models:
-      xgboost:
-        model_params: {...}
-        early_stopping_rounds: 50
-    training:
-      sample_weights:
-        enabled: true
-        weights: { dataset_a: 1.0, default: 1.0 }
-    data:
-      endpoints: [LogD, KSOL, ...]
+    Parameters
+    ----------
+    data_root : pathlib.Path
+        HF ``DatasetDict`` directory or parent containing multiple ``hf_dataset`` dirs.
+    config : pathlib.Path
+        YAML file with ``models.xgboost`` hyperparameters and optional sections
+        for endpoints (``data.endpoints``) and sample weights (``training.sample_weights``).
+    output_dir : pathlib.Path
+        Directory where artifacts are written.
+    multi : bool, optional
+        Batch mode; treat ``data_root`` as parent and train each nested dataset via Ray.
+    ray_address : str, optional
+        Ray cluster address (``auto`` or explicit ``ray://``). Local runtime started if omitted.
+    seed : int, optional
+        Global seed for reproducibility.
+    n_fingerprint_bits : int, optional
+        Fingerprint bit count used during loading (default 2048).
     """
     cfg = yaml.safe_load(config.read_text()) or {}
     # Use `or {}` to guard against keys being present with a null value in YAML

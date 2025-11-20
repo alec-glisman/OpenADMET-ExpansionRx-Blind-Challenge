@@ -1,4 +1,13 @@
-"""XGBoost per-endpoint multi-output wrapper implementation."""
+"""XGBoost per-endpoint multi-output wrapper implementation.
+
+Provides a thin abstraction that trains one ``XGBRegressor`` per endpoint,
+handling missing labels via a mask and persisting individual model JSON files.
+
+Contents
+--------
+Classes
+    XGBoostMultiEndpoint : Train & infer per-endpoint models with masking.
+"""
 
 from __future__ import annotations
 
@@ -14,10 +23,20 @@ from .base import BaseModel
 
 
 class XGBoostMultiEndpoint(BaseModel):
-    """Train one XGBRegressor per endpoint, handling missing values via masks.
+    """Train one XGBoost regressor per endpoint with missing-value masking.
 
-    Each endpoint model is fit on rows where its target is present. Predictions
-    are generated for all compounds (rows) for all endpoints.
+    Each endpoint model is fit only on rows where its target is present. During
+    inference all endpoint predictions are generated; endpoints lacking any
+    training data return ``NaN`` vectors.
+
+    Parameters
+    ----------
+    endpoints : Sequence[str]
+        Ordered list of endpoint names.
+    model_params : dict, optional
+        Hyperparameters passed to each ``XGBRegressor`` instance.
+    random_state : int, optional
+        Seed for model reproducibility.
     """
 
     def __init__(
@@ -54,6 +73,24 @@ class XGBoostMultiEndpoint(BaseModel):
         sample_weight: np.ndarray | None = None,
         early_stopping_rounds: int | None = 50,
     ) -> None:
+        """Fit one model per endpoint.
+
+        Parameters
+        ----------
+        X_train : np.ndarray
+            Training feature matrix (n_samples, n_features).
+        Y_train : np.ndarray
+            Training target matrix (n_samples, n_endpoints).
+        Y_mask : np.ndarray
+            Mask indicating valid target entries (same shape as ``Y_train``).
+        X_val, Y_val, Y_val_mask : np.ndarray, optional
+            Validation data for early stopping / evaluation; if provided each
+            endpoint model uses only rows with valid targets.
+        sample_weight : np.ndarray, optional
+            Per-row sample weights applied to all endpoints.
+        early_stopping_rounds : int, optional
+            Early stopping rounds forwarded to XGBoost.
+        """
         if X_train.ndim != 2:
             raise ValueError("X_train must be a 2D numpy array")
         if Y_train.ndim != 2:
@@ -114,6 +151,19 @@ class XGBoostMultiEndpoint(BaseModel):
             self.models[ep] = model
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict all endpoints for provided feature matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Feature matrix shape ``(n_samples, n_features)``.
+
+        Returns
+        -------
+        np.ndarray
+            Prediction matrix shape ``(n_samples, n_endpoints)`` with ``NaN``
+            for endpoints that lacked training data.
+        """
         if X.ndim != 2:
             raise ValueError("X must be a 2D numpy array for prediction")
         if self.n_features_ is None:
@@ -131,6 +181,13 @@ class XGBoostMultiEndpoint(BaseModel):
         return np.vstack(preds).T
 
     def save(self, path: str) -> None:
+        """Persist configuration and trained endpoint models.
+
+        Parameters
+        ----------
+        path : str
+            Output directory path; created if missing.
+        """
         out_dir = Path(path)
         out_dir.mkdir(parents=True, exist_ok=True)
         # Save each endpoint model
@@ -148,6 +205,18 @@ class XGBoostMultiEndpoint(BaseModel):
 
     @classmethod
     def load(cls, path: str) -> "XGBoostMultiEndpoint":
+        """Load a previously saved endpoint model collection.
+
+        Parameters
+        ----------
+        path : str
+            Directory containing ``config.json`` and per-endpoint JSON files.
+
+        Returns
+        -------
+        XGBoostMultiEndpoint
+            Reconstructed multi-endpoint model.
+        """
         in_dir = Path(path)
         meta = json.loads((in_dir / "config.json").read_text())
         obj = cls(
@@ -168,6 +237,7 @@ class XGBoostMultiEndpoint(BaseModel):
         return obj
 
     def get_config(self) -> Dict[str, object]:  # pragma: no cover - trivial
+        """Return high-level configuration dictionary."""
         return {
             "type": "xgboost_multi_endpoint",
             "model_params": self.model_params,
@@ -175,6 +245,7 @@ class XGBoostMultiEndpoint(BaseModel):
         }
 
     def get_metadata(self) -> Dict[str, object]:  # pragma: no cover - trivial
+        """Return lightweight metadata (counts & seeds)."""
         return {
             "random_state": self.random_state,
             "n_models": len([m for m in self.models.values() if m is not None]),

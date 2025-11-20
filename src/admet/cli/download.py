@@ -1,4 +1,30 @@
-"""CLI commands for downloading datasets."""
+"""admet.cli.download
+======================
+
+Download registered ADMET datasets via a Typer CLI command.
+
+Datasets
+--------
+Names and configuration are sourced from :mod:`admet.data.constants`.
+
+Usage Examples
+--------------
+Download a single dataset::
+
+    openadmet download expansion_teaser
+
+Download all datasets::
+
+    openadmet download all
+
+Omit name (same as ``all``)::
+
+    openadmet download
+
+Custom output directory::
+
+    openadmet download expansion_teaser --output-dir ./data
+"""
 
 from typing import Optional
 from pathlib import Path
@@ -17,8 +43,7 @@ def download(
     dataset_name: str = typer.Argument(
         "",
         help=(
-            "Name of the dataset to download. "
-            "Available datasets: {0}. "
+            "Name of the dataset to download. Available datasets: {0}. "
             "Use 'all' or omit to download all datasets."
         ).format(", ".join(DATASETS.keys())),
     ),
@@ -26,24 +51,19 @@ def download(
         None,
         "--output-dir",
         "-o",
-        help=("Output directory for downloaded datasets. " f"Defaults to {DEFAULT_DATASET_DIR}."),
+        help=("Output directory for downloaded datasets. " f"Defaults to {DEFAULT_DATASET_DIR}"),
     ),
 ) -> None:
-    """
-    Download a dataset or all datasets.
+    """Download one dataset or all registered datasets.
 
-    Examples:
-        # Download a specific dataset
-        admet download expansion_teaser
-
-        # Download all available datasets
-        admet download all
-
-        # Download all available datasets (omit dataset name)
-        admet download
-
-        # Download a dataset to a specific directory
-        admet download expansion_teaser --output-dir ./data
+    Parameters
+    ----------
+    dataset_name : str
+        Name of dataset to download. Case-sensitive; empty string or ``all``
+        downloads every configured dataset.
+    output_dir : pathlib.Path, optional
+        Destination directory (defaults to
+        :data:`admet.data.constants.DEFAULT_DATASET_DIR`). Created if missing.
     """
     # Use default directory if not specified
     if output_dir is None:
@@ -80,9 +100,11 @@ def download(
 
         typer.echo(f"Downloading dataset: {dataset_name}...")
         downloader.download(str(dataset_type), str(dataset_uri), output_file_path)
-        msg = f"Dataset '{dataset_name}' downloaded successfully " f"to {output_file_path}."
+        msg = f"Dataset '{dataset_name}' downloaded successfully to {output_file_path}."
         typer.echo(msg)
 
 
-if __name__ == "__main__":
+__all__ = ["download"]
+
+if __name__ == "__main__":  # pragma: no cover
     typer.run(download)

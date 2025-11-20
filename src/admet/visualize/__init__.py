@@ -1,3 +1,13 @@
+"""
+Visualization Subpackage
+========================
+
+Plotting and visualization utilities.
+
+.. module:: admet.visualize
+
+"""
+
 from .model_performance import plot_parity_grid, plot_metric_bars, to_linear
 
 import matplotlib

@@ -1,7 +1,26 @@
-"""Visualization helpers for exploratory data analysis (EDA).
+"""admet.visualize.plots
+=========================
 
-Provides small plotting utilities and statistics calculators to keep notebooks
-lightweight and focused on analysis rather than boilerplate.
+Exploratory data analysis plotting helpers.
+
+Provided utilities:
+
+* ``calc_stats`` – numeric summary (min/max/mean/median/std/skew/kurtosis/count).
+* ``plot_numeric_distributions`` – grid of histograms with optional KDE + stats.
+* ``plot_correlation_matrix`` – annotated correlation heatmap for numeric columns.
+* ``plot_property_distributions`` – convenience wrapper for molecular properties
+    computed via :func:`admet.data.chem.compute_molecular_properties`.
+
+DataFrame Expectations
+----------------------
+Numeric plotting functions automatically select numeric columns when an
+explicit subset is not provided. Missing values (NaNs) are dropped per column.
+
+Performance Notes
+-----------------
+Functions aim to stay lightweight; vectorized operations and seaborn/matplotlib
+defaults are used directly. Large numbers of columns may require adjusting
+``figsize_per_cell`` or ``figsize`` to maintain readability.
 """
 
 from __future__ import annotations
@@ -18,17 +37,17 @@ from scipy import stats
 
 
 def calc_stats(series: Series) -> str:
-    """Calculate summary statistics for a pandas Series and format as text.
+    """Return formatted summary statistics for a numeric series.
 
     Parameters
     ----------
     series : pandas.Series
-        Input numeric series.
+        Numeric series (non-numeric entries should be coerced prior to call).
 
     Returns
     -------
     str
-        Multiline string containing common summary statistics.
+        Multiline string with keys: min, max, mean, median, std, skew, kurtosis, count.
     """
     array = series.dropna().to_numpy()
 
@@ -65,12 +84,31 @@ def plot_numeric_distributions(
     title: Optional[str] = None,
     save_path: Optional[Path] = None,
 ):
-    """Plot histograms (with optional KDE) for numeric columns with stats text.
+    """Plot histograms (with optional KDE) for numeric columns.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Source data.
+    columns : sequence of str, optional
+        Explicit column list; by default selects all numeric columns.
+    n_cols : int, optional
+        Number of columns in subplot grid (default 3).
+    figsize_per_cell : tuple[int, int], optional
+        Base size per subplot (default (6, 4)).
+    stat_func : callable, optional
+        Function producing stats text; receives a cleaned Series.
+    kde : bool, optional
+        Whether to overlay KDE curve (default True).
+    title : str, optional
+        Figure super-title.
+    save_path : pathlib.Path, optional
+        If provided, figure saved to this path.
 
     Returns
     -------
-    tuple[matplotlib.figure.Figure, np.ndarray]
-        Figure and array of axes.
+    (matplotlib.figure.Figure, numpy.ndarray)
+        Figure and flattened axes array.
     """
     if columns is None:
         columns = df.select_dtypes(include=["number"]).columns.tolist()
@@ -144,7 +182,44 @@ def plot_correlation_matrix(
     title: Optional[str] = "Correlation Matrix of Numeric Columns",
     save_path: Optional[Path] = None,
 ):
-    """Compute and plot a correlation matrix for numeric columns in `df`."""
+    """Compute and plot a correlation heatmap for numeric columns.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Source data.
+    columns : sequence of str, optional
+        Explicit numeric columns; auto-detected if ``None``.
+    figsize : tuple[int, int], optional
+        Figure size.
+    cmap : str, optional
+        Colormap (default "mako").
+    annot : bool, optional
+        Annotate cells with numeric values (default True).
+    fmt : str, optional
+        Format for annotations.
+    square : bool, optional
+        Whether to enforce square cells.
+    cbar_label : str, optional
+        Colorbar label text.
+    linewidths : float, optional
+        Grid line width.
+    linecolor : str, optional
+        Grid line color.
+    annot_kws : dict, optional
+        Additional keyword args for annotation styling.
+    xtick_rotation, ytick_rotation : int, optional
+        Tick label rotations.
+    title : str, optional
+        Super-title text.
+    save_path : pathlib.Path, optional
+        Path to save figure.
+
+    Returns
+    -------
+    (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axes objects.
+    """
     if columns is None:
         columns = df.select_dtypes(include=["number"]).columns.tolist()
     if len(columns) == 0:
@@ -195,10 +270,31 @@ def plot_property_distributions(
     title: str = "Molecular Property Distributions",
     save_path: str | None = None,
 ):
-    """Plot distributions of molecular properties in a grid.
+    """Plot histograms for computed molecular property columns.
 
-    Expected columns include: MW, TPSA, HBA, HBD, RotBonds, LogP,
-    NumHeavyAtoms, NumRings. Columns not present are skipped.
+    Parameters
+    ----------
+    props_df : pandas.DataFrame
+        DataFrame produced by :func:`admet.data.chem.compute_molecular_properties`.
+    columns : list[str], optional
+        Subset of property columns to plot; defaults to the common property list.
+    n_cols : int, optional
+        Number of columns in subplot grid (default 4).
+    figsize_per_cell : tuple, optional
+        Per‑subplot size (default (4, 3)).
+    bins : int, optional
+        Histogram bin count (default 30).
+    kde : bool, optional
+        Overlay KDE curve (default True).
+    title : str, optional
+        Figure super-title.
+    save_path : str, optional
+        If provided, output PNG file path.
+
+    Returns
+    -------
+    (matplotlib.figure.Figure, numpy.ndarray)
+        Figure and flattened axes array.
     """
     if columns is None:
         columns = [

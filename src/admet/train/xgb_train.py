@@ -1,22 +1,36 @@
 """admet.train.xgb_train
 =========================
 
-XGBoost-specific training orchestration for multi-endpoint regression.
+XGBoost‑specific trainer implementations for multi‑endpoint ADMET regression.
 
-This module implements a concrete :class:`BaseModelTrainer` (``XGBoostTrainer``)
-and a concrete :class:`BaseRayMultiDatasetTrainer` (``XGBoostRayMultiDatasetTrainer``)
-that provide a consistent single-dataset training interface and a Ray-based
-multi-dataset orchestration respectively.
+Components
+----------
+``XGBoostTrainer``
+    Concrete :class:`admet.train.base_trainer.BaseModelTrainer` implementing
+    fingerprint feature extraction, endpoint target handling with masks, and
+    metric computation via :func:`admet.evaluate.metrics.compute_metrics_log_and_linear`.
 
-Helpers are included for feature/target extraction and missing-target masks
-so the trainer code can operate on clean numpy arrays regardless of backend.
+``XGBoostRayMultiDatasetTrainer``
+    Concrete :class:`admet.train.base_trainer.BaseRayMultiDatasetTrainer` that
+    discovers ``hf_dataset`` directories and orchestrates Ray‑based parallel
+    training jobs.
+
+Convenience wrappers (``train_xgb_models`` / ``train_xgb_models_ray``) support
+single‑dataset and multi‑dataset execution respectively.
+
+Artifacts Written
+-----------------
+Under an output directory passed to ``run`` / high‑level wrappers, the trainer
+persists: ``model/`` (XGBoost booster per endpoint), ``metrics.json`` (nested
+split metrics), and ``figures/`` containing parity plots and metric bar charts
+for log and linear target spaces.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Sequence, Optional, Tuple
+from typing import Dict, List, Sequence, Optional, Tuple, cast
 import logging
 import multiprocessing
 
@@ -121,6 +135,15 @@ class XGBoostTrainer(BaseModelTrainer):
         fp_cols = dataset.fingerprint_cols
         if not fp_cols:
             raise ValueError("No fingerprint columns found in dataset; cannot prepare features.")
+        # Check that all fingerprint columns are present in each split
+        for split_name, df in [
+            ("train", dataset.train),
+            ("validation", dataset.val),
+            ("test", dataset.test),
+        ]:
+            missing = [c for c in fp_cols if c not in df.columns]
+            if missing:
+                raise ValueError(f"Missing fingerprint columns in {split_name} split: {missing[:10]}")
         # Reuse existing helpers to keep behavior identical.
         X_train = _extract_features(dataset.train, fp_cols)
         X_val = _extract_features(dataset.val, fp_cols)
@@ -143,6 +166,15 @@ class XGBoostTrainer(BaseModelTrainer):
         endpoints = dataset.endpoints
         if not endpoints:
             raise ValueError("No endpoints found in dataset; cannot prepare targets.")
+        # Check that all endpoint columns are present in each split
+        for split_name, df in [
+            ("train", dataset.train),
+            ("validation", dataset.val),
+            ("test", dataset.test),
+        ]:
+            missing = [c for c in endpoints if c not in df.columns]
+            if missing:
+                raise ValueError(f"Missing endpoint columns in {split_name} split: {missing}")
         Y_train = _extract_targets(dataset.train, endpoints)
         Y_val = _extract_targets(dataset.val, endpoints)
         Y_test = _extract_targets(dataset.test, endpoints)
@@ -154,6 +186,19 @@ class XGBoostTrainer(BaseModelTrainer):
         Y_val: np.ndarray,
         Y_test: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Construct per‑split missing‑target masks.
+
+        Parameters
+        ----------
+        Y_train, Y_val, Y_test : numpy.ndarray
+            Target matrices with ``NaN`` for missing labels.
+
+        Returns
+        -------
+        tuple
+            Boolean masks (train, validation, test) where ``True`` indicates
+            presence of a label.
+        """
         mask_train = _target_mask(Y_train)
         mask_val = _target_mask(Y_val)
         mask_test = _target_mask(Y_test)
@@ -166,9 +211,9 @@ class XGBoostTrainer(BaseModelTrainer):
     ) -> Optional[np.ndarray]:
         """Create a per-row sample-weight vector for the training split.
 
-        This function uses the dataset's ``Dataset`` column to map each
-        sample to a weight via ``sample_weight_mapping``. If no mapping is
-        provided, ``None`` is returned.
+        This function maps the dataset's ``Dataset`` column values through
+        ``sample_weight_mapping`` (with optional ``default`` key). When not
+        supplied, returns ``None``.
         """
         if not sample_weight_mapping:
             return None
@@ -264,7 +309,8 @@ class XGBoostTrainer(BaseModelTrainer):
         dataset : LoadedDataset
             The dataset used for training; required for plotting.
         extra_meta : dict, optional
-            Optional extra metadata to write alongside metrics.
+            Optional extra metadata written alongside metrics (currently not
+            persisted directly; reserved for future extension).
         """
         assert isinstance(model, BaseModel)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -322,8 +368,8 @@ class XGBoostTrainer(BaseModelTrainer):
     ) -> AllMetrics:
         """Perform the complete train -> predict -> eval flow.
 
-        High-level orchestration that calls the hooks implemented by the
-        concrete trainer and returns a nested metrics dictionary.
+        High-level orchestration that delegates to
+        :meth:`BaseModelTrainer.run`; documented here for convenience.
         """
         # Delegate full orchestration to BaseModelTrainer.run
         return super().run(
@@ -388,11 +434,11 @@ def train_xgb_models(
     Returns
     -------
     dict
-        Nested metrics dictionary keyed by split name.
+        Nested metrics dictionary keyed by split name (train, validation, test).
     """
 
     trainer = XGBoostTrainer(
-        model_cls=XGBoostMultiEndpoint,
+        model_cls=cast(type, XGBoostMultiEndpoint),  # type: ignore[arg-type]
         model_params=model_params,
         seed=seed,
     )
@@ -443,12 +489,17 @@ def train_xgb_models_ray(
     Returns
     -------
     dict
-        Mapping of dataset relative key to metrics and meta payloads.
+        Mapping of dataset relative key to payload dict containing metrics,
+        metadata, status, and timing fields.
     """
 
     ray_trainer = XGBoostRayMultiDatasetTrainer(
         trainer_cls=XGBoostTrainer,
-        trainer_kwargs={"model_cls": XGBoostMultiEndpoint, "model_params": model_params, "seed": seed},
+        trainer_kwargs={
+            "model_cls": cast(type, XGBoostMultiEndpoint),  # type: ignore[arg-type]
+            "model_params": model_params,
+            "seed": seed,
+        },
     )
     return ray_trainer.run_all(
         root,

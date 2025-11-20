@@ -1,18 +1,54 @@
 """admet.train.base_trainer
-==========================
+===========================
 
-Core training abstractions and helpers used across model backends.
+Core abstractions for single‑dataset and Ray‑based multi‑dataset training.
 
-This module defines the minimal API and several concrete utilities that
-implement multi-dataset training orchestration for backend-agnostic
-trainers. The primary abstractions are:
+Overview
+--------
+Two layered interfaces are provided:
 
 ``BaseModelTrainer``
-    Abstract base class that encapsulates the single-dataset training flow.
+    Implements canonical train → predict → evaluate → save flow for a
+    single :class:`admet.data.load.LoadedDataset` using backend‑specific
+    hooks (feature/target extraction, model construction, metrics, artifacts).
 
 ``BaseRayMultiDatasetTrainer``
-    Higher-level orchestrator providing a default Ray-based multi-dataset
-    execution engine and a convenient remote helper for single-dataset tasks.
+    Discovers multiple HF dataset directories and schedules remote training
+    tasks via Ray using a provided concrete trainer class.
+
+Training Flow (Single Dataset)
+------------------------------
+The orchestration implemented by :meth:`BaseModelTrainer.run` follows this
+sequence:
+
+1. Seed global RNGs.
+2. Prepare feature matrices (``prepare_features``).
+3. Prepare target matrices (``prepare_targets``) + masks (``prepare_masks``).
+4. Optional sample weight vector (``build_sample_weights``).
+5. Instantiate backend model (``build_model``) & train (``model.fit``).
+6. Generate predictions for train/validation/test.
+7. Compute metrics (``compute_metrics``).
+8. Persist artifacts (``save_artifacts``) if an output directory is supplied.
+
+Remote Payload Schema
+---------------------
+Each Ray worker returns ``(rel_key, payload)`` where ``payload`` contains:
+
+``metrics``
+    Nested split → metric dict (or ``None`` on failure).
+``meta``
+    Split/path metadata inferred from directory layout.
+``status``
+    ``'ok'``, ``'partial'``, ``'error'``, or ``'timeout'``.
+``start_time`` / ``end_time`` / ``duration_seconds``
+    Timing information in ISO format and seconds.
+
+Artifacts
+---------
+Concrete trainers typically write (under the supplied output directory):
+``model/`` (backend‑specific serialization), ``metrics.json``, ``figures/``
+containing plots, plus optional additional metadata (e.g. summary CSV for
+multi‑dataset runs).
 """
 
 from __future__ import annotations
@@ -200,9 +236,8 @@ def _train_single_dataset_remote(
     Returns
     -------
     tuple
-        A 2-tuple: (rel_key, payload). ``rel_key`` is a string identifier for
-        the dataset (typically a relative path). ``payload`` is a mapping
-        containing ``metrics`` and ``meta`` for the run.
+        ``(rel_key, payload)`` where ``payload`` includes keys ``metrics``,
+        ``meta`` (split metadata), ``status``, and timing fields.
     """
     hf_dir = Path(hf_path)
     root = Path(root_dir)
@@ -309,10 +344,10 @@ def _train_single_dataset_remote(
 class BaseModelTrainer(ABC):
     """Abstract base class for single-dataset training orchestration.
 
-    This class defines the minimal operation points a backend trainer must
-    provide to be usable by higher level orchestration. Concrete
-    implementations (e.g., XGBoostTrainer) should implement the hooks and
-    the :meth:`run` method which performs a full train-evaluate-save cycle.
+    Concrete implementations (e.g. XGBoostTrainer) supply backend‑specific
+    logic for feature/target extraction, model construction, metrics, and
+    artifact persistence. The :meth:`run` method (implemented here) performs
+    the end‑to‑end train‑evaluate‑save cycle.
 
     Attributes
     ----------
@@ -476,8 +511,9 @@ class BaseModelTrainer(ABC):
         Returns
         -------
         dict
-            Nested dict keyed by split name (``train``, ``validation``,
-            ``test``) containing metric dictionaries.
+            Nested dict keyed by split (``train``, ``validation``, ``test``)
+            with metric dictionaries; must include a ``macro`` section per
+            split for aggregation logic used downstream.
         """
 
         raise NotImplementedError
@@ -506,7 +542,8 @@ class BaseModelTrainer(ABC):
         dataset : LoadedDataset
             Dataset used for generating plots and saving metadata.
         extra_meta : dict, optional
-            Additional metadata to store alongside metrics.
+            Additional metadata to store alongside metrics (will be merged
+            with trainer‑specific info if desired).
         """
 
         raise NotImplementedError
@@ -548,8 +585,8 @@ class BaseModelTrainer(ABC):
         Returns
         -------
         dict
-            Nested metrics dictionary keyed by split; identical to the
-            prior API of :func:`train_xgb_models`.
+            Nested metrics dictionary keyed by split; each split should
+            expose at least a ``macro`` metrics dict.
         """
         # Default orchestration for typical trainers: prepare -> build -> fit -> predict -> metrics -> save
         # Seed global RNGs early for reproducibility

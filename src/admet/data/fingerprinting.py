@@ -1,8 +1,18 @@
-"""
-Molecular fingerprint generation and feature extraction.
+"""Molecular fingerprint generation and feature extraction utilities.
 
-This module provides utilities for calculating Morgan fingerprints and
-expanding them into individual feature columns for molecular datasets.
+This module provides a high-level class for generating RDKit Morgan
+fingerprints (optionally with chirality and count simulation) and expanding
+them into per-bit feature columns suitable for model training.
+
+Contents
+--------
+Classes
+    MorganFingerprintGenerator : Generates and inserts fingerprint features.
+
+Public API
+----------
+Only the class ``MorganFingerprintGenerator`` is exported; helper methods are
+kept private to avoid namespace clutter.
 """
 
 import logging
@@ -78,7 +88,7 @@ class MorganFingerprintGenerator:
             f"include_chirality={include_chirality}, fp_size={fp_size}"
         )
 
-    def _smiles_to_mol(self, smiles: str) -> Chem.Mol:
+    def _smiles_to_mol(self, smiles: str) -> Chem.Mol | None:
         """
         Convert SMILES string to RDKit molecule object.
 
@@ -189,3 +199,5 @@ class MorganFingerprintGenerator:
 
         logger.debug(f"Reordered columns: {len(reordered_cols)} total columns")
         return result_df[reordered_cols]
+
+    __all__ = ["MorganFingerprintGenerator"]

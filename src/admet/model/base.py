@@ -1,4 +1,27 @@
-"""Base model interface for ADMET multi-output regression (initial version)."""
+"""admet.model.base
+====================
+
+Core abstract interfaces and structural protocols for multi‑endpoint ADMET
+regression models.
+
+Design Goals
+------------
+* Keep trainer requirements minimal (fit, predict, save/load, config/meta).
+* Support both fingerprint and raw SMILES inputs (``input_type`` attribute).
+* Allow non‑``BaseModel`` classes (e.g. lightweight test doubles) through a
+    structural :class:`ModelProtocol`.
+
+Shape Conventions
+-----------------
+``X_*`` arrays: ``(N, F)`` where ``F`` is feature dimension (e.g., fingerprint bits).
+``Y_*`` arrays: ``(N, D)`` where ``D`` equals ``len(endpoints)``; missing targets
+represented by ``NaN`` with a parallel mask ``Y_mask`` of the same shape (1 = present).
+
+Early Stopping
+--------------
+Implementations may leverage ``early_stopping_rounds``; if unsupported, they
+should ignore the argument gracefully.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +31,15 @@ import numpy as np
 
 
 class BaseModel(ABC):
-    """Abstract base class for multi-output regression models."""
+    """Abstract base class for multi‑output regression models.
+
+    Attributes
+    ----------
+    endpoints : Sequence[str]
+        Ordered list of endpoint (target) names.
+    input_type : str
+        String identifier for expected input modality (``'fingerprint'`` or ``'smiles'``).
+    """
 
     endpoints: Sequence[str]
     input_type: str  # "fingerprint" | "smiles"
@@ -26,40 +57,100 @@ class BaseModel(ABC):
         sample_weight: np.ndarray | None = None,
         early_stopping_rounds: int | None = None,
     ) -> None:  # pragma: no cover - interface definition
-        """Train the model.
+        """Fit the model on training (and optional validation) data.
 
-        Y_mask: 1 where target present; 0 where missing.
-        If model trains per-endpoint, rows with missing endpoint may be dropped.
+        Parameters
+        ----------
+        X_train : numpy.ndarray
+            Feature matrix of shape ``(N_train, F)``.
+        Y_train : numpy.ndarray
+            Target matrix of shape ``(N_train, D)`` with ``NaN`` for missing labels.
+        Y_mask : numpy.ndarray
+            Mask matrix same shape as ``Y_train`` (1 = present, 0 = missing).
+        X_val : numpy.ndarray, optional
+            Validation feature matrix ``(N_val, F)``.
+        Y_val : numpy.ndarray, optional
+            Validation targets ``(N_val, D)`` with ``NaN`` placeholders.
+        Y_val_mask : numpy.ndarray, optional
+            Validation target mask.
+        sample_weight : numpy.ndarray, optional
+            Optional per‑sample weights for training rows (shape ``(N_train,)``).
+        early_stopping_rounds : int, optional
+            Backend‑specific early stopping patience; ignored if unsupported.
+
+        Raises
+        ------
+        ValueError
+            Implementations may raise if shapes/invariants are violated.
         """
 
     @abstractmethod
     def predict(self, X: np.ndarray) -> np.ndarray:  # pragma: no cover - interface
-        """Return predictions with shape (N, D) for all endpoints."""
+        """Generate predictions for all endpoints.
+
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Feature matrix ``(N, F)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Predicted values ``(N, D)`` aligned with ``self.endpoints``.
+        """
 
     @abstractmethod
     def save(self, path: str) -> None:  # pragma: no cover - interface
+        """Persist model artifacts to ``path``.
+
+        Parameters
+        ----------
+        path : str
+            Destination directory or file depending on backend.
+        """
         pass
 
     @classmethod
     @abstractmethod
     def load(cls, path: str) -> "BaseModel":  # pragma: no cover - interface
+        """Load a previously saved model from ``path``.
+
+        Parameters
+        ----------
+        path : str
+            Source path used by :meth:`save`.
+
+        Returns
+        -------
+        BaseModel
+            Instantiated model ready for inference.
+        """
         pass
 
     @abstractmethod
     def get_config(self) -> Dict[str, Any]:  # pragma: no cover - interface
+        """Return backend configuration / hyperparameters.
+
+        Returns
+        -------
+        dict
+            Serializable configuration for reproducibility.
+        """
         pass
 
     @abstractmethod
     def get_metadata(self) -> Dict[str, Any]:  # pragma: no cover - interface
+        """Return model metadata (e.g., training stats, version info)."""
         pass
 
 
 @runtime_checkable
 class ModelProtocol(Protocol):
-    """Structural protocol for models used by trainers.
+    """Structural protocol for trainer‑compatible models.
 
-    This protocol keeps the required surface small and allows non-BaseModel
-    conforming classes to be used in tests and future backends.
+    Provides a duck‑typed alternative to subclassing :class:`BaseModel`. Any
+    class implementing this surface can be consumed by training code. Shape
+    and semantic conventions match those documented for :class:`BaseModel`.
     """
 
     endpoints: Sequence[str]

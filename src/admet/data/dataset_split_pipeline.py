@@ -1,8 +1,28 @@
-"""
-Main script module for creating dataset splits with fingerprints.
+"""End-to-end dataset split pipeline with fingerprint generation & visuals.
 
-This module orchestrates the full workflow of loading data, calculating
-fingerprints, creating stratified splits, and generating visualizations.
+This module provides the ``DatasetSplitPipeline`` class which loads cleaned
+datasets, appends Morgan fingerprint features, creates temporal and stratified
+splits, persists HuggingFace ``DatasetDict`` objects, and generates coverage /
+size distribution visualizations via ``DatasetVisualizer``.
+
+Contents
+--------
+Classes
+    DatasetSplitPipeline : Orchestrates loading, fingerprinting, splitting & plotting.
+
+Functions
+    setup_logging : Lightweight logging configuration helper for CLI usage.
+
+Typical Workflow
+----------------
+>>> pipeline = DatasetSplitPipeline(base_data_dir)
+>>> pipeline.run(create_temporal=True, create_stratified=True)
+
+Notes
+-----
+The class stores intermediate datasets in-memory; large datasets may demand
+substantial RAM. Fingerprints are inserted near the front of the column list
+to maintain readability of target endpoints.
 """
 
 from pathlib import Path
@@ -94,7 +114,15 @@ class DatasetSplitPipeline:
         self.split_structure = {}
 
     def load_datasets(self) -> None:
-        """Load all configured datasets from CSV files."""
+        """Load all configured datasets from CSV files.
+
+        Raises
+        ------
+        ValueError
+            If no datasets are successfully loaded.
+        FileNotFoundError
+            If the base data directory is missing.
+        """
         logger.info("Loading datasets...")
 
         for quality, filename in self.DATASET_CONFIGS.items():
@@ -115,7 +143,7 @@ class DatasetSplitPipeline:
             raise ValueError("No datasets loaded successfully")
 
     def add_fingerprints(self) -> None:
-        """Calculate and add Morgan fingerprints to all datasets."""
+        """Calculate and add Morgan fingerprints to all loaded datasets."""
         logger.info("Calculating fingerprints for all datasets...")
 
         for name, df in self.datasets.items():
@@ -125,7 +153,13 @@ class DatasetSplitPipeline:
             )
 
     def create_temporal_split(self) -> None:
-        """Create and save a temporal split for high-quality dataset with visualizations."""
+        """Create and save a temporal split for high-quality dataset with visualizations.
+
+        The temporal split is created by sorting on a stable column and slicing
+        into train / validation / test according to configured percentages.
+        Saves HuggingFace datasets immediately and generates endpoint coverage
+        for the temporal grouping.
+        """
         logger.info("Creating and saving temporal split for high-quality dataset...")
 
         config = self.TEMPORAL_SPLIT_CONFIG
@@ -192,9 +226,8 @@ class DatasetSplitPipeline:
     def create_stratified_splits_with_visualization(self) -> None:
         """Create and save stratified k-fold splits with concurrent visualization.
 
-        This method combines split creation and visualization into a single process
-        so that visualizations are generated immediately after each split is created,
-        rather than after all splits are complete.
+        Visualizations are generated alongside split creation rather than as a
+        separate post-processing step.
         """
         logger.info("Creating stratified k-fold splits with concurrent visualization...")
 
@@ -238,7 +271,7 @@ class DatasetSplitPipeline:
         logger.info("Pipeline completed successfully!")
 
 
-def setup_logging(level=logging.DEBUG) -> logging.Logger:
+def setup_logging(level: int = logging.DEBUG) -> logging.Logger:
     """
     Configure logging for the pipeline.
 
@@ -263,3 +296,6 @@ def setup_logging(level=logging.DEBUG) -> logging.Logger:
     logger.setLevel(level)
 
     return logger
+
+
+__all__ = ["DatasetSplitPipeline", "setup_logging"]

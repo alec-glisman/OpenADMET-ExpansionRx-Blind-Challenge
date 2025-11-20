@@ -1,4 +1,12 @@
-"""OpenADMET CLI application."""
+"""
+OpenADMET CLI Application
+=========================
+
+Command-line interface for OpenADMET challenge tools and utilities.
+
+.. module:: admet.cli
+
+"""
 
 import typer
 
@@ -51,6 +59,8 @@ split_app = typer.Typer(help="Dataset splitting commands.")
 split_app.command()(split_module.datasets)
 app.add_typer(split_app, name="split")
 
+
+__all__ = ["app"]
 
 if __name__ == "__main__":  # pragma: no cover
     app()

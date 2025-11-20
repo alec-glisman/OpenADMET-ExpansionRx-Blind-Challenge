@@ -21,6 +21,13 @@ from admet.model.base import BaseModel
 # Base minimal model used by stubs
 # ---------------------------------------------------------------------------
 class _MinimalModel(BaseModel):
+    """Extremely small stand-in model used by trainer stubs.
+
+    Produces all-zero predictions for the requested endpoints and stores
+    only the endpoint list. Persistence methods are no-ops; configuration
+    and metadata are intentionally empty.
+    """
+
     def __init__(self, endpoints: List[str]):
         self.endpoints = list(endpoints)
 
@@ -47,13 +54,18 @@ class _MinimalModel(BaseModel):
 # ---------------------------------------------------------------------------
 # Shared helper to build masks
 # ---------------------------------------------------------------------------
-_def_mask = lambda arr: np.ones_like(arr, dtype=bool)
 
 
 # ---------------------------------------------------------------------------
 # Failing trainer: raises during run to force error status
 # ---------------------------------------------------------------------------
 class FailingTrainer(BaseModelTrainer):
+    """Trainer that raises during ``run`` to exercise error paths.
+
+    Used to verify Ray orchestration correctly captures failures and
+    returns a status payload with ``error`` classification.
+    """
+
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
         super().__init__(**kwargs)
@@ -106,6 +118,12 @@ class FailingTrainer(BaseModelTrainer):
 # Trivial trainer: returns empty macro dicts quickly
 # ---------------------------------------------------------------------------
 class TrivialTrainer(BaseModelTrainer):
+    """Trainer returning empty metrics without performing a fit.
+
+    Exercises the success path while producing a minimal metrics structure
+    used in status classification tests.
+    """
+
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
         super().__init__(**kwargs)
@@ -159,6 +177,12 @@ class TrivialTrainer(BaseModelTrainer):
 # Slow trainer: sleeps to trigger timeout
 # ---------------------------------------------------------------------------
 class SlowTrainer(BaseModelTrainer):
+    """Trainer that sleeps briefly to simulate latency / timeout.
+
+    Introduces a small delay so test cases can assert timeout handling
+    behavior in Ray worker execution.
+    """
+
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
         super().__init__(**kwargs)
@@ -206,6 +230,12 @@ class SlowTrainer(BaseModelTrainer):
 # Partial trainer: omit validation split to force 'partial' status
 # ---------------------------------------------------------------------------
 class PartialTrainer(BaseModelTrainer):
+    """Trainer that omits validation metrics to produce a 'partial' status.
+
+    Returns metrics for train and test splits only, enabling tests to
+    confirm that missing expected splits yields a partial classification.
+    """
+
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
         super().__init__(**kwargs)
@@ -253,6 +283,12 @@ class PartialTrainer(BaseModelTrainer):
 # Ray multi-dataset wrappers
 # ---------------------------------------------------------------------------
 class MinimalRayTrainer(BaseRayMultiDatasetTrainer):
+    """Ray multi-dataset trainer stub performing only path discovery.
+
+    Discovers datasets and computes output directory layout without
+    executing any model training logic.
+    """
+
     def discover_datasets(self, root: Path):
         return [p for p in root.rglob("hf_dataset") if p.is_dir()]
 
@@ -264,6 +300,12 @@ class MinimalRayTrainer(BaseRayMultiDatasetTrainer):
 
 
 class SlowRayTrainer(BaseRayMultiDatasetTrainer):
+    """Ray trainer stub used for timeout / latency scenarios.
+
+    Shares logic with :class:`MinimalRayTrainer` but identified separately
+    in tests for classification purposes.
+    """
+
     def discover_datasets(self, root: Path):
         return [p for p in root.rglob("hf_dataset") if p.is_dir()]
 
@@ -275,6 +317,12 @@ class SlowRayTrainer(BaseRayMultiDatasetTrainer):
 
 
 class PartialRayTrainer(BaseRayMultiDatasetTrainer):
+    """Ray trainer stub producing partial artifact directory layout.
+
+    Used to validate behavior when expected outputs or splits are missing
+    compared to the full multi-dataset training pipeline.
+    """
+
     def discover_datasets(self, root: Path):
         return [p for p in root.rglob("hf_dataset") if p.is_dir()]
 

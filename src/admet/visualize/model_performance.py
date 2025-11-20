@@ -1,7 +1,29 @@
-"""Visualization utilities for XGBoost model performance.
+"""admet.visualize.model_performance
+====================================
 
-Implements parity plots (per endpoint across splits) and grouped bar charts for
-R^2 and Spearman rho^2 across train/val/test splits in log and linear spaces.
+Visualization utilities for multi‑endpoint model performance.
+
+Provides:
+
+* Per‑endpoint parity plots across ``train``/``validation``/``test`` splits
+    in log10 and (optionally transformed) linear spaces.
+* Grouped bar charts for metrics (MAE, RMSE, R², Pearson r², Spearman ρ²,
+    Kendall τ) per endpoint and split.
+
+Input Data Schema
+-----------------
+Functions expect dictionaries keyed by split name containing 2‑D numpy arrays
+with shape ``(N_samples, N_endpoints)`` plus a parallel boolean/int mask of the
+same shape indicating presence (1/True) of a target.
+
+Assumptions
+-----------
+* Endpoints are ordered consistently across all arrays.
+* Log space values are log10‑transformed for all endpoints except ``LogD``
+    which is left linear; conversions to linear space exponentiate non‑``LogD``
+    columns.
+* Metric calculations reuse :func:`admet.evaluate.metrics.compute_metrics`
+    ensuring consistency with training/evaluation pipelines.
 """
 
 from __future__ import annotations
@@ -18,13 +40,19 @@ from admet.evaluate import metrics as eval_metrics
 
 
 def to_linear(values: np.ndarray, endpoint: str) -> np.ndarray:
-    """Convert log10-values to linear for all endpoints except `LogD`.
+    """Convert log10 values to linear space for non-``LogD`` endpoints.
 
-    Args:
-        values: Array with shape (n_samples,). Values expected in log10 form.
-        endpoint: Endpoint name.
-    Returns:
-        Linear-space values as numpy array.
+    Parameters
+    ----------
+    values : numpy.ndarray
+        1-D array of log10 values.
+    endpoint : str
+        Endpoint name (``LogD`` is exempt from exponentiation).
+
+    Returns
+    -------
+    numpy.ndarray
+        Transformed 1-D array (unchanged for ``LogD``).
     """
     if endpoint == "LogD":
         return values
@@ -32,6 +60,23 @@ def to_linear(values: np.ndarray, endpoint: str) -> np.ndarray:
 
 
 def _apply_transform_space(y: np.ndarray, endpoints: Sequence[str], space: str) -> np.ndarray:
+    """Return array in requested plotting space.
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Array of shape ``(N, D)`` in log space.
+    endpoints : Sequence[str]
+        Endpoint names ordered along ``D`` axis.
+    space : str
+        Either ``'log'`` or ``'linear'``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Transformed array (copy); exponentiated for non‑``LogD`` endpoints
+        when ``space='linear'``.
+    """
     if space == "log":
         return y
     out = y.copy()
@@ -44,16 +89,42 @@ def _apply_transform_space(y: np.ndarray, endpoints: Sequence[str], space: str) 
 def _masked_arrays(
     y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, j: int
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Extract valid true/pred arrays for endpoint index ``j``.
+
+    Parameters
+    ----------
+    y_true, y_pred : numpy.ndarray
+        Arrays with shape ``(N, D)``.
+    mask : numpy.ndarray
+        Presence mask (1/True -> present) same shape.
+    j : int
+        Endpoint column index.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(y_true_valid, y_pred_valid)`` 1-D arrays.
+    """
     valid = mask[:, j].astype(bool)
     return y_true[valid, j], y_pred[valid, j]
 
 
 def _compute_stats(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
-    """Compute display statistics for a single endpoint column.
+    """Compute metrics for a single endpoint column.
 
-    Uses `compute_metrics` for MAE, RMSE, and R² to ensure parity with the
-    evaluation pipeline. Spearman rho (not squared) is returned via
-    `scipy.stats.spearmanr`.
+    Reuses :func:`admet.evaluate.metrics.compute_metrics` (called on a single
+    pseudo-endpoint) to ensure numeric parity with training evaluation.
+
+    Parameters
+    ----------
+    y_true, y_pred : numpy.ndarray
+        1-D arrays of true and predicted values.
+
+    Returns
+    -------
+    dict
+        Keys: ``mae``, ``rmse``, ``R2``, ``pearson_r2``, ``spearman_rho2``,
+        ``kendall_tau`` (NaNs if insufficient data).
     """
     y_true = np.asarray(y_true).ravel()
     y_pred = np.asarray(y_pred).ravel()
@@ -93,9 +164,24 @@ def _plot_parity_worker(
     save_dir: Path,
     dpi: int = 600,
 ) -> None:
-    """Top-level worker that draws a parity plot for a single endpoint.
+    """Render a parity plot for a single endpoint.
 
-    This function is picklable and suitable for running in a multi-process pool.
+    Picklable worker enabling multi-process execution.
+
+    Parameters
+    ----------
+    j : int
+        Endpoint index.
+    ep : str
+        Endpoint name.
+    y_true_dict, y_pred_dict, mask_dict : dict[str, numpy.ndarray]
+        Split keyed arrays of shape ``(N, D)``.
+    space : str
+        Plotting space (``'log'`` or ``'linear'``).
+    save_dir : pathlib.Path
+        Directory to write figure PNG.
+    dpi : int, optional
+        Render DPI (default 600).
     """
     splits = ["train", "validation", "test"]
     title_space = "(log10)" if space == "log" else "(linear)"
@@ -209,10 +295,22 @@ def _metric_plot_worker(
     space: str,
     dpi: int = 600,
 ) -> None:
-    """Worker that creates a grouped bar chart for a single metric.
+    """Render a grouped bar chart for a single metric across splits.
 
-    This function is module-scoped and picklable; it may be executed in a
-    separate process using ProcessPoolExecutor.
+    Parameters
+    ----------
+    metric_key : str
+        Metric name (e.g. ``'R2'``).
+    per_split_metrics : dict
+        Mapping split -> endpoint -> metric dict.
+    endpoints : Sequence[str]
+        Endpoint names.
+    save_path : pathlib.Path
+        Output PNG file path.
+    space : str
+        Plotting space label for title.
+    dpi : int, optional
+        Figure DPI.
     """
     splits = ["train", "validation", "test"]
     labels = [ep.replace(" ", "\n") for ep in endpoints]
@@ -278,13 +376,22 @@ def plot_parity_grid(
     dpi: int = 600,
     n_jobs: int = 1,
 ) -> None:
-    """Make per-endpoint parity figures across train/val/test and save them as PNG.
+    """Generate and persist parity plots for each endpoint.
 
-    Parameters:
-        y_true_dict: {split: array (n_samples, n_endpoints)}
-        y_pred_dict: {split: array (n_samples, n_endpoints)}
-        mask_dict: {split: mask array}
-        space: "log" or "linear"
+    Parameters
+    ----------
+    y_true_dict, y_pred_dict, mask_dict : dict[str, numpy.ndarray]
+        Split keyed arrays with shape ``(N, D)``.
+    endpoints : Sequence[str]
+        Endpoint names.
+    space : str
+        ``'log'`` or ``'linear'``.
+    save_dir : pathlib.Path
+        Directory to write PNG files (created if missing).
+    dpi : int, optional
+        Figure DPI (default 600).
+    n_jobs : int, optional
+        Parallel processes; values <=1 run sequentially.
     """
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -321,9 +428,23 @@ def plot_metric_bars(
     dpi: int = 600,
     n_jobs: int = 1,
 ) -> None:
-    """Plot grouped bar charts for R^2 and Spearman rho^2 across endpoints and splits.
+    """Generate grouped bar charts for multiple metrics.
 
-    save_path_{r2,spr2}: file-like Path to save.
+    Parameters
+    ----------
+    y_true_dict, y_pred_dict, mask_dict : dict[str, numpy.ndarray]
+        Split keyed arrays (``(N, D)``).
+    endpoints : Sequence[str]
+        Endpoint names.
+    space : str
+        Plot space (``'log'`` or ``'linear'``) used for transformations.
+    save_path_r2, save_path_spr2 : pathlib.Path
+        Representative output paths; all metric plots saved adjacent to
+        ``save_path_r2`` directory.
+    dpi : int, optional
+        DPI for all figures.
+    n_jobs : int, optional
+        Parallelism level for metric plotting (ProcessPoolExecutor).
     """
     save_path_r2 = Path(save_path_r2)
     save_path_r2.parent.mkdir(parents=True, exist_ok=True)
@@ -345,11 +466,6 @@ def plot_metric_bars(
             y_t_plot = y_t
             y_p_plot = y_p
         per_split_metrics[s] = eval_metrics.compute_metrics(y_t_plot, y_p_plot, mask, endpoints)
-
-    # Convert lists to arrays for plotting
-    labels = [ep.replace(" ", "\n") for ep in endpoints]
-    x = np.arange(len(endpoints))
-    width = 0.2
 
     metrics_to_plot = ["mae", "rmse", "R2", "pearson_r2", "spearman_rho2", "kendall_tau"]
 

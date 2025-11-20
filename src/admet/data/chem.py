@@ -1,8 +1,41 @@
-"""Cheminformatics utility functions.
+"""admet.data.chem
+===================
 
-This module provides small, reusable helpers used in notebooks and scripts for
-SMILES canonicalization, parallel processing, and computing common molecular
-properties. RDKit is used for molecule handling.
+Cheminformatics utility helpers built on top of RDKit.
+
+This module centralises lightweight, reusable functionality for:
+
+* Canonicalising SMILES strings with salt removal (``canonicalize_smiles``)
+* Parallel canonicalisation over an iterable (``parallel_canonicalize_smiles``)
+* Computing common physico‑chemical properties (``compute_molecular_properties``)
+
+The functions are intentionally defensive: parsing failures, empty molecules
+after salt stripping, and unexpected RDKit errors are converted into ``None``
+entries (or skipped rows) instead of raising, so that downstream batch
+processing code can proceed.
+
+Examples
+--------
+Canonicalise a list of SMILES and compute properties::
+
+    from admet.data.chem import parallel_canonicalize_smiles, compute_molecular_properties
+
+    raw = ["CC(=O)Oc1ccccc1C(=O)O", "invalid", "C1=CC=CN=C1"]
+    clean = parallel_canonicalize_smiles(raw)
+    props_df = compute_molecular_properties([s for s in clean if s])
+    print(props_df.head())
+
+Threading Model
+---------------
+``parallel_canonicalize_smiles`` uses a thread pool (rather than processes)
+because RDKit releases the GIL in many descriptor / parsing operations, and
+thread pools have lower overhead for the short tasks performed here.
+
+RDKit Dependency
+----------------
+All functionality relies on RDKit. Minimal attribute access via ``getattr`` is
+used to avoid mypy import-time stubs mismatches and to make monkey‑patching
+easier during certain types of testing.
 """
 
 from __future__ import annotations
@@ -22,20 +55,30 @@ _SALT_REMOVER = SaltRemover.SaltRemover()
 
 
 def canonicalize_smiles(smiles: str, isomeric: bool = True) -> Optional[str]:
-    """Convert a SMILES string to canonical form with defensive checks.
+    """Canonicalise a single SMILES string with salt removal.
+
+    The function performs parsing, removes salts, checks for an empty
+    molecule, and converts back to a canonical SMILES string. Failures are
+    logged at DEBUG level and returned as ``None``.
 
     Parameters
     ----------
     smiles : str
-        Input SMILES string.
+        Input raw SMILES string; ``None`` returns ``None`` immediately.
     isomeric : bool, optional
-        Whether to keep isomeric information, by default True.
+        Preserve isomeric information (``isomericSmiles``), by default ``True``.
 
     Returns
     -------
     Optional[str]
-        Canonical SMILES string, or None if parsing fails or results in an
-        empty molecule.
+        Canonical SMILES string or ``None`` if parsing / cleaning fails or the
+        molecule becomes empty after salt stripping.
+
+    Raises
+    ------
+    None
+        All errors are caught and converted to ``None``; unexpected RDKit
+        exceptions during salt removal are logged and suppressed.
     """
     if smiles is None:
         return None
@@ -63,24 +106,30 @@ def canonicalize_smiles(smiles: str, isomeric: bool = True) -> Optional[str]:
 def parallel_canonicalize_smiles(
     smiles_list: Iterable, isomeric: bool = True, max_workers: int | None = None
 ) -> List[Optional[str]]:
-    """Canonicalize a list/iterable of SMILES in parallel.
+    """Canonicalise many SMILES strings concurrently.
 
-    The output order is stable and corresponds to the input order. Errors are
-    logged and result in None for the corresponding element.
+    A thread pool is used with a heuristic for worker count (``min(32, cpu+4)``)
+    similar to the default used by ``concurrent.futures``. Ordering of the
+    output list matches the input ordering exactly.
 
     Parameters
     ----------
     smiles_list : Iterable
-        Iterable of SMILES to canonicalize.
+        Iterable of raw SMILES strings.
     isomeric : bool, optional
-        Preserve isomeric information, by default True.
+        Preserve isomeric information, by default ``True``.
     max_workers : int | None, optional
-        Maximum worker threads. If None, a value based on CPU count is used.
+        Explicit thread count; ``None`` applies an automatic heuristic.
 
     Returns
     -------
     List[Optional[str]]
-        List of canonical SMILES with None where canonicalization failed.
+        Canonical SMILES strings, with ``None`` for entries that failed.
+
+    Raises
+    ------
+    None
+        All underlying errors are caught; per‑item failures produce ``None``.
     """
     if smiles_list is None:
         return []
@@ -133,18 +182,26 @@ def parallel_canonicalize_smiles(
 
 
 def compute_molecular_properties(smiles: Iterable[str]) -> pd.DataFrame:
-    """Compute common molecular properties for an iterable of SMILES strings.
+    """Compute common physico‑chemical properties for SMILES strings.
+
+    Invalid SMILES rows are skipped silently. The function returns a tidy
+    DataFrame suitable for merging back onto an existing table by SMILES.
 
     Parameters
     ----------
     smiles : Iterable[str]
-        Iterable of SMILES strings.
+        Iterable of (possibly repeated) SMILES strings.
 
     Returns
     -------
     pandas.DataFrame
-        DataFrame with columns: [SMILES, MW, TPSA, HBA, HBD, RotBonds, LogP,
-        NumHeavyAtoms, NumRings]. Invalid SMILES are skipped.
+        DataFrame with columns ``[SMILES, MW, TPSA, HBA, HBD, RotBonds, LogP,
+        NumHeavyAtoms, NumRings]``.
+
+    Raises
+    ------
+    None
+        Parsing errors are suppressed; problematic SMILES are omitted.
     """
     rows: list[dict] = []
     series = pd.Series(list(smiles)).dropna().astype(str)

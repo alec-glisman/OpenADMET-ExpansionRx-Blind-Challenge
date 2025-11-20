@@ -499,6 +499,86 @@ def test_build_sample_weights_missing_dataset_column_raises(tmp_path: Path):
         trainer.build_sample_weights(ds, {"default": 1.0, "dataset_a": 2.0})
 
 
+def test_build_sample_weights_explicit_default(tmp_path: Path):
+    data_dir = tmp_path / "hf_dataset"
+    data_dir.mkdir(parents=True)
+    _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
+    ds = load_dataset(data_dir, n_fingerprint_bits=16)
+    # Modify Dataset column to have some unknown labels
+    ds.train.loc[0:4, "Dataset"] = "unknown_label"
+    mapping = {"dataset_a": 2.0, "default": 1.0}
+    trainer = XGBoostTrainer(
+        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+    )
+    sw = trainer.build_sample_weights(ds, mapping)
+    assert sw is not None
+    assert sw.shape[0] == len(ds.train)
+    # First 5 should be default 1.0, rest 2.0
+    assert all(sw[:5] == 1.0)
+    assert all(sw[5:] == 2.0)
+
+
+def test_build_sample_weights_unknown_labels(tmp_path: Path):
+    data_dir = tmp_path / "hf_dataset"
+    data_dir.mkdir(parents=True)
+    _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
+    ds = load_dataset(data_dir, n_fingerprint_bits=16)
+    # Mapping has labels not in data, but data has labels not in mapping
+    mapping = {"dataset_a": 2.0, "unknown_in_mapping": 3.0, "default": 1.0}
+    trainer = XGBoostTrainer(
+        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+    )
+    sw = trainer.build_sample_weights(ds, mapping)
+    assert sw is not None
+    assert sw.shape[0] == len(ds.train)
+    # All should be 2.0 since all "Dataset" is "dataset_a"
+    assert all(sw == 2.0)
+
+
+def test_build_sample_weights_no_mapping(tmp_path: Path):
+    data_dir = tmp_path / "hf_dataset"
+    data_dir.mkdir(parents=True)
+    _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
+    ds = load_dataset(data_dir, n_fingerprint_bits=16)
+    trainer = XGBoostTrainer(
+        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+    )
+    sw = trainer.build_sample_weights(ds, None)
+    assert sw is None
+    sw_empty = trainer.build_sample_weights(ds, {})
+    assert sw_empty is None
+
+
+def test_prepare_features_missing_fingerprint_columns_raises(tmp_path: Path):
+    data_dir = tmp_path / "hf_dataset"
+    data_dir.mkdir(parents=True)
+    _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
+    dataset = load_dataset(data_dir, n_fingerprint_bits=16)
+    # Add non-existing fingerprint columns
+    dataset.fingerprint_cols = ["missing_fp1", "missing_fp2"] + list(dataset.fingerprint_cols)
+
+    trainer = XGBoostTrainer(
+        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+    )
+    with pytest.raises(ValueError, match="Missing fingerprint columns"):
+        trainer.prepare_features(dataset)
+
+
+def test_prepare_targets_missing_endpoint_columns_raises(tmp_path: Path):
+    data_dir = tmp_path / "hf_dataset"
+    data_dir.mkdir(parents=True)
+    _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
+    dataset = load_dataset(data_dir, n_fingerprint_bits=16)
+    # Add non-existing endpoint columns
+    dataset.endpoints = ["missing_ep1", "missing_ep2"] + list(dataset.endpoints)
+
+    trainer = XGBoostTrainer(
+        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+    )
+    with pytest.raises(ValueError, match="Missing endpoint columns"):
+        trainer.prepare_targets(dataset)
+
+
 __all__ = [
     "test_infer_split_metadata_parses_cluster_split_fold",
     "test_train_xgb_models_runs_end_to_end",

@@ -1,7 +1,14 @@
-"""Utility helpers for reproducibility, seeding, and small conveniences.
+"""General Utilities
+====================
 
-This module centralizes functions that are cross-cutting across subpackages
-but too small to deserve their own module.
+Utility helpers for reproducibility, seeding, and small conveniences.
+
+Contents
+--------
+Functions
+^^^^^^^^^
+* :func:`set_global_seeds` – Seed Python/NumPy/Torch RNGs for reproducibility.
+* :func:`configure_logging` – Re-export of :func:`admet.logging.configure_logging`.
 """
 
 from __future__ import annotations
@@ -10,23 +17,32 @@ import os
 import random
 from typing import Optional
 
+# Re-export placed near top to satisfy lint rule about import grouping.
+# Removed previous re-export of configure_logging; import no longer needed.
+
 
 def set_global_seeds(seed: Optional[int]) -> None:
-    """Seed Python, NumPy, Torch (if available) RNGs for reproducibility.
+    """Seed common RNGs for reproducibility.
+
+    Applies the seed to Python's ``random`` module, NumPy, and (if available)
+    PyTorch CPU/CUDA RNGs. Also sets ``PYTHONHASHSEED`` for deterministic
+    hashing and configures CuDNN deterministic behavior where possible.
 
     Parameters
     ----------
-    seed : Optional[int]
-        Seed to apply. If ``None``, this function is a no-op.
+    seed : int or None
+        Seed to apply. If ``None`` this function is a no-op.
+
+    Returns
+    -------
+    None
+        This function mutates global RNG state and returns nothing.
 
     Notes
     -----
-    - Sets ``PYTHONHASHSEED`` for deterministic hashing.
-    - Seeds Python's ``random`` and NumPy. If PyTorch is installed, also seeds
-      CPU and CUDA RNGs and enables deterministic CuDNN behavior.
-    - Tree-based libraries like XGBoost/LightGBM require passing the seed via
-      their estimators (``random_state``/``seed``). This function does not
-      override those parameters; use the returned seed value there.
+    Tree-based libraries (XGBoost, LightGBM) still require an explicit
+    ``seed``/``random_state`` in their estimator parameters; this utility
+    does not override those settings.
     """
     if seed is None:
         return
@@ -55,6 +71,4 @@ def set_global_seeds(seed: Optional[int]) -> None:
         pass
 
 
-from admet.logging import configure_logging  # re-export for backwards compatibility
-
-__all__ = ["set_global_seeds", "configure_logging"]
+__all__ = ["set_global_seeds"]

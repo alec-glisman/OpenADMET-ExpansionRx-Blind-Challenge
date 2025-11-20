@@ -1,8 +1,49 @@
-"""Dataset loading and validation utilities (initial XGBoost-focused implementation).
+"""admet.data.load
+===================
 
-This is a minimal implementation to support early XGBoost model training. It
-will be extended later to fully match the planning document for multiple
-splits/folds and HF datasets.
+Dataset loading, schema validation, and convenience helpers for Hugging Face
+``DatasetDict`` objects saved with ``save_to_disk``.
+
+The current implementation targets the initial XGBoost training pipeline and
+expects three splits: ``train``, ``validation``, ``test``. Each split is
+converted to a ``pandas.DataFrame`` and validated for required columns:
+
+Base Columns
+------------
+``['Molecule Name', 'SMILES', 'Dataset']``
+
+Fingerprint Columns
+-------------------
+Generated Morgan fingerprint bit columns named ``Morgan_FP_{i}`` for
+``i in [0, n_bits)``. A reduced bit length may be used in tests to decrease
+resource usage.
+
+Endpoint Columns
+----------------
+Default endpoints (ADMET properties) included by ``ENDPOINT_COLUMNS``. Custom
+endpoint subsets may be provided when loading.
+
+Dataclass Container
+-------------------
+The :class:`LoadedDataset` dataclass provides split DataFrames plus endpoint
+and fingerprint column lists to avoid repeatedly passing separate values.
+
+Examples
+--------
+Load a dataset and inspect shapes::
+
+    from pathlib import Path
+    from admet.data.load import load_dataset
+
+    ds = load_dataset(Path("/path/to/hf_dataset"), n_fingerprint_bits=256)
+    print(ds.train.shape, ds.val.shape, ds.test.shape)
+    print(ds.endpoints)
+
+Schema Validation Failures
+--------------------------
+Validation functions raise ``ValueError`` with diagnostic information.
+Endpoint columns may contain NaNs (missing labels); numeric dtype is required
+for non-null values.
 """
 
 from __future__ import annotations
@@ -38,17 +79,39 @@ ENDPOINT_COLUMNS: Sequence[str] = [
 
 
 def expected_fingerprint_columns(n_bits: int = 2046) -> List[str]:  # small for tests
-    """Return list of fingerprint column names.
+    """Return ordered Morgan fingerprint column names.
 
-    NOTE: Full implementation will use 2048 bits; a reduced size is used for
-    unit tests to reduce memory/time.
+    Parameters
+    ----------
+    n_bits : int, optional
+        Number of fingerprint bits (columns). Tests may override with a
+        smaller value; production defaults to ``2048``.
+
+    Returns
+    -------
+    list of str
+        Column names in the form ``Morgan_FP_{i}``.
     """
     return [f"Morgan_FP_{i}" for i in range(n_bits)]
 
 
 @dataclass
 class LoadedDataset:
-    """Container for loaded dataset splits."""
+    """Container for loaded dataset splits and metadata.
+
+    Attributes
+    ----------
+    train : pandas.DataFrame
+        Training split with required base, fingerprint, and endpoint columns.
+    val : pandas.DataFrame
+        Validation split.
+    test : pandas.DataFrame
+        Test split.
+    endpoints : Sequence[str]
+        Endpoint (target) column names included across all splits.
+    fingerprint_cols : Sequence[str]
+        Ordered list of fingerprint bit column names.
+    """
 
     train: pd.DataFrame
     val: pd.DataFrame
@@ -62,7 +125,23 @@ def validate_dataset_schema(
     fingerprint_cols: Sequence[str],
     endpoints: Sequence[str],
 ) -> None:
-    """Validate required columns and types. Raises ValueError on failure."""
+    """Validate dataset columns and basic endpoint dtypes.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame to validate.
+    fingerprint_cols : Sequence[str]
+        Expected fingerprint bit columns.
+    endpoints : Sequence[str]
+        Expected endpoint (target) columns.
+
+    Raises
+    ------
+    ValueError
+        If base, fingerprint, or endpoint columns are missing, or endpoints
+        contain non-numeric dtypes (excluding NaNs).
+    """
     missing = [c for c in REQUIRED_BASE_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required base columns: {missing}. Found: {df.columns.tolist()}")
@@ -91,11 +170,26 @@ def load_dataset_from_hf(
     endpoints: Optional[Sequence[str]] = None,
     n_fingerprint_bits: int = 2048,
 ) -> LoadedDataset:
-    """Load a Hugging Face DatasetDict saved with save_to_disk.
+    """Load and validate a Hugging Face ``DatasetDict`` from disk.
 
-    Expects a directory containing a serialized DatasetDict with keys
-    'train', 'validation', and 'test'. Each split is converted to a
-    pandas.DataFrame and validated.
+    Parameters
+    ----------
+    root : pathlib.Path
+        Directory containing a serialized ``DatasetDict`` (``save_to_disk``).
+    endpoints : Sequence[str], optional
+        Override endpoint columns (defaults to ``ENDPOINT_COLUMNS``).
+    n_fingerprint_bits : int, optional
+        Number of fingerprint bit columns; default ``2048``.
+
+    Returns
+    -------
+    LoadedDataset
+        Dataclass with validated splits and column metadata.
+
+    Raises
+    ------
+    ValueError
+        If required splits are missing or schema validation fails.
     """
     dset = load_from_disk(str(root))
 
@@ -133,15 +227,43 @@ def load_dataset(
     endpoints: Optional[Sequence[str]] = None,
     n_fingerprint_bits: int = 2048,
 ) -> LoadedDataset:
-    """Load train/validation/test splits from a saved Hugging Face DatasetDict.
+    """Public wrapper to load a Hugging Face dataset splits directory.
 
-    Expected directory containing DatasetDict with splits: 'train', 'validation', 'test'.
+    Parameters
+    ----------
+    root : pathlib.Path
+        Directory containing a saved ``DatasetDict``.
+    endpoints : Sequence[str], optional
+        Subset of endpoint columns to retain.
+    n_fingerprint_bits : int, optional
+        Fingerprint bit length (affects expected columns).
+
+    Returns
+    -------
+    LoadedDataset
+        Loaded splits and metadata.
     """
     return load_dataset_from_hf(root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
 
 
 def load_blinded_dataset(path: Path) -> pd.DataFrame:
-    """Load blinded test CSV containing Molecule Name + SMILES only."""
+    """Load blinded test CSV with identifier and structure only.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        CSV path containing required columns ``['Molecule Name', 'SMILES']``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame restricted to provided columns (additional cols retained).
+
+    Raises
+    ------
+    ValueError
+        If required columns are missing.
+    """
     df = pd.read_csv(path)
     for col in ["Molecule Name", "SMILES"]:
         if col not in df.columns:
@@ -153,7 +275,20 @@ def iter_splits(
     split_ids: Sequence[int],
     fold_ids: Optional[Sequence[int]] = None,
 ) -> Iterable[Tuple[int, Optional[int]]]:
-    """Yield (split_id, fold_id) pairs. Initial simple implementation (no nesting)."""
+    """Iterate over (split_id, fold_id) pairs.
+
+    Parameters
+    ----------
+    split_ids : Sequence[int]
+        Split identifiers (e.g., ``[0, 1, 2]``).
+    fold_ids : Sequence[int], optional
+        Optional fold identifiers; if omitted yields ``(split_id, None)``.
+
+    Yields
+    ------
+    tuple[int, Optional[int]]
+        Pair containing a split id and optional fold id.
+    """
     if not split_ids:
         yield from []
     if not fold_ids:

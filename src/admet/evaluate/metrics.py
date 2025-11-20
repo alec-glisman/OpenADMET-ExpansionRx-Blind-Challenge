@@ -1,6 +1,18 @@
 """Metric computations for multi-output regression with masking.
 
-Supports log-space and linear-space evaluation (10^x for non-LogD).
+Supports log-space and linear-space evaluation (``10^x`` for non-``LogD`` endpoints).
+
+Contents
+--------
+Functions
+    compute_metrics : Per-endpoint and macro metrics in native (log) space.
+    compute_metrics_log_and_linear : Combined log + linear space metrics.
+
+Types
+    EndpointMetrics : TypedDict of per-endpoint metric values.
+    SplitMetrics : Mapping endpoint -> metrics plus macro aggregate.
+    EndpointSpaceMetrics : Mapping metric space -> per-endpoint metrics.
+    AllMetrics : Full run-level structure across splits and spaces.
 """
 
 from __future__ import annotations
@@ -50,7 +62,22 @@ def compute_metrics(
 ) -> SplitMetrics:
     """Compute per-endpoint metrics (log space) and macro averages.
 
-    Returns dict: { endpoint: { mae, rmse, r2 }, "macro": {...} }
+    Parameters
+    ----------
+    y_true : np.ndarray
+        True target values with shape ``(n_samples, n_endpoints)``.
+    y_pred : np.ndarray
+        Predicted target values with same shape as ``y_true``.
+    mask : np.ndarray
+        Integer or boolean mask where non-zero / True indicates a valid
+        observation per endpoint.
+    endpoints : Sequence[str]
+        Ordered list of endpoint names corresponding to columns in arrays.
+
+    Returns
+    -------
+    SplitMetrics
+        Mapping from endpoint name to metric dict plus a "macro" aggregate.
     """
     results: Dict[str, Dict[str, float]] = {}
 
@@ -106,7 +133,21 @@ def compute_metrics_log_and_linear(
 ) -> Dict[str, EndpointSpaceMetrics]:
     """Compute metrics in both log space and linear space.
 
-    Output structure: { endpoint: { "log": {...}, "linear": {...} }, "macro": {...} }
+    Parameters
+    ----------
+    y_true : np.ndarray
+        True target values (log space) shape ``(n_samples, n_endpoints)``.
+    y_pred : np.ndarray
+        Predicted target values (log space) shape matching ``y_true``.
+    mask : np.ndarray
+        Validity mask (integer or boolean) matching ``y_true`` shape.
+    endpoints : Sequence[str]
+        Endpoint names corresponding to columns.
+
+    Returns
+    -------
+    dict[str, EndpointSpaceMetrics]
+        Mapping endpoint -> {"log": metrics, "linear": metrics} including "macro".
     """
     log_metrics = compute_metrics(y_true, y_pred, mask, endpoints)
     y_true_lin = _apply_linear_transform(y_true, endpoints)

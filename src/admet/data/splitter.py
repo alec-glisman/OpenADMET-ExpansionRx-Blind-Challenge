@@ -1,12 +1,43 @@
-"""
-Dataset splitting utilities for train/validation/test stratification.
+"""admet.data.splitter
+=======================
 
-This module provides classes for creating stratified k-fold splits across
-multiple datasets, with support for various clustering algorithms to ensure
-chemical diversity in splits.
+Dataset splitting utilities for multi‑dataset train/validation/test
+stratification with chemical diversity preservation.
+
+The :class:`DatasetSplitter` orchestrates a two‑level strategy:
+
+1. Cluster molecules (per dataset group) using a selected method to capture
+   structural diversity.
+2. Apply group‑aware k‑fold shuffling so cluster composition is balanced
+   across folds before carving out validation and test subsets.
+
+Nested Output Structure
+-----------------------
+``create_splits`` returns a deeply nested mapping::
+
+    {dataset_name: {method_name: {"split_{i}": {"fold_{j}": {
+        group_name: {"train": idx_arr, "validation": idx_arr, "test": idx_arr},
+        ...,
+        "total": {"train": idx_arr, "validation": idx_arr, "test": idx_arr}
+    }}}}
+
+Where ``total`` contains concatenated indices across all groups for the fold.
+
+Performance Notes
+-----------------
+Cluster assignment can dominate runtime depending on the method (e.g.
+UMAP or Butina). The implementation uses in‑memory index arrays (``numpy``)
+and performs a garbage collection pass per fold to reduce peak memory usage
+for large datasets.
+
+Extensibility
+-------------
+Custom clustering methods can be registered via ``add_split_method``. They
+must accept a ``pandas.Series`` of SMILES and return a sequence of cluster
+labels with the same length.
 """
 
-from typing import Dict, List, Callable, Tuple, Any
+from typing import Dict, Callable, Any
 import logging
 import gc
 
@@ -20,25 +51,28 @@ logger = logging.getLogger(__name__)
 
 
 class DatasetSplitter:
-    """
-    Stratified dataset splitter for creating train/validation/test splits.
+    """Stratified multi‑dataset splitter.
 
-    This class handles creating stratified k-fold splits across multiple
-    datasets with support for grouping by data source and various clustering
-    algorithms to maintain chemical diversity.
+    Creates stratified k‑fold splits across multiple datasets using cluster
+    assignments (chemical diversity proxy) and a group shuffle strategy.
 
     Parameters
     ----------
     n_splits : int, optional
-        Number of random splits to create (default: 5).
+        Number of outer random splits to create (default ``5``).
     n_folds : int, optional
-        Number of k-folds within each split (default: 5).
+        Number of k‑folds within each split (default ``5``).
     test_percentage : float, optional
-        Percentage of data to reserve for testing (default: 0.1).
+        Fraction of total samples allocated to the test subset (default ``0.1``).
     validation_percentage : float, optional
-        Percentage of training data for validation (default: 0.1).
+        Fraction of training portion allocated to validation (default ``0.1``).
     stratify_column : str, optional
-        Column name to stratify on (default: "Dataset").
+        Column used to group data sources (default ``'Dataset'``).
+
+    Attributes
+    ----------
+    split_methods : dict[str, callable]
+        Registry of clustering functions mapping SMILES -> cluster labels.
     """
 
     # Default clustering methods
@@ -82,23 +116,26 @@ class DatasetSplitter:
         self.split_methods = self.DEFAULT_SPLIT_METHODS.copy()
 
         logger.debug(
-            f"Initialized DatasetSplitter: n_splits={n_splits}, n_folds={n_folds}, "
-            f"test_pct={test_percentage}, val_pct={validation_percentage}"
+            "Initialized DatasetSplitter: n_splits=%s, n_folds=%s, test_pct=%s, val_pct=%s",
+            n_splits,
+            n_folds,
+            test_percentage,
+            validation_percentage,
         )
 
     def add_split_method(self, name: str, method: Callable) -> None:
-        """
-        Register a custom splitting method.
+        """Register a custom clustering / split method.
 
         Parameters
         ----------
         name : str
-            Name to identify the splitting method.
+            Identifier for later reference.
         method : callable
-            Function that takes SMILES series and returns cluster assignments.
+            Function accepting a ``pandas.Series`` of SMILES and returning a
+            sequence of cluster labels of matching length.
         """
         self.split_methods[name] = method
-        logger.debug(f"Added custom split method: {name}")
+        logger.debug("Added custom split method: %s", name)
 
     def _split_group_stratified(
         self,
@@ -106,22 +143,21 @@ class DatasetSplitter:
         split_method: Callable,
         random_state: int,
     ) -> Dict[int, Dict[str, np.ndarray]]:
-        """
-        Perform stratified k-fold split on a single group of data.
+        """Generate k‑fold stratified indices for a single group.
 
         Parameters
         ----------
-        subdata : pd.DataFrame
-            Subset of data for a single group (e.g., single dataset source).
+        subdata : pandas.DataFrame
+            Subset corresponding to one group (value of ``stratify_column``).
         split_method : callable
-            Function to generate cluster assignments.
+            Cluster assignment function.
         random_state : int
-            Random state for reproducibility.
+            Seed base for reproducibility; per‑fold perturbations applied.
 
         Returns
         -------
-        dict
-            Nested dictionary with fold index -> {"train", "validation", "test"} indices.
+        dict[int, dict[str, numpy.ndarray]]
+            Mapping fold -> split type -> index array.
         """
         cluster_list = split_method(subdata["SMILES"])
         subdata_indices = subdata.index.to_numpy().copy()
@@ -160,30 +196,35 @@ class DatasetSplitter:
     def create_splits(
         self, datasets: Dict[str, pd.DataFrame]
     ) -> Dict[str, Dict[str, Dict[str, Dict[int, Dict[str, Dict[str, np.ndarray]]]]]]:
-        """
-        Create stratified splits for all datasets and split methods.
+        """Create stratified indices for all datasets and registered methods.
 
         Parameters
         ----------
-        datasets : dict
-            Dictionary mapping dataset names to dataframes.
+        datasets : dict[str, pandas.DataFrame]
+            Mapping dataset name -> DataFrame containing at least ``SMILES``
+            and ``stratify_column``.
 
         Returns
         -------
         dict
-            Nested dictionary: dataset -> split_method -> split_id -> fold_id -> group -> indices.
+            Nested mapping (see module docstring for structure).
+
+        Raises
+        ------
+        ValueError
+            If fold assembly fails (missing fold key).
         """
         split_datasets: Dict[str, Any] = {}
         n_iter = len(datasets) * len(self.split_methods) * self.n_splits
 
-        logger.info(f"Creating {n_iter} total dataset splits")
+        logger.info("Creating %d total dataset splits", n_iter)
 
         with tqdm(total=n_iter, desc="Creating dataset splits") as pbar:
             for dset_name, data in datasets.items():
                 split_datasets[dset_name] = {}
 
                 for split_name, split_method in self.split_methods.items():
-                    logger.info(f"Processing dataset: {dset_name}, split: {split_name}")
+                    logger.info("Processing dataset: %s, split: %s", dset_name, split_name)
                     split_datasets[dset_name][split_name] = {}
 
                     for split_id in range(self.n_splits):
@@ -218,15 +259,19 @@ class DatasetSplitter:
         return split_datasets
 
     def _combine_group_splits(self, split_folds: Dict, data: pd.DataFrame) -> None:
-        """
-        Combine per-group splits into final train/validation/test indices.
+        """Merge per‑group indices into overall fold indices.
 
         Parameters
         ----------
         split_folds : dict
-            Dictionary of fold splits to combine.
-        data : pd.DataFrame
-            Original dataframe for validation.
+            Fold mapping generated by ``_split_group_stratified`` calls.
+        data : pandas.DataFrame
+            Original dataset for validation / grouping.
+
+        Raises
+        ------
+        ValueError
+            If an expected fold key is missing in ``split_folds``.
         """
         for fold_id in range(self.n_folds):
             fold_key = f"fold_{fold_id}"
@@ -258,17 +303,16 @@ class DatasetSplitter:
         datasets: Dict[str, pd.DataFrame],
         output_dir: str,
     ) -> None:
-        """
-        Save splits as Hugging Face datasets to disk.
+        """Persist generated splits as Hugging Face ``DatasetDict`` objects.
 
         Parameters
         ----------
         split_structure : dict
-            Nested split dictionary from create_splits.
-        datasets : dict
-            Dictionary of original dataframes.
-        output_dir : str or Path
-            Root output directory for saving splits.
+            Nested mapping produced by ``create_splits``.
+        datasets : dict[str, pandas.DataFrame]
+            Original datasets keyed by name.
+        output_dir : str | Path
+            Root directory under which split folders are created.
         """
         from pathlib import Path
 
@@ -300,14 +344,14 @@ class DatasetSplitter:
                         dset = DatasetDict({"train": train_hf, "validation": val_hf, "test": test_hf})
 
                         dset.save_to_disk(str(split_output_dir))
-                        logger.debug(f"Saved HF dataset to {split_output_dir}")
+                        logger.debug("Saved HF dataset to %s", split_output_dir)
 
                 # Print folder size
                 folder_size = sum(
                     f.stat().st_size for f in split_output_dir.parent.glob("**/*") if f.is_file()
                 )
                 folder_size_mb = folder_size / (1024 * 1024)
-                logger.info(f"Saved splits for {dset_name}, {split_name}: {folder_size_mb:.2f} MB")
+                logger.info("Saved splits for %s, %s: %.2f MB", dset_name, split_name, folder_size_mb)
 
     def create_and_save_splits(
         self,
@@ -316,26 +360,29 @@ class DatasetSplitter:
         visualizer=None,
         overwrite=False,
     ) -> Dict:
-        """
-        Create stratified splits and save them immediately to disk.
-
-        Optionally creates visualizations for each fold immediately after creation.
+        """Convenience wrapper to generate and persist splits in one pass.
 
         Parameters
         ----------
-        datasets : dict
-            Dictionary mapping dataset names to dataframes.
-        output_dir : Path or str
-            Root output directory for saving splits.
+        datasets : dict[str, pandas.DataFrame]
+            Dataset mapping used as input.
+        output_dir : Path | str
+            Directory root for output structure.
         visualizer : DatasetVisualizer, optional
-            Visualizer instance for creating plots immediately. If None, no plots created.
+            If provided, its ``visualize_fold_immediately`` method is invoked
+            per fold for quick exploratory plots.
         overwrite : bool, optional
-            Whether to overwrite existing files (default: False).
+            Overwrite existing ``*_quality`` directories if present.
 
         Returns
         -------
         dict
-            Nested dictionary: dataset -> split_method -> split_id -> fold_id -> group -> indices.
+            Nested mapping identical to ``create_splits`` output.
+
+        Raises
+        ------
+        ValueError
+            If fold combination encounters missing keys.
         """
         from pathlib import Path
 
@@ -353,14 +400,14 @@ class DatasetSplitter:
                 return split_datasets
         n_iter = len(datasets) * len(self.split_methods) * self.n_splits
 
-        logger.info(f"Creating {n_iter} total dataset splits")
+        logger.info("Creating %d total dataset splits", n_iter)
 
         with tqdm(total=n_iter, desc="Creating and saving dataset splits") as pbar:
             for dset_name, data in datasets.items():
                 split_datasets[dset_name] = {}
 
                 for split_name, split_method in self.split_methods.items():
-                    logger.info(f"Processing dataset: {dset_name}, split: {split_name}")
+                    logger.info("Processing dataset: %s, split: %s", dset_name, split_name)
                     split_datasets[dset_name][split_name] = {}
 
                     for split_id in range(self.n_splits):
@@ -415,27 +462,24 @@ class DatasetSplitter:
         output_dir,
         visualizer=None,
     ) -> None:
-        """
-        Save all folds for a specific split immediately.
-
-        Optionally creates visualizations for each fold immediately after saving.
+        """Persist all folds belonging to a single split identifier.
 
         Parameters
         ----------
         dset_name : str
-            Dataset name.
+            Name of the dataset.
         split_name : str
-            Split method name.
+            Clustering / split method label.
         split_id_key : str
-            Split ID key (e.g., "split_0").
+            Outer split identifier (``'split_i'``).
         split_folds : dict
-            Dictionary of fold splits.
-        data : pd.DataFrame
-            Original dataframe.
-        output_dir : Path or str
+            Mapping fold -> group -> indices (with ``total`` aggregation).
+        data : pandas.DataFrame
+            Source dataset for row extraction.
+        output_dir : Path | str
             Root output directory.
         visualizer : DatasetVisualizer, optional
-            Visualizer for creating plots. If None, no plots created.
+            If provided, produces per‑fold visualisations.
         """
         from pathlib import Path
 
@@ -463,21 +507,25 @@ class DatasetSplitter:
             dset.save_to_disk(str(split_output_dir))
 
             # Log each saved component
-            logger.debug(f"Saved train set ({len(train_idx)} samples) to " f"{split_output_dir}/train")
+            logger.debug("Saved train set (%d samples) to %s/train", len(train_idx), split_output_dir)
             logger.debug(
-                f"Saved validation set ({len(val_idx)} samples) to " f"{split_output_dir}/validation"
+                "Saved validation set (%d samples) to %s/validation", len(val_idx), split_output_dir
             )
-            logger.debug(f"Saved test set ({len(test_idx)} samples) to " f"{split_output_dir}/test")
+            logger.debug("Saved test set (%d samples) to %s/test", len(test_idx), split_output_dir)
             logger.info(
-                f"Saved {fold_id_key} ({len(train_idx)}|{len(val_idx)}|{len(test_idx)} "
-                f"train|val|test) for {dset_name}_{split_name}_{split_id_key}"
+                "Saved %s (%d|%d|%d train|val|test) for %s_%s_%s",
+                fold_id_key,
+                len(train_idx),
+                len(val_idx),
+                len(test_idx),
+                dset_name,
+                split_name,
+                split_id_key,
             )
 
             # Create visualizations immediately after saving
             if visualizer is not None:
-                from pathlib import Path as PathlibPath
-
-                viz_output_dir = PathlibPath(output_dir) / "figures" / "fold_visualizations"
+                viz_output_dir = Path(output_dir) / "figures" / "fold_visualizations"
                 visualizer.visualize_fold_immediately(
                     dset_name,
                     split_name,

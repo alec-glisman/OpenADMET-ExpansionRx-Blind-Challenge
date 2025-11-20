@@ -1,8 +1,25 @@
-"""
-Dataset splitting CLI command.
+"""admet.cli.split
+===================
 
-This module provides a command-line interface for generating dataset splits
-with fingerprints and creating stratified k-fold cross-validation splits.
+Generate temporal and stratified dataset splits with optional visualizations.
+
+Wraps :class:`admet.data.dataset_split_pipeline.DatasetSplitPipeline` exposing
+flags to control temporal vs stratified generation, overwrite behavior, and
+logging verbosity.
+
+Examples
+--------
+Create all splits (temporal + stratified)::
+
+    openadmet split datasets path/to/data
+
+Stratified only with custom output directory::
+
+    openadmet split datasets path/to/data --output ./my_splits --no-temporal
+
+Verbose debugging::
+
+    openadmet split datasets path/to/data --log-level DEBUG
 """
 
 from pathlib import Path
@@ -49,28 +66,22 @@ def datasets(
         help="Logging level (DEBUG, INFO, WARNING, ERROR).",
     ),
 ) -> None:
-    """
-    Create dataset splits with fingerprints and stratified k-fold cross-validation.
+    """Create dataset splits with fingerprints and optional visualizations.
 
-    This command orchestrates the full workflow of:
-    1. Loading cleaned datasets
-    2. Calculating Morgan fingerprints
-    3. Creating temporal and/or stratified splits
-    4. Generating analysis visualizations
-
-    Examples:
-
-        # Create all splits in default location
-        openadmet split datasets path/to/data
-
-        # Create only stratified splits with custom output
-        openadmet split datasets path/to/data \\
-            --output ./my_splits \\
-            --no-temporal
-
-        # Debug mode with verbose logging
-        openadmet split datasets path/to/data \\
-            --log-level DEBUG
+    Parameters
+    ----------
+    base_data_dir : pathlib.Path
+        Directory containing cleaned dataset CSV files.
+    output_dir : pathlib.Path, optional
+        Destination directory for splits & figures; defaults to ``parent/splits``.
+    create_temporal : bool, optional
+        Generate temporal train/validation/test split for high-quality dataset.
+    create_stratified : bool, optional
+        Generate stratified k-fold splits per dataset quality.
+    overwrite : bool, optional
+        Overwrite existing artifacts if present; otherwise skip.
+    log_level : str, optional
+        Logging level name (``DEBUG``, ``INFO``, etc.).
     """
     # Setup logging
     log_level_int = getattr(logging, log_level.upper(), logging.INFO)
@@ -98,7 +109,7 @@ def datasets(
         )
         typer.echo(f"Output directory: {pipeline.output_dir}")
         typer.echo(f"Figures directory: {pipeline.figure_dir}")
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - CLI runtime error path
         logger.error("Pipeline failed: %s", e, exc_info=True)
         typer.echo(
             typer.style(
@@ -109,3 +120,6 @@ def datasets(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+__all__ = ["datasets"]

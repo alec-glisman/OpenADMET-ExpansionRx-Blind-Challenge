@@ -1,3 +1,27 @@
+"""ADMET dataset registry and lightweight numeric transform helpers.
+
+This module centralizes dataset configuration metadata (source type, URI and
+canonical output filename) and exposes small numeric transformation helpers
+used during dataset harmonization and exploratory analysis.
+
+Contents
+--------
+Classes
+    DatasetInfo : Typed dict structure for per-dataset metadata.
+
+Constants
+    DEFAULT_DATASET_DIR : Root path for downloaded raw datasets.
+    DATASETS            : Mapping of lowercase dataset name -> DatasetInfo.
+    COLS_WITH_UNITS     : Mapping of column name -> display units string.
+    TRANSFORMATIONS     : Mapping of transformation label -> callable.
+
+Notes
+-----
+The dataset list is partially populated dynamically from TDC benchmark names.
+All dynamically retrieved names are converted to lowercase for uniform CLI
+and API usage.
+"""
+
 from typing import Mapping, TypedDict, Any, Callable, Dict
 import numpy as np
 from pathlib import Path
@@ -12,9 +36,10 @@ class DatasetInfo(TypedDict):
     output_file: str
 
 
-# Default output directory for downloaded datasets
+#: Default output directory for downloaded datasets.
 DEFAULT_DATASET_DIR = Path(__file__).parents[3] / "assets/dataset/raw"
 
+#: Registry of available datasets keyed by lowercase name.
 DATASETS: Mapping[str, DatasetInfo] = {}
 
 # Dynamically add all TDC ADMET_Group datasets
@@ -52,7 +77,7 @@ DATASETS["biogen_admet"] = {
 # EDA constants and lightweight numeric transformations
 # ---------------------------------------------------------------------------
 
-# Column names with units for ExpansionRX and related datasets
+#: Column names with units for ExpansionRX and related datasets.
 COLS_WITH_UNITS: Dict[str, str] = {
     "Molecule Name": "(None)",
     "LogD": "(None)",
@@ -66,7 +91,7 @@ COLS_WITH_UNITS: Dict[str, str] = {
     "MGMB": "(% unbound)",
 }
 
-# Simple numeric transformations used during dataset harmonization
+#: Simple numeric transformations used during dataset harmonization.
 TRANSFORMATIONS: Dict[str, Callable[..., Any]] = {
     "None": lambda x: x,
     "log10(x)": lambda x: np.log10(x + 1e-6),
@@ -83,9 +108,6 @@ TRANSFORMATIONS: Dict[str, Callable[..., Any]] = {
     "kg to g": lambda x: x * 1000.0,
 }
 
-# Backwards-compatible lowercase aliases matching earlier module
-cols_with_units = COLS_WITH_UNITS
-transformations = TRANSFORMATIONS
 
 __all__ = [
     "DatasetInfo",
@@ -93,6 +115,4 @@ __all__ = [
     "DATASETS",
     "COLS_WITH_UNITS",
     "TRANSFORMATIONS",
-    "cols_with_units",
-    "transformations",
 ]
