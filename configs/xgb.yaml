@@ -5,6 +5,7 @@ models:
     objective: "mae" # {"mae", "rmse"}
     early_stopping_rounds: 50
     model_params:
+      device: "cuda"
       n_estimators: 500
       learning_rate: 0.3
       min_split_loss: 0

@@ -1,4 +1,16 @@
-"""Training orchestration for XGBoost multi-endpoint model (initial version)."""
+"""admet.train.xgb_train
+=========================
+
+XGBoost-specific training orchestration for multi-endpoint regression.
+
+This module implements a concrete :class:`BaseModelTrainer` (``XGBoostTrainer``)
+and a concrete :class:`BaseRayMultiDatasetTrainer` (``XGBoostRayMultiDatasetTrainer``)
+that provide a consistent single-dataset training interface and a Ray-based
+multi-dataset orchestration respectively.
+
+Helpers are included for feature/target extraction and missing-target masks
+so the trainer code can operate on clean numpy arrays regardless of backend.
+"""
 
 from __future__ import annotations
 
@@ -9,151 +21,253 @@ import logging
 import multiprocessing
 
 import numpy as np
-import pandas as pd
-import ray
 
 from admet.data.load import LoadedDataset
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
+from admet.model.base import BaseModel
 from admet.utils import set_global_seeds
 from admet.evaluate.metrics import compute_metrics_log_and_linear
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
+from admet.train.base_trainer import BaseModelTrainer, BaseRayMultiDatasetTrainer, infer_split_metadata
 
 logger = logging.getLogger(__name__)
 
 
 def _extract_features(df, fingerprint_cols: Sequence[str]) -> np.ndarray:
+    """Extract fingerprint features from a dataframe split.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input data split containing fingerprint columns.
+    fingerprint_cols : Sequence[str]
+        Names of fingerprint columns to select.
+
+    Returns
+    -------
+    numpy.ndarray
+        2-D array of fingerprint features with dtype float.
+    """
     return df.loc[:, fingerprint_cols].to_numpy(dtype=float)
 
 
 def _extract_targets(df, endpoints: Sequence[str]) -> np.ndarray:
+    """Extract endpoint target columns from a split.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input split containing endpoint columns.
+    endpoints : Sequence[str]
+        Names of endpoint columns to select.
+
+    Returns
+    -------
+    numpy.ndarray
+        2-D float array with targets and NaNs where missing.
+    """
     return df[endpoints].to_numpy(dtype=float)
 
 
 def _target_mask(y: np.ndarray) -> np.ndarray:
+    """Build a binary mask indicating presence of target values.
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Target matrix with NaNs used to signal missing values.
+
+    Returns
+    -------
+    numpy.ndarray
+        Integer mask array where 1 indicates a present target and 0 indicates
+        a missing target.
+    """
     return (~np.isnan(y)).astype(int)
 
 
-def _infer_split_metadata(hf_path: Path, root: Path) -> Dict[str, str]:
-    """Infer split/fold/cluster metadata from an ``hf_dataset`` path.
+class XGBoostTrainer(BaseModelTrainer):
+    """Single-dataset trainer implementation using XGBoost.
 
-    This inspects the relative path from ``root`` to the provided
-    ``hf_dataset`` directory and extracts best-effort metadata for
-    logging and output directory naming.
+    This class implements :class:`~admet.train.base_trainer.BaseModelTrainer`
+    for XGBoost backend models, delegates per-endpoint training to
+    :class:`admet.model.xgb_wrapper.XGBoostMultiEndpoint`, and preserves
+    existing metrics and artifact formats used by the higher-level
+    orchestration logic.
+
+    Notes
+    -----
+    The class uses dataset fingerprints as features extracted from
+    :class:`admet.data.load.LoadedDataset` and predicts all endpoints using
+    independent XGBoost regressors per endpoint.
     """
 
-    # Prefer a relative path provided the `root` is a parent of the HF dataset
-    try:
-        rel = hf_path.relative_to(root)
-        rel_parts: List[str] = [p for p in rel.parts if p]
-        meta: Dict[str, str] = {"relative_path": str(rel)}
-    except Exception:
-        rel = None
-        rel_parts = []
-        meta = {"relative_path": str(hf_path)}
+    def prepare_features(self, dataset: LoadedDataset) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Prepare fingerprint feature matrices for each split.
 
-    # Add the full/unqualified path for cases where `root` is too deep
-    # to contain cluster metadata. This enables the caller to determine
-    # cluster methods and quality tags from the full filesystem layout.
-    try:
-        # Normalize the full path, but avoid failing if path doesn't exist
-        full_path = str(hf_path.resolve())
-    except Exception:
-        full_path = str(hf_path)
-    full_parts: List[str] = [p for p in Path(full_path).parts if p and p != "/"]
-    meta["full_path"] = full_path
+        Parameters
+        ----------
+        dataset : LoadedDataset
+            A loaded HF dataset produced by :func:`admet.data.load.load_dataset`.
 
-    # Heuristic extraction for common layout:
-    #   /path/to/assets/<quality>/<cluster_method>/split_<i>/fold_<j>/hf_dataset
-    for part in rel_parts:
-        if part.startswith("split_"):
-            meta["split"] = part.replace("split_", "")
-        elif part.startswith("fold_"):
-            meta["fold"] = part.replace("fold_", "")
+        Returns
+        -------
+        tuple
+            ``(X_train, X_val, X_test)`` arrays suitable for training.
+        """
+        fp_cols = dataset.fingerprint_cols
+        # Reuse existing helpers to keep behavior identical.
+        X_train = _extract_features(dataset.train, fp_cols)
+        X_val = _extract_features(dataset.val, fp_cols)
+        X_test = _extract_features(dataset.test, fp_cols)
+        return X_train, X_val, X_test
 
-    if len(rel_parts) > 3:
-        meta["cluster"] = f"{rel_parts[-4]}-{rel_parts[-3]}"
-    elif full_parts:
-        # Similar fallback for cluster: take two segments prior to split if
-        # available (e.g., 'high_quality/random_cluster').
-        for i, part in enumerate(full_parts):
-            if part.startswith("split_") and i > 1:
-                meta["cluster"] = f"{full_parts[i - 2]}/{full_parts[i - 1]}"
-                break
+    def prepare_targets(self, dataset: LoadedDataset) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Extract endpoint target arrays for each split.
 
-    print(meta)
+        Parameters
+        ----------
+        dataset : LoadedDataset
+            Loaded dataset with endpoint columns.
 
-    logger.info("Inferred metadata for %s: %s", rel, meta)
+        Returns
+        -------
+        tuple
+            ``(Y_train, Y_val, Y_test)`` numpy arrays with NaNs for missing targets.
+        """
+        endpoints = dataset.endpoints
+        Y_train = _extract_targets(dataset.train, endpoints)
+        Y_val = _extract_targets(dataset.val, endpoints)
+        Y_test = _extract_targets(dataset.test, endpoints)
+        return Y_train, Y_val, Y_test
 
-    return meta
+    def prepare_masks(
+        self,
+        Y_train: np.ndarray,
+        Y_val: np.ndarray,
+        Y_test: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        mask_train = _target_mask(Y_train)
+        mask_val = _target_mask(Y_val)
+        mask_test = _target_mask(Y_test)
+        return mask_train, mask_val, mask_test
 
+    def build_sample_weights(
+        self,
+        dataset: LoadedDataset,
+        sample_weight_mapping: Optional[Dict[str, float]],
+    ) -> Optional[np.ndarray]:
+        """Create a per-row sample-weight vector for the training split.
 
-def train_xgb_models(
-    dataset: LoadedDataset,
-    model_params: Optional[Dict[str, object]] = None,
-    early_stopping_rounds: int = 50,
-    sample_weight_mapping: Optional[Dict[str, float]] = None,
-    output_dir: Optional[Path] = None,
-    seed: Optional[int] = None,
-) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
-    """Train XGBoost models per endpoint and compute metrics.
-
-    Returns metrics dict keyed by split (train/val/test).
-    """
-    # Seed global RNGs early for reproducibility
-    set_global_seeds(seed)
-    endpoints = dataset.endpoints
-    fp_cols = dataset.fingerprint_cols
-    # Prepare data
-    X_train = _extract_features(dataset.train, fp_cols)
-    X_val = _extract_features(dataset.val, fp_cols)
-    X_test = _extract_features(dataset.test, fp_cols)
-    Y_train = _extract_targets(dataset.train, endpoints)
-    Y_val = _extract_targets(dataset.val, endpoints)
-    Y_test = _extract_targets(dataset.test, endpoints)
-    mask_train = _target_mask(Y_train)
-    mask_val = _target_mask(Y_val)
-    mask_test = _target_mask(Y_test)
-
-    # Sample weights
-    sample_weight = None
-    if sample_weight_mapping:
-        sw = []
+        This function uses the dataset's ``Dataset`` column to map each
+        sample to a weight via ``sample_weight_mapping``. If no mapping is
+        provided, ``None`` is returned.
+        """
+        if not sample_weight_mapping:
+            return None
+        sw: List[float] = []
         for ds_name in dataset.train["Dataset"].astype(str):
             sw.append(sample_weight_mapping.get(ds_name, sample_weight_mapping.get("default", 1.0)))
-        sample_weight = np.array(sw, dtype=float)
+        return np.array(sw, dtype=float)
 
-    model = XGBoostMultiEndpoint(endpoints=endpoints, model_params=model_params, random_state=seed)
-    model.fit(
-        X_train,
-        Y_train,
-        Y_mask=mask_train,
-        X_val=X_val,
-        Y_val=Y_val,
-        Y_val_mask=mask_val,
-        sample_weight=sample_weight,
-        early_stopping_rounds=early_stopping_rounds,
-    )
-    # Predictions
-    pred_train = model.predict(X_train)
-    pred_val = model.predict(X_val)
-    pred_test = model.predict(X_test)
+    def build_model(self, endpoints: List[str]) -> XGBoostMultiEndpoint:
+        """Build and return an XGBoostMultiEndpoint instance.
 
-    metrics = {
-        "train": compute_metrics_log_and_linear(Y_train, pred_train, mask_train, endpoints),
-        "validation": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
-        "test": compute_metrics_log_and_linear(Y_test, pred_test, mask_test, endpoints),
-    }
+        Parameters
+        ----------
+        endpoints : list of str
+            The endpoint names to predict.
 
-    if output_dir:
+        Returns
+        -------
+        XGBoostMultiEndpoint
+            Backend model instance configured with ``self.model_params``.
+        """
+        # XGBoostMultiEndpoint already conforms to BaseModel.
+        return XGBoostMultiEndpoint(
+            endpoints=endpoints, model_params=self.model_params, random_state=self.seed
+        )
+
+    def compute_metrics(
+        self,
+        Y_train: np.ndarray,
+        Y_val: np.ndarray,
+        Y_test: np.ndarray,
+        pred_train: np.ndarray,
+        pred_val: np.ndarray,
+        pred_test: np.ndarray,
+        mask_train: np.ndarray,
+        mask_val: np.ndarray,
+        mask_test: np.ndarray,
+        endpoints: List[str],
+    ) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
+        """Compute macro and per-endpoint metrics for all splits.
+
+        Parameters
+        ----------
+        Y_train, Y_val, Y_test : numpy.ndarray
+            True target arrays for each split.
+        pred_train, pred_val, pred_test : numpy.ndarray
+            Predicted arrays for each split.
+        mask_train, mask_val, mask_test : numpy.ndarray
+            Masks indicating observed targets for each split.
+        endpoints : list of str
+            Endpoint columns corresponding to the final axis of ``Y``.
+
+        Returns
+        -------
+        dict
+            Nested metrics dictionary keyed by split name.
+        """
+        return {
+            "train": compute_metrics_log_and_linear(Y_train, pred_train, mask_train, endpoints),
+            "validation": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
+            "test": compute_metrics_log_and_linear(Y_test, pred_test, mask_test, endpoints),
+        }
+
+    def save_artifacts(
+        self,
+        model: "BaseModel",
+        metrics: Dict[str, Dict[str, Dict[str, Dict[str, float]]]],
+        output_dir: Path,
+        *,
+        dataset: LoadedDataset,
+        extra_meta: Optional[Dict[str, object]] = None,
+    ) -> None:
+        """Save model, metrics, and generated figures to ``output_dir``.
+
+        Parameters
+        ----------
+        model : BaseModel
+            The already-trained model instance.
+        metrics : dict
+            Nested metrics dictionary as returned by :meth:`compute_metrics`.
+        output_dir : pathlib.Path
+            Directory to write artifacts under.
+        dataset : LoadedDataset
+            The dataset used for training; required for plotting.
+        extra_meta : dict, optional
+            Optional extra metadata to write alongside metrics.
+        """
+        assert isinstance(model, BaseModel)
         output_dir.mkdir(parents=True, exist_ok=True)
         model.save(str(output_dir / "model"))
         (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
         # get number of CPUs for parallel plotting
         n_cpus = multiprocessing.cpu_count()
-        logger.info(f"Using {n_cpus} CPU cores for plotting.")
+        logger.info("Using %d CPU cores for plotting.", n_cpus)
 
+        endpoints = dataset.endpoints
         # Compose dicts for plotting utilities
+        X_train, X_val, X_test = self.prepare_features(dataset)
+        Y_train, Y_val, Y_test = self.prepare_targets(dataset)
+        mask_train, mask_val, mask_test = self.prepare_masks(Y_train, Y_val, Y_test)
+
+        pred_train = model.predict(X_train)
+        pred_val = model.predict(X_val)
+        pred_test = model.predict(X_test)
+
         y_true = {"train": Y_train, "validation": Y_val, "test": Y_test}
         y_pred = {"train": pred_train, "validation": pred_val, "test": pred_test}
         y_mask = {"train": mask_train, "validation": mask_val, "test": mask_test}
@@ -182,53 +296,133 @@ def train_xgb_models(
                 save_path_spr2=space_dir / "metrics_spearman_rho2.png",
                 n_jobs=n_cpus,
             )
-    return metrics
+
+    def run(
+        self,
+        dataset: LoadedDataset,
+        *,
+        sample_weight_mapping: Optional[Dict[str, float]] = None,
+        early_stopping_rounds: int = 50,
+        output_dir: Optional[Path] = None,
+        extra_meta: Optional[Dict[str, object]] = None,
+    ) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
+        """Perform the complete train -> predict -> eval flow.
+
+        High-level orchestration that calls the hooks implemented by the
+        concrete trainer and returns a nested metrics dictionary.
+        """
+        # Seed global RNGs early for reproducibility
+        set_global_seeds(self.seed)
+
+        endpoints: List[str] = list(dataset.endpoints)
+        X_train, X_val, X_test = self.prepare_features(dataset)
+        Y_train, Y_val, Y_test = self.prepare_targets(dataset)
+        mask_train, mask_val, mask_test = self.prepare_masks(Y_train, Y_val, Y_test)
+
+        sample_weight = self.build_sample_weights(dataset, sample_weight_mapping)
+
+        model = self.build_model(endpoints)
+        model.fit(
+            X_train,
+            Y_train,
+            Y_mask=mask_train,
+            X_val=X_val,
+            Y_val=Y_val,
+            Y_val_mask=mask_val,
+            sample_weight=sample_weight,
+            early_stopping_rounds=early_stopping_rounds,
+        )
+
+        # Predictions
+        pred_train = model.predict(X_train)
+        pred_val = model.predict(X_val)
+        pred_test = model.predict(X_test)
+
+        metrics = self.compute_metrics(
+            Y_train,
+            Y_val,
+            Y_test,
+            pred_train,
+            pred_val,
+            pred_test,
+            mask_train,
+            mask_val,
+            mask_test,
+            endpoints,
+        )
+
+        if output_dir is not None:
+            self.save_artifacts(model, metrics, output_dir, dataset=dataset, extra_meta=extra_meta)
+
+        return metrics
 
 
-@ray.remote
-def _train_single_xgb_remote(
-    hf_path: str,
-    root_dir: str,
+class XGBoostRayMultiDatasetTrainer(BaseRayMultiDatasetTrainer):
+    """Multi-dataset trainer using Ray for XGBoost runs.
+
+    This class implements the small set of dataset-discovery and output path
+    formation hooks required by :class:`BaseRayMultiDatasetTrainer`. The
+    actual Ray orchestration and scheduling is implemented by the base
+    class method :meth:`BaseRayMultiDatasetTrainer.run_all` which calls the
+    generic remote helper for each dataset.
+    """
+
+    def discover_datasets(self, root: Path) -> List[Path]:
+        return [p for p in root.rglob("hf_dataset") if p.is_dir()]
+
+    def infer_metadata(self, hf_path: Path, root: Path) -> Dict[str, object]:
+        return infer_split_metadata(hf_path, root)
+
+    def build_output_dir(self, base: Path, meta: Dict[str, object]) -> Path:
+        cluster = str(meta.get("cluster", "unknown_method"))
+        split = str(meta.get("split", "unknown_split"))
+        fold = str(meta.get("fold", "unknown_fold"))
+        return base / cluster / f"split_{split}" / f"fold_{fold}"
+
+
+def train_xgb_models(
+    dataset: LoadedDataset,
     model_params: Optional[Dict[str, object]] = None,
     early_stopping_rounds: int = 50,
     sample_weight_mapping: Optional[Dict[str, float]] = None,
-    output_root: Optional[str] = None,
+    output_dir: Optional[Path] = None,
     seed: Optional[int] = None,
-) -> Tuple[str, Dict[str, object]]:
-    """Ray-remote wrapper to train a single XGBoost model on one HF dataset.
+) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
+    """Convenience wrapper to train a single HF dataset using XGBoost.
 
-    Parameters are serialized-friendly wrappers around :func:`train_xgb_models`.
-    Returns the relative hf-dataset path (key) and the metrics dictionary.
+    Parameters
+    ----------
+    dataset : LoadedDataset
+        The dataset to train on.
+    model_params : dict, optional
+        Hyperparameters for the XGBoost backend. If ``None``, default
+        parameters are used.
+    early_stopping_rounds : int, optional
+        Early stopping parameter forwarded to the model.
+    sample_weight_mapping : dict, optional
+        Mapping of dataset names to sample weights.
+    output_dir : pathlib.Path, optional
+        Path to write artifacts under.
+    seed : int, optional
+        Seed for deterministic model fit.
+
+    Returns
+    -------
+    dict
+        Nested metrics dictionary keyed by split name.
     """
 
-    hf_dir = Path(hf_path)
-    root = Path(root_dir)
-    from admet.data.load import load_dataset  # local import for Ray workers
-
-    meta = _infer_split_metadata(hf_dir, root)
-    rel_key = meta.get("relative_path", hf_dir.name)
-
-    dataset = load_dataset(hf_dir)
-
-    out_dir: Optional[Path] = None
-    if output_root is not None:
-        base = Path(output_root)
-        # Compose hierarchical output path encoding cluster, split, and fold
-        cluster = meta.get("cluster", "unknown_method")
-        split = meta.get("split", "unknown_split")
-        fold = meta.get("fold", "unknown_fold")
-        out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
-
-    metrics = train_xgb_models(
-        dataset=dataset,
+    trainer = XGBoostTrainer(
+        model_cls=XGBoostMultiEndpoint,
         model_params=model_params,
-        early_stopping_rounds=early_stopping_rounds,
-        sample_weight_mapping=sample_weight_mapping,
-        output_dir=out_dir,
         seed=seed,
     )
-
-    return rel_key, {"metrics": metrics, "meta": meta}
+    return trainer.run(
+        dataset,
+        sample_weight_mapping=sample_weight_mapping,
+        early_stopping_rounds=early_stopping_rounds,
+        output_dir=output_dir,
+    )
 
 
 def train_xgb_models_ray(
@@ -242,118 +436,47 @@ def train_xgb_models_ray(
     num_cpus: Optional[int] = None,
     ray_address: Optional[str] = None,
 ) -> Dict[str, Dict[str, object]]:
-    """Train XGBoost models for all discovered HF datasets using Ray.
+    """Train XGBoost models in parallel via Ray across multiple HF datasets.
 
-    The function searches ``root`` recursively for directories named
-    ``hf_dataset`` and launches a Ray task for each directory. Each task
-    trains a model, writes artifacts/figures mirroring the split/fold/
-    cluster method layout, and returns its metrics.
+    Parameters
+    ----------
+    root : pathlib.Path
+        Root directory to search for hf_dataset directories.
+    model_params : dict, optional
+        Hyperparameter dictionary forwarded to the underlying model.
+    early_stopping_rounds : int, optional
+        Early stopping value per run.
+    sample_weight_mapping : dict, optional
+        Sample weights mapping for each dataset.
+    output_root : pathlib.Path, optional
+        Root directory where per-dataset artifacts are written.
+    seed : int, optional
+        Base seed for deterministic per-dataset seeds.
+    num_cpus : int, optional
+        Number of CPUs to use when starting a local Ray instance.
+    ray_address : str, optional
+        Optional Ray address to connect to; if ``'local'``, a local Ray
+        instance is started if not already running.
+
+    Returns
+    -------
+    dict
+        Mapping of dataset relative key to metrics and meta payloads.
     """
 
-    if output_root is None:
-        output_root = Path("xgb_artifacts")
-
-    hf_paths: List[Path] = [p for p in root.rglob("hf_dataset") if p.is_dir()]
-    if not hf_paths:
-        raise ValueError(f"No 'hf_dataset' directories found under {root}.")
-
-    logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
-
-    if not ray.is_initialized():
-        if ray_address and ray_address.lower() != "local":
-            logger.info("Connecting to existing Ray cluster at %s", ray_address)
-            ray.init(address=ray_address, ignore_reinit_error=True)
-        else:
-            # If num_cpus is not provided, let Ray use all available cores.
-            cpu_count = num_cpus or multiprocessing.cpu_count()
-            logger.info("Starting local Ray runtime with %d CPUs", cpu_count)
-            ray.init(num_cpus=cpu_count, ignore_reinit_error=True)
-
-    # Deterministic per-model seeds derived from base seed and sorted paths.
-    sorted_hf_paths = sorted(hf_paths, key=lambda p: str(p.relative_to(root)))
-    base_seed = seed if seed is not None else 0
-
-    remote_tasks = []
-    for idx, hf_path in enumerate(sorted_hf_paths):
-        model_seed = base_seed + idx
-        rel = hf_path.relative_to(root)
-        logger.info("Scheduling training for %s with seed %d", rel, model_seed)
-        remote_tasks.append(
-            _train_single_xgb_remote.remote(
-                str(hf_path),
-                str(root),
-                model_params=model_params,
-                early_stopping_rounds=early_stopping_rounds,
-                sample_weight_mapping=sample_weight_mapping,
-                output_root=str(output_root),
-                seed=model_seed,
-            )
-        )
-
-    # Track progress as Ray tasks complete.
-    remaining = set(remote_tasks)
-    results: List[Tuple[str, Dict[str, object]]] = []
-    total = len(remote_tasks)
-    completed = 0
-    logger.info("Starting Ray training for %d models", total)
-    while remaining:
-        # Number of tasks currently executing or queued but not yet finished
-        in_progress = len(remaining)
-        logger.info(
-            "Progress: %d/%d completed, %d in progress",
-            completed,
-            total,
-            in_progress,
-        )
-
-        done, remaining = ray.wait(list(remaining), num_returns=1)
-        for d in done:
-            rel_key, payload = ray.get(d)
-            results.append((rel_key, payload))
-            completed += 1
-            logger.info(
-                "Completed %d/%d models (%s) - %d still in progress",
-                completed,
-                total,
-                rel_key,
-                len(remaining),
-            )
-
-    aggregated: Dict[str, Dict[str, object]] = {rel_key: payload for rel_key, payload in results}
-
-    # Build and persist a summary of macro metrics across all datasets.
-    summary_rows: List[Dict[str, object]] = []
-    for rel_key, payload in aggregated.items():
-        metrics = payload.get("metrics", {})  # type: ignore[assignment]
-        meta = payload.get("meta", {})  # type: ignore[assignment]
-        for split_name in ["train", "validation", "test"]:
-            split_metrics = metrics.get(split_name, {})  # type: ignore[assignment]
-            macro = split_metrics.get("macro", {})
-            row: Dict[str, object] = {
-                "dataset": rel_key,
-                "split": split_name,
-            }
-            # include metadata such as cluster_method, split, fold if present
-            if isinstance(meta, dict):
-                for k, v in meta.items():
-                    row[f"meta_{k}"] = v
-            # flatten macro metrics one level
-            if isinstance(macro, dict):
-                for k, v in macro.items():
-                    row[k] = v
-            summary_rows.append(row)
-
-    if summary_rows:
-        summary_df = pd.DataFrame(summary_rows)
-        summary_root = output_root
-        summary_root.mkdir(parents=True, exist_ok=True)
-        summary_csv = summary_root / "metrics_summary.csv"
-        summary_json = summary_root / "metrics_summary.json"
-        summary_df.to_csv(summary_csv, index=False)
-        summary_json.write_text(summary_df.to_json(orient="records", indent=2))
-        logger.info("Wrote metrics summary to %s and %s", summary_csv, summary_json)
-
-    return aggregated
+    ray_trainer = XGBoostRayMultiDatasetTrainer(
+        trainer_cls=XGBoostTrainer,
+        trainer_kwargs={"model_cls": XGBoostMultiEndpoint, "model_params": model_params, "seed": seed},
+    )
+    return ray_trainer.run_all(
+        root,
+        output_root=output_root,
+        early_stopping_rounds=early_stopping_rounds,
+        sample_weight_mapping=sample_weight_mapping,
+        num_cpus=num_cpus,
+        ray_address=ray_address,
+        seed=seed,
+    )
 
 
 __all__ = ["train_xgb_models", "train_xgb_models_ray"]

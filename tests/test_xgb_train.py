@@ -6,7 +6,9 @@ import pytest
 from datasets import Dataset, DatasetDict
 
 from admet.data.load import ENDPOINT_COLUMNS, expected_fingerprint_columns, load_dataset
-from admet.train.xgb_train import train_xgb_models, train_xgb_models_ray
+from admet.train.xgb_train import train_xgb_models, train_xgb_models_ray, XGBoostTrainer
+from admet.train.base_trainer import infer_split_metadata
+from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
 
 def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Path:
@@ -39,13 +41,13 @@ def test_infer_split_metadata_parses_cluster_split_fold(tmp_path: Path):
     path = root / "random_cluster" / "split_0" / "fold_1" / "hf_dataset"
     path.mkdir(parents=True)
 
-    from admet.train.xgb_train import _infer_split_metadata as infer_meta
-
-    meta = infer_meta(path, root)
+    meta = infer_split_metadata(path, root)
+    assert "absolute_path" in meta
     assert meta["relative_path"].endswith("random_cluster/split_0/fold_1/hf_dataset")
-    assert meta["cluster_method"] == "random_cluster"
     assert meta["split"] == "0"
     assert meta["fold"] == "1"
+    assert meta["quality"] == "high_quality"
+    assert meta["cluster"] == "high_quality/random_cluster"
 
 
 def test_train_xgb_models_runs_end_to_end(tmp_path: Path):
@@ -55,6 +57,21 @@ def test_train_xgb_models_runs_end_to_end(tmp_path: Path):
 
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
     metrics = train_xgb_models(dataset, model_params={"n_estimators": 10}, early_stopping_rounds=5)
+
+    for split in ["train", "validation", "test"]:
+        assert split in metrics
+        assert "macro" in metrics[split]
+
+
+def test_xgb_trainer_runs_end_to_end(tmp_path: Path):
+    data_dir = tmp_path / "hf_dataset"
+    data_dir.mkdir(parents=True)
+    _make_hf_like_dataset(data_dir)
+
+    dataset = load_dataset(data_dir, n_fingerprint_bits=16)
+    trainer = XGBoostTrainer(model_cls=XGBoostMultiEndpoint, model_params={"n_estimators": 10}, seed=123)
+
+    metrics = trainer.run(dataset, early_stopping_rounds=5)
 
     for split in ["train", "validation", "test"]:
         assert split in metrics
