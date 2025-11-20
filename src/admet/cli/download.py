@@ -11,19 +11,19 @@ Usage Examples
 --------------
 Download a single dataset::
 
-    openadmet download expansion_teaser
+    admet download expansion_teaser
 
 Download all datasets::
 
-    openadmet download all
+    admet download all
 
 Omit name (same as ``all``)::
 
-    openadmet download
+    admet download
 
 Custom output directory::
 
-    openadmet download expansion_teaser --output-dir ./data
+    admet download expansion_teaser --output-dir ./data
 """
 
 from typing import Optional

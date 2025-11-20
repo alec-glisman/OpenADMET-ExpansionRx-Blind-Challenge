@@ -60,6 +60,18 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["black", "isort", "flake8", "mypy", "pytest-cov"]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-autodoc-typehints>=2.0",
+    "sphinx-autobuild",
+    "sphinx-copybutton",
+    "sphinx-rtd-theme",
+    "furo",
+    "sphinxext-opengraph",
+    "sphinx-tabs",
+    "sphinx-panels",
+    "myst-parser",
+]
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

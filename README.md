@@ -55,6 +55,49 @@ admet train xgb \
 A Ray cluster can be pre-initialized to accelerate multi-model training.
 If one is not already running, the job will create a local Ray cluster instance if `--ray-address "local"` is specified or will run without Ray if `--ray-address` is not provided.
 
+### Documentation Build
+
+Project documentation (Sphinx) lives under `docs/`.
+
+* Initial HTML build:
+
+```bash
+sphinx-build -b html docs docs/_build/html
+```
+
+* Clean rebuild (remove previous output then build):
+
+```bash
+rm -rf docs/_build
+sphinx-build -b html docs docs/_build/html
+```
+
+* Open locally: point your browser at `docs/_build/html/index.html`.
+* Optional live autoreload
+
+```bash
+sphinx-autobuild docs docs/_build/html
+```
+
+  This serves docs at <http://127.0.0.1:8000> with automatic refresh on changes.
+
+#### Using the Makefile
+
+A convenience `Makefile` is provided under the `docs/` directory with
+common Sphinx targets. From the repository root you can run:
+
+```bash
+make -C docs html
+```
+
+To remove previous build artifacts:
+
+```bash
+make -C docs clean
+```
+
+These targets call `sphinx-build` under the hood and produce output in `docs/_build/html`.
+
 ## Goals
 
 ### Models

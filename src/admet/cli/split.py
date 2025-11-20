@@ -11,15 +11,15 @@ Examples
 --------
 Create all splits (temporal + stratified)::
 
-    openadmet split datasets path/to/data
+    admet split datasets path/to/data
 
 Stratified only with custom output directory::
 
-    openadmet split datasets path/to/data --output ./my_splits --no-temporal
+    admet split datasets path/to/data --output ./my_splits --no-temporal
 
 Verbose debugging::
 
-    openadmet split datasets path/to/data --log-level DEBUG
+    admet split datasets path/to/data --log-level DEBUG
 """
 
 from pathlib import Path

@@ -34,11 +34,11 @@ Usage Examples
 --------------
 Single dataset training::
 
-        openadmet train xgb path/to/hf_dataset --config cfg.yaml
+        admet train xgb path/to/hf_dataset --config cfg.yaml
 
 Multi-dataset Ray training::
 
-        openadmet train xgb path/to/parent --multi --config cfg.yaml --ray-address auto
+        admet train xgb path/to/parent --multi --config cfg.yaml --ray-address auto
 """
 
 from __future__ import annotations

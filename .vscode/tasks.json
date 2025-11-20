@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build docs",
+            "type": "shell",
+            "command": "make -C docs html",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Live docs",
+            "type": "shell",
+            "command": "sphinx-autobuild docs docs/_build/html --open-browser",
+            "group": "none",
+            "presentation": {
+                "reveal": "silent"
+            }
+        }
+    ]
+}
