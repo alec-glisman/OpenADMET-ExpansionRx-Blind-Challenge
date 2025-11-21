@@ -59,7 +59,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "isort", "flake8", "mypy", "pytest-cov"]
+dev = [
+    "black",
+    "isort",
+    "flake8",
+    "mypy",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-xdist",
+]
 docs = [
     "sphinx>=7.0",
     "sphinx-autodoc-typehints>=2.0",

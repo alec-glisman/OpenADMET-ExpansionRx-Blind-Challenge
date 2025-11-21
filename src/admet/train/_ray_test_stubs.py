@@ -9,11 +9,11 @@ error handling, partial metrics, timeout simulation, etc.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List
 import time
 import numpy as np
 
-from admet.train.base_trainer import BaseModelTrainer, BaseRayMultiDatasetTrainer
+from admet.train.base_trainer import BaseModelTrainer, BaseEnsembleTrainer
 from admet.model.base import BaseModel
 
 
@@ -60,10 +60,10 @@ class _MinimalModel(BaseModel):
 # Failing trainer: raises during run to force error status
 # ---------------------------------------------------------------------------
 class FailingTrainer(BaseModelTrainer):
-    """Trainer that raises during ``run`` to exercise error paths.
+    """Trainer that raises during ``fit`` to exercise error paths.
 
     Used to verify Ray orchestration correctly captures failures and
-    returns a status payload with ``error`` classification.
+    returns a status payload with ``error`` classification under the new API.
     """
 
     def __init__(self, **kwargs):
@@ -71,31 +71,28 @@ class FailingTrainer(BaseModelTrainer):
         super().__init__(**kwargs)
 
     def prepare_features(self, dataset):
-        import numpy as _np
 
         return (
-            _np.zeros((len(dataset.train), 1)),
-            _np.zeros((len(dataset.val), 1)),
-            _np.zeros((len(dataset.test), 1)),
+            np.zeros((len(dataset.train), 1)),
+            np.zeros((len(dataset.val), 1)),
+            np.zeros((len(dataset.test), 1)),
         )
 
     def prepare_targets(self, dataset):
-        import numpy as _np
 
         D = len(dataset.endpoints)
         return (
-            _np.zeros((len(dataset.train), D)),
-            _np.zeros((len(dataset.val), D)),
-            _np.zeros((len(dataset.test), D)),
+            np.zeros((len(dataset.train), D)),
+            np.zeros((len(dataset.val), D)),
+            np.zeros((len(dataset.test), D)),
         )
 
     def prepare_masks(self, Y_train, Y_val, Y_test):
-        import numpy as _np
 
         return (
-            _np.zeros_like(Y_train, dtype=bool),
-            _np.zeros_like(Y_val, dtype=bool),
-            _np.zeros_like(Y_test, dtype=bool),
+            np.zeros_like(Y_train, dtype=bool),
+            np.zeros_like(Y_val, dtype=bool),
+            np.zeros_like(Y_test, dtype=bool),
         )
 
     def build_sample_weights(self, dataset, sample_weight_mapping=None):
@@ -110,50 +107,43 @@ class FailingTrainer(BaseModelTrainer):
     def save_artifacts(self, *args, **kwargs):
         return None
 
-    def run(self, dataset, *args, **kwargs):
-        raise RuntimeError("failing trainer run")
+    def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
+        raise RuntimeError("failing trainer fit")
 
 
 # ---------------------------------------------------------------------------
 # Trivial trainer: returns empty macro dicts quickly
 # ---------------------------------------------------------------------------
 class TrivialTrainer(BaseModelTrainer):
-    """Trainer returning empty metrics without performing a fit.
-
-    Exercises the success path while producing a minimal metrics structure
-    used in status classification tests.
-    """
+    """Trainer returning empty metrics (success path) under new ``fit`` API."""
 
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
         super().__init__(**kwargs)
 
     def prepare_features(self, dataset):
-        import numpy as _np
 
         return (
-            _np.zeros((len(dataset.train), 1)),
-            _np.zeros((len(dataset.val), 1)),
-            _np.zeros((len(dataset.test), 1)),
+            np.zeros((len(dataset.train), 1)),
+            np.zeros((len(dataset.val), 1)),
+            np.zeros((len(dataset.test), 1)),
         )
 
     def prepare_targets(self, dataset):
-        import numpy as _np
 
         D = len(dataset.endpoints)
         return (
-            _np.zeros((len(dataset.train), D)),
-            _np.zeros((len(dataset.val), D)),
-            _np.zeros((len(dataset.test), D)),
+            np.zeros((len(dataset.train), D)),
+            np.zeros((len(dataset.val), D)),
+            np.zeros((len(dataset.test), D)),
         )
 
     def prepare_masks(self, Y_train, Y_val, Y_test):
-        import numpy as _np
 
         return (
-            _np.ones_like(Y_train, dtype=bool),
-            _np.ones_like(Y_val, dtype=bool),
-            _np.ones_like(Y_test, dtype=bool),
+            np.ones_like(Y_train, dtype=bool),
+            np.ones_like(Y_val, dtype=bool),
+            np.ones_like(Y_test, dtype=bool),
         )
 
     def build_sample_weights(self, dataset, sample_weight_mapping=None):
@@ -168,8 +158,7 @@ class TrivialTrainer(BaseModelTrainer):
     def save_artifacts(self, *args, **kwargs):
         return None
 
-    def run(self, dataset, *args, **kwargs):  # type: ignore[override]
-        # Minimal orchestration: skip fitting, directly return metrics structure.
+    def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
         return self.compute_metrics()
 
 
@@ -177,11 +166,7 @@ class TrivialTrainer(BaseModelTrainer):
 # Slow trainer: sleeps to trigger timeout
 # ---------------------------------------------------------------------------
 class SlowTrainer(BaseModelTrainer):
-    """Trainer that sleeps briefly to simulate latency / timeout.
-
-    Introduces a small delay so test cases can assert timeout handling
-    behavior in Ray worker execution.
-    """
+    """Trainer that sleeps briefly to simulate latency/timeout (``fit`` API)."""
 
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
@@ -221,7 +206,7 @@ class SlowTrainer(BaseModelTrainer):
     def save_artifacts(self, *args, **kwargs):
         return None
 
-    def run(self, dataset, *args, **kwargs):
+    def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
         time.sleep(0.01)
         return self.compute_metrics()
 
@@ -230,11 +215,7 @@ class SlowTrainer(BaseModelTrainer):
 # Partial trainer: omit validation split to force 'partial' status
 # ---------------------------------------------------------------------------
 class PartialTrainer(BaseModelTrainer):
-    """Trainer that omits validation metrics to produce a 'partial' status.
-
-    Returns metrics for train and test splits only, enabling tests to
-    confirm that missing expected splits yields a partial classification.
-    """
+    """Trainer omitting validation metrics to force 'partial' status (``fit`` API)."""
 
     def __init__(self, **kwargs):
         kwargs.setdefault("model_cls", BaseModel)
@@ -274,15 +255,14 @@ class PartialTrainer(BaseModelTrainer):
     def save_artifacts(self, *args, **kwargs):
         return None
 
-    def run(self, dataset, *args, **kwargs):  # type: ignore[override]
-        # Return metrics missing 'validation' to force partial classification.
+    def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
         return self.compute_metrics()
 
 
 # ---------------------------------------------------------------------------
 # Ray multi-dataset wrappers
 # ---------------------------------------------------------------------------
-class MinimalRayTrainer(BaseRayMultiDatasetTrainer):
+class MinimalRayTrainer(BaseEnsembleTrainer):
     """Ray multi-dataset trainer stub performing only path discovery.
 
     Discovers datasets and computes output directory layout without
@@ -299,7 +279,7 @@ class MinimalRayTrainer(BaseRayMultiDatasetTrainer):
         return base / cluster / f"split_{split}" / f"fold_{fold}"
 
 
-class SlowRayTrainer(BaseRayMultiDatasetTrainer):
+class SlowRayTrainer(BaseEnsembleTrainer):
     """Ray trainer stub used for timeout / latency scenarios.
 
     Shares logic with :class:`MinimalRayTrainer` but identified separately
@@ -316,7 +296,7 @@ class SlowRayTrainer(BaseRayMultiDatasetTrainer):
         return base / cluster / f"split_{split}" / f"fold_{fold}"
 
 
-class PartialRayTrainer(BaseRayMultiDatasetTrainer):
+class PartialRayTrainer(BaseEnsembleTrainer):
     """Ray trainer stub producing partial artifact directory layout.
 
     Used to validate behavior when expected outputs or splits are missing

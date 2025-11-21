@@ -52,7 +52,9 @@ import yaml
 import numpy as np
 
 from admet.data.load import load_dataset
-from admet.train.xgb_train import train_xgb_models, train_xgb_models_ray
+from admet.train.xgb_train import XGBoostTrainer
+from admet.train.base_trainer import train_model, train_ensemble, BaseEnsembleTrainer
+from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
 logger = logging.getLogger(__name__)
 app = typer.Typer(help="Model training commands.")
@@ -149,8 +151,10 @@ def xgb(
 
     if not multi:
         dataset = load_dataset(data_root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
-        metrics = train_xgb_models(
+        metrics = train_model(
             dataset,
+            trainer_cls=XGBoostTrainer,
+            model_cls=XGBoostMultiEndpoint,
             model_params=model_params,
             early_stopping_rounds=early_stopping_rounds,
             sample_weight_mapping=sw_mapping,
@@ -172,16 +176,19 @@ def xgb(
         # CLI flag takes precedence over config file for address
         ray_addr_effective = ray_address or ray_cfg.get("address")
 
-        results = train_xgb_models_ray(
+        results = train_ensemble(
             data_root,
+            ensemble_trainer_cls=BaseEnsembleTrainer,
+            trainer_cls=XGBoostTrainer,
+            model_cls=XGBoostMultiEndpoint,
             model_params=model_params,
             early_stopping_rounds=early_stopping_rounds,
             sample_weight_mapping=sw_mapping,
             output_root=output_dir,
             seed=seed,
+            n_fingerprint_bits=n_fingerprint_bits,
             num_cpus=num_cpus,
             ray_address=ray_addr_effective,
-            n_fingerprint_bits=n_fingerprint_bits,
         )
 
         # Print metrics per discovered dataset

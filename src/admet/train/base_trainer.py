@@ -53,24 +53,81 @@ multi‑dataset runs).
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 from dataclasses import dataclass
+from enum import Enum
 import datetime
+import logging
+import multiprocessing
 
+import json
 import numpy as np
 import ray
 import pandas as pd
-import multiprocessing
 
 from admet.data.load import LoadedDataset
 from admet.model.base import BaseModel, ModelProtocol
-import logging
 from admet.utils import set_global_seeds
-from admet.evaluate.metrics import AllMetrics
+from admet.evaluate.metrics import AllMetrics, compute_metrics_log_and_linear
+from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_features(df, fingerprint_cols: Sequence[str]) -> np.ndarray:
+    """Extract fingerprint features from a dataframe split.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input data split containing fingerprint columns.
+    fingerprint_cols : Sequence[str]
+        Names of fingerprint columns to select.
+
+    Returns
+    -------
+    numpy.ndarray
+        2-D array of fingerprint features with dtype float.
+    """
+    return df.loc[:, fingerprint_cols].to_numpy(dtype=float)
+
+
+def _extract_targets(df, endpoints: Sequence[str]) -> np.ndarray:
+    """Extract endpoint target columns from a split.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input split containing endpoint columns.
+    endpoints : Sequence[str]
+        Names of endpoint columns to select.
+
+    Returns
+    -------
+    numpy.ndarray
+        2-D float array with targets and NaNs where missing.
+    """
+    return df[endpoints].to_numpy(dtype=float)
+
+
+def _target_mask(y: np.ndarray) -> np.ndarray:
+    """Build a binary mask indicating presence of target values.
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Target matrix with NaNs used to signal missing values.
+
+    Returns
+    -------
+    numpy.ndarray
+        Integer mask array where 1 indicates a present target and 0 indicates
+        a missing target.
+    """
+    # Return a boolean mask for presence of targets; callers can convert to int if needed
+    return ~np.isnan(y)
 
 
 def infer_split_metadata(hf_path: Path, root: Path) -> Dict[str, object]:
@@ -166,6 +223,21 @@ def metadata_from_dict(d: Dict[str, object]) -> SplitMetadata:
     )
 
 
+class FeaturizationMethod(Enum):
+    """Simple enum to track dataset featurization method.
+
+    Two basic methods are supported at present:
+    - SMILES: raw SMILES string column(s) to be used by a backend that
+        consumes SMILES directly (for example a graph-based model loader).
+    - MORGAN_FP: precomputed Morgan fingerprint columns (e.g. 'fp_0',
+        'fp_1', ...) holding numeric fingerprint bits.
+    """
+
+    SMILES = "smiles"
+    MORGAN_FP = "morgan_fp"
+    NONE = None
+
+
 @dataclass
 class RunOutputs:
     """Container for arrays computed during a single run.
@@ -180,13 +252,21 @@ class RunOutputs:
     pred_train, pred_val, pred_test: numpy arrays (predictions)
     """
 
+    # Input and output column names
+    featurization: FeaturizationMethod
     endpoints: List[str]
+
+    # Predictive model
+    model: Any
+
+    # Datasets
     X_train: np.ndarray
     X_val: np.ndarray
     X_test: np.ndarray
     Y_train: np.ndarray
     Y_val: np.ndarray
     Y_test: np.ndarray
+
     mask_train: np.ndarray
     mask_val: np.ndarray
     mask_test: np.ndarray
@@ -211,6 +291,7 @@ def _train_single_dataset_remote(
     dry_run: bool = False,
     max_duration_seconds: Optional[float] = None,
     n_fingerprint_bits: Optional[int] = None,
+    featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP,
 ) -> Tuple[str, Dict[str, object]]:
     """Run a single dataset trainer in a Ray worker.
 
@@ -232,6 +313,9 @@ def _train_single_dataset_remote(
         Root directory where artifacts should be written.
     seed : int, optional
         Seed used as a base for per-run randomization.
+    featurization : :class:`FeaturizationMethod`, optional
+        Which type of featurization to expect/validate for the dataset. The
+        loader currently defaults to Morgan fingerprints when present.
 
     Returns
     -------
@@ -247,7 +331,7 @@ def _train_single_dataset_remote(
     meta = infer_split_metadata(hf_dir, root)
     rel_key = str(meta.get("relative_path", hf_dir.name))
 
-    start_ts = datetime.datetime.utcnow()
+    start_ts = datetime.datetime.now()
     start_time = start_ts.isoformat()
     try:
         # Configure logging inside the worker to match the originating process
@@ -260,9 +344,19 @@ def _train_single_dataset_remote(
         pass
 
     try:
-        if n_fingerprint_bits is not None:
-            dataset = _load_dataset(hf_dir, n_fingerprint_bits=n_fingerprint_bits)
+        # Load dataset based on requested featurization; currently the
+        # loader accepts `n_fingerprint_bits` and will validate fingerprint
+        # columns when requested. For SMILES featurization no fingerprint
+        # columns are required and we fall-back to the same loader here.
+        # Future loaders may accept `featurization` as a parameter.
+        logger.info("Loading dataset '%s' with featurization=%s", hf_dir, featurization)
+        if featurization == FeaturizationMethod.MORGAN_FP:
+            if n_fingerprint_bits is not None:
+                dataset = _load_dataset(hf_dir, n_fingerprint_bits=n_fingerprint_bits)
+            else:
+                dataset = _load_dataset(hf_dir)
         else:
+            # For SMILES featurization we don't require fingerprint columns.
             dataset = _load_dataset(hf_dir)
         out_dir: Optional[Path] = None
         if output_root is not None:
@@ -278,7 +372,7 @@ def _train_single_dataset_remote(
             trainer_kwargs = dict(trainer_kwargs)
             trainer_kwargs.setdefault("seed", seed)
         trainer = trainer_cls(**trainer_kwargs)
-        metrics = trainer.run(
+        metrics = trainer.fit(
             dataset,
             sample_weight_mapping=sample_weight_mapping,
             early_stopping_rounds=early_stopping_rounds,
@@ -372,99 +466,135 @@ class BaseModelTrainer(ABC):
         *,
         model_params: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
-        n_fingerprint_bits: Optional[int] = None,
         device: Optional[str] = None,
         mixed_precision: bool = False,
     ) -> None:
         self.model_cls = model_cls
         self.model_params = model_params or {}
+
         self.seed = seed
         self.device = device
         self.mixed_precision = mixed_precision
 
-    # --- Hooks that concrete trainers must implement ---
+        # NOTE: Implemented by subclasses
+        self.featurization = FeaturizationMethod.NONE
+        self.model = None
 
-    @abstractmethod
-    def prepare_features(self, dataset: LoadedDataset) -> Tuple[Any, Any, Any]:
-        """Convert dataset splits into backend-ready feature representations.
+    def prepare_features(self, dataset: LoadedDataset) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Prepare fingerprint feature matrices for each split.
 
         Parameters
         ----------
         dataset : LoadedDataset
-            Loaded dataset with train/validation/test splits and fingerprint columns.
+            A loaded HF dataset produced by :func:`admet.data.load.load_dataset`.
 
         Returns
         -------
         tuple
-            Tuple containing backend-ready feature arrays for train/val/test.
+            ``(X_train, X_val, X_test)`` arrays suitable for training.
         """
+        # Get feature columns based on featurization method (corrected logic)
+        if self.featurization == FeaturizationMethod.MORGAN_FP:
+            feature_cols = dataset.fingerprint_cols
+        elif self.featurization == FeaturizationMethod.SMILES:
+            feature_cols = [dataset.smiles_col]
+        else:
+            raise ValueError(f"Unsupported featurization method: {self.featurization}")
 
-        raise NotImplementedError
+        if not feature_cols:
+            raise ValueError("No feature columns found in dataset; cannot prepare features.")
 
-    @abstractmethod
+        # Check that all fingerprint columns are present in each split
+        for split_name, df in [
+            ("train", dataset.train),
+            ("validation", dataset.val),
+            ("test", dataset.test),
+        ]:
+            missing = [c for c in feature_cols if c not in df.columns]
+            if missing:
+                raise ValueError(f"Missing fingerprint columns in {split_name} split: {missing[:10]}")
+
+        X_train = _extract_features(dataset.train, feature_cols)
+        X_val = _extract_features(dataset.val, feature_cols)
+        X_test = _extract_features(dataset.test, feature_cols)
+        return X_train, X_val, X_test
+
     def prepare_targets(self, dataset: LoadedDataset) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Extract endpoint targets per split as numpy arrays.
+        """Extract endpoint target arrays for each split.
 
         Parameters
         ----------
         dataset : LoadedDataset
-            Dataset providing endpoint columns in each split.
+            Loaded dataset with endpoint columns.
 
         Returns
         -------
         tuple
-            Numpy arrays for Y_train, Y_val, Y_test with NaNs for missing targets.
+            ``(Y_train, Y_val, Y_test)`` numpy arrays with NaNs for missing targets.
         """
+        endpoints = dataset.endpoints
+        if not endpoints:
+            raise ValueError("No endpoints found in dataset; cannot prepare targets.")
+        # Check that all endpoint columns are present in each split
+        for split_name, df in [
+            ("train", dataset.train),
+            ("validation", dataset.val),
+            ("test", dataset.test),
+        ]:
+            missing = [c for c in endpoints if c not in df.columns]
+            if missing:
+                raise ValueError(f"Missing endpoint columns in {split_name} split: {missing}")
+        Y_train = _extract_targets(dataset.train, endpoints)
+        Y_val = _extract_targets(dataset.val, endpoints)
+        Y_test = _extract_targets(dataset.test, endpoints)
+        return Y_train, Y_val, Y_test
 
-        raise NotImplementedError
-
-    @abstractmethod
     def prepare_masks(
         self,
         Y_train: np.ndarray,
         Y_val: np.ndarray,
         Y_test: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Build missing-target masks from targets for each split.
+        """Construct per‑split missing‑target masks.
 
         Parameters
         ----------
         Y_train, Y_val, Y_test : numpy.ndarray
-            Target arrays for each split with NaNs for missing values.
+            Target matrices with ``NaN`` for missing labels.
 
         Returns
         -------
         tuple
-            Mask arrays with 1 for present targets and 0 for missing targets.
+            Boolean masks (train, validation, test) where ``True`` indicates
+            presence of a label.
         """
+        mask_train = _target_mask(Y_train)
+        mask_val = _target_mask(Y_val)
+        mask_test = _target_mask(Y_test)
+        return mask_train, mask_val, mask_test
 
-        raise NotImplementedError
-
-    @abstractmethod
     def build_sample_weights(
         self,
         dataset: LoadedDataset,
         sample_weight_mapping: Optional[Dict[str, float]],
     ) -> Optional[np.ndarray]:
-        """Construct a 1D sample weight array for the training split.
+        """Create a per-row sample-weight vector for the training split.
 
-        Parameters
-        ----------
-        dataset : LoadedDataset
-            Dataset used to extract sample identifiers from the training split.
-        sample_weight_mapping : dict, optional
-            Mapping of dataset names to weights with optional ``default``.
-
-        Returns
-        -------
-        numpy.ndarray or None
-            1-D array of sample weights aligned with the training split or
-            ``None`` when not applicable.
+        This function maps the dataset's ``Dataset`` column values through
+        ``sample_weight_mapping`` (with optional ``default`` key). When not
+        supplied, returns ``None``.
         """
+        if not sample_weight_mapping:
+            return None
+        mapping = sample_weight_mapping
+        # Ensure the 'Dataset' column is present when building sample weights
+        if "Dataset" not in dataset.train.columns:
+            raise ValueError("Training split missing 'Dataset' column needed for sample weight mapping")
+        default = mapping.get("default", 1.0)
+        # Use pandas vectorized mapping for performance
+        sw_series = dataset.train["Dataset"].astype(str).map(lambda x: mapping.get(x, default))
+        return sw_series.to_numpy(dtype=float)
 
-        raise NotImplementedError
-
-    @abstractmethod
     def build_model(self, endpoints: List[str]) -> BaseModel:
         """Instantiate the backend model with endpoints and configuration.
 
@@ -478,10 +608,8 @@ class BaseModelTrainer(ABC):
         BaseModel
             The instantiated model ready to be fit.
         """
+        return self.model_cls(endpoints, self.model_params, self.seed)  # type: ignore[call-arg]
 
-        raise NotImplementedError
-
-    @abstractmethod
     def compute_metrics(
         self,
         Y_train: np.ndarray,
@@ -495,68 +623,107 @@ class BaseModelTrainer(ABC):
         mask_test: np.ndarray,
         endpoints: List[str],
     ) -> AllMetrics:
-        """Compute all metrics for the provided true and predicted values.
+        """Compute macro and per-endpoint metrics for all splits.
 
         Parameters
         ----------
         Y_train, Y_val, Y_test : numpy.ndarray
             True target arrays for each split.
         pred_train, pred_val, pred_test : numpy.ndarray
-            Predicted values for each split.
+            Predicted arrays for each split.
         mask_train, mask_val, mask_test : numpy.ndarray
-            Masks indicating present/absent values for each target.
+            Masks indicating observed targets for each split.
         endpoints : list of str
-            Endpoint names corresponding to target columns.
+            Endpoint columns corresponding to the final axis of ``Y``.
 
         Returns
         -------
         dict
-            Nested dict keyed by split (``train``, ``validation``, ``test``)
-            with metric dictionaries; must include a ``macro`` section per
-            split for aggregation logic used downstream.
+            Nested metrics dictionary keyed by split name.
         """
+        return {
+            "train": compute_metrics_log_and_linear(Y_train, pred_train, mask_train, endpoints),
+            "validation": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
+            "test": compute_metrics_log_and_linear(Y_test, pred_test, mask_test, endpoints),
+        }
 
-        raise NotImplementedError
-
-    @abstractmethod
     def save_artifacts(
         self,
-        model: BaseModel,
+        model: "BaseModel",
         metrics: AllMetrics,
         output_dir: Path,
         outputs: "RunOutputs",
         *,
         dataset: LoadedDataset,
-        extra_meta: Optional[Dict[str, Any]] = None,
+        extra_meta: Optional[Dict[str, object]] = None,
     ) -> None:
-        """Persist model, metrics, and optional plots to disk.
+        """Save model, metrics, and generated figures to ``output_dir``.
 
         Parameters
         ----------
         model : BaseModel
-            The trained model instance to persist.
+            The already-trained model instance.
         metrics : dict
-            Nested metrics as returned by :meth:`compute_metrics`.
+            Nested metrics dictionary as returned by :meth:`compute_metrics`.
         output_dir : pathlib.Path
-            Output directory to write artifacts under.
+            Directory to write artifacts under.
         dataset : LoadedDataset
-            Dataset used for generating plots and saving metadata.
+            The dataset used for training; required for plotting.
         extra_meta : dict, optional
-            Additional metadata to store alongside metrics (will be merged
-            with trainer‑specific info if desired).
+            Optional extra metadata written alongside metrics (currently not
+            persisted directly; reserved for future extension).
         """
+        assert isinstance(model, BaseModel)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        model.save(str(output_dir / "model"))
+        (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
-        raise NotImplementedError
+        # get number of CPUs for parallel plotting
+        n_cpus = multiprocessing.cpu_count()
+        logger.info("Using %d CPU cores for plotting.", n_cpus)
+
+        # Use precomputed outputs to avoid re-extracting/recomputing
+        endpoints = outputs.endpoints
+        Y_train, Y_val, Y_test = outputs.Y_train, outputs.Y_val, outputs.Y_test
+        mask_train, mask_val, mask_test = outputs.mask_train, outputs.mask_val, outputs.mask_test
+        pred_train, pred_val, pred_test = outputs.pred_train, outputs.pred_val, outputs.pred_test
+
+        y_true = {"train": Y_train, "validation": Y_val, "test": Y_test}
+        y_pred = {"train": pred_train, "validation": pred_val, "test": pred_test}
+        y_mask = {"train": mask_train, "validation": mask_val, "test": mask_test}
+        fig_root = output_dir / "figures"
+        for space in ["log", "linear"]:
+            space_dir = fig_root / space
+            space_dir.mkdir(parents=True, exist_ok=True)
+            # Parity plots: one file per endpoint
+            plot_parity_grid(
+                y_true,
+                y_pred,
+                y_mask,
+                endpoints,
+                space=space,
+                save_dir=space_dir,
+                n_jobs=n_cpus,
+            )
+            # Metric bars
+            plot_metric_bars(
+                y_true,
+                y_pred,
+                y_mask,
+                endpoints,
+                space=space,
+                save_path_r2=space_dir / "metrics_r2.png",
+                save_path_spr2=space_dir / "metrics_spearman_rho2.png",
+                n_jobs=n_cpus,
+            )
 
     # --- High-level orchestration ---
-
-    @abstractmethod
-    def run(
+    def fit(
         self,
         dataset: LoadedDataset,
         *,
         sample_weight_mapping: Optional[Dict[str, float]] = None,
-        early_stopping_rounds: int = 50,
+        early_stopping_rounds: Optional[int] = None,
         output_dir: Optional[Path] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
@@ -602,6 +769,7 @@ class BaseModelTrainer(ABC):
         # Ensure dataset has required splits
         if not (hasattr(dataset, "train") and hasattr(dataset, "val") and hasattr(dataset, "test")):
             raise ValueError("LoadedDataset must provide 'train','val','test' splits")
+
         logger.info("Preparing features/targets for endpoints: %s", endpoints)
         X_train, X_val, X_test = self.prepare_features(dataset)
         Y_train, Y_val, Y_test = self.prepare_targets(dataset)
@@ -628,9 +796,9 @@ class BaseModelTrainer(ABC):
                 "test": {"macro": {}},
             }
 
-        model = self.build_model(endpoints)
-        logger.info("Built model: %s", type(model).__name__)
-        model.fit(
+        self.model = self.build_model(endpoints)
+        logger.info("Built model: %s", type(self.model).__name__)
+        self.model.fit(
             X_train,
             Y_train,
             Y_mask=mask_train,
@@ -642,9 +810,9 @@ class BaseModelTrainer(ABC):
         )
 
         # Predictions
-        pred_train = model.predict(X_train)
-        pred_val = model.predict(X_val)
-        pred_test = model.predict(X_test)
+        pred_train = self.model.predict(X_train)
+        pred_val = self.model.predict(X_val)
+        pred_test = self.model.predict(X_test)
 
         metrics = self.compute_metrics(
             Y_train,
@@ -660,6 +828,8 @@ class BaseModelTrainer(ABC):
         )
 
         outputs = RunOutputs(
+            featurization=self.featurization,
+            model=self.model,
             endpoints=endpoints,
             X_train=X_train,
             X_val=X_val,
@@ -675,13 +845,15 @@ class BaseModelTrainer(ABC):
             pred_test=pred_test,
         )
         if output_dir is not None:
-            self.save_artifacts(model, metrics, output_dir, outputs, dataset=dataset, extra_meta=extra_meta)
+            self.save_artifacts(
+                self.model, metrics, output_dir, outputs, dataset=dataset, extra_meta=extra_meta
+            )
 
         return metrics
 
 
-class BaseRayMultiDatasetTrainer(ABC):
-    """Abstract Ray-based multi-dataset trainer.
+class BaseEnsembleTrainer:
+    """Ray-based ensemble trainer for multiple datasets.
 
     This class encapsulates Ray orchestration for running a single-dataset
     trainer over many discovered dataset directories.
@@ -696,28 +868,24 @@ class BaseRayMultiDatasetTrainer(ABC):
         self.trainer_cls = trainer_cls
         self.trainer_kwargs = trainer_kwargs or {}
 
-    @abstractmethod
-    def discover_datasets(self, root: Path) -> Sequence[Path]:
-        """Return a sequence of dataset directories to train on."""
+    def discover_datasets(self, root: Path) -> List[Path]:
+        return [p for p in root.rglob("hf_dataset") if p.is_dir()]
 
-    def infer_metadata(self, hf_path: Path, root: Path) -> Dict[str, Any]:
-        """Default implementation that calls :func:`infer_split_metadata`.
-
-        Backends may override this if they desire a different parsing heuristic.
-        """
+    def infer_metadata(self, hf_path: Path, root: Path) -> Dict[str, object]:
         return infer_split_metadata(hf_path, root)
 
-    @abstractmethod
-    def build_output_dir(self, base: Path, meta: Dict[str, Any]) -> Path:
-        """Compose an output directory path from base and metadata."""
-        raise NotImplementedError
+    def build_output_dir(self, base: Path, meta: Dict[str, object]) -> Path:
+        cluster = str(meta.get("cluster", "unknown_method"))
+        split = str(meta.get("split", "unknown_split"))
+        fold = str(meta.get("fold", "unknown_fold"))
+        return base / cluster / f"split_{split}" / f"fold_{fold}"
 
-    def run_all(
+    def fit_ensemble(
         self,
         root: Path,
         *,
         output_root: Optional[Path] = None,
-        early_stopping_rounds: int = 50,
+        early_stopping_rounds: Optional[int] = None,
         sample_weight_mapping: Optional[Dict[str, float]] = None,
         num_cpus: Optional[int] = None,
         ray_address: Optional[str] = None,
@@ -725,6 +893,7 @@ class BaseRayMultiDatasetTrainer(ABC):
         dry_run: bool = False,
         max_duration_seconds: Optional[float] = None,
         n_fingerprint_bits: Optional[int] = None,
+        featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP,
     ) -> Dict[str, Dict[str, object]]:
         """Default Ray orchestration for all datasets discovered under `root`.
 
@@ -732,7 +901,7 @@ class BaseRayMultiDatasetTrainer(ABC):
         generic `_train_single_dataset_remote` helper and aggregates results.
         """
         if output_root is None:
-            output_root = Path("xgb_artifacts")
+            output_root = Path("models")
 
         hf_paths = list(self.discover_datasets(root))
         if not hf_paths:
@@ -781,6 +950,7 @@ class BaseRayMultiDatasetTrainer(ABC):
                     dry_run=dry_run,
                     max_duration_seconds=max_duration_seconds,
                     n_fingerprint_bits=n_fingerprint_bits,
+                    featurization=featurization,
                 )
             )
 
@@ -858,4 +1028,141 @@ class BaseRayMultiDatasetTrainer(ABC):
         return aggregated
 
 
-__all__ = ["BaseModelTrainer", "BaseRayMultiDatasetTrainer"]
+def train_model(
+    dataset: LoadedDataset,
+    trainer_cls: Type[BaseModelTrainer],
+    model_cls: Type[ModelProtocol],
+    model_params: Optional[Dict[str, object]] = None,
+    early_stopping_rounds: Optional[int] = None,
+    sample_weight_mapping: Optional[Dict[str, float]] = None,
+    output_dir: Optional[Path] = None,
+    seed: Optional[int] = None,
+) -> AllMetrics:
+    """Convenience wrapper to train a single HF dataset using XGBoost.
+
+    Parameters
+    ----------
+    dataset : LoadedDataset
+        The dataset to train on.
+    model_params : dict, optional
+        Hyperparameters for the XGBoost backend. If ``None``, default
+        parameters are used.
+    early_stopping_rounds : int, optional
+        Early stopping parameter forwarded to the model.
+    sample_weight_mapping : dict, optional
+        Mapping of dataset names to sample weights.
+    output_dir : pathlib.Path, optional
+        Path to write artifacts under.
+    seed : int, optional
+        Seed for deterministic model fit.
+
+    Returns
+    -------
+    dict
+        Nested metrics dictionary keyed by split name (train, validation, test).
+
+    Notes
+    -----
+    For XGBoost: trainer_cls=XGBoostTrainer, model_cls=XGBoostMultiEndpoint,
+    """
+
+    trainer = trainer_cls(
+        model_cls=model_cls,
+        model_params=model_params,
+        seed=seed,
+    )
+    return trainer.fit(
+        dataset,
+        sample_weight_mapping=sample_weight_mapping,
+        early_stopping_rounds=early_stopping_rounds,
+        output_dir=output_dir,
+    )
+
+
+def train_ensemble(
+    root: Path,
+    *,
+    ensemble_trainer_cls: Type[BaseEnsembleTrainer],
+    trainer_cls: Type[BaseModelTrainer],
+    model_cls: Type[ModelProtocol],
+    model_params: Optional[Dict[str, object]] = None,
+    early_stopping_rounds: Optional[int] = None,
+    sample_weight_mapping: Optional[Dict[str, float]] = None,
+    output_root: Optional[Path] = None,
+    seed: Optional[int] = None,
+    n_fingerprint_bits: Optional[int] = None,
+    num_cpus: Optional[int] = None,
+    ray_address: Optional[str] = None,
+    dry_run: bool = False,
+    max_duration_seconds: Optional[float] = None,
+) -> Dict[str, Dict[str, object]]:
+    """Train XGBoost models in parallel via Ray across multiple HF datasets.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        Root directory to search for hf_dataset directories.
+    trainer_cls : type
+        A concrete trainer class that implements :class:`BaseEnsembleTrainer`.
+    model_cls : type
+        The model class (subclass of :class:`admet.model.base.BaseModel`) used
+        to construct the backend model.
+    model_params : dict, optional
+        Hyperparameter dictionary forwarded to the underlying model.
+    early_stopping_rounds : int, optional
+        Early stopping value per run.
+    sample_weight_mapping : dict, optional
+        Sample weights mapping for each dataset.
+    output_root : pathlib.Path, optional
+        Root directory where per-dataset artifacts are written.
+    seed : int, optional
+        Base seed for deterministic per-dataset seeds.
+    num_cpus : int, optional
+        Number of CPUs to use when starting a local Ray instance.
+    ray_address : str, optional
+        Optional Ray address to connect to; if ``'local'``, a local Ray
+        instance is started if not already running.
+
+    Returns
+    -------
+    dict
+        Mapping of dataset relative key to payload dict containing metrics,
+        metadata, status, and timing fields.
+
+    Notes
+    -----
+    For XGBoost: ensemble_trainer_cls=BaseEnsembleTrainer, trainer_cls=XGBoostTrainer, model_cls=XGBoostMultiEndpoint,
+    """
+
+    ray_trainer = ensemble_trainer_cls(
+        trainer_cls=trainer_cls,
+        trainer_kwargs={
+            "model_cls": model_cls,
+            "model_params": model_params,
+            "seed": seed,
+        },
+    )
+    aggregated = ray_trainer.fit_ensemble(
+        root,
+        output_root=output_root,
+        early_stopping_rounds=early_stopping_rounds,
+        sample_weight_mapping=sample_weight_mapping,
+        num_cpus=num_cpus,
+        ray_address=ray_address,
+        dry_run=dry_run,
+        max_duration_seconds=max_duration_seconds,
+        n_fingerprint_bits=n_fingerprint_bits,
+        seed=seed,
+    )
+
+    return aggregated
+
+
+__all__ = [
+    "BaseModelTrainer",
+    "BaseEnsembleTrainer",
+    "FeaturizationMethod",
+    "RunOutputs",
+    "train_model",
+    "train_ensemble",
+]

@@ -118,6 +118,7 @@ class LoadedDataset:
     test: pd.DataFrame
     endpoints: Sequence[str]
     fingerprint_cols: Sequence[str]
+    smiles_col: str
 
 
 def validate_dataset_schema(
@@ -218,6 +219,7 @@ def load_dataset_from_hf(
         test=test_df,
         endpoints=endpoints,
         fingerprint_cols=fp_cols,
+        smiles_col="SMILES",
     )
 
 

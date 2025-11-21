@@ -6,7 +6,8 @@ import pytest
 from datasets import Dataset, DatasetDict
 
 from admet.data.load import ENDPOINT_COLUMNS, expected_fingerprint_columns, load_dataset
-from admet.train.xgb_train import train_xgb_models, train_xgb_models_ray, XGBoostTrainer
+from admet.train.xgb_train import XGBoostTrainer
+from admet.train.base_trainer import train_model, train_ensemble, BaseEnsembleTrainer
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.model.base import BaseModel
 from admet.train.base_trainer import infer_split_metadata
@@ -72,13 +73,19 @@ def test_infer_split_metadata_parses_cluster_split_fold(tmp_path: Path):
         pytest.fail(f"cluster parsed incorrectly: {meta.get('cluster')}")
 
 
-def test_train_xgb_models_runs_end_to_end(tmp_path: Path):
+def test_train_model_runs_end_to_end(tmp_path: Path):
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
 
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
-    metrics = train_xgb_models(dataset, model_params={"n_estimators": 10}, early_stopping_rounds=5)
+    metrics = train_model(
+        dataset,
+        trainer_cls=XGBoostTrainer,
+        model_cls=cast(Any, XGBoostMultiEndpoint),
+        model_params={"n_estimators": 10},
+        early_stopping_rounds=5,
+    )
 
     for split in ["train", "validation", "test"]:
         if split not in metrics:
@@ -87,7 +94,7 @@ def test_train_xgb_models_runs_end_to_end(tmp_path: Path):
             pytest.fail(f"Expected macro in metrics[{split}]")
 
 
-def test_xgb_trainer_runs_end_to_end(tmp_path: Path):
+def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path):
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
@@ -97,7 +104,7 @@ def test_xgb_trainer_runs_end_to_end(tmp_path: Path):
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
 
-    metrics = trainer.run(dataset, early_stopping_rounds=5)
+    metrics = trainer.fit(dataset, early_stopping_rounds=5)
 
     for split in ["train", "validation", "test"]:
         if split not in metrics:
@@ -180,8 +187,11 @@ def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path):
             _make_hf_like_dataset(ds_dir)
 
     output_root = tmp_path / "xgb_artifacts"
-    results = train_xgb_models_ray(
+    results = train_ensemble(
         root,
+        ensemble_trainer_cls=BaseEnsembleTrainer,
+        trainer_cls=XGBoostTrainer,
+        model_cls=cast(Any, XGBoostMultiEndpoint),
         model_params={"n_estimators": 10},
         early_stopping_rounds=5,
         output_root=output_root,
@@ -257,7 +267,7 @@ def test_train_xgb_models_ray_handles_remote_errors(tmp_path: Path):
 
     # Use stub FailingTrainer & MinimalRayTrainer from package stubs
     ray_trainer = MinimalRayTrainer(trainer_cls=cast(Any, FailingTrainer), trainer_kwargs={})
-    results = ray_trainer.run_all(root, num_cpus=1)
+    results = ray_trainer.fit_ensemble(root, num_cpus=1)
 
     # Each payload should include error and have no metrics
     if len(results) != 2:
@@ -290,7 +300,7 @@ def test_ray_shutdown_after_run_all(tmp_path: Path):
     if ray.is_initialized():
         ray.shutdown()
     ray_trainer = MinimalRayTrainer(trainer_cls=TrivialTrainer, trainer_kwargs={})
-    _ = ray_trainer.run_all(root, num_cpus=1)
+    _ = ray_trainer.fit_ensemble(root, num_cpus=1)
     if ray.is_initialized():
         pytest.fail("Ray should be shut down after run_all")
 
@@ -304,7 +314,7 @@ def test_dry_run_returns_minimal_metrics(tmp_path: Path):
     trainer = XGBoostTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
-    metrics = trainer.run(dataset, dry_run=True)
+    metrics = trainer.fit(dataset, dry_run=True)
     if set(metrics.keys()) != {"train", "validation", "test"}:
         pytest.fail(f"Expected metrics keys to be train/validation/test; got {set(metrics.keys())}")
     for split in ["train", "validation", "test"]:
@@ -321,8 +331,11 @@ def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
         _make_hf_like_dataset(ds_dir)
 
     out = tmp_path / "out"
-    results = train_xgb_models_ray(
+    results = train_ensemble(
         root,
+        ensemble_trainer_cls=BaseEnsembleTrainer,
+        trainer_cls=XGBoostTrainer,
+        model_cls=cast(Any, XGBoostMultiEndpoint),
         model_params={"n_estimators": 5},
         output_root=out,
         seed=42,
@@ -354,7 +367,12 @@ def test_train_xgb_models_ray_timeout_status(tmp_path: Path):
     # time import removed; slow behavior handled in stub trainers
 
     slow_ray_trainer = SlowRayTrainer(trainer_cls=SlowTrainer, trainer_kwargs={})
-    results = slow_ray_trainer.run_all(root, num_cpus=1, max_duration_seconds=0.0, n_fingerprint_bits=16)
+    results = slow_ray_trainer.fit_ensemble(
+        root,
+        num_cpus=1,
+        max_duration_seconds=0.0,
+        n_fingerprint_bits=16,
+    )
     if not results:
         pytest.fail("Expected results from timeout run_all invocation")
     for payload in results.values():
@@ -376,7 +394,7 @@ def test_train_xgb_models_ray_partial_status(tmp_path: Path):
     _make_hf_like_dataset(ds_dir)
 
     partial_trainer = PartialRayTrainer(trainer_cls=PartialTrainer, trainer_kwargs={"model_cls": BaseModel})
-    results = partial_trainer.run_all(root, num_cpus=1, n_fingerprint_bits=16)
+    results = partial_trainer.fit_ensemble(root, num_cpus=1, n_fingerprint_bits=16)
     if not results:
         pytest.fail("Expected results from partial status run_all invocation")
     for payload in results.values():
@@ -397,7 +415,7 @@ def test_missing_fingerprint_columns_errors(tmp_path: Path):
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
     with pytest.raises(ValueError):
-        trainer.run(dataset)
+        trainer.fit(dataset)
 
 
 def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
@@ -438,7 +456,7 @@ def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
         model_params={"n_estimators": 1, "device": "cuda"},
         seed=123,
     )
-    metrics = trainer.run(dataset, early_stopping_rounds=1)
+    metrics = trainer.fit(dataset, early_stopping_rounds=1)
     # Training completed even though the first call raised an exception due to fallback
     for split in ["train", "validation", "test"]:
         assert split in metrics
@@ -466,7 +484,7 @@ def test_save_artifacts_receives_outputs(tmp_path: Path):
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 5}, seed=42
     )
     out = tmp_path / "out"
-    _ = trainer.run(dataset, output_dir=out)
+    _ = trainer.fit(dataset, output_dir=out)
     # ensure we captured outputs
     assert captured, "save_artifacts did not capture outputs"
     outputs = captured[0]
@@ -581,6 +599,6 @@ def test_prepare_targets_missing_endpoint_columns_raises(tmp_path: Path):
 
 __all__ = [
     "test_infer_split_metadata_parses_cluster_split_fold",
-    "test_train_xgb_models_runs_end_to_end",
+    "test_train_model_runs_end_to_end",
     "test_train_xgb_models_ray_multiple_datasets_and_summary",
 ]

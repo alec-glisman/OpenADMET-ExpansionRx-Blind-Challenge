@@ -10,6 +10,7 @@ __marimo__
 # build directories
 build/**
 cache/**
+models/**
 
 # caches
 *.cache

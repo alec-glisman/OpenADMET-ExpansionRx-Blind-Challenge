@@ -8,7 +8,9 @@ from datasets import Dataset, DatasetDict
 
 from admet.logging import configure_logging
 from admet.cli import app
-from admet.train.xgb_train import train_xgb_models_ray
+from admet.train.base_trainer import train_ensemble, BaseEnsembleTrainer
+from admet.train.xgb_train import XGBoostTrainer
+from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.data.load import expected_fingerprint_columns, ENDPOINT_COLUMNS
 import pytest
 
@@ -67,8 +69,11 @@ def test_ray_worker_writes_structured_json_log(tmp_path: Path):
     configure_logging(level="DEBUG", file=str(logfile), structured=True)
 
     # Call the trainer - the BaseRayMultiDatasetTrainer.run_all picks up the current logging config
-    results = train_xgb_models_ray(
+    results = train_ensemble(
         tmp_path / "splits",
+        ensemble_trainer_cls=BaseEnsembleTrainer,
+        trainer_cls=XGBoostTrainer,
+        model_cls=XGBoostMultiEndpoint,
         model_params={"n_estimators": 5},
         output_root=tmp_path / "out",
         seed=42,
@@ -76,7 +81,7 @@ def test_ray_worker_writes_structured_json_log(tmp_path: Path):
         n_fingerprint_bits=16,
     )
     if not results:
-        pytest.fail("Expected results from train_xgb_models_ray but got empty/None")
+        pytest.fail("Expected results from train_ensemble but got empty/None")
     if not logfile.exists():
         pytest.fail("Expected log file to exist after Ray worker run")
     # Ensure file contains JSON lines

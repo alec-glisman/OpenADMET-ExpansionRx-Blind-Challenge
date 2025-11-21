@@ -35,8 +35,8 @@ _LAZY_MAP: Dict[str, tuple[str, str]] = {
     # training
     "BaseModelTrainer": ("admet.train.base_trainer", "BaseModelTrainer"),
     "XGBoostTrainer": ("admet.train.xgb_train", "XGBoostTrainer"),
-    "train_xgb_models": ("admet.train.xgb_train", "train_xgb_models"),
-    "train_xgb_models_ray": ("admet.train.xgb_train", "train_xgb_models_ray"),
+    "train_model": ("admet.train.base_trainer", "train_model"),
+    "train_ensemble": ("admet.train.base_trainer", "train_ensemble"),
     # models
     "BaseModel": ("admet.model.base", "BaseModel"),
     "XGBoostMultiEndpoint": ("admet.model.xgb_wrapper", "XGBoostMultiEndpoint"),

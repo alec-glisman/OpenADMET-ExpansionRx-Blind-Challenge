@@ -8,14 +8,13 @@ Training orchestration and trainer implementations.
 
 """
 
-from .base_trainer import BaseModelTrainer, BaseRayMultiDatasetTrainer
-from .xgb_train import XGBoostTrainer, XGBoostRayMultiDatasetTrainer, train_xgb_models, train_xgb_models_ray
+from .base_trainer import BaseModelTrainer, BaseEnsembleTrainer, FeaturizationMethod, set_global_seeds
+from .xgb_train import XGBoostTrainer
 
 __all__ = [
     "BaseModelTrainer",
-    "BaseRayMultiDatasetTrainer",
+    "BaseEnsembleTrainer",
+    "FeaturizationMethod",
+    "set_global_seeds",
     "XGBoostTrainer",
-    "XGBoostRayMultiDatasetTrainer",
-    "train_xgb_models",
-    "train_xgb_models_ray",
 ]
