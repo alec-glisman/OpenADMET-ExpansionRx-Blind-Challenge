@@ -7,7 +7,7 @@ mypy: ignore-errors
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, cast
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,6 +20,8 @@ class DummyModel:
         self.endpoints = endpoints
         self.params = params or {}
         self.seed = seed
+        # conform to ModelProtocol
+        self.input_type = "fingerprint"
         self.fitted = False
         self.fit_calls = []
 
@@ -34,6 +36,11 @@ class DummyModel:
     def save(self, path: str):  # type: ignore[unused-argument]
         Path(path).mkdir(parents=True, exist_ok=True)
         (Path(path) / "dummy_model.json").write_text(json.dumps({"endpoints": self.endpoints}))
+
+    @classmethod
+    def load(cls, path: str):  # type: ignore[override]
+        # Minimal load implementation for tests: instantiate with empty params
+        return cls(endpoints=["A", "B"], params={}, seed=None)
 
 
 class DummyDataset:
@@ -133,15 +140,22 @@ def test_sample_weights(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     mapping = {"d1": 2.0, "default": 1.0}
     sw = trainer.build_sample_weights(dataset_fp, mapping)
-    assert sw.tolist() == [2.0, 1.0, 2.0]
+    assert sw is not None and sw.tolist() == [2.0, 1.0, 2.0]
+
+
+def test_sample_weights_default_only(dataset_fp):
+    trainer = FPTrainer(model_cls=DummyModel)
+    mapping = {"default": 1.5}
+    sw = trainer.build_sample_weights(dataset_fp, mapping)
+    assert sw is not None and sw.tolist() == [1.5, 1.5, 1.5]
 
 
 def test_build_model_and_fit_call(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel, seed=42)
     metrics = trainer.fit(dataset_fp, early_stopping_rounds=5)
     assert {"train", "validation", "test"} == set(metrics.keys())
-    assert trainer.model is not None and trainer.model.fitted
-    call = trainer.model.fit_calls[0]
+    assert trainer.model is not None and getattr(trainer.model, "fitted", False)
+    call = getattr(trainer.model, "fit_calls", [])[0]
     assert "Y_mask" in call and call["Y_mask"].shape == (3, 2)
     assert call["early_stopping_rounds"] == 5
 
@@ -173,7 +187,7 @@ def test_errors_missing_features():
     ds.train = ds.train.drop(columns=["fp1", "fp2", "fp3"])
     trainer = FPTrainer(model_cls=DummyModel)
     with pytest.raises(ValueError):
-        trainer.prepare_features(ds)
+        trainer.prepare_features(cast(Any, ds))
 
 
 def test_errors_missing_endpoints(dataset_fp):
