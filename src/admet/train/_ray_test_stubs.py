@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 import time
 import numpy as np
 
-from admet.train.base_trainer import BaseModelTrainer, BaseEnsembleTrainer
+from admet.train.base import BaseModelTrainer, BaseEnsembleTrainer
 from admet.model.base import BaseModel
 
 

@@ -8,13 +8,20 @@ Training orchestration and trainer implementations.
 
 """
 
-from .base_trainer import BaseModelTrainer, BaseEnsembleTrainer, FeaturizationMethod, set_global_seeds
+from .base import (
+    BaseModelTrainer,
+    BaseEnsembleTrainer,
+    FeaturizationMethod,
+    train_model,
+    train_ensemble,
+)
 from .xgb_train import XGBoostTrainer
 
 __all__ = [
     "BaseModelTrainer",
     "BaseEnsembleTrainer",
     "FeaturizationMethod",
-    "set_global_seeds",
+    "train_model",
+    "train_ensemble",
     "XGBoostTrainer",
 ]

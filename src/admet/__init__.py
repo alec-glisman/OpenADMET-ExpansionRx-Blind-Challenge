@@ -33,10 +33,10 @@ _LAZY_MAP: Dict[str, tuple[str, str]] = {
     "plot_correlation_matrix": ("admet.visualize.plots", "plot_correlation_matrix"),
     "plot_property_distributions": ("admet.visualize.plots", "plot_property_distributions"),
     # training
-    "BaseModelTrainer": ("admet.train.base_trainer", "BaseModelTrainer"),
+    "BaseModelTrainer": ("admet.train.base", "BaseModelTrainer"),
     "XGBoostTrainer": ("admet.train.xgb_train", "XGBoostTrainer"),
-    "train_model": ("admet.train.base_trainer", "train_model"),
-    "train_ensemble": ("admet.train.base_trainer", "train_ensemble"),
+    "train_model": ("admet.train.base", "train_model"),
+    "train_ensemble": ("admet.train.base", "train_ensemble"),
     # models
     "BaseModel": ("admet.model.base", "BaseModel"),
     "XGBoostMultiEndpoint": ("admet.model.xgb_wrapper", "XGBoostMultiEndpoint"),

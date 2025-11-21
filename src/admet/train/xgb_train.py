@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Type
 import logging
 
 from admet.model.base import ModelProtocol
-from admet.train.base_trainer import BaseModelTrainer, FeaturizationMethod
+from admet.train.base import BaseModelTrainer, FeaturizationMethod
 
 logger = logging.getLogger(__name__)
 

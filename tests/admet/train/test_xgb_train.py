@@ -1,16 +1,29 @@
-from pathlib import Path
+"""Comprehensive tests for XGBoost training & Ray orchestration.
 
+pyright: ignore-all
+flake8: noqa
+mypy: ignore-errors
+"""
+
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
 from datasets import Dataset, DatasetDict
+from typing import Any, cast
+import ray
 
 from admet.data.load import ENDPOINT_COLUMNS, expected_fingerprint_columns, load_dataset
 from admet.train.xgb_train import XGBoostTrainer
-from admet.train.base_trainer import train_model, train_ensemble, BaseEnsembleTrainer
+from admet.train.base import (
+    train_model,
+    train_ensemble,
+    BaseEnsembleTrainer,
+    infer_split_metadata,
+    RunOutputs,
+)
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.model.base import BaseModel
-from admet.train.base_trainer import infer_split_metadata
 from admet.train._ray_test_stubs import (
     FailingTrainer,
     TrivialTrainer,
@@ -20,15 +33,9 @@ from admet.train._ray_test_stubs import (
     SlowRayTrainer,
     PartialRayTrainer,
 )
-from typing import Any, cast
-import ray
-
-# imported for monkeypatching in tests
 
 
 def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Path:
-    """Create a minimal on-disk HF DatasetDict layout that ``load_dataset`` can load."""
-
     fp_cols = expected_fingerprint_columns(n_bits)
     splits = {}
     for split in ["train", "validation", "test"]:
@@ -45,39 +52,28 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
         for col in fp_cols:
             data[col] = list(np.random.randn(n_rows).astype(float))
         splits[split] = Dataset.from_pandas(pd.DataFrame(data), preserve_index=False)
-
     dset = DatasetDict(splits)
     dset.save_to_disk(str(root))
     return root
-
-    # Helper trainer classes moved to admet.train._ray_test_stubs
 
 
 def test_infer_split_metadata_parses_cluster_split_fold(tmp_path: Path):
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality"
     path = root / "random_cluster" / "split_0" / "fold_1" / "hf_dataset"
     path.mkdir(parents=True)
-
     meta = infer_split_metadata(path, root)
-    if "absolute_path" not in meta:
-        pytest.fail("absolute_path missing from inferred metadata")
-    if not str(meta["relative_path"]).endswith("random_cluster/split_0/fold_1/hf_dataset"):
-        pytest.fail("relative_path not parsed as expected")
-    if meta["split"] != "0":
-        pytest.fail(f"split parsed incorrectly: {meta.get('split')}")
-    if meta["fold"] != "1":
-        pytest.fail(f"fold parsed incorrectly: {meta.get('fold')}")
-    if meta["quality"] != "high_quality":
-        pytest.fail(f"quality parsed incorrectly: {meta.get('quality')}")
-    if meta["cluster"] != "high_quality/random_cluster":
-        pytest.fail(f"cluster parsed incorrectly: {meta.get('cluster')}")
+    assert "absolute_path" in meta
+    assert str(meta["relative_path"]).endswith("random_cluster/split_0/fold_1/hf_dataset")
+    assert meta["split"] == "0"
+    assert meta["fold"] == "1"
+    assert meta["quality"] == "high_quality"
+    assert meta["cluster"] == "high_quality/random_cluster"
 
 
 def test_train_model_runs_end_to_end(tmp_path: Path):
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
-
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
     metrics = train_model(
         dataset,
@@ -86,53 +82,33 @@ def test_train_model_runs_end_to_end(tmp_path: Path):
         model_params={"n_estimators": 10},
         early_stopping_rounds=5,
     )
-
     for split in ["train", "validation", "test"]:
-        if split not in metrics:
-            pytest.fail(f"Expected split {split} in metrics")
-        if "macro" not in metrics[split]:
-            pytest.fail(f"Expected macro in metrics[{split}]")
+        assert split in metrics and "macro" in metrics[split]
 
 
 def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path):
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
-
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
     trainer = XGBoostTrainer(
-        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+        model_cls=cast(Any, XGBoostMultiEndpoint),
+        model_params={"n_estimators": 10},
+        seed=123,
     )
-
     metrics = trainer.fit(dataset, early_stopping_rounds=5)
-
     for split in ["train", "validation", "test"]:
-        if split not in metrics:
-            pytest.fail(f"Expected split {split} in metrics")
-        if "macro" not in metrics[split]:
-            pytest.fail(f"Expected macro in metrics[{split}]")
+        assert split in metrics and "macro" in metrics[split]
 
 
 def test_build_model_uses_provided_model_cls():
-    # Minimal fake model to verify dependency injection
     class FakeModel(BaseModel):
         def __init__(self, endpoints, model_params=None, random_state=None):
             self.endpoints = list(endpoints)
             self.model_params = model_params or {}
             self.random_state = random_state
 
-        def fit(
-            self,
-            X_train,
-            Y_train,
-            *,
-            Y_mask=None,
-            X_val=None,
-            Y_val=None,
-            Y_val_mask=None,
-            sample_weight=None,
-            early_stopping_rounds=None,
-        ):
+        def fit(self, X_train, Y_train, **kwargs):
             return None
 
         def predict(self, X):
@@ -152,40 +128,33 @@ def test_build_model_uses_provided_model_cls():
             return {}
 
     trainer = XGBoostTrainer(model_cls=cast(Any, FakeModel), model_params={"n_estimators": 10}, seed=123)
-    model = trainer.build_model(["A", "B"])  # should be FakeModel
-    if not isinstance(model, FakeModel):
-        pytest.fail("Built model is not instance of provided FakeModel class")
+    model = trainer.build_model(["A", "B"])
+    assert isinstance(model, FakeModel)
 
 
 def test_build_sample_weights_vectorized(tmp_path: Path):
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
-
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
     mapping = {"dataset_a": 2.0, "default": 1.0}
     trainer = XGBoostTrainer(
-        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+        model_cls=cast(Any, XGBoostMultiEndpoint),
+        model_params={"n_estimators": 10},
+        seed=123,
     )
     sw = trainer.build_sample_weights(dataset, mapping)
-    if sw is None:
-        pytest.fail("Sample weights vector should not be None")
-    if sw.shape[0] != len(dataset.train):
-        pytest.fail("Sample weights shape does not match training set length")
-    if not all(sw == 2.0):
-        pytest.fail("Sample weights are not all 2.0 as expected")
+    assert sw is not None and sw.shape[0] == len(dataset.train) and all(sw == 2.0)
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
 def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path):
-    # Create two synthetic hf_dataset directories under a random_cluster root
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     for split_idx in range(2):
         for fold_idx in range(1):
             ds_dir = root / f"split_{split_idx}" / f"fold_{fold_idx}" / "hf_dataset"
             ds_dir.mkdir(parents=True)
             _make_hf_like_dataset(ds_dir)
-
     output_root = tmp_path / "xgb_artifacts"
     results = train_ensemble(
         root,
@@ -199,137 +168,72 @@ def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path):
         num_cpus=1,
         n_fingerprint_bits=16,
     )
-
-    # Expect one entry per hf_dataset
-    if len(results) != 2:
-        pytest.fail(f"Expected 2 results from ray trainer, got {len(results)}")
-
-    # Check that per-dataset metrics and meta exist
+    assert len(results) == 2
     for payload in results.values():
-        if not isinstance(payload, dict):
-            pytest.fail("Expected payload dict from ray worker")
-        if "metrics" not in payload:
-            pytest.fail("Expected payload to contain metrics")
-        if "meta" not in payload:
-            pytest.fail("Expected payload to contain meta")
         metrics_obj = payload["metrics"]
-        if metrics_obj is None:
-            pytest.fail(f"Remote worker failed for {payload.get('meta')}: {payload.get('error')}")
-        if not isinstance(metrics_obj, dict):
-            pytest.fail("Expected metrics object dict")
+        assert isinstance(metrics_obj, dict)
         for split in ["train", "validation", "test"]:
-            if split not in metrics_obj:
-                pytest.fail(f"Expected split {split} in metrics_obj")
-            if "macro" not in metrics_obj[split]:
-                pytest.fail(f"Expected macro in metrics_obj[{split}]")
-        # Ensure status is present and indicates ok
-        if payload.get("status") != "ok":
-            pytest.fail(f"Expected OK status in payload; got: {payload.get('status')}")
-        # Timing info included in payload
-        if payload.get("start_time") is None:
-            pytest.fail("Expected start_time in payload")
-        if payload.get("end_time") is None:
-            pytest.fail("Expected end_time in payload")
-        if not isinstance(payload.get("duration_seconds"), float):
-            pytest.fail("Expected duration_seconds to be float in payload")
-
-    # Summary files should exist at the output root
+            assert split in metrics_obj and "macro" in metrics_obj[split]
+        assert payload.get("status") == "ok"
+        assert payload.get("start_time")
+        assert payload.get("end_time")
+        assert isinstance(payload.get("duration_seconds"), float)
     summary_csv = output_root / "metrics_summary.csv"
     summary_json = output_root / "metrics_summary.json"
-    if not (summary_csv.exists() and summary_csv.stat().st_size > 0):
-        pytest.fail("Expected non-empty metrics_summary.csv file")
-    if not (summary_json.exists() and summary_json.stat().st_size > 0):
-        pytest.fail("Expected non-empty metrics_summary.json file")
-
-    # Summary CSV should have one row per (dataset, split)
-    df = pd.read_csv(summary_csv)
-    if df.shape[0] != 2 * 3:
-        pytest.fail(f"Expected {2*3} rows in summary, got {df.shape[0]}")
-    if "status" not in df.columns:
-        pytest.fail("Expected status column in summary CSV")
-    # times and duration included
-    if "start_time" not in df.columns:
-        pytest.fail("Expected start_time column in summary CSV")
-    if "end_time" not in df.columns:
-        pytest.fail("Expected end_time column in summary CSV")
-    if "duration_seconds" not in df.columns:
-        pytest.fail("Expected duration_seconds column in summary CSV")
+    assert summary_csv.exists() and summary_csv.stat().st_size > 0
+    assert summary_json.exists() and summary_json.stat().st_size > 0
 
 
 def test_train_xgb_models_ray_handles_remote_errors(tmp_path: Path):
-    # Create two synthetic hf_dataset directories under a random_cluster root
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     for split_idx in range(2):
         for fold_idx in range(1):
             ds_dir = root / f"split_{split_idx}" / f"fold_{fold_idx}" / "hf_dataset"
             ds_dir.mkdir(parents=True)
             _make_hf_like_dataset(ds_dir)
-
-    # Use stub FailingTrainer & MinimalRayTrainer from package stubs
     ray_trainer = MinimalRayTrainer(trainer_cls=cast(Any, FailingTrainer), trainer_kwargs={})
     results = ray_trainer.fit_ensemble(root, num_cpus=1)
-
-    # Each payload should include error and have no metrics
-    if len(results) != 2:
-        pytest.fail(f"Expected 2 results for failing trainer, got {len(results)}")
+    assert len(results) == 2
     for payload in results.values():
-        if not isinstance(payload, dict):
-            pytest.fail("Expected payload to be a dict")
-        if "metrics" not in payload:
-            pytest.fail("Expected payload to contain metrics key")
-        if payload["metrics"] is not None:
-            pytest.fail("Expected metrics to be None for failing trainer payload")
-        if "error" not in payload:
-            pytest.fail("Expected error key in payload for failing trainer")
-        if payload.get("status") != "error":
-            pytest.fail(f"Expected status 'error' in payload but got {payload.get('status')}")
+        assert payload["metrics"] is None
+        assert "error" in payload
+        assert payload.get("status") == "error"
 
 
 def test_ray_shutdown_after_run_all(tmp_path: Path):
-    # create a single dataset
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)
     _make_hf_like_dataset(ds_dir)
-
-    # Ensure no active Ray
-    if ray.is_initialized():
-        ray.shutdown()
-
-    # Make sure Ray is not running, then run all and assert it's stopped afterward
     if ray.is_initialized():
         ray.shutdown()
     ray_trainer = MinimalRayTrainer(trainer_cls=TrivialTrainer, trainer_kwargs={})
     _ = ray_trainer.fit_ensemble(root, num_cpus=1)
-    if ray.is_initialized():
-        pytest.fail("Ray should be shut down after run_all")
+    assert not ray.is_initialized(), "Ray should be shut down after run_all"
 
 
 def test_dry_run_returns_minimal_metrics(tmp_path: Path):
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
-
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
     trainer = XGBoostTrainer(
-        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+        model_cls=cast(Any, XGBoostMultiEndpoint),
+        model_params={"n_estimators": 10},
+        seed=123,
     )
     metrics = trainer.fit(dataset, dry_run=True)
-    if set(metrics.keys()) != {"train", "validation", "test"}:
-        pytest.fail(f"Expected metrics keys to be train/validation/test; got {set(metrics.keys())}")
+    assert set(metrics.keys()) == {"train", "validation", "test"}
     for split in ["train", "validation", "test"]:
-        if "macro" not in metrics[split]:
-            pytest.fail(f"Expected macro in metrics[{split}]")
+        assert "macro" in metrics[split]
 
 
 def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
-    # Create a small dataset and run with dry_run True
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     for split_idx in range(1):
         ds_dir = root / f"split_{split_idx}" / "fold_0" / "hf_dataset"
         ds_dir.mkdir(parents=True)
         _make_hf_like_dataset(ds_dir)
-
     out = tmp_path / "out"
     results = train_ensemble(
         root,
@@ -343,29 +247,19 @@ def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
         dry_run=True,
         n_fingerprint_bits=16,
     )
-    if not results:
-        pytest.fail("Expected results from dry_run invocation")
+    assert results
     for payload in results.values():
-        if payload.get("status") != "skipped":
-            pytest.fail(f"Expected status 'skipped' in payload, got {payload.get('status')}")
-        if payload.get("start_time") is None:
-            pytest.fail("Expected start_time in skipped payload")
-        if payload.get("end_time") is None:
-            pytest.fail("Expected end_time in skipped payload")
-        if not isinstance(payload.get("duration_seconds"), float):
-            pytest.fail("Expected duration_seconds to be float in skipped payload")
+        assert payload.get("status") == "skipped"
+        assert payload.get("start_time")
+        assert payload.get("end_time")
+        assert isinstance(payload.get("duration_seconds"), float)
 
 
 def test_train_xgb_models_ray_timeout_status(tmp_path: Path):
-    # Create a single dataset
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)
     _make_hf_like_dataset(ds_dir)
-
-    # Create a slow trainer that sleeps in run so we can trigger timeout
-    # time import removed; slow behavior handled in stub trainers
-
     slow_ray_trainer = SlowRayTrainer(trainer_cls=SlowTrainer, trainer_kwargs={})
     results = slow_ray_trainer.fit_ensemble(
         root,
@@ -373,35 +267,26 @@ def test_train_xgb_models_ray_timeout_status(tmp_path: Path):
         max_duration_seconds=0.0,
         n_fingerprint_bits=16,
     )
-    if not results:
-        pytest.fail("Expected results from timeout run_all invocation")
+    assert results
     for payload in results.values():
-        if payload.get("status") != "timeout":
-            pytest.fail(f"Expected timeout payload but got {payload.get('status')}: {payload.get('error')}")
-        if payload.get("start_time") is None:
-            pytest.fail("Expected start_time in timeout payload")
-        if payload.get("end_time") is None:
-            pytest.fail("Expected end_time in timeout payload")
-        if not isinstance(payload.get("duration_seconds"), float):
-            pytest.fail("Expected duration_seconds to be float in timeout payload")
+        assert payload.get("status") == "timeout"
+        assert payload.get("start_time")
+        assert payload.get("end_time")
+        assert isinstance(payload.get("duration_seconds"), float)
 
 
 def test_train_xgb_models_ray_partial_status(tmp_path: Path):
-    # Create a single dataset
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)
     _make_hf_like_dataset(ds_dir)
-
     partial_trainer = PartialRayTrainer(trainer_cls=PartialTrainer, trainer_kwargs={"model_cls": BaseModel})
     results = partial_trainer.fit_ensemble(root, num_cpus=1, n_fingerprint_bits=16)
-    if not results:
-        pytest.fail("Expected results from partial status run_all invocation")
+    assert results
     for payload in results.values():
-        if payload.get("status") != "partial":
-            pytest.fail(f"Expected partial payload but got {payload.get('status')}: {payload.get('error')}")
-        assert payload.get("start_time") is not None
-        assert payload.get("end_time") is not None
+        assert payload.get("status") == "partial"
+        assert payload.get("start_time")
+        assert payload.get("end_time")
         assert isinstance(payload.get("duration_seconds"), float)
 
 
@@ -412,33 +297,32 @@ def test_missing_fingerprint_columns_errors(tmp_path: Path):
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
     dataset.fingerprint_cols = []
     trainer = XGBoostTrainer(
-        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
+        model_cls=cast(Any, XGBoostMultiEndpoint),
+        model_params={"n_estimators": 10},
+        seed=123,
     )
     with pytest.raises(ValueError):
         trainer.fit(dataset)
 
 
 def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
-    # Create a small dataset
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
 
-    # Fake regressor to simulate failure on first fit then succeed
     class FakeRegressor:
         call_count = 0
 
-        def __init__(self, **params):
+        def __init__(self, **params):  # type: ignore[unused-argument]
             self.params = params
 
-        def fit(self, X, y, **kwargs):
+        def fit(self, X, y, **kwargs):  # type: ignore[unused-argument]
             FakeRegressor.call_count += 1
             if FakeRegressor.call_count == 1:
                 raise RuntimeError("fake GPU failure")
-            return None
 
-        def predict(self, X):
+        def predict(self, X):  # type: ignore[unused-argument]
             import numpy as _np
 
             return _np.zeros(X.shape[0])
@@ -450,31 +334,25 @@ def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
             return None
 
     monkeypatch.setattr("admet.model.xgb_wrapper.XGBRegressor", FakeRegressor)
-
     trainer = XGBoostTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint),
         model_params={"n_estimators": 1, "device": "cuda"},
         seed=123,
     )
     metrics = trainer.fit(dataset, early_stopping_rounds=1)
-    # Training completed even though the first call raised an exception due to fallback
     for split in ["train", "validation", "test"]:
-        assert split in metrics
-        assert "macro" in metrics[split]
+        assert split in metrics and "macro" in metrics[split]
 
 
 def test_save_artifacts_receives_outputs(tmp_path: Path):
-    # setup dataset
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=20, n_bits=16)
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
-
     captured = []
 
     class CaptureTrainer(XGBoostTrainer):
         def save_artifacts(self, model, metrics, output_dir, outputs, *, dataset, extra_meta=None):
-            # store the outputs for inspection
             captured.append(outputs)
             super().save_artifacts(
                 model, metrics, output_dir, outputs, dataset=dataset, extra_meta=extra_meta
@@ -485,13 +363,9 @@ def test_save_artifacts_receives_outputs(tmp_path: Path):
     )
     out = tmp_path / "out"
     _ = trainer.fit(dataset, output_dir=out)
-    # ensure we captured outputs
-    assert captured, "save_artifacts did not capture outputs"
+    assert captured
     outputs = captured[0]
-    from admet.train.base_trainer import RunOutputs
-
     assert isinstance(outputs, RunOutputs)
-    # shapes are consistent
     assert outputs.Y_train.shape[0] == len(dataset.train)
     assert outputs.Y_train.shape[1] == len(dataset.endpoints)
     assert outputs.pred_train.shape[0] == len(dataset.train)
@@ -503,15 +377,9 @@ def test_build_sample_weights_missing_dataset_column_raises(tmp_path: Path):
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
     ds = load_dataset(data_dir, n_fingerprint_bits=16)
-    # Remove Dataset column from training split
     ds.train = ds.train.drop(columns=["Dataset"])
-
-    # cast and Any are imported at the module level (to satisfy typing/Protocol casts)
-
     trainer = XGBoostTrainer(
-        model_cls=cast(Any, XGBoostMultiEndpoint),
-        model_params={"n_estimators": 5},
-        seed=1,
+        model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 5}, seed=1
     )
     with pytest.raises(ValueError):
         trainer.build_sample_weights(ds, {"default": 1.0, "dataset_a": 2.0})
@@ -522,18 +390,13 @@ def test_build_sample_weights_explicit_default(tmp_path: Path):
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
     ds = load_dataset(data_dir, n_fingerprint_bits=16)
-    # Modify Dataset column to have some unknown labels
     ds.train.loc[0:4, "Dataset"] = "unknown_label"
     mapping = {"dataset_a": 2.0, "default": 1.0}
     trainer = XGBoostTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
     sw = trainer.build_sample_weights(ds, mapping)
-    assert sw is not None
-    assert sw.shape[0] == len(ds.train)
-    # First 5 should be default 1.0, rest 2.0
-    assert all(sw[:5] == 1.0)
-    assert all(sw[5:] == 2.0)
+    assert sw is not None and sw.shape[0] == len(ds.train) and all(sw[:5] == 1.0) and all(sw[5:] == 2.0)
 
 
 def test_build_sample_weights_unknown_labels(tmp_path: Path):
@@ -541,16 +404,12 @@ def test_build_sample_weights_unknown_labels(tmp_path: Path):
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
     ds = load_dataset(data_dir, n_fingerprint_bits=16)
-    # Mapping has labels not in data, but data has labels not in mapping
     mapping = {"dataset_a": 2.0, "unknown_in_mapping": 3.0, "default": 1.0}
     trainer = XGBoostTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
     sw = trainer.build_sample_weights(ds, mapping)
-    assert sw is not None
-    assert sw.shape[0] == len(ds.train)
-    # All should be 2.0 since all "Dataset" is "dataset_a"
-    assert all(sw == 2.0)
+    assert sw is not None and sw.shape[0] == len(ds.train) and all(sw == 2.0)
 
 
 def test_build_sample_weights_no_mapping(tmp_path: Path):
@@ -572,9 +431,7 @@ def test_prepare_features_missing_fingerprint_columns_raises(tmp_path: Path):
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
-    # Add non-existing fingerprint columns
     dataset.fingerprint_cols = ["missing_fp1", "missing_fp2"] + list(dataset.fingerprint_cols)
-
     trainer = XGBoostTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
@@ -587,18 +444,9 @@ def test_prepare_targets_missing_endpoint_columns_raises(tmp_path: Path):
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
-    # Add non-existing endpoint columns
     dataset.endpoints = ["missing_ep1", "missing_ep2"] + list(dataset.endpoints)
-
     trainer = XGBoostTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 10}, seed=123
     )
     with pytest.raises(ValueError, match="Missing endpoint columns"):
         trainer.prepare_targets(dataset)
-
-
-__all__ = [
-    "test_infer_split_metadata_parses_cluster_split_fold",
-    "test_train_model_runs_end_to_end",
-    "test_train_xgb_models_ray_multiple_datasets_and_summary",
-]

@@ -8,7 +8,7 @@ from datasets import Dataset, DatasetDict
 
 from admet.logging import configure_logging
 from admet.cli import app
-from admet.train.base_trainer import train_ensemble, BaseEnsembleTrainer
+from admet.train.base import train_ensemble, BaseEnsembleTrainer
 from admet.train.xgb_train import XGBoostTrainer
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.data.load import expected_fingerprint_columns, ENDPOINT_COLUMNS
@@ -16,8 +16,6 @@ import pytest
 
 
 def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Path:
-    """Create a minimal on-disk HF DatasetDict layout that ``load_dataset`` can load."""
-
     fp_cols = expected_fingerprint_columns(n_bits)
     splits = {}
     for split in ["train", "validation", "test"]:
@@ -34,7 +32,6 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
         for col in fp_cols:
             data[col] = list(np.random.randn(n_rows).astype(float))
         splits[split] = Dataset.from_pandas(pd.DataFrame(data), preserve_index=False)
-
     dset = DatasetDict(splits)
     dset.save_to_disk(str(root))
     return root
@@ -42,12 +39,7 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
 
 def _make_config(tmp_path: Path) -> Path:
     cfg = {
-        "models": {
-            "xgboost": {
-                "model_params": {"n_estimators": 5},
-                "early_stopping_rounds": 1,
-            }
-        },
+        "models": {"xgboost": {"model_params": {"n_estimators": 5}, "early_stopping_rounds": 1}},
         "training": {"sample_weights": {"enabled": False, "weights": {"default": 1.0}}},
         "data": {"endpoints": ["LogD"]},
     }
@@ -59,16 +51,11 @@ def _make_config(tmp_path: Path) -> Path:
 
 
 def test_ray_worker_writes_structured_json_log(tmp_path: Path):
-    # Create a dataset and config
     ds_root = tmp_path / "splits" / "high_quality" / "random_cluster" / "split_0" / "fold_0" / "hf_dataset"
     ds_root.mkdir(parents=True)
-
     _make_hf_like_dataset(ds_root, n_rows=10, n_bits=16)
-    # configure logging to write to file in structured JSON
     logfile = tmp_path / "ray_worker.log"
     configure_logging(level="DEBUG", file=str(logfile), structured=True)
-
-    # Call the trainer - the BaseRayMultiDatasetTrainer.run_all picks up the current logging config
     results = train_ensemble(
         tmp_path / "splits",
         ensemble_trainer_cls=BaseEnsembleTrainer,
@@ -84,22 +71,18 @@ def test_ray_worker_writes_structured_json_log(tmp_path: Path):
         pytest.fail("Expected results from train_ensemble but got empty/None")
     if not logfile.exists():
         pytest.fail("Expected log file to exist after Ray worker run")
-    # Ensure file contains JSON lines
     with logfile.open("r") as fh:
         lines = [ln.strip() for ln in fh if ln.strip()]
     if not lines:
         pytest.fail("Expected log file to contain at least one non-empty line")
-    json.loads(lines[0])  # should parse
+    json.loads(lines[0])
 
 
 def test_cli_log_file_option_creates_file(tmp_path: Path):
-    # create dataset and config
     ds_root = tmp_path / "hf_dataset"
     ds_root.mkdir(parents=True)
-
     _make_hf_like_dataset(ds_root, n_rows=10, n_bits=16)
     cfg_path = _make_config(tmp_path)
-
     runner = CliRunner()
     logfile = tmp_path / "cli.log"
     cmd = [
@@ -117,7 +100,6 @@ def test_cli_log_file_option_creates_file(tmp_path: Path):
         "16",
     ]
     _ = runner.invoke(app, cmd)
-    # CLI might exit with non-zero if training fails for other reasons, but logging should have been created
     if not logfile.exists():
         pytest.fail("Expected CLI-created logfile to exist")
     with logfile.open("r") as fh:

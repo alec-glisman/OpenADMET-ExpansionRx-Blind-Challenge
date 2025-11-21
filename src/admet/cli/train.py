@@ -53,7 +53,7 @@ import numpy as np
 
 from admet.data.load import load_dataset
 from admet.train.xgb_train import XGBoostTrainer
-from admet.train.base_trainer import train_model, train_ensemble, BaseEnsembleTrainer
+from admet.train.base import train_model, train_ensemble, BaseEnsembleTrainer
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
 logger = logging.getLogger(__name__)

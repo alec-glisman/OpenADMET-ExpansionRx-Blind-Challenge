@@ -1,5 +1,4 @@
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,8 +8,6 @@ from admet.data.load import load_dataset, expected_fingerprint_columns, ENDPOINT
 
 
 def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Path:
-    """Create a minimal on-disk HF DatasetDict layout that ``load_dataset`` can load."""
-
     fp_cols = expected_fingerprint_columns(n_bits)
     splits = {}
     for split in ["train", "validation", "test"]:
@@ -27,7 +24,6 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
         for col in fp_cols:
             data[col] = list(np.random.randn(n_rows).astype(float))
         splits[split] = Dataset.from_pandas(pd.DataFrame(data), preserve_index=False)
-
     dset = DatasetDict(splits)
     dset.save_to_disk(str(root))
     return root
@@ -35,9 +31,6 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
 
 @pytest.fixture
 def synth_dataset(tmp_path: Path, n_rows: int = 40, n_bits: int = 16):
-    """Create a small synthetic dataset saved as CSV splits and return the
-    LoadedDataset via `load_dataset` for tests to consume.
-    """
     fp_cols = expected_fingerprint_columns(n_bits)
     for split in ["train", "validation", "test"]:
         data = {
@@ -48,12 +41,11 @@ def synth_dataset(tmp_path: Path, n_rows: int = 40, n_bits: int = 16):
         for ep in ENDPOINT_COLUMNS:
             vals = np.random.randn(n_rows).astype(float)
             if split == "train":
-                vals[0] = np.nan  # missing first row
+                vals[0] = np.nan
             data[ep] = list(vals)
         for col in fp_cols:
             data[col] = list(np.random.randn(n_rows).astype(float))
         pd.DataFrame(data).to_csv(tmp_path / f"{split}.csv", index=False)
-
     ds = load_dataset(tmp_path, n_fingerprint_bits=n_bits)
     return ds
 
@@ -70,21 +62,14 @@ def test_xgboost_multiendpoint_save_load_roundtrip(tmp_path: Path):
     mask_train = (~np.isnan(Y_train)).astype(bool)
     model = XGBoostMultiEndpoint(endpoints=ds.endpoints, model_params={"n_estimators": 1}, random_state=42)
     model.fit(X_train, Y_train, Y_mask=mask_train, early_stopping_rounds=None)
-
-    # predictions before save
     preds_before = model.predict(X_train)
-
     out_dir = tmp_path / "xgb_model"
     model.save(str(out_dir))
     loaded = XGBoostMultiEndpoint.load(str(out_dir))
     preds_after = loaded.predict(X_train)
-    if preds_before.shape != preds_after.shape:
-        pytest.fail("Predictions shapes differ after load/save roundtrip")
-    # compare NaNs and numeric values where present
+    assert preds_before.shape == preds_after.shape
     mask = ~np.isnan(preds_before)
-    # numeric entries should be close
-    if not np.allclose(preds_before[mask], preds_after[mask], equal_nan=True):
-        pytest.fail("Numeric predictions differ after load/save roundtrip")
+    assert np.allclose(preds_before[mask], preds_after[mask], equal_nan=True)
 
 
 def test_predict_dimension_checks(tmp_path: Path):
@@ -99,8 +84,6 @@ def test_predict_dimension_checks(tmp_path: Path):
     mask_train = (~np.isnan(Y_train)).astype(bool)
     model = XGBoostMultiEndpoint(endpoints=ds.endpoints, model_params={"n_estimators": 1}, random_state=42)
     model.fit(X_train, Y_train, Y_mask=mask_train, early_stopping_rounds=None)
-
-    # wrong feature dimension
     import numpy as _np
 
     with pytest.raises(ValueError):
