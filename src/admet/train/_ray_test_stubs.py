@@ -159,7 +159,8 @@ class TrivialTrainer(BaseModelTrainer):
         return None
 
     def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
-        return self.compute_metrics()
+        # Return (run_metrics, summary) to match BaseModelTrainer.fit signature
+        return self.compute_metrics(), None
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +209,8 @@ class SlowTrainer(BaseModelTrainer):
 
     def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
         time.sleep(0.01)
-        return self.compute_metrics()
+        # Sleep to simulate latency then return (metrics, summary)
+        return self.compute_metrics(), None
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +258,8 @@ class PartialTrainer(BaseModelTrainer):
         return None
 
     def fit(self, dataset, *args, **kwargs):  # type: ignore[override]
-        return self.compute_metrics()
+        # Return a tuple (run_metrics, summary) consistent with the API
+        return self.compute_metrics(), None
 
 
 # ---------------------------------------------------------------------------

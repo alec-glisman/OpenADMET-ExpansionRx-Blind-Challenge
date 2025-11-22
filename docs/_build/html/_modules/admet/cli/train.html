@@ -312,7 +312,9 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dataset</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.train.xgb_train</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_xgb_models</span><span class="p">,</span> <span class="n">train_xgb_models_ray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.train.xgb_train</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostTrainer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.train.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_model</span><span class="p">,</span> <span class="n">train_ensemble</span><span class="p">,</span> <span class="n">BaseEnsembleTrainer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.xgb_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostMultiEndpoint</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">app</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Typer</span><span class="p">(</span><span class="n">help</span><span class="o">=</span><span class="s2">&quot;Model training commands.&quot;</span><span class="p">)</span>
@@ -411,8 +413,10 @@
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">multi</span><span class="p">:</span>
         <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">endpoints</span><span class="o">=</span><span class="n">endpoints</span><span class="p">,</span> <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">)</span>
-        <span class="n">metrics</span> <span class="o">=</span> <span class="n">train_xgb_models</span><span class="p">(</span>
+        <span class="n">run_metrics</span><span class="p">,</span> <span class="n">summary</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span>
             <span class="n">dataset</span><span class="p">,</span>
+            <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
+            <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
             <span class="n">model_params</span><span class="o">=</span><span class="n">model_params</span><span class="p">,</span>
             <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
             <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sw_mapping</span><span class="p">,</span>
@@ -423,7 +427,7 @@
         <span class="c1"># output macro metrics for train, val, and test with 4 decimal places</span>
         <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">]:</span>
             <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics for </span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2"> split:&quot;</span><span class="p">)</span>
-            <span class="n">macro_metrics</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="n">split</span><span class="p">][</span><span class="s2">&quot;macro&quot;</span><span class="p">]</span>
+            <span class="n">macro_metrics</span> <span class="o">=</span> <span class="n">run_metrics</span><span class="p">[</span><span class="n">split</span><span class="p">][</span><span class="s2">&quot;macro&quot;</span><span class="p">]</span>
             <span class="n">formatted_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">macro_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
             <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
@@ -434,25 +438,28 @@
         <span class="c1"># CLI flag takes precedence over config file for address</span>
         <span class="n">ray_addr_effective</span> <span class="o">=</span> <span class="n">ray_address</span> <span class="ow">or</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;address&quot;</span><span class="p">)</span>
 
-        <span class="n">results</span> <span class="o">=</span> <span class="n">train_xgb_models_ray</span><span class="p">(</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">train_ensemble</span><span class="p">(</span>
             <span class="n">data_root</span><span class="p">,</span>
+            <span class="n">ensemble_trainer_cls</span><span class="o">=</span><span class="n">BaseEnsembleTrainer</span><span class="p">,</span>
+            <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
+            <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
             <span class="n">model_params</span><span class="o">=</span><span class="n">model_params</span><span class="p">,</span>
             <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
             <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sw_mapping</span><span class="p">,</span>
             <span class="n">output_root</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
             <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+            <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
             <span class="n">num_cpus</span><span class="o">=</span><span class="n">num_cpus</span><span class="p">,</span>
             <span class="n">ray_address</span><span class="o">=</span><span class="n">ray_addr_effective</span><span class="p">,</span>
-            <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Print metrics per discovered dataset</span>
         <span class="k">for</span> <span class="n">rel_key</span><span class="p">,</span> <span class="n">payload</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;=== Results for dataset: </span><span class="si">{</span><span class="n">rel_key</span><span class="si">}</span><span class="s2"> ===&quot;</span><span class="p">)</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span>
+            <span class="n">run_metrics</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;run_metrics&quot;</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">]:</span>
                 <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics for </span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2"> split:&quot;</span><span class="p">)</span>
-                <span class="n">macro_metrics</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="n">split</span><span class="p">][</span><span class="s2">&quot;macro&quot;</span><span class="p">]</span>
+                <span class="n">macro_metrics</span> <span class="o">=</span> <span class="n">run_metrics</span><span class="p">[</span><span class="n">split</span><span class="p">][</span><span class="s2">&quot;macro&quot;</span><span class="p">]</span>
                 <span class="n">formatted_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">macro_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
                 <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span></div>
 

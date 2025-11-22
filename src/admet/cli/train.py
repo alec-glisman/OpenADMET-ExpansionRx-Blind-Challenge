@@ -151,7 +151,7 @@ def xgb(
 
     if not multi:
         dataset = load_dataset(data_root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
-        metrics = train_model(
+        run_metrics, summary = train_model(
             dataset,
             trainer_cls=XGBoostTrainer,
             model_cls=XGBoostMultiEndpoint,
@@ -165,7 +165,7 @@ def xgb(
         # output macro metrics for train, val, and test with 4 decimal places
         for split in ["train", "validation", "test"]:
             typer.echo(f"Metrics for {split} split:")
-            macro_metrics = metrics[split]["macro"]
+            macro_metrics = run_metrics[split]["macro"]
             formatted_metrics = {k: _format_value(v) for k, v in macro_metrics.items()}
             typer.echo(json.dumps(formatted_metrics, indent=2))
     else:
@@ -194,10 +194,10 @@ def xgb(
         # Print metrics per discovered dataset
         for rel_key, payload in results.items():
             typer.echo(f"=== Results for dataset: {rel_key} ===")
-            metrics = payload["metrics"]
+            run_metrics = payload["run_metrics"]
             for split in ["train", "validation", "test"]:
                 typer.echo(f"Metrics for {split} split:")
-                macro_metrics = metrics[split]["macro"]
+                macro_metrics = run_metrics[split]["macro"]
                 formatted_metrics = {k: _format_value(v) for k, v in macro_metrics.items()}
                 typer.echo(json.dumps(formatted_metrics, indent=2))
 

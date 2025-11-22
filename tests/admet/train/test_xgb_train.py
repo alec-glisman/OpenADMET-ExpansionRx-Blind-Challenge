@@ -20,7 +20,7 @@ from admet.train.base import (
     train_ensemble,
     BaseEnsembleTrainer,
     infer_split_metadata,
-    RunOutputs,
+    RunSummary,
 )
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.model.base import BaseModel
@@ -75,15 +75,17 @@ def test_train_model_runs_end_to_end(tmp_path: Path):
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
     dataset = load_dataset(data_dir, n_fingerprint_bits=16)
-    metrics = train_model(
+    out = tmp_path / "out"
+    run_metrics, summary = train_model(
         dataset,
         trainer_cls=XGBoostTrainer,
         model_cls=cast(Any, XGBoostMultiEndpoint),
         model_params={"n_estimators": 10},
         early_stopping_rounds=5,
+        output_dir=out,
     )
     for split in ["train", "validation", "test"]:
-        assert split in metrics and "macro" in metrics[split]
+        assert split in run_metrics and "macro" in run_metrics[split]
 
 
 def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path):
@@ -96,9 +98,10 @@ def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path):
         model_params={"n_estimators": 10},
         seed=123,
     )
-    metrics = trainer.fit(dataset, early_stopping_rounds=5)
+    out = tmp_path / "out"
+    run_metrics, summary = trainer.fit(dataset, early_stopping_rounds=5, output_dir=out)
     for split in ["train", "validation", "test"]:
-        assert split in metrics and "macro" in metrics[split]
+        assert split in run_metrics and "macro" in run_metrics[split]
 
 
 def test_build_model_uses_provided_model_cls():
@@ -170,10 +173,10 @@ def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path):
     )
     assert len(results) == 2
     for payload in results.values():
-        metrics_obj = payload["metrics"]
-        assert isinstance(metrics_obj, dict)
+        run_metrics_obj = payload["run_metrics"]
+        assert isinstance(run_metrics_obj, dict)
         for split in ["train", "validation", "test"]:
-            assert split in metrics_obj and "macro" in metrics_obj[split]
+            assert split in run_metrics_obj and "macro" in run_metrics_obj[split]
         assert payload.get("status") == "ok"
         assert payload.get("start_time")
         assert payload.get("end_time")
@@ -192,10 +195,11 @@ def test_train_xgb_models_ray_handles_remote_errors(tmp_path: Path):
             ds_dir.mkdir(parents=True)
             _make_hf_like_dataset(ds_dir)
     ray_trainer = MinimalRayTrainer(trainer_cls=cast(Any, FailingTrainer), trainer_kwargs={})
-    results = ray_trainer.fit_ensemble(root, num_cpus=1)
+    out = tmp_path / "out"
+    results = ray_trainer.fit_ensemble(root, num_cpus=1, output_root=out)
     assert len(results) == 2
     for payload in results.values():
-        assert payload["metrics"] is None
+        assert payload["run_metrics"] is None
         assert "error" in payload
         assert payload.get("status") == "error"
 
@@ -208,7 +212,7 @@ def test_ray_shutdown_after_run_all(tmp_path: Path):
     if ray.is_initialized():
         ray.shutdown()
     ray_trainer = MinimalRayTrainer(trainer_cls=TrivialTrainer, trainer_kwargs={})
-    _ = ray_trainer.fit_ensemble(root, num_cpus=1)
+    _ = ray_trainer.fit_ensemble(root, num_cpus=1, output_root=tmp_path / "out")
     assert not ray.is_initialized(), "Ray should be shut down after run_all"
 
 
@@ -222,10 +226,11 @@ def test_dry_run_returns_minimal_metrics(tmp_path: Path):
         model_params={"n_estimators": 10},
         seed=123,
     )
-    metrics = trainer.fit(dataset, dry_run=True)
-    assert set(metrics.keys()) == {"train", "validation", "test"}
+    out = tmp_path / "out"
+    run_metrics, summary = trainer.fit(dataset, dry_run=True, output_dir=out)
+    assert set(run_metrics.keys()) == {"train", "validation", "test"}
     for split in ["train", "validation", "test"]:
-        assert "macro" in metrics[split]
+        assert "macro" in run_metrics[split]
 
 
 def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
@@ -249,6 +254,9 @@ def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
     )
     assert results
     for payload in results.values():
+        assert payload.get("run_metrics") is None
+        assert payload.get("summary") is None
+    for payload in results.values():
         assert payload.get("status") == "skipped"
         assert payload.get("start_time")
         assert payload.get("end_time")
@@ -261,11 +269,13 @@ def test_train_xgb_models_ray_timeout_status(tmp_path: Path):
     ds_dir.mkdir(parents=True)
     _make_hf_like_dataset(ds_dir)
     slow_ray_trainer = SlowRayTrainer(trainer_cls=SlowTrainer, trainer_kwargs={})
+    out = tmp_path / "out"
     results = slow_ray_trainer.fit_ensemble(
         root,
         num_cpus=1,
         max_duration_seconds=0.0,
         n_fingerprint_bits=16,
+        output_root=out,
     )
     assert results
     for payload in results.values():
@@ -281,7 +291,9 @@ def test_train_xgb_models_ray_partial_status(tmp_path: Path):
     ds_dir.mkdir(parents=True)
     _make_hf_like_dataset(ds_dir)
     partial_trainer = PartialRayTrainer(trainer_cls=PartialTrainer, trainer_kwargs={"model_cls": BaseModel})
-    results = partial_trainer.fit_ensemble(root, num_cpus=1, n_fingerprint_bits=16)
+    results = partial_trainer.fit_ensemble(
+        root, num_cpus=1, n_fingerprint_bits=16, output_root=tmp_path / "out"
+    )
     assert results
     for payload in results.values():
         assert payload.get("status") == "partial"
@@ -302,7 +314,7 @@ def test_missing_fingerprint_columns_errors(tmp_path: Path):
         seed=123,
     )
     with pytest.raises(ValueError):
-        trainer.fit(dataset)
+        trainer.fit(dataset, output_dir=tmp_path / "out")
 
 
 def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
@@ -339,9 +351,9 @@ def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
         model_params={"n_estimators": 1, "device": "cuda"},
         seed=123,
     )
-    metrics = trainer.fit(dataset, early_stopping_rounds=1)
+    run_metrics, summary = trainer.fit(dataset, early_stopping_rounds=1, output_dir=tmp_path / "out")
     for split in ["train", "validation", "test"]:
-        assert split in metrics and "macro" in metrics[split]
+        assert split in run_metrics and "macro" in run_metrics[split]
 
 
 def test_save_artifacts_receives_outputs(tmp_path: Path):
@@ -352,24 +364,24 @@ def test_save_artifacts_receives_outputs(tmp_path: Path):
     captured = []
 
     class CaptureTrainer(XGBoostTrainer):
-        def save_artifacts(self, model, metrics, output_dir, outputs, *, dataset, extra_meta=None):
-            captured.append(outputs)
+        def save_artifacts(self, model, run_metrics, output_dir, summary, *, dataset, extra_meta=None):
+            captured.append(summary)
             super().save_artifacts(
-                model, metrics, output_dir, outputs, dataset=dataset, extra_meta=extra_meta
+                model, run_metrics, output_dir, summary, dataset=dataset, extra_meta=extra_meta
             )
 
     trainer = CaptureTrainer(
         model_cls=cast(Any, XGBoostMultiEndpoint), model_params={"n_estimators": 5}, seed=42
     )
     out = tmp_path / "out"
-    _ = trainer.fit(dataset, output_dir=out)
+    _run_metrics, summary = trainer.fit(dataset, output_dir=out)
     assert captured
-    outputs = captured[0]
-    assert isinstance(outputs, RunOutputs)
-    assert outputs.Y_train.shape[0] == len(dataset.train)
-    assert outputs.Y_train.shape[1] == len(dataset.endpoints)
-    assert outputs.pred_train.shape[0] == len(dataset.train)
-    assert outputs.mask_train.shape == outputs.Y_train.shape
+    summary = captured[0]
+    assert isinstance(summary, RunSummary)
+    assert summary.Y_train.shape[0] == len(dataset.train)
+    assert summary.Y_train.shape[1] == len(dataset.endpoints)
+    assert summary.pred_train.shape[0] == len(dataset.train)
+    assert summary.mask_train.shape == summary.Y_train.shape
 
 
 def test_build_sample_weights_missing_dataset_column_raises(tmp_path: Path):

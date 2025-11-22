@@ -88,7 +88,7 @@ def synthetic_dataset():
 
 
 def test_train_model_end_to_end(tmp_path, synthetic_dataset):
-    metrics = train_model(
+    run_metrics, summary = train_model(
         synthetic_dataset,
         trainer_cls=FPTrainer,
         model_cls=cast(Any, DummyModel),
@@ -96,7 +96,7 @@ def test_train_model_end_to_end(tmp_path, synthetic_dataset):
         output_dir=tmp_path / "single",
         early_stopping_rounds=10,
     )
-    assert set(metrics.keys()) == {"train", "validation", "test"}
+    assert set(run_metrics.keys()) == {"train", "validation", "test"}
     assert (tmp_path / "single" / "model").is_dir()
     assert (tmp_path / "single" / "metrics.json").is_file()
 

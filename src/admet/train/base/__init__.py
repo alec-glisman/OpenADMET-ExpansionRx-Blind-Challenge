@@ -2,7 +2,7 @@
 
 Submodules:
     utils          – feature/target extraction helpers & metadata dataclasses
-    model_trainer  – `BaseModelTrainer`, `RunOutputs`, `FeaturizationMethod`
+    model_trainer  – `BaseModelTrainer`, `RunSummary`, `FeaturizationMethod`
     ray_trainer    – Ray remote worker + `BaseEnsembleTrainer` orchestration
     api            – Convenience wrappers `train_model`, `train_ensemble`
 
@@ -19,7 +19,7 @@ from .utils import (
 )
 from .model_trainer import (
     BaseModelTrainer,
-    RunOutputs,
+    RunSummary,
     FeaturizationMethod,
 )
 from .ray_trainer import BaseEnsembleTrainer
@@ -33,7 +33,7 @@ __all__ = [
     "SplitMetadata",
     "metadata_from_dict",
     "BaseModelTrainer",
-    "RunOutputs",
+    "RunSummary",
     "FeaturizationMethod",
     "BaseEnsembleTrainer",
     "train_model",

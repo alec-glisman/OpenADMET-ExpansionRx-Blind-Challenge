@@ -70,35 +70,39 @@ def _train_single_dataset_remote(
             trainer_kwargs = dict(trainer_kwargs)
             trainer_kwargs.setdefault("seed", seed)
         trainer = trainer_cls(**trainer_kwargs)
-        metrics = trainer.fit(
+        run_metrics, summary = trainer.fit(
             dataset,
             sample_weight_mapping=sample_weight_mapping,
             early_stopping_rounds=early_stopping_rounds,
             output_dir=out_dir,
             dry_run=dry_run,
         )
-        end_ts = datetime.datetime.utcnow()
+        end_ts = datetime.datetime.now()
         end_time = end_ts.isoformat()
         duration_seconds = (end_ts - start_ts).total_seconds()
         status = "ok"
         if dry_run:
             status = "skipped"
-        if metrics is None:
+            # For dry-run in remote worker, don't return metrics/summary
+            run_metrics = None
+            summary = None
+        if run_metrics is None and not dry_run:
             status = "error"
-        elif isinstance(metrics, dict):
+        elif isinstance(run_metrics, dict):
             expected_splits = {"train", "validation", "test"}
-            present = set(metrics.keys())
+            present = set(run_metrics.keys())
             if not expected_splits.issubset(present):
                 status = "partial"
             else:
                 for split in expected_splits:
-                    if not isinstance(metrics.get(split, {}), dict) or "macro" not in metrics[split]:
+                    if not isinstance(run_metrics.get(split, {}), dict) or "macro" not in run_metrics[split]:
                         status = "partial"
                         break
         if max_duration_seconds is not None and duration_seconds > max_duration_seconds:
             status = "timeout"
         return rel_key, {
-            "metrics": metrics,
+            "run_metrics": run_metrics,
+            "summary": summary,
             "meta": meta,
             "status": status,
             "start_time": start_time,
@@ -111,7 +115,7 @@ def _train_single_dataset_remote(
         end_time = end_ts.isoformat()
         duration_seconds = (end_ts - start_ts).total_seconds()
         return rel_key, {
-            "metrics": None,
+            "run_metrics": None,
             "meta": meta,
             "error": str(exc),
             "status": "error",
@@ -230,13 +234,13 @@ class BaseEnsembleTrainer:
             status = str(payload.get("status", "ok"))
             success_count += status == "ok"
             failure_count += status != "ok"
-            metrics = payload.get("metrics") or {}
+            run_metrics = payload.get("run_metrics") or {}  # type: ignore[assignment]
             meta = payload.get("meta") or {}
             start_time = payload.get("start_time")
             end_time = payload.get("end_time")
             duration_seconds = payload.get("duration_seconds")
             for split_name in ["train", "validation", "test"]:
-                split_metrics = metrics.get(split_name, {})
+                split_metrics = run_metrics.get(split_name, {})  # type: ignore[assignment]
                 macro = split_metrics.get("macro", {})
                 row: Dict[str, object] = {"dataset": rel_key, "split": split_name, "status": status}
                 row["start_time"] = start_time
@@ -249,17 +253,24 @@ class BaseEnsembleTrainer:
                     for k, v in macro.items():
                         row[k] = v
                 summary_rows.append(row)
+
         if summary_rows:
             summary_df = pd.DataFrame(summary_rows)
             output_root.mkdir(parents=True, exist_ok=True)
             (output_root / "metrics_summary.csv").write_text(summary_df.to_csv(index=False))
             (output_root / "metrics_summary.json").write_text(summary_df.to_json(orient="records", indent=2))
             logger.info("Ray training summary: %d succeeded, %d failed", success_count, failure_count)
+
         if started_local_ray:
             try:
                 ray.shutdown()
             except Exception:  # noqa: BLE001
                 logger.warning("ray.shutdown() raised an exception during cleanup", exc_info=True)
+
+        # TODO: Run predictions, compute metrics, and visualize performance of the entire ensemble (report mean and stderr)
+
+        # TODO: Run predictions (log and linear) on blind test set and save results
+
         return aggregated
 
 

@@ -290,8 +290,8 @@
 <p>To train a single XGBoost model on a specific fold:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>train<span class="w"> </span>xgb<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="s1">&#39;assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>configs/xgb.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output-dir<span class="w"> </span>temp/xgb_artifacts/single_model<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/standard.yaml<span class="w">  </span><span class="se">\</span>
+<span class="w">    </span>--output-dir<span class="w"> </span>models/xgb/example/single/high_quality/random_cluster/split_0/fold_0<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--seed<span class="w"> </span><span class="m">123</span>
 </pre></div>
 </div>
@@ -299,8 +299,8 @@
 <p>To train an ensemble of models across multiple folds using Ray for parallel execution:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>train<span class="w"> </span>xgb<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="s1">&#39;assets/dataset/splits/high_quality/random_cluster&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>configs/xgb.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output-dir<span class="w"> </span>temp/xgb_artifacts/ensemble<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/standard.yaml<span class="w">  </span><span class="se">\</span>
+<span class="w">    </span>--output-dir<span class="w"> </span>models/xgb/example/ensemble<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--seed<span class="w"> </span><span class="m">123</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--multi<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--ray-address<span class="w"> </span><span class="s2">&quot;local&quot;</span>

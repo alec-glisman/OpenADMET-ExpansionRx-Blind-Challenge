@@ -33,8 +33,8 @@ To train a single XGBoost model on a specific fold, run the following command:
 ```bash
 admet train xgb \
     'assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset' \
-    --config configs/xgb.yaml \
-    --output-dir temp/xgb_artifacts/single_model \
+    --config configs/standard.yaml  \
+    --output-dir models/xgb/example/single/high_quality/random_cluster/split_0/fold_0 \
     --seed 123
 ```
 
@@ -45,8 +45,8 @@ To train multiple XGBoost models across all folds, run the following command:
 ```bash
 admet train xgb \
     'assets/dataset/splits/high_quality/random_cluster' \
-    --config configs/xgb.yaml \
-    --output-dir temp/xgb_artifacts/ensemble \
+    --config configs/standard.yaml  \
+    --output-dir models/xgb/example/ensemble \
     --seed 123 \
     --multi \
     --ray-address "local"

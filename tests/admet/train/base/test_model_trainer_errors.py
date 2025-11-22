@@ -1,6 +1,7 @@
 """Edge-case tests for BaseModelTrainer error conditions."""
 
 from typing import Any
+from pathlib import Path
 import pytest
 import pandas as pd
 from admet.train.base import BaseModelTrainer, FeaturizationMethod
@@ -56,7 +57,7 @@ def test_prepare_features_unsupported_featurization(dataset_fp):
         trainer.prepare_features(dataset_fp)
 
 
-def test_fit_requires_splits():
+def test_fit_requires_splits(tmp_path: Path):
     trainer = PipeTrainer(model_cls=object)
     with pytest.raises(ValueError):
-        trainer.fit(DummyEmptyDS())
+        trainer.fit(DummyEmptyDS(), output_dir=tmp_path / "out")

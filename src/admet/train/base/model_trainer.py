@@ -13,10 +13,7 @@ import multiprocessing
 
 import numpy as np
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:  # Only imported for type checking; avoid heavy runtime deps (tdc, datasets)
-    from admet.data.load import LoadedDataset
+from admet.data.load import LoadedDataset
 from admet.model.base import BaseModel, ModelProtocol
 from admet.utils import set_global_seeds
 from admet.evaluate.metrics import AllMetrics, compute_metrics_log_and_linear
@@ -42,7 +39,7 @@ class FeaturizationMethod(str, Enum):
 
 
 @dataclass
-class RunOutputs:
+class RunSummary:
     featurization: FeaturizationMethod
     endpoints: List[str]
     model: Any
@@ -160,21 +157,21 @@ class BaseModelTrainer(ABC):
     def save_artifacts(
         self,
         model: BaseModel,
-        metrics: AllMetrics,
+        run_metrics: AllMetrics,
         output_dir: Path,
-        outputs: RunOutputs,
+        summary: RunSummary,
         *,
         dataset: "LoadedDataset",
         extra_meta: Optional[Dict[str, object]] = None,
     ) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         model.save(str(output_dir / "model"))
-        (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+        (output_dir / "metrics.json").write_text(json.dumps(run_metrics, indent=2))
         n_cpus = multiprocessing.cpu_count()
-        endpoints = outputs.endpoints
-        y_true = {"train": outputs.Y_train, "validation": outputs.Y_val, "test": outputs.Y_test}
-        y_pred = {"train": outputs.pred_train, "validation": outputs.pred_val, "test": outputs.pred_test}
-        y_mask = {"train": outputs.mask_train, "validation": outputs.mask_val, "test": outputs.mask_test}
+        endpoints = summary.endpoints
+        y_true = {"train": summary.Y_train, "validation": summary.Y_val, "test": summary.Y_test}
+        y_pred = {"train": summary.pred_train, "validation": summary.pred_val, "test": summary.pred_test}
+        y_mask = {"train": summary.mask_train, "validation": summary.mask_val, "test": summary.mask_test}
         fig_root = output_dir / "figures"
         for space in ["log", "linear"]:
             space_dir = fig_root / space
@@ -208,11 +205,11 @@ class BaseModelTrainer(ABC):
         output_dir: Optional[Path] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> Tuple[Dict[str, Dict[str, Any]], Optional[RunSummary]]:
         set_global_seeds(self.seed)
         endpoints: List[str] = list(dataset.endpoints)
         if dry_run:
-            return {"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}}
+            return ({"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}}, None)
         if not endpoints:
             raise ValueError("No endpoints found in dataset; cannot train model.")
         if not (hasattr(dataset, "train") and hasattr(dataset, "val") and hasattr(dataset, "test")):
@@ -235,7 +232,7 @@ class BaseModelTrainer(ABC):
         pred_train = self.model.predict(X_train)
         pred_val = self.model.predict(X_val)
         pred_test = self.model.predict(X_test)
-        metrics = self.compute_metrics(
+        run_metrics = self.compute_metrics(
             Y_train,
             Y_val,
             Y_test,
@@ -247,7 +244,7 @@ class BaseModelTrainer(ABC):
             mask_test,
             endpoints,
         )
-        outputs = RunOutputs(
+        summary = RunSummary(
             featurization=self.featurization,
             model=self.model,
             endpoints=endpoints,
@@ -267,13 +264,13 @@ class BaseModelTrainer(ABC):
         if output_dir is not None:
             self.save_artifacts(
                 self.model,
-                metrics,
+                run_metrics,
                 output_dir,
-                outputs,
+                summary,
                 dataset=dataset,
                 extra_meta=extra_meta,
             )
-        return metrics
+        return run_metrics, summary
 
 
-__all__ = ["BaseModelTrainer", "RunOutputs", "FeaturizationMethod"]
+__all__ = ["BaseModelTrainer", "RunSummary", "FeaturizationMethod"]

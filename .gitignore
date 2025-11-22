@@ -2,26 +2,25 @@
 **/*.DS_Store
 
 # virtual environments
-env/**
-.venv/**
-temp/**
+.venv
+temp
 __marimo__
 
 # build directories
-build/**
-cache/**
-models/**
+build
+*.egg-info
 
 # caches
+.mypy_cache
+.pytest_cache
+cache
 *.cache
-**/.pytest_cache/**
 *.pyc
 *.pkl
 *.tar.xz
 *.pkl.xz
-*.egg-info
 
-# rendering
+# images
 *.eps
 *.png
 *.dat
@@ -35,22 +34,11 @@ models/**
 
 # data files
 assets
+models
 *.db
-*.cpt
-*.edr
-*.gro
 *.log
-*.mdp
 *.out
 *.pdb
-*.ndx
-*.tpr
-*.trr
-*.xml
-*.xtc
-*.xvg
-*.xpm
 *.csv
 *.npz
 *.parquet
-

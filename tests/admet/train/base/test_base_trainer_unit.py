@@ -150,22 +150,24 @@ def test_sample_weights_default_only(dataset_fp):
     assert sw is not None and sw.tolist() == [1.5, 1.5, 1.5]
 
 
-def test_build_model_and_fit_call(dataset_fp):
+def test_build_model_and_fit_call(tmp_path, dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel, seed=42)
-    metrics = trainer.fit(dataset_fp, early_stopping_rounds=5)
-    assert {"train", "validation", "test"} == set(metrics.keys())
+    out = tmp_path / "out"
+    run_metrics, summary = trainer.fit(dataset_fp, early_stopping_rounds=5, output_dir=out)
+    assert {"train", "validation", "test"} == set(run_metrics.keys())
     assert trainer.model is not None and getattr(trainer.model, "fitted", False)
     call = getattr(trainer.model, "fit_calls", [])[0]
     assert "Y_mask" in call and call["Y_mask"].shape == (3, 2)
     assert call["early_stopping_rounds"] == 5
 
 
-def test_dry_run_returns_empty_metrics(dataset_fp):
+def test_dry_run_returns_empty_metrics(tmp_path, dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
-    metrics = trainer.fit(dataset_fp, dry_run=True)
-    assert metrics["train"]["macro"] == {}
-    assert metrics["validation"]["macro"] == {}
-    assert metrics["test"]["macro"] == {}
+    out = tmp_path / "out"
+    run_metrics, summary = trainer.fit(dataset_fp, dry_run=True, output_dir=out)
+    assert run_metrics["train"]["macro"] == {}
+    assert run_metrics["validation"]["macro"] == {}
+    assert run_metrics["test"]["macro"] == {}
 
 
 def test_artifact_saving(tmp_path, dataset_fp):
