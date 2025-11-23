@@ -498,38 +498,36 @@ def evaluate_dataset(
         dynamic_ncols=True,
     ):
         preds = model_preds_log[i]  # (N, D)
-        m_metrics_log = evaluate_metrics(
-            predictions=predictions_to_dataframe(
-                df_input,
-                preds,
-                endpoints,
-            ),
-            true_values=df_true_log,
-            endpoints=endpoints,
-            transform="log",
-        )
-        m_metrics_lin = evaluate_metrics(
-            predictions=predictions_to_dataframe(
-                df_input,
-                to_linear_space_array(preds, endpoints),
-                endpoints,
-            ),
-            true_values=df_true_log,
-            endpoints=endpoints,
-            transform="linear",
-        )
-        metrics[f"model_{i}_log"] = m_metrics_log
-        metrics[f"model_{i}_linear"] = m_metrics_lin
+        for space in ["log", "linear"]:
+            m_metrics = evaluate_metrics(
+                predictions=predictions_to_dataframe(
+                    df_input,
+                    _apply_transform_space(preds, endpoints, space=space),
+                    endpoints,
+                ),
+                true_values=df_true_log,
+                endpoints=endpoints,
+                transform=space,
+            )
+            metrics[f"model_{i}_{space}"] = m_metrics
 
-    # Compute mean and std-error across models for each metric
+    # Compute mean and standard error across models for each metric
     for space in ["log", "linear"]:
         per_model_metrics = [metrics[f"model_{i}_{space}"] for i in range(len(models))]
         endpoint_names = list(per_model_metrics[0].keys())
         metric_names = list(per_model_metrics[0][endpoint_names[0]].keys())
 
-        agg_metrics: Dict[str, Dict[str, float]] = {}
+        logger.debug(f"Aggregating per-model metrics for space '{space}'")
+        logger.debug(f"Collected per-model metrics for {len(per_model_metrics)} models")
+        logger.debug(f"Endpoint names: {endpoint_names}")
+        logger.debug(f"Metric names: {metric_names}")
+
+        agg_mean_metrics: Dict[str, Dict[str, float]] = {}
+        agg_stderr_metrics: Dict[str, Dict[str, float]] = {}
         for ep in endpoint_names:
-            agg_metrics[ep] = {}
+            agg_mean_metrics[ep] = {}
+            agg_stderr_metrics[ep] = {}
+
             for metric in metric_names:
                 values = [m[ep][metric] for m in per_model_metrics if not np.isnan(m[ep][metric])]
 
@@ -537,13 +535,17 @@ def evaluate_dataset(
                     mean_val = float(np.nanmean(values))
                     std_err = float(np.nanstd(values, ddof=1) / np.sqrt(len(values)))
                 else:
+                    logger.warning(
+                        f"No valid values to aggregate for metric '{metric}' at endpoint '{ep}' in space '  {space}'"
+                    )
                     mean_val = float("nan")
                     std_err = float("nan")
 
-                agg_metrics[ep][f"{metric}_mean"] = mean_val
-                agg_metrics[ep][f"{metric}_std_err"] = std_err
+                agg_mean_metrics[ep][metric] = mean_val
+                agg_stderr_metrics[ep][metric] = std_err
 
-        metrics[f"models_{space}_agg"] = agg_metrics
+        metrics[f"models_agg_mean_{space}"] = agg_mean_metrics
+        metrics[f"models_agg_stderr_{space}"] = agg_stderr_metrics
 
     # Build metrics DataFrames with columns: type, endpoint, metric, value
     def build_metrics_df(space: str) -> pd.DataFrame:
