@@ -100,24 +100,17 @@ def ensemble_eval(
         summary.preds_log_eval.to_csv(eval_data_dir / "predictions_log.csv", index=False)
 
         assert summary.preds_linear_eval is not None
-        assert summary.metrics_log is not None
-        assert summary.metrics_linear is not None
+        assert summary.metrics_log_eval is not None
+        assert summary.metrics_linear_eval is not None
+        logger.info("Writing evaluation predictions and metrics to %s", eval_data_dir)
         summary.preds_linear_eval.to_csv(eval_data_dir / "predictions_linear.csv", index=False)
-        summary.metrics_log.to_csv(eval_data_dir / "metrics_log.csv", index=False)
-        summary.metrics_linear.to_csv(eval_data_dir / "metrics_linear.csv", index=False)
-
-        if summary.metrics_log_by_endpoint is not None:
-            summary.metrics_log_by_endpoint.to_csv(
-                eval_data_dir / "metrics_log_by_endpoint.csv", index=False
-            )
-        if summary.metrics_linear_by_endpoint is not None:
-            summary.metrics_linear_by_endpoint.to_csv(
-                eval_data_dir / "metrics_linear_by_endpoint.csv", index=False
-            )
+        summary.metrics_log_eval.to_csv(eval_data_dir / "metrics_log.csv", index=False)
+        summary.metrics_linear_eval.to_csv(eval_data_dir / "metrics_linear.csv", index=False)
 
     if summary.preds_log_blind is not None:
         blind_data_dir = data_root / "blind"
         blind_data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Writing blind predictions to %s", blind_data_dir)
         summary.preds_log_blind.to_csv(blind_data_dir / "predictions_log.csv", index=False)
         assert summary.preds_linear_blind is not None
         summary.preds_linear_blind.to_csv(blind_data_dir / "predictions_linear.csv", index=False)

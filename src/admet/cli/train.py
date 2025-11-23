@@ -61,7 +61,11 @@ from admet.train.mlflow_utils import flatten_metrics, flatten_params, set_mlflow
 from admet.utils import get_git_commit_hash
 
 logger = logging.getLogger(__name__)
-app = typer.Typer(help="Model training commands.")
+app = typer.Typer(
+    help="Model training commands.",
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
+)
 
 
 @app.command("xgb")
@@ -237,7 +241,9 @@ def xgb(
         ensemble_tags = {"mode": "ensemble", "data_root": str(effective_data_root)}
         if git_commit:
             ensemble_tags["git_commit"] = git_commit
-        with mlflow.start_run(run_name=f"ensemble:{effective_data_root.name}", tags=ensemble_tags) as parent_run:
+        with mlflow.start_run(
+            run_name=f"ensemble:{effective_data_root.name}", tags=ensemble_tags
+        ) as parent_run:
             mlflow.log_params(flattened_cfg_params)
             mlflow.log_params(cli_params)
             if config.is_file():
@@ -266,7 +272,9 @@ def xgb(
             except Exception as exc:  # noqa: BLE001
                 mlflow.set_tag("status", "error")
                 mlflow.set_tag("error", str(exc))
-                mlflow.log_metric("ensemble.duration_seconds", (datetime.datetime.now() - start_ts).total_seconds())
+                mlflow.log_metric(
+                    "ensemble.duration_seconds", (datetime.datetime.now() - start_ts).total_seconds()
+                )
                 raise
             duration_seconds = (datetime.datetime.now() - start_ts).total_seconds()
             mlflow.log_metric("ensemble.duration_seconds", duration_seconds)
@@ -281,8 +289,16 @@ def xgb(
             status_counts["total"] = len(results)
             if status_counts:
                 mlflow.log_metrics({f"ensemble.status.{k}": v for k, v in status_counts.items()})
-            failures = status_counts.get("error", 0) + status_counts.get("partial", 0) + status_counts.get("timeout", 0)
-            parent_status = "ok" if failures == 0 else ("error" if failures and failures == status_counts.get("total", 0) else "partial")
+            failures = (
+                status_counts.get("error", 0)
+                + status_counts.get("partial", 0)
+                + status_counts.get("timeout", 0)
+            )
+            parent_status = (
+                "ok"
+                if failures == 0
+                else ("error" if failures and failures == status_counts.get("total", 0) else "partial")
+            )
             mlflow.set_tag("status", parent_status)
             for summary_file in [output_dir / "metrics_summary.csv", output_dir / "metrics_summary.json"]:
                 if summary_file.exists():

@@ -19,6 +19,7 @@ from admet.cli import ensemble as ensemble_module
 app = typer.Typer(
     help="OpenADMET Challenge tools and utilities.",
     no_args_is_help=True,
+    pretty_exceptions_enable=False,
 )
 
 
@@ -48,15 +49,25 @@ def _configure_global_logging(
 
 download_app = typer.Typer(
     help="Download datasets for the OpenADMET challenge.",
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
 )
 download_app.command()(download.download)
 app.add_typer(download_app, name="download")
 
-train_app = typer.Typer(help="Model training commands.")
+train_app = typer.Typer(
+    help="Model training commands.",
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
+)
 train_app.command()(train_module.xgb)
 app.add_typer(train_app, name="train")
 
-split_app = typer.Typer(help="Dataset splitting commands.")
+split_app = typer.Typer(
+    help="Dataset splitting commands.",
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
+)
 split_app.command()(split_module.datasets)
 app.add_typer(split_app, name="split")
 

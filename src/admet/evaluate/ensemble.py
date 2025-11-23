@@ -28,6 +28,7 @@ import logging
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 
 from admet.model.base import BaseModel
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
@@ -70,14 +71,16 @@ class EnsemblePredictConfig:
 class EnsemblePredictSummary:
     """Summary of ensemble prediction outputs for eval and blind datasets."""
 
-    model_dirs: List[Path]
-    endpoints: List[str]
+    model_dirs: List[Path]  # (n_models,)
+    endpoints: List[str]  # (n_endpoints,)
+
+    # Eval dataset
     preds_log_eval: Optional[pd.DataFrame]
     preds_linear_eval: Optional[pd.DataFrame]
-    metrics_log: Optional[pd.DataFrame]
-    metrics_linear: Optional[pd.DataFrame]
-    metrics_log_by_endpoint: Optional[pd.DataFrame]
-    metrics_linear_by_endpoint: Optional[pd.DataFrame]
+    metrics_log_eval: Optional[pd.DataFrame]
+    metrics_linear_eval: Optional[pd.DataFrame]
+
+    # Blind dataset: All model outputs
     preds_log_blind: Optional[pd.DataFrame]
     preds_linear_blind: Optional[pd.DataFrame]
 
@@ -208,7 +211,6 @@ def load_models(model_dirs: Sequence[str]) -> List[BaseModel]:
     return out
 
 
-# TODO: rewrite this to aggregate predictions without relying on existing evaluation functions
 def run_ensemble_predictions_from_root(
     config: EnsemblePredictConfig,
     df_eval: Optional[pd.DataFrame] = None,
@@ -244,50 +246,27 @@ def run_ensemble_predictions_from_root(
 
     endpoints = models[0].endpoints
 
-    # Eval dataset: All model outputs
+    # Eval dataset
     preds_log_eval: Optional[pd.DataFrame] = None
-    preds_lin_eval: Optional[pd.DataFrame] = None
+    preds_linear_eval: Optional[pd.DataFrame] = None
     metrics_log_eval: Optional[pd.DataFrame] = None
-    metrics_lin_eval: Optional[pd.DataFrame] = None
-
-    # Eval dataset: Aggregated metrics by endpoint
-    preds_log_eval_by_ep: Optional[pd.DataFrame] = None
-    preds_lin_eval_by_ep: Optional[pd.DataFrame] = None
-    metrics_log_eval_by_ep: Optional[pd.DataFrame] = None
-    metrics_lin_eval_by_ep: Optional[pd.DataFrame] = None
+    metrics_linear_eval: Optional[pd.DataFrame] = None
 
     # Blind dataset: All model outputs
     preds_log_blind: Optional[pd.DataFrame] = None
-    preds_lin_blind: Optional[pd.DataFrame] = None
-    metrics_log_by_ep: Optional[pd.DataFrame] = None
-    metrics_lin_by_ep: Optional[pd.DataFrame] = None
+    preds_linear_blind: Optional[pd.DataFrame] = None
 
-    # Blind dataset: Aggregated metrics by endpoint
-    preds_log_blind_by_ep: Optional[pd.DataFrame] = None
-    preds_lin_blind_by_ep: Optional[pd.DataFrame] = None
-    metrics_log_blind_by_ep: Optional[pd.DataFrame] = None
-    metrics_lin_blind_by_ep: Optional[pd.DataFrame] = None
-
-    # TODO: rewrite the rest of the function
     if df_eval is not None:
-        (
-            preds_log_eval,
-            preds_lin_eval,
-            metrics_log,
-            metrics_linear,
-            _,
-        ) = evaluate_labeled_dataset(
+        preds_log_eval, preds_linear_eval, metrics_log_eval, metrics_linear_eval = evaluate_labeled_dataset(
             models,
             df_eval,
             endpoints,
             config.agg_fn,
             n_jobs=config.n_jobs,
         )
-        metrics_log_by_ep = aggregate_metrics_by_endpoint(metrics_log)
-        metrics_lin_by_ep = log_metrics_to_linear(metrics_log_by_ep, endpoints)
 
     if df_blind is not None:
-        preds_log_blind, preds_lin_blind = evaluate_blind_dataset(
+        preds_log_blind, preds_linear_blind = evaluate_blind_dataset(
             models,
             df_blind,
             endpoints,
@@ -299,13 +278,11 @@ def run_ensemble_predictions_from_root(
         model_dirs=run_dirs,
         endpoints=list(endpoints),
         preds_log_eval=preds_log_eval,
-        preds_linear_eval=preds_lin_eval,
-        metrics_log=metrics_log,
-        metrics_linear=metrics_linear,
-        metrics_log_by_endpoint=metrics_log_by_ep,
-        metrics_linear_by_endpoint=metrics_lin_by_ep,
+        preds_linear_eval=preds_linear_eval,
+        metrics_log_eval=metrics_log_eval,
+        metrics_linear_eval=metrics_linear_eval,
         preds_log_blind=preds_log_blind,
-        preds_linear_blind=preds_lin_blind,
+        preds_linear_blind=preds_linear_blind,
     )
 
 
@@ -367,25 +344,19 @@ def predict_per_model(
     # Parallelize prediction across models when requested.
     pred_list: List[np.ndarray] = []
     if n_jobs != 1:
-        try:
-            from joblib import Parallel, delayed
 
-            def _predict_single(idx: int, mdl: BaseModel) -> np.ndarray:
-                return mdl.predict(features_map[idx])  # type: ignore[no-any-return]
+        def _predict_single(idx: int, mdl: BaseModel) -> np.ndarray:
+            return mdl.predict(features_map[idx])  # type: ignore[no-any-return]
 
-            parallel_results = Parallel(n_jobs=n_jobs)(
-                delayed(_predict_single)(i, m) for i, m in enumerate(models)
-            )
-            pred_list = [np.asarray(r) for r in parallel_results]
-        except ImportError:
-            # Fallback to serial execution if joblib is unavailable.
-            for i, m in enumerate(models):
-                X = features_map[i]
-                pred_list.append(m.predict(X))
+        parallel_results = Parallel(n_jobs=n_jobs)(
+            delayed(_predict_single)(i, m) for i, m in enumerate(models)
+        )
+        pred_list = [np.asarray(r) for r in parallel_results]
+
     else:
         for i, m in enumerate(models):
-            X = features_map[i]
-            pred_list.append(m.predict(X))
+            x = features_map[i]
+            pred_list.append(m.predict(x))
 
     return np.stack(pred_list, axis=0)
 
@@ -521,7 +492,10 @@ def evaluate_dataset(
 
     # Compute per-model predictions and metrics
     for i, m in tqdm(
-        enumerate(models), desc="Computing per-model predictions and metrics", dynamic_ncols=True
+        enumerate(models),
+        total=len(models),
+        desc="Computing per-model predictions and metrics",
+        dynamic_ncols=True,
     ):
         preds = model_preds_log[i]  # (N, D)
         m_metrics_log = evaluate_metrics(
@@ -662,6 +636,8 @@ def evaluate_labeled_dataset(
         agg_fn,
         n_jobs=n_jobs,
     )
+
+    assert metrics_log is not None and metrics_linear is not None
 
     return ens_preds_log, ens_preds_lin, metrics_log, metrics_linear
 
