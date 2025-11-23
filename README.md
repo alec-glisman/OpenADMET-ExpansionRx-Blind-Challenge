@@ -24,7 +24,9 @@ admet split datasets \
 
 ### Train XGBoost Model
 
-To train an XGBoost model, you will need to create a YAML configuration file with the desired hyperparameters. You can use the provided [configs/xgb.yaml](./configs/xgb.yaml) as a template.
+To train an XGBoost model, you will need to create a YAML configuration file with the desired hyperparameters
+and dataset location. The dataset root lives under `data.root` in the config (override anytime with
+`--data-root`). We have provided multiple template configuration files under the `configs/` directory.
 
 #### Single Model Training
 
@@ -32,48 +34,83 @@ To train a single XGBoost model on a specific fold, run the following command:
 
 ```bash
 admet train xgb \
-    'assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset' \
-    --config configs/standard.yaml  \
-    --output-dir models/xgb/example/single/high_quality/random_cluster/split_0/fold_0 \
-    --seed 123
+  --config configs/xgb_train_single.yaml
 ```
 
-#### Multi-Model Training
+#### Ensemble (Multi-Model) Training
 
 To train multiple XGBoost models across all folds, run the following command:
 
 ```bash
 admet train xgb \
-    'assets/dataset/splits/high_quality/random_cluster' \
-    --config configs/standard.yaml  \
-    --output-dir models/xgb/example/ensemble \
-    --seed 123 \
-    --multi \
-    --ray-address "local"
+  --config configs/xgb_train_ensemble.yaml
 ```
+
+To override the dataset location without editing the YAML, provide `--data-root path/to/dataset`.
 
 A Ray cluster can be pre-initialized to accelerate multi-model training.
 If one is not already running, the job will create a local Ray cluster instance if `--ray-address "local"` is specified or will run without Ray if `--ray-address` is not provided.
+
+#### Ensemble Evaluation
+
+To evaluate an ensemble of models produced by `admet train` under a single
+parent directory, use the `ensemble-eval` command with a YAML configuration.
+An example is provided at `configs/xgb_predict.yaml` as a template.
+
+Example command:
+
+```bash
+admet --log-level DEBUG \
+    ensemble-eval \
+  --config configs/xgb_predict_ensemble.yaml
+```
+
+The YAML fields are as follows:
+
+- `models_root`: Parent directory containing many model run subdirectories.
+  Each run should have been created by `admet train` and contain a
+  `run_meta.json` file written by the trainer, or a legacy `config.json` for
+  older XGBoost-only runs.
+- `eval_csv`: Path to the labeled evaluation CSV. Expected columns (header
+  row):
+
+  ```csv
+  Molecule Name,SMILES,Dataset,LogD,KSOL,HLM CLint,MLM CLint,Caco-2 Permeability Papp A>B,Caco-2 Permeability Efflux,MPPB,MBPB,MGMB
+  ```
+
+- `blind_csv`: Path to an unlabeled CSV (or `null` if not used). Expected
+  columns:
+
+  ```csv
+  Molecule Name,SMILES
+  ```
+
+- `agg_fn`: Aggregation function for ensemble predictions (choices: `mean` or
+  `median`; default `mean`).
+
+The CLI options are:
+
+- `--config / -c`: Path to the YAML configuration file.
 
 ### Documentation Build
 
 Project documentation (Sphinx) lives under `docs/`.
 
-* Initial HTML build:
+- Initial HTML build:
 
 ```bash
 sphinx-build -b html docs docs/_build/html
 ```
 
-* Clean rebuild (remove previous output then build):
+- Clean rebuild (remove previous output then build):
 
 ```bash
 rm -rf docs/_build
 sphinx-build -b html docs docs/_build/html
 ```
 
-* Open locally: point your browser at `docs/_build/html/index.html`.
-* Optional live autoreload
+- Open locally: point your browser at `docs/_build/html/index.html`.
+- Optional live autoreload
 
 ```bash
 sphinx-autobuild docs docs/_build/html
@@ -104,12 +141,12 @@ These targets call `sphinx-build` under the hood and produce output in `docs/_bu
 
 We plan to benchmark the following models:
 
-* XGBoost Baseline
-* Chemprop Multitask (trained from scratch)
-* Chemprop CheMeleon (finetuned)
-* GROVER (finetuned)
-* KERMT (finetuned)
-* ChemBERTa-3 (finetuned)
+- XGBoost Baseline
+- Chemprop Multitask (trained from scratch)
+- Chemprop CheMeleon (finetuned)
+- GROVER (finetuned)
+- KERMT (finetuned)
+- ChemBERTa-3 (finetuned)
 
 These models were selected to represent a range of architectures and training paradigms, including tree-based methods, graph neural networks, and transformer-based models. We will explore both training from scratch and transfer learning approaches.
 
@@ -139,12 +176,12 @@ We are predicting the following ADMET endpoints:
 
 The challenge will be judged based on the following criteria:
 
-* We welcome submissions of any kind, including machine learning and physics-based approaches. You can also employ pre-training approaches as you see fit, as well as incorporate data from external sources into your models and submissions.
-* In the spirit of open science and open source we would love to see code showing how you created your submission if possible, in the form of a Github Repository. If not possible due to IP or other constraints you must at a minimum provide a short report written methodology based on the template here. Make sure your lat submission before the deadline includes a link to a report or to a Github repository.
-* Each participant can submit as many times as they like, up to a limit of once per day. Only your latest submission will be considered for the final leaderboard.
-* The endpoints will be judged individually by mean absolute error (MAE), while an overall leaderboard will be judged by the macro-averaged relative absolute error (MA-RAE).
-* For endpoints that are not already on a log scale (e.g LogD) they will be transformed to log scale to minimize the impact of outliers on evaluation.
-* We will estimate errors on the metrics using bootstrapping and use the statistical testing workflow outlined in this paper to determine if model performance is statistically distinct.
+- We welcome submissions of any kind, including machine learning and physics-based approaches. You can also employ pre-training approaches as you see fit, as well as incorporate data from external sources into your models and submissions.
+- In the spirit of open science and open source we would love to see code showing how you created your submission if possible, in the form of a Github Repository. If not possible due to IP or other constraints you must at a minimum provide a short report written methodology based on the template here. Make sure your lat submission before the deadline includes a link to a report or to a Github repository.
+- Each participant can submit as many times as they like, up to a limit of once per day. Only your latest submission will be considered for the final leaderboard.
+- The endpoints will be judged individually by mean absolute error (MAE), while an overall leaderboard will be judged by the macro-averaged relative absolute error (MA-RAE).
+- For endpoints that are not already on a log scale (e.g LogD) they will be transformed to log scale to minimize the impact of outliers on evaluation.
+- We will estimate errors on the metrics using bootstrapping and use the statistical testing workflow outlined in this paper to determine if model performance is statistically distinct.
 
 ### Datasets
 
@@ -152,22 +189,22 @@ We will attempt to augment the provided training dataset with additional publicl
 
 ## Open Questions
 
-* How to best split the dataset for train/validation/test?
-  * Random split
-  * Scaffold split
-  * Butina clustering split
-  * UMAP clustering split
-  * Time-based split (if timestamps are available)
-* Should we incorprate stereochemistry information or remove it as part of preprocessing?
-* How should we handle salts and counterions in the SMILES strings?
-* How should we handle tautomeric forms of molecules?
+- How to best split the dataset for train/validation/test?
+  - Random split
+  - Scaffold split
+  - Butina clustering split
+  - UMAP clustering split
+  - Time-based split (if timestamps are available)
+- Should we incorprate stereochemistry information or remove it as part of preprocessing?
+- How should we handle salts and counterions in the SMILES strings?
+- How should we handle tautomeric forms of molecules?
 
 ## Links
 
 ### Challenge Information
 
-* [Challenge Hugging Face Page](https://huggingface.co/spaces/openadmet/OpenADMET-ExpansionRx-Challenge)
-* [Teaser Dataset on Hugging Face](https://huggingface.co/datasets/openadmet/openadmet-expansionrx-challenge-teaser)
+- [Challenge Hugging Face Page](https://huggingface.co/spaces/openadmet/OpenADMET-ExpansionRx-Challenge)
+- [Teaser Dataset on Hugging Face](https://huggingface.co/datasets/openadmet/openadmet-expansionrx-challenge-teaser)
 
     ```python
     # Hugging Face Datasets library
@@ -175,43 +212,43 @@ We will attempt to augment the provided training dataset with additional publicl
     ds = load_dataset("openadmet/openadmet-expansionrx-challenge-teaser")
     ```
 
-* [Full Dataset on Hugging Face (not live)](https://huggingface.co/datasets/openadmet/openadmet-challenge-train-data)
+- [Full Dataset on Hugging Face (not live)](https://huggingface.co/datasets/openadmet/openadmet-challenge-train-data)
 
 ### Reference Models
 
-* [XGBoost Baseline](https://xgboost.readthedocs.io/en/stable/python/sklearn_estimator.html)
-* [Chemprop Multitask](https://chemprop.readthedocs.io/en/latest/multi_task.html)
-* [Chemprop Pretrained](https://chemprop.readthedocs.io/en/latest/chemeleon_foundation_finetuning.html)
-* [ChemBERTa Foundation](https://deepchem.io/tutorials/transfer-learning-with-chemberta-transformers/)
-* [KERMT Pretrained](https://github.com/NVIDIA-Digital-Bio/KERMT)
+- [XGBoost Baseline](https://xgboost.readthedocs.io/en/stable/python/sklearn_estimator.html)
+- [Chemprop Multitask](https://chemprop.readthedocs.io/en/latest/multi_task.html)
+- [Chemprop Pretrained](https://chemprop.readthedocs.io/en/latest/chemeleon_foundation_finetuning.html)
+- [ChemBERTa Foundation](https://deepchem.io/tutorials/transfer-learning-with-chemberta-transformers/)
+- [KERMT Pretrained](https://github.com/NVIDIA-Digital-Bio/KERMT)
 
 ### External Datasets
 
-* [x] [KERMT](https://figshare.com/articles/dataset/Datasets_for_Multitask_finetuning_and_acceleration_of_chemical_pretrained_models_for_small_molecule_drug_property_prediction_/30350548/2)
-* [x] [Polaris Antiviral](https://polarishub.io/datasets/asap-discovery/antiviral-admet-2025-unblinded)
-* [x] [Polaris ADME Fang](https://polarishub.io/datasets/biogen/adme-fang-v1)
-* [x] [TDC](https://tdcommons.ai/benchmark/admet_group/overview/)
-* [x] [PharmaBench](https://github.com/mindrank-ai/PharmaBench)
-* [x] [NCATS](https://opendata.ncats.nih.gov/adme/data)
-* [ ] [admetSAR 3.0](https://pmc.ncbi.nlm.nih.gov/articles/PMC11223829/#:~:text=Data%20collection,are%20available%20in%20Text%20S2.)
-  * NOTE: Appears to be proprietary data
-* [x] [admetica](https://github.com/datagrok-ai/admetica)
-* [x] [ChEMBL ADMET](https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest)
+- [x] [KERMT](https://figshare.com/articles/dataset/Datasets_for_Multitask_finetuning_and_acceleration_of_chemical_pretrained_models_for_small_molecule_drug_property_prediction_/30350548/2)
+- [x] [Polaris Antiviral](https://polarishub.io/datasets/asap-discovery/antiviral-admet-2025-unblinded)
+- [x] [Polaris ADME Fang](https://polarishub.io/datasets/biogen/adme-fang-v1)
+- [x] [TDC](https://tdcommons.ai/benchmark/admet_group/overview/)
+- [x] [PharmaBench](https://github.com/mindrank-ai/PharmaBench)
+- [x] [NCATS](https://opendata.ncats.nih.gov/adme/data)
+- [ ] [admetSAR 3.0](https://pmc.ncbi.nlm.nih.gov/articles/PMC11223829/#:~:text=Data%20collection,are%20available%20in%20Text%20S2.)
+  - NOTE: Appears to be proprietary data
+- [x] [admetica](https://github.com/datagrok-ai/admetica)
+- [x] [ChEMBL ADMET](https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest)
 
 ### Papers and Blogs
 
-* [Dataset Splitting](https://practicalcheminformatics.blogspot.com/2024/11/some-thoughts-on-splitting-chemical.html)
-* [Benchmarking](https://practicalcheminformatics.blogspot.com/2023/08/we-need-better-benchmarks-for-machine.html)
-* [Comparisons](https://practicalcheminformatics.blogspot.com/2025/03/even-more-thoughts-on-ml-method.html)
-* [Practically Significant Method Comparison Protocols for Machine Learning in Small Molecule Drug Discovery](https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c01609)
+- [Dataset Splitting](https://practicalcheminformatics.blogspot.com/2024/11/some-thoughts-on-splitting-chemical.html)
+- [Benchmarking](https://practicalcheminformatics.blogspot.com/2023/08/we-need-better-benchmarks-for-machine.html)
+- [Comparisons](https://practicalcheminformatics.blogspot.com/2025/03/even-more-thoughts-on-ml-method.html)
+- [Practically Significant Method Comparison Protocols for Machine Learning in Small Molecule Drug Discovery](https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c01609)
 
 ### Examples
 
-* [DataBricks Chemprop Training](https://community.databricks.com/t5/technical-blog/ai-drug-discovery-made-easy-your-complete-guide-to-chemprop-on/ba-p/111750#h_324287967181751055572426)
-* [Chemprop Data Splitting](https://chemprop.readthedocs.io/en/latest/tutorial/python/data/splitting.html)
-* [Chemprop Multitask Model](https://chemprop.readthedocs.io/en/latest/multi_task.html)
-* [CheMeleon Foundation Finetuning](https://chemprop.readthedocs.io/en/latest/chemeleon_foundation_finetuning.html)
+- [DataBricks Chemprop Training](https://community.databricks.com/t5/technical-blog/ai-drug-discovery-made-easy-your-complete-guide-to-chemprop-on/ba-p/111750#h_324287967181751055572426)
+- [Chemprop Data Splitting](https://chemprop.readthedocs.io/en/latest/tutorial/python/data/splitting.html)
+- [Chemprop Multitask Model](https://chemprop.readthedocs.io/en/latest/multi_task.html)
+- [CheMeleon Foundation Finetuning](https://chemprop.readthedocs.io/en/latest/chemeleon_foundation_finetuning.html)
 
 ### Coding Assistants
 
-* [Copilot Prompts](https://github.com/github/awesome-copilot/tree/main?tab=readme-ov-file)
+- [Copilot Prompts](https://github.com/github/awesome-copilot/tree/main?tab=readme-ov-file)

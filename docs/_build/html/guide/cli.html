@@ -287,25 +287,19 @@
 </pre></div>
 </div>
 <p><strong>Training a Single Model</strong></p>
-<p>To train a single XGBoost model on a specific fold:</p>
+<p>To train a single XGBoost model on a specific fold (dataset path is taken from
+<code class="docutils literal notranslate"><span class="pre">data.root</span></code> inside the config):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>train<span class="w"> </span>xgb<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s1">&#39;assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>configs/standard.yaml<span class="w">  </span><span class="se">\</span>
-<span class="w">    </span>--output-dir<span class="w"> </span>models/xgb/example/single/high_quality/random_cluster/split_0/fold_0<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--seed<span class="w"> </span><span class="m">123</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/xgb_train_single.yaml
 </pre></div>
 </div>
 <p><strong>Distributed Training with Ray</strong></p>
 <p>To train an ensemble of models across multiple folds using Ray for parallel execution:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>train<span class="w"> </span>xgb<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s1">&#39;assets/dataset/splits/high_quality/random_cluster&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>configs/standard.yaml<span class="w">  </span><span class="se">\</span>
-<span class="w">    </span>--output-dir<span class="w"> </span>models/xgb/example/ensemble<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--seed<span class="w"> </span><span class="m">123</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--multi<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--ray-address<span class="w"> </span><span class="s2">&quot;local&quot;</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/xgb_train_ensemble.yaml
 </pre></div>
 </div>
+<p>Provide <code class="docutils literal notranslate"><span class="pre">--data-root</span> <span class="pre">path/to/dataset</span></code> to override the directory specified in the YAML at runtime.</p>
 </section>
 <section id="see-also">
 <h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>

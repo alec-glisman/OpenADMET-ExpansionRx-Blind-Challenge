@@ -324,60 +324,53 @@
 <a class="viewcode-back" href="../../../api/admet.cli.html#admet.cli.train.xgb">[docs]</a>
 <span class="nd">@app</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">&quot;xgb&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">xgb</span><span class="p">(</span>
-    <span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Argument</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span>
         <span class="o">...</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;Path to a saved HF DatasetDict directory or a parent &quot;</span>
-            <span class="s2">&quot;directory containing multiple &#39;hf_dataset&#39; subdirectories.&quot;</span>
-        <span class="p">),</span>
+        <span class="s2">&quot;--config&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-c&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;YAML configuration file with models.xgboost section.&quot;</span><span class="p">,</span>
     <span class="p">),</span>
-    <span class="n">config</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;YAML configuration file with models.xgboost section.&quot;</span><span class="p">),</span>
-    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;xgb_artifacts&quot;</span><span class="p">),</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Directory to write model artifacts.&quot;</span><span class="p">),</span>
-    <span class="n">multi</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span>
-        <span class="kc">False</span><span class="p">,</span>
-        <span class="s2">&quot;--multi&quot;</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;If set, treat data_root as a parent directory and train &quot;</span>
-            <span class="s2">&quot;models for all discovered &#39;hf_dataset&#39; subdirectories &quot;</span>
-            <span class="s2">&quot;using Ray.&quot;</span>
-        <span class="p">),</span>
-    <span class="p">),</span>
-    <span class="n">ray_address</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span>
+    <span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;--ray-address&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--data-root&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-d&quot;</span><span class="p">,</span>
         <span class="n">help</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;Ray address to connect to (e.g. &#39;auto&#39; or &#39;ray://host:10001&#39;). &quot;</span>
-            <span class="s2">&quot;If omitted, a local Ray runtime is started.&quot;</span>
+            <span class="s2">&quot;Optional override for the HF DatasetDict directory (single) or parent &quot;</span>
+            <span class="s2">&quot;directory containing multiple &#39;hf_dataset&#39; subdirectories (multi). &quot;</span>
+            <span class="s2">&quot;Defaults to the `data.root` entry in the YAML config.&quot;</span>
         <span class="p">),</span>
     <span class="p">),</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Random seed for reproducibility.&quot;</span><span class="p">),</span>
-    <span class="n">n_fingerprint_bits</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span><span class="mi">2048</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of fingerprint bits for dataset loading.&quot;</span><span class="p">),</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Train per-endpoint XGBoost models using a YAML configuration.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    data_root : pathlib.Path</span>
-<span class="sd">        HF ``DatasetDict`` directory or parent containing multiple ``hf_dataset`` dirs.</span>
 <span class="sd">    config : pathlib.Path</span>
 <span class="sd">        YAML file with ``models.xgboost`` hyperparameters and optional sections</span>
-<span class="sd">        for endpoints (``data.endpoints``) and sample weights (``training.sample_weights``).</span>
-<span class="sd">    output_dir : pathlib.Path</span>
-<span class="sd">        Directory where artifacts are written.</span>
-<span class="sd">    multi : bool, optional</span>
-<span class="sd">        Batch mode; treat ``data_root`` as parent and train each nested dataset via Ray.</span>
-<span class="sd">    ray_address : str, optional</span>
-<span class="sd">        Ray cluster address (``auto`` or explicit ``ray://``). Local runtime started if omitted.</span>
-<span class="sd">    seed : int, optional</span>
-<span class="sd">        Global seed for reproducibility.</span>
-<span class="sd">    n_fingerprint_bits : int, optional</span>
-<span class="sd">        Fingerprint bit count used during loading (default 2048).</span>
+<span class="sd">        for endpoints (``data.endpoints``), sample weights (``training.sample_weights``),</span>
+<span class="sd">        output directory (``training.output_dir``), fingerprint size</span>
+<span class="sd">        (``training.n_fingerprint_bits``), dataset location (``data.root``), and</span>
+<span class="sd">        Ray configuration (``ray.address``, ``ray.num_cpus``).</span>
+<span class="sd">    data_root : pathlib.Path, optional</span>
+<span class="sd">        Override for the dataset directory. If omitted, ``data.root`` from the YAML</span>
+<span class="sd">        configuration is used. Required when ``data.root`` is missing.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="c1"># Use `or {}` to guard against keys being present with a null value in YAML</span>
     <span class="c1"># (yaml.safe_load can return None for empty files, and a key that maps to</span>
     <span class="c1"># `null` will cause cfg.get(&quot;...&quot;, {}) to return None instead of a dict).</span>
-    <span class="n">endpoints</span> <span class="o">=</span> <span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;endpoints&quot;</span><span class="p">)</span>
+    <span class="n">data_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">endpoints</span> <span class="o">=</span> <span class="n">data_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;endpoints&quot;</span><span class="p">)</span>
+    <span class="n">cfg_data_root</span> <span class="o">=</span> <span class="n">data_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;root&quot;</span><span class="p">)</span>
+    <span class="n">effective_data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">data_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">effective_data_root</span> <span class="o">=</span> <span class="n">data_root</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">cfg_data_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">effective_data_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cfg_data_root</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">typer</span><span class="o">.</span><span class="n">BadParameter</span><span class="p">(</span>
+            <span class="s2">&quot;Dataset directory is not provided. Supply --data-root or set data.root in the config.&quot;</span>
+        <span class="p">)</span>
     <span class="n">xgb_cfg</span> <span class="o">=</span> <span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;xgboost&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="n">model_params</span> <span class="o">=</span> <span class="n">xgb_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_params&quot;</span><span class="p">,</span> <span class="p">{})</span>
     <span class="n">objective</span> <span class="o">=</span> <span class="n">xgb_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;objective&quot;</span><span class="p">,</span> <span class="s2">&quot;rmse&quot;</span><span class="p">)</span>
@@ -388,9 +381,19 @@
         <span class="n">model_params</span><span class="p">[</span><span class="s2">&quot;objective&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;reg:squarederror&quot;</span>
         <span class="n">model_params</span><span class="p">[</span><span class="s2">&quot;eval_metric&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;rmse&quot;</span>
     <span class="n">early_stopping_rounds</span> <span class="o">=</span> <span class="n">xgb_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;early_stopping_rounds&quot;</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
-    <span class="n">sw_cfg</span> <span class="o">=</span> <span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_weights&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">training_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">sw_cfg</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_weights&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="n">sw_enabled</span> <span class="o">=</span> <span class="n">sw_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
     <span class="n">sw_mapping</span> <span class="o">=</span> <span class="n">sw_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weights&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">sw_enabled</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">output_dir_raw</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;xgb_artifacts&quot;</span><span class="p">)</span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir_raw</span><span class="p">)</span>
+    <span class="n">seed</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">)</span>
+    <span class="n">n_fingerprint_bits</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_fingerprint_bits&quot;</span><span class="p">,</span> <span class="mi">2048</span><span class="p">))</span>
+
+    <span class="n">ray_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ray&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">multi</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multi&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_cpus&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">ray_address</span> <span class="o">=</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;address&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
         <span class="c1"># Format numeric values to 4 decimal places; for dicts, format inner numeric values;</span>
@@ -412,7 +415,11 @@
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">multi</span><span class="p">:</span>
-        <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">endpoints</span><span class="o">=</span><span class="n">endpoints</span><span class="p">,</span> <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span>
+            <span class="n">effective_data_root</span><span class="p">,</span>
+            <span class="n">endpoints</span><span class="o">=</span><span class="n">endpoints</span><span class="p">,</span>
+            <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">run_metrics</span><span class="p">,</span> <span class="n">summary</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span>
             <span class="n">dataset</span><span class="p">,</span>
             <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
@@ -431,15 +438,8 @@
             <span class="n">formatted_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">macro_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
             <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># Optional Ray configuration from YAML. Guard against `ray: null` cases</span>
-        <span class="c1"># which would cause cfg.get(&quot;ray&quot;, {}) to return None and break .get.</span>
-        <span class="n">ray_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ray&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="n">num_cpus</span> <span class="o">=</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_cpus&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="c1"># CLI flag takes precedence over config file for address</span>
-        <span class="n">ray_addr_effective</span> <span class="o">=</span> <span class="n">ray_address</span> <span class="ow">or</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;address&quot;</span><span class="p">)</span>
-
         <span class="n">results</span> <span class="o">=</span> <span class="n">train_ensemble</span><span class="p">(</span>
-            <span class="n">data_root</span><span class="p">,</span>
+            <span class="n">effective_data_root</span><span class="p">,</span>
             <span class="n">ensemble_trainer_cls</span><span class="o">=</span><span class="n">BaseEnsembleTrainer</span><span class="p">,</span>
             <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
             <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
@@ -450,7 +450,7 @@
             <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
             <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
             <span class="n">num_cpus</span><span class="o">=</span><span class="n">num_cpus</span><span class="p">,</span>
-            <span class="n">ray_address</span><span class="o">=</span><span class="n">ray_addr_effective</span><span class="p">,</span>
+            <span class="n">ray_address</span><span class="o">=</span><span class="n">ray_address</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Print metrics per discovered dataset</span>

@@ -21,15 +21,13 @@ To create reproducible splits using random and scaffold cluster methods:
 
 **Training a Single Model**
 
-To train a single XGBoost model on a specific fold:
+To train a single XGBoost model on a specific fold (dataset path is taken from
+``data.root`` inside the config):
 
 .. code-block:: bash
 
    admet train xgb \
-       'assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset' \
-       --config configs/standard.yaml  \
-       --output-dir models/xgb/example/single/high_quality/random_cluster/split_0/fold_0 \
-       --seed 123
+       --config configs/xgb_train_single.yaml
 
 **Distributed Training with Ray**
 
@@ -38,12 +36,9 @@ To train an ensemble of models across multiple folds using Ray for parallel exec
 .. code-block:: bash
 
    admet train xgb \
-       'assets/dataset/splits/high_quality/random_cluster' \
-       --config configs/standard.yaml  \
-       --output-dir models/xgb/example/ensemble \
-       --seed 123 \
-       --multi \
-       --ray-address "local"
+       --config configs/xgb_train_ensemble.yaml
+
+Provide ``--data-root path/to/dataset`` to override the directory specified in the YAML at runtime.
 
 See also
 --------

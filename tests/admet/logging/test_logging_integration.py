@@ -40,7 +40,12 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
 def _make_config(tmp_path: Path) -> Path:
     cfg = {
         "models": {"xgboost": {"model_params": {"n_estimators": 5}, "early_stopping_rounds": 1}},
-        "training": {"sample_weights": {"enabled": False, "weights": {"default": 1.0}}},
+        "training": {
+            "output_dir": str(tmp_path / "out"),
+            "seed": 42,
+            "n_fingerprint_bits": 16,
+            "sample_weights": {"enabled": False, "weights": {"default": 1.0}},
+        },
         "data": {"endpoints": ["LogD"]},
     }
     import yaml
@@ -94,10 +99,6 @@ def test_cli_log_file_option_creates_file(tmp_path: Path):
         str(ds_root),
         "--config",
         str(cfg_path),
-        "--output-dir",
-        str(tmp_path / "out"),
-        "--n-fingerprint-bits",
-        "16",
     ]
     _ = runner.invoke(app, cmd)
     if not logfile.exists():

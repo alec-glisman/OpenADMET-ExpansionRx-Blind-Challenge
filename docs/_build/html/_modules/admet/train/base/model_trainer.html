@@ -273,10 +273,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
-
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># Only imported for type checking; avoid heavy runtime deps (tdc, datasets)</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoadedDataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoadedDataset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ModelProtocol</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_global_seeds</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">AllMetrics</span><span class="p">,</span> <span class="n">compute_metrics_log_and_linear</span>
@@ -455,6 +452,17 @@
         <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;model&quot;</span><span class="p">))</span>
         <span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+
+        <span class="c1"># Standardized run metadata used by downstream evaluation/ensembling.</span>
+        <span class="n">run_meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;model_type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;endpoints&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">endpoints</span><span class="p">,</span>
+            <span class="s2">&quot;featurization&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">featurization</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;model&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+            <span class="s2">&quot;extra_meta&quot;</span><span class="p">:</span> <span class="n">extra_meta</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="p">}</span>
+        <span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;run_meta.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">run_meta</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
         <span class="n">n_cpus</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
         <span class="n">endpoints</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">endpoints</span>
         <span class="n">y_true</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">Y_train</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">Y_val</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">Y_test</span><span class="p">}</span>

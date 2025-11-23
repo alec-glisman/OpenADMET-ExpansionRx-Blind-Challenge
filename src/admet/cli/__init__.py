@@ -13,6 +13,7 @@ import typer
 from admet.cli import download
 from admet.cli import train as train_module
 from admet.cli import split as split_module
+from admet.cli import ensemble as ensemble_module
 
 
 app = typer.Typer(
@@ -58,6 +59,8 @@ app.add_typer(train_app, name="train")
 split_app = typer.Typer(help="Dataset splitting commands.")
 split_app.command()(split_module.datasets)
 app.add_typer(split_app, name="split")
+
+app.command(name="ensemble-eval")(ensemble_module.ensemble_eval)
 
 
 __all__ = ["app"]

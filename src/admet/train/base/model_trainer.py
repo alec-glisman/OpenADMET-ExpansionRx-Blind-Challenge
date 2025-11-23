@@ -15,7 +15,7 @@ import numpy as np
 
 from admet.data.load import LoadedDataset
 from admet.model.base import BaseModel, ModelProtocol
-from admet.utils import set_global_seeds
+from admet.utils import set_global_seeds, get_git_commit_hash
 from admet.evaluate.metrics import AllMetrics, compute_metrics_log_and_linear
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
 
@@ -74,6 +74,7 @@ class BaseModelTrainer(ABC):
         self.mixed_precision = mixed_precision
         self.featurization: FeaturizationMethod = FeaturizationMethod.NONE
         self.model: Optional[BaseModel] = None
+        self.git_commit: Optional[str] = None
 
     def prepare_features(self, dataset: "LoadedDataset") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if self.featurization == FeaturizationMethod.MORGAN_FP:
@@ -167,6 +168,22 @@ class BaseModelTrainer(ABC):
         output_dir.mkdir(parents=True, exist_ok=True)
         model.save(str(output_dir / "model"))
         (output_dir / "metrics.json").write_text(json.dumps(run_metrics, indent=2))
+
+        git_commit = self.git_commit or get_git_commit_hash()
+        if git_commit:
+            logger.info("Saving artifacts for git commit %s", git_commit)
+
+        # Standardized run metadata used by downstream evaluation/ensembling.
+        run_meta = {
+            "model_type": type(model).__name__,
+            "endpoints": summary.endpoints,
+            "featurization": summary.featurization.value,
+            "model_path": "model",
+            "seed": self.seed,
+            "extra_meta": extra_meta or {},
+            "git_commit": git_commit,
+        }
+        (output_dir / "run_meta.json").write_text(json.dumps(run_meta, indent=2))
         n_cpus = multiprocessing.cpu_count()
         endpoints = summary.endpoints
         y_true = {"train": summary.Y_train, "validation": summary.Y_val, "test": summary.Y_test}
@@ -207,6 +224,12 @@ class BaseModelTrainer(ABC):
         dry_run: bool = False,
     ) -> Tuple[Dict[str, Dict[str, Any]], Optional[RunSummary]]:
         set_global_seeds(self.seed)
+        if self.git_commit is None:
+            self.git_commit = get_git_commit_hash()
+            if self.git_commit:
+                logger.info("Starting training with git commit %s", self.git_commit)
+            else:
+                logger.debug("Git commit hash unavailable; proceeding without commit metadata.")
         endpoints: List[str] = list(dataset.endpoints)
         if dry_run:
             return ({"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}}, None)

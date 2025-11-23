@@ -62,60 +62,53 @@ app = typer.Typer(help="Model training commands.")
 
 @app.command("xgb")
 def xgb(
-    data_root: Path = typer.Argument(
+    config: Path = typer.Option(
         ...,
-        help=(
-            "Path to a saved HF DatasetDict directory or a parent "
-            "directory containing multiple 'hf_dataset' subdirectories."
-        ),
+        "--config",
+        "-c",
+        help="YAML configuration file with models.xgboost section.",
     ),
-    config: Path = typer.Option(..., help="YAML configuration file with models.xgboost section."),
-    output_dir: Path = typer.Option(Path("xgb_artifacts"), help="Directory to write model artifacts."),
-    multi: bool = typer.Option(
-        False,
-        "--multi",
-        help=(
-            "If set, treat data_root as a parent directory and train "
-            "models for all discovered 'hf_dataset' subdirectories "
-            "using Ray."
-        ),
-    ),
-    ray_address: str | None = typer.Option(
+    data_root: Path | None = typer.Option(
         None,
-        "--ray-address",
+        "--data-root",
+        "-d",
         help=(
-            "Ray address to connect to (e.g. 'auto' or 'ray://host:10001'). "
-            "If omitted, a local Ray runtime is started."
+            "Optional override for the HF DatasetDict directory (single) or parent "
+            "directory containing multiple 'hf_dataset' subdirectories (multi). "
+            "Defaults to the `data.root` entry in the YAML config."
         ),
     ),
-    seed: int | None = typer.Option(None, help="Random seed for reproducibility."),
-    n_fingerprint_bits: int = typer.Option(2048, help="Number of fingerprint bits for dataset loading."),
 ) -> None:
     """Train per-endpoint XGBoost models using a YAML configuration.
 
     Parameters
     ----------
-    data_root : pathlib.Path
-        HF ``DatasetDict`` directory or parent containing multiple ``hf_dataset`` dirs.
     config : pathlib.Path
         YAML file with ``models.xgboost`` hyperparameters and optional sections
-        for endpoints (``data.endpoints``) and sample weights (``training.sample_weights``).
-    output_dir : pathlib.Path
-        Directory where artifacts are written.
-    multi : bool, optional
-        Batch mode; treat ``data_root`` as parent and train each nested dataset via Ray.
-    ray_address : str, optional
-        Ray cluster address (``auto`` or explicit ``ray://``). Local runtime started if omitted.
-    seed : int, optional
-        Global seed for reproducibility.
-    n_fingerprint_bits : int, optional
-        Fingerprint bit count used during loading (default 2048).
+        for endpoints (``data.endpoints``), sample weights (``training.sample_weights``),
+        output directory (``training.output_dir``), fingerprint size
+        (``training.n_fingerprint_bits``), dataset location (``data.root``), and
+        Ray configuration (``ray.address``, ``ray.num_cpus``).
+    data_root : pathlib.Path, optional
+        Override for the dataset directory. If omitted, ``data.root`` from the YAML
+        configuration is used. Required when ``data.root`` is missing.
     """
     cfg = yaml.safe_load(config.read_text()) or {}
     # Use `or {}` to guard against keys being present with a null value in YAML
     # (yaml.safe_load can return None for empty files, and a key that maps to
     # `null` will cause cfg.get("...", {}) to return None instead of a dict).
-    endpoints = (cfg.get("data") or {}).get("endpoints")
+    data_cfg = cfg.get("data") or {}
+    endpoints = data_cfg.get("endpoints")
+    cfg_data_root = data_cfg.get("root")
+    effective_data_root: Path | None
+    if data_root is not None:
+        effective_data_root = data_root.expanduser()
+    elif cfg_data_root is not None:
+        effective_data_root = Path(cfg_data_root).expanduser()
+    else:
+        raise typer.BadParameter(
+            "Dataset directory is not provided. Supply --data-root or set data.root in the config."
+        )
     xgb_cfg = (cfg.get("models") or {}).get("xgboost") or {}
     model_params = xgb_cfg.get("model_params", {})
     objective = xgb_cfg.get("objective", "rmse")
@@ -126,9 +119,19 @@ def xgb(
         model_params["objective"] = "reg:squarederror"
         model_params["eval_metric"] = "rmse"
     early_stopping_rounds = xgb_cfg.get("early_stopping_rounds", 50)
-    sw_cfg = (cfg.get("training") or {}).get("sample_weights") or {}
+    training_cfg = cfg.get("training") or {}
+    sw_cfg = training_cfg.get("sample_weights") or {}
     sw_enabled = sw_cfg.get("enabled", False)
     sw_mapping = sw_cfg.get("weights") if sw_enabled else None
+    output_dir_raw = training_cfg.get("output_dir", "xgb_artifacts")
+    output_dir = Path(output_dir_raw)
+    seed = training_cfg.get("seed")
+    n_fingerprint_bits = int(training_cfg.get("n_fingerprint_bits", 2048))
+
+    ray_cfg = cfg.get("ray") or {}
+    multi = bool(ray_cfg.get("multi", False))
+    num_cpus = ray_cfg.get("num_cpus", None)
+    ray_address = ray_cfg.get("address")
 
     def _format_value(v):
         # Format numeric values to 4 decimal places; for dicts, format inner numeric values;
@@ -150,7 +153,11 @@ def xgb(
         return str(v)
 
     if not multi:
-        dataset = load_dataset(data_root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
+        dataset = load_dataset(
+            effective_data_root,
+            endpoints=endpoints,
+            n_fingerprint_bits=n_fingerprint_bits,
+        )
         run_metrics, summary = train_model(
             dataset,
             trainer_cls=XGBoostTrainer,
@@ -169,15 +176,8 @@ def xgb(
             formatted_metrics = {k: _format_value(v) for k, v in macro_metrics.items()}
             typer.echo(json.dumps(formatted_metrics, indent=2))
     else:
-        # Optional Ray configuration from YAML. Guard against `ray: null` cases
-        # which would cause cfg.get("ray", {}) to return None and break .get.
-        ray_cfg = cfg.get("ray") or {}
-        num_cpus = ray_cfg.get("num_cpus", None)
-        # CLI flag takes precedence over config file for address
-        ray_addr_effective = ray_address or ray_cfg.get("address")
-
         results = train_ensemble(
-            data_root,
+            effective_data_root,
             ensemble_trainer_cls=BaseEnsembleTrainer,
             trainer_cls=XGBoostTrainer,
             model_cls=XGBoostMultiEndpoint,
@@ -188,7 +188,7 @@ def xgb(
             seed=seed,
             n_fingerprint_bits=n_fingerprint_bits,
             num_cpus=num_cpus,
-            ray_address=ray_addr_effective,
+            ray_address=ray_address,
         )
 
         # Print metrics per discovered dataset

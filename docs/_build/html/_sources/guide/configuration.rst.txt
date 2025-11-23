@@ -7,7 +7,7 @@ declared and overridden.
 Primary Config File
 -------------------
 
-The repository includes YAML configuration(s) under `configs/` (e.g. `configs/xgb.yaml`).
+The repository includes YAML configuration(s) under `configs/` (e.g. `configs/xgb_train.yaml`).
 They capture default hyperparameters for model training.
 
 Example (Illustrative)
@@ -71,7 +71,7 @@ Programmatic Loading
 
    import yaml, pathlib
 
-   config_path = pathlib.Path("configs/xgb.yaml")
+   config_path = pathlib.Path("configs/xgb_train.yaml")
    config = yaml.safe_load(config_path.read_text())
    params = config["model"]["params"]
 
