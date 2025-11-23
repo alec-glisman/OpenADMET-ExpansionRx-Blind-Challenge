@@ -343,7 +343,6 @@ def _generate_features_for_models(models: List[BaseModel], smiles: pd.Series) ->
 def predict_per_model(
     models: List[BaseModel],
     smiles: pd.Series,
-    *,
     n_jobs: int = 1,
 ) -> np.ndarray:
     """Run predictions for each model on provided SMILES strings.
@@ -452,10 +451,33 @@ def evaluate_dataset(
     models: List[BaseModel],
     df_input: pd.DataFrame,
     endpoints: Sequence[str],
+    df_true_log: Optional[pd.DataFrame] = None,
     agg_fn: str = "mean",
-    *,
     n_jobs: int = 1,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+    """Run ensemble predictions and optional evaluation on a dataset.
+
+    Parameters
+    ----------
+    models : List[BaseModel]
+        Sequence of models (must share same endpoints ordering and n_endpoints).
+    df_input : pandas.DataFrame
+        Input DataFrame containing at least "Molecule Name" and "SMILES" columns.
+    endpoints : Sequence[str]
+        Ordered list of endpoint names corresponding to model outputs.
+    df_true_log : Optional[pandas.DataFrame]
+        Optional DataFrame of true target values in log10 space for evaluation.
+    agg_fn : str
+        Aggregation function to combine per-model predictions ("mean" or "median").
+    n_jobs : int
+        Level of parallelism across models when running predictions.
+
+    Returns
+    -------
+    Tuple[pandas.DataFrame, pandas.DataFrame, Optional[pandas.DataFrame], Optional[pandas.DataFrame]]
+        Tuple of (ens_preds_log_df, ens_preds_lin_df, metrics_log_df, metrics_lin_df).
+        If ``df_true_log`` is None, metrics DataFrames will be None.
+    """
 
     # Validate endpoints
     if not models:
@@ -479,7 +501,92 @@ def evaluate_dataset(
     ens_preds_log_df = predictions_to_dataframe(df_input, ens_preds_log, endpoints)
     ens_preds_lin_df = predictions_to_dataframe(df_input, ens_preds_lin, endpoints)
 
-    return ens_preds_log_df, ens_preds_lin_df
+    if df_true_log is None:
+        return ens_preds_log_df, ens_preds_lin_df, None, None
+
+    # Compute aggregated metrics in both spaces
+    metrics = {}
+    metrics["ensemble_log"] = evaluate_metrics(
+        ens_preds_log_df,
+        df_true_log,
+        endpoints,
+        transform="log",
+    )  # Dict[str, Dict[str, float]], endpoint -> metric -> value
+    metrics["ensemble_linear"] = evaluate_metrics(
+        ens_preds_lin_df,
+        df_true_log,
+        endpoints,
+        transform="linear",
+    )  # Dict[str, Dict[str, float]]
+
+    # Compute per-model predictions and metrics
+    for i, m in tqdm(
+        enumerate(models), desc="Computing per-model predictions and metrics", dynamic_ncols=True
+    ):
+        preds = model_preds_log[i]  # (N, D)
+        m_metrics_log = evaluate_metrics(
+            predictions=predictions_to_dataframe(
+                df_input,
+                preds,
+                endpoints,
+            ),
+            true_values=df_true_log,
+            endpoints=endpoints,
+            transform="log",
+        )
+        m_metrics_lin = evaluate_metrics(
+            predictions=predictions_to_dataframe(
+                df_input,
+                to_linear_space_array(preds, endpoints),
+                endpoints,
+            ),
+            true_values=df_true_log,
+            endpoints=endpoints,
+            transform="linear",
+        )
+        metrics[f"model_{i}_log"] = m_metrics_log
+        metrics[f"model_{i}_linear"] = m_metrics_lin
+
+    # Compute mean and std-error across models for each metric
+    for space in ["log", "linear"]:
+        per_model_metrics = [metrics[f"model_{i}_{space}"] for i in range(len(models))]
+        endpoint_names = list(per_model_metrics[0].keys())
+        metric_names = list(per_model_metrics[0][endpoint_names[0]].keys())
+
+        agg_metrics: Dict[str, Dict[str, float]] = {}
+        for ep in endpoint_names:
+            agg_metrics[ep] = {}
+            for metric in metric_names:
+                values = [m[ep][metric] for m in per_model_metrics if not np.isnan(m[ep][metric])]
+
+                if values:
+                    mean_val = float(np.nanmean(values))
+                    std_err = float(np.nanstd(values, ddof=1) / np.sqrt(len(values)))
+                else:
+                    mean_val = float("nan")
+                    std_err = float("nan")
+
+                agg_metrics[ep][f"{metric}_mean"] = mean_val
+                agg_metrics[ep][f"{metric}_std_err"] = std_err
+
+        metrics[f"models_{space}_agg"] = agg_metrics
+
+    # Build metrics DataFrames with columns: type, endpoint, metric, value
+    def build_metrics_df(space: str) -> pd.DataFrame:
+        rows = []
+        for key, mdict in metrics.items():
+            if not key.endswith(space):
+                continue
+            for ep in list(endpoints) + ["macro"]:
+                d = mdict[ep]
+                for k, v in d.items():
+                    rows.append({"type": key, "endpoint": ep, "space": space, "metric": k, "value": v})
+        return pd.DataFrame(rows)
+
+    metrics_log_df = build_metrics_df("log")
+    metrics_lin_df = build_metrics_df("linear")
+
+    return ens_preds_log_df, ens_preds_lin_df, metrics_log_df, metrics_lin_df
 
 
 def evaluate_metrics(
@@ -503,7 +610,7 @@ def evaluate_metrics(
     y_true = true_values[list(endpoints)].to_numpy(dtype=float)
     y_pred = predictions[list(endpoints)].to_numpy(dtype=float)
     mask = (~np.isnan(y_true)).astype(int)
-    
+
     if transform == "linear":
         y_true = to_linear_space_array(y_true, endpoints)
         y_pred = to_linear_space_array(y_pred, endpoints)
@@ -519,81 +626,44 @@ def evaluate_labeled_dataset(
     df_eval: pd.DataFrame,
     endpoints: Sequence[str],
     agg_fn: str = "mean",
-    *,
     n_jobs: int = 1,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run ensemble evaluation for a labeled dataset.
 
-    Returns a tuple of prediction and metric DataFrames for evaluation.
-    """
-    ens_preds_log, ens_preds_lin = evaluate_dataset(models, df_eval, endpoints, agg_fn, n_jobs=n_jobs)
+    Parameters
+    ----------
+    models : List[BaseModel]
+        Sequence of models (must share same endpoints ordering and n_endpoints).
+    df_eval : pandas.DataFrame
+        Input DataFrame containing at least "Molecule Name", "SMILES" and
+        endpoint columns with true target values in log10 space.
+    endpoints : Sequence[str]
+        Ordered list of endpoint names corresponding to model outputs.
+    agg_fn : str
+        Aggregation function to combine per-model predictions ("mean" or "median").
+    n_jobs : int
+        Level of parallelism across models when running predictions.
 
-    log_metrics = evaluate_metrics(
-        ens_preds_log,
+    Returns
+    -------
+    Tuple[pandas.DataFrame, pandas.DataFrame, pandas.DataFrame, pandas.DataFrame]
+        Tuple of (ens_preds_log_df, ens_preds_lin_df, metrics_log_df, metrics_lin_df).
+    """
+    # Extract true values DataFrame in log space
+    df_true_log = df_eval[["Molecule Name", "SMILES"] + list(endpoints)].copy()
+    for ep in endpoints:
+        df_true_log[ep] = pd.to_numeric(df_true_log[ep], errors="coerce")
+
+    ens_preds_log, ens_preds_lin, metrics_log, metrics_linear = evaluate_dataset(
+        models,
         df_eval,
         endpoints,
+        df_true_log,
+        agg_fn,
+        n_jobs=n_jobs,
     )
 
-    # Construct masks and ground truth
-    Y_true_log = df_eval[list(endpoints)].to_numpy(dtype=float)
-    mask = (~np.isnan(Y_true_log)).astype(int)
-
-    log_metrics = eval_metrics.compute_metrics(
-        ens_preds_log, df_eval[list(endpoints)], mask, endpoints, transform="log"m
-    )
-    lin_metrics = eval_metrics.compute_metrics(
-        ens_preds_log, df_eval[list(endpoints)], mask, endpoints, transform="linear",
-    )
-
-    # Create metric dataframes for easy saving
-    def metrics_dict_to_df(mdict, space: str):
-        rows = []
-        for ep in list(endpoints) + ["macro"]:
-            d = mdict[ep]
-            for k, v in d.items():
-                rows.append({"endpoint": ep, "space": space, "metric": k, "value": v})
-        return pd.DataFrame(rows)
-
-    metrics_log_df = metrics_dict_to_df(log_metrics, "log")
-    metrics_lin_df = metrics_dict_to_df(lin_metrics, "linear")
-
-    # TODO: write the rest of this function
-    # Per-model metrics
-    per_model_rows = []
-    for i, m in tqdm(
-        enumerate(models), desc="Computing per-model metrics on labeled data", dynamic_ncols=True
-    ):
-        preds = per_model_preds[i]  # (N, D)
-        m_metrics_log = eval_metrics.compute_metrics(Y_true_log, preds, mask, endpoints)
-        m_metrics_lin = eval_metrics.compute_metrics(
-            to_linear_space_array(Y_true_log, endpoints),
-            to_linear_space_array(preds, endpoints),
-            mask,
-            endpoints,
-        )
-        for ep in list(endpoints) + ["macro"]:
-            for k, v in m_metrics_log[ep].items():
-                per_model_rows.append(
-                    {"endpoint": ep, "space": "log", "model": f"model_{i}", "metric": k, "value": v}
-                )
-            for k, v in m_metrics_lin[ep].items():
-                per_model_rows.append(
-                    {"endpoint": ep, "space": "linear", "model": f"model_{i}", "metric": k, "value": v}
-                )
-    # Ensemble metrics included too
-    for ep in list(endpoints) + ["macro"]:
-        for k, v in log_metrics[ep].items():
-            per_model_rows.append(
-                {"endpoint": ep, "space": "log", "model": "ensemble", "metric": k, "value": v}
-            )
-        for k, v in lin_metrics[ep].items():
-            per_model_rows.append(
-                {"endpoint": ep, "space": "linear", "model": "ensemble", "metric": k, "value": v}
-            )
-
-    per_model_vs_ensemble_df = pd.DataFrame(per_model_rows)
-
-    return preds_log_df, preds_lin_df, metrics_log_df, metrics_lin_df, per_model_vs_ensemble_df
+    return ens_preds_log, ens_preds_lin, metrics_log, metrics_linear
 
 
 def evaluate_blind_dataset(
@@ -601,15 +671,36 @@ def evaluate_blind_dataset(
     df_blind: pd.DataFrame,
     endpoints: Sequence[str],
     agg_fn: str = "mean",
-    *,
     n_jobs: int = 1,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Run ensemble inference on a blind (unlabeled) dataset.
 
-    Returns: (preds_log_df, preds_lin_df)
-    """
-    ens_preds_log, ens_preds_lin = evaluate_dataset(models, df_blind, endpoints, agg_fn, n_jobs=n_jobs)
+    Parameters
+    ----------
+    models : List[BaseModel]
+        Sequence of models (must share same endpoints ordering and n_endpoints).
+    df_blind : pandas.DataFrame
+        Input DataFrame containing at least "Molecule Name" and "SMILES" columns.
+    endpoints : Sequence[str]
+        Ordered list of endpoint names corresponding to model outputs.
+    agg_fn : str
+        Aggregation function to combine per-model predictions ("mean" or "median").
+    n_jobs : int
+        Level of parallelism across models when running predictions.
 
+    Returns
+    -------
+    Tuple[pandas.DataFrame, pandas.DataFrame]
+        Tuple of (ens_preds_log_df, ens_preds_lin_df)
+    """
+    ens_preds_log, ens_preds_lin, _, _ = evaluate_dataset(
+        models,
+        df_blind,
+        endpoints,
+        df_true_log=None,
+        agg_fn=agg_fn,
+        n_jobs=n_jobs,
+    )
     return ens_preds_log, ens_preds_lin
 
 
