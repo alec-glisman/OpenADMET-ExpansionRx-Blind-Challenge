@@ -35,6 +35,7 @@ cache
 # data files
 assets
 models
+mlruns
 *.db
 *.log
 *.out

@@ -8,6 +8,7 @@ DataFrames follow the standard schema produced by
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Sequence
 
@@ -16,6 +17,23 @@ import pandas as pd
 
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
 from admet.visualize.plots import plot_numeric_distributions
+
+logger = logging.getLogger(__name__)
+
+
+def _endpoints_from_metrics(metrics_df: pd.DataFrame | None) -> list[str]:
+    """Return ordered endpoint names extracted from an aggregated metrics DataFrame."""
+    if metrics_df is None or metrics_df.empty or "endpoint" not in metrics_df.columns:
+        return []
+    endpoints: list[str] = []
+    for ep in metrics_df["endpoint"].tolist():
+        if not isinstance(ep, str):
+            continue
+        if ep.lower() == "macro":
+            continue
+        if ep not in endpoints:
+            endpoints.append(ep)
+    return endpoints
 
 
 def _extract_true_and_pred_arrays_from_dfs(
@@ -42,7 +60,8 @@ def plot_labeled_ensemble(
     save_root: Path,
     n_jobs: int = 1,
     dpi: int = 150,
-):
+    metrics_by_endpoint: pd.DataFrame | None = None,
+) -> None:
     """Plot parity plots and metric bars for a labeled dataset using the
     ensemble predictions and ground truth.
 
@@ -51,12 +70,32 @@ def plot_labeled_ensemble(
     metric respectively.
     """
     save_root = Path(save_root)
+
+    resolved_endpoints = _endpoints_from_metrics(metrics_by_endpoint) or list(endpoints)
+    available_endpoints = []
+    for ep in resolved_endpoints:
+        pred_col = f"pred_{ep}_ensemble_log"
+        if ep in df_true.columns and pred_col in preds_log_df.columns:
+            available_endpoints.append(ep)
+    if not available_endpoints:
+        available_endpoints = list(endpoints)
+    if not available_endpoints:
+        inferred = []
+        for col in preds_log_df.columns:
+            if col.startswith("pred_") and col.endswith("_ensemble_log"):
+                inferred.append(col[len("pred_") : -len("_ensemble_log")])
+        available_endpoints = inferred
+    if not available_endpoints:
+        logger.warning("No endpoints available for labeled ensemble plots; skipping visualization.")
+        return
+    resolved_endpoints = available_endpoints
+
     # Build arrays
     y_true_log, y_pred_log, mask_log = _extract_true_and_pred_arrays_from_dfs(
-        df_true, preds_log_df, endpoints, prefix="pred"
+        df_true, preds_log_df, resolved_endpoints, prefix="pred"
     )
     y_true_lin, y_pred_lin, mask_lin = _extract_true_and_pred_arrays_from_dfs(
-        df_true, preds_lin_df, endpoints, prefix="pred_linear"
+        df_true, preds_lin_df, resolved_endpoints, prefix="pred_linear"
     )
 
     # Use 'validation' split to mimic a single-split evaluation
@@ -95,21 +134,23 @@ def plot_labeled_ensemble(
     # Parity plots for log and linear
     parity_dir_log = save_root / "plots" / "parity" / "log"
     parity_dir_lin = save_root / "plots" / "parity" / "linear"
+
+    logger.info("Plotting parity plots to %s and %s", parity_dir_log, parity_dir_lin)
     plot_parity_grid(
         y_true_dict_log,
         y_pred_dict_log,
         mask_dict_log,
-        endpoints,
+        resolved_endpoints,
         space="log",
         save_dir=parity_dir_log,
         dpi=dpi,
         n_jobs=n_jobs,
     )
     plot_parity_grid(
-        y_true_dict_lin,
-        y_pred_dict_lin,
+        y_true_dict_log,
+        y_pred_dict_log,
         mask_dict_lin,
-        endpoints,
+        resolved_endpoints,
         space="linear",
         save_dir=parity_dir_lin,
         dpi=dpi,
@@ -119,12 +160,14 @@ def plot_labeled_ensemble(
     # Metric bar charts: we'll reuse model_performance's plot_metric_bars
     metrics_dir_log = save_root / "plots" / "metrics" / "log"
     metrics_dir_lin = save_root / "plots" / "metrics" / "linear"
+
     # Provide representative save paths; function will create the parent dirs
+    logger.info("Plotting metric bars to %s and %s", metrics_dir_log, metrics_dir_lin)
     plot_metric_bars(
         y_true_dict_log,
         y_pred_dict_log,
         mask_dict_log,
-        endpoints,
+        resolved_endpoints,
         space="log",
         save_path_r2=metrics_dir_log / "metrics_r2.png",
         save_path_spr2=metrics_dir_log / "metrics_spr2.png",
@@ -132,10 +175,10 @@ def plot_labeled_ensemble(
         dpi=dpi,
     )
     plot_metric_bars(
-        y_true_dict_lin,
-        y_pred_dict_lin,
+        y_true_dict_log,
+        y_pred_dict_log,
         mask_dict_lin,
-        endpoints,
+        resolved_endpoints,
         space="linear",
         save_path_r2=metrics_dir_lin / "metrics_r2.png",
         save_path_spr2=metrics_dir_lin / "metrics_spr2.png",
@@ -145,7 +188,11 @@ def plot_labeled_ensemble(
 
 
 def plot_blind_distributions(
-    preds_log_df: pd.DataFrame, preds_lin_df: pd.DataFrame, endpoints: Sequence[str], save_root: Path
+    preds_log_df: pd.DataFrame,
+    preds_lin_df: pd.DataFrame,
+    endpoints: Sequence[str],
+    save_root: Path,
+    metrics_by_endpoint: pd.DataFrame | None = None,
 ) -> None:
     """Plot histogram + KDE per endpoint for the blind ensemble predictions.
 
@@ -160,12 +207,25 @@ def plot_blind_distributions(
     # `predictions_to_dataframe` may use 'pred_linear_{ep}_ensemble_log'. Attempt
     # to handle both cases when selecting columns below.
 
-    for ep in endpoints:
+    resolved_endpoints = _endpoints_from_metrics(metrics_by_endpoint) or list(endpoints)
+    if not resolved_endpoints:
+        inferred = []
+        for col in preds_log_df.columns:
+            if col.startswith("pred_") and col.endswith("_ensemble_log"):
+                inferred.append(col[len("pred_") : -len("_ensemble_log")])
+        resolved_endpoints = inferred
+
+    filtered_endpoints = []
+    for ep in resolved_endpoints:
+        if f"pred_{ep}_ensemble_log" in preds_log_df.columns:
+            filtered_endpoints.append(ep)
+    if not filtered_endpoints:
+        logger.warning("No endpoints available for blind distribution plots; skipping visualization.")
+        return
+    resolved_endpoints = filtered_endpoints
+
+    for ep in resolved_endpoints:
         col_log = f"pred_{ep}_ensemble_log"
-        # explicit col name for linear predictions; will be resolved below
-        # Some codepaths may have `pred_{ep}_ensemble_log` for linear as well; fall back accordingly
-        if col_log not in preds_log_df.columns:
-            continue
         # Use short DF to plot single column
         df_log = preds_log_df[[col_log]].rename(columns={col_log: ep})
         prefix_lin = f"pred_linear_{ep}_ensemble_log"
@@ -174,6 +234,7 @@ def plot_blind_distributions(
         df_lin = preds_lin_df[[col_lin_name]]
         df_lin.columns = [ep]
 
+        logger.info("Plotting blind distributions for endpoint %s", ep)
         plot_numeric_distributions(
             df_log,
             columns=[ep],

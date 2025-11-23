@@ -7,12 +7,15 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import datetime
 import logging
 import multiprocessing
+import os
 
 import pandas as pd
 import ray
+import mlflow
 
 from .model_trainer import BaseModelTrainer, FeaturizationMethod
 from .utils import infer_split_metadata
+from ..mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,12 @@ def _train_single_dataset_remote(
     max_duration_seconds: Optional[float] = None,
     n_fingerprint_bits: Optional[int] = None,
     featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP,
+    tracking_uri: Optional[str] = None,
+    experiment_name: Optional[str] = None,
+    parent_run_id: Optional[str] = None,
+    base_params: Optional[Dict[str, object]] = None,
+    cli_params: Optional[Dict[str, object]] = None,
+    worker_thread_limit: Optional[int] = None,
 ) -> Tuple[str, Dict[str, object]]:
     hf_dir = Path(hf_path)
     root = Path(root_dir)
@@ -50,79 +59,132 @@ def _train_single_dataset_remote(
             configure_logging(level=log_level or "INFO", file=log_file, structured=log_json)
     except Exception:  # noqa: BLE001
         pass
+    run_metrics: Optional[Dict[str, object]] = None
+    summary: Optional[object] = None
+    status = "error"
+    error: Optional[str] = None
+    end_time = start_time
+    duration_seconds = 0.0
+    out_dir: Optional[Path] = None
+    local_trainer_kwargs = dict(trainer_kwargs)
+
+    set_mlflow_tracking(tracking_uri, experiment_name)
+    tags = {"dataset.relative_path": rel_key, "featurization": featurization.value}
+    if parent_run_id:
+        tags["mlflow.parentRunId"] = parent_run_id
+
+    if worker_thread_limit:
+        thread_str = str(max(1, int(worker_thread_limit)))
+        for env_var in ["OMP_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "OPENBLAS_NUM_THREADS"]:
+            os.environ[env_var] = thread_str
+        model_params = dict(local_trainer_kwargs.get("model_params") or {})
+        model_params.setdefault("n_jobs", int(worker_thread_limit))
+        local_trainer_kwargs["model_params"] = model_params
+
     try:
-        logger.info("Loading dataset '%s' with featurization=%s", hf_dir, featurization)
-        if featurization == FeaturizationMethod.MORGAN_FP:
-            if n_fingerprint_bits:
-                dataset = _load_dataset(hf_dir, n_fingerprint_bits=n_fingerprint_bits)
+        with mlflow.start_run(run_name=rel_key, tags=tags):
+            if base_params:
+                mlflow.log_params(base_params)
+            if cli_params:
+                mlflow.log_params(cli_params)
+
+            dataset_params = flatten_params(meta, prefix="dataset")
+            dataset_params["featurization"] = featurization.value
+            if seed is not None:
+                dataset_params["seed"] = seed
+            mlflow.log_params(dataset_params)
+
+            logger.info("Loading dataset '%s' with featurization=%s", hf_dir, featurization)
+            if featurization == FeaturizationMethod.MORGAN_FP:
+                if n_fingerprint_bits:
+                    dataset = _load_dataset(hf_dir, n_fingerprint_bits=n_fingerprint_bits)
+                else:
+                    dataset = _load_dataset(hf_dir)
             else:
                 dataset = _load_dataset(hf_dir)
-        else:
-            dataset = _load_dataset(hf_dir)
-        out_dir: Optional[Path] = None
-        if output_root is not None:
-            base = Path(output_root)
-            cluster = str(meta.get("cluster", "unknown_method"))
-            split = str(meta.get("split", "unknown_split"))
-            fold = str(meta.get("fold", "unknown_fold"))
-            out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
-        if seed is not None:
-            trainer_kwargs = dict(trainer_kwargs)
-            trainer_kwargs.setdefault("seed", seed)
-        trainer = trainer_cls(**trainer_kwargs)
-        run_metrics, summary = trainer.fit(
-            dataset,
-            sample_weight_mapping=sample_weight_mapping,
-            early_stopping_rounds=early_stopping_rounds,
-            output_dir=out_dir,
-            dry_run=dry_run,
-        )
-        end_ts = datetime.datetime.now()
-        end_time = end_ts.isoformat()
-        duration_seconds = (end_ts - start_ts).total_seconds()
-        status = "ok"
-        if dry_run:
-            status = "skipped"
-            # For dry-run in remote worker, don't return metrics/summary
-            run_metrics = None
-            summary = None
-        if run_metrics is None and not dry_run:
-            status = "error"
-        elif isinstance(run_metrics, dict):
-            expected_splits = {"train", "validation", "test"}
-            present = set(run_metrics.keys())
-            if not expected_splits.issubset(present):
-                status = "partial"
+            if output_root is not None:
+                base = Path(output_root)
+                cluster = str(meta.get("cluster", "unknown_method"))
+                split = str(meta.get("split", "unknown_split"))
+                fold = str(meta.get("fold", "unknown_fold"))
+                out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
+            if seed is not None:
+                local_trainer_kwargs.setdefault("seed", seed)
+            trainer = trainer_cls(**local_trainer_kwargs)
+            try:
+                run_metrics, summary = trainer.fit(
+                    dataset,
+                    sample_weight_mapping=sample_weight_mapping,
+                    early_stopping_rounds=early_stopping_rounds,
+                    output_dir=out_dir,
+                    dry_run=dry_run,
+                )
+            except Exception as exc:  # noqa: BLE001
+                error = str(exc)
+                status = "error"
+                logger.exception("Dataset training failed for %s: %s", rel_key, exc)
             else:
-                for split in expected_splits:
-                    if not isinstance(run_metrics.get(split, {}), dict) or "macro" not in run_metrics[split]:
+                status = "ok"
+                if dry_run:
+                    status = "skipped"
+                    run_metrics = None
+                    summary = None
+                if run_metrics is None and not dry_run:
+                    status = "error"
+                elif isinstance(run_metrics, dict):
+                    expected_splits = {"train", "validation", "test"}
+                    present = set(run_metrics.keys())
+                    if not expected_splits.issubset(present):
                         status = "partial"
-                        break
-        if max_duration_seconds is not None and duration_seconds > max_duration_seconds:
-            status = "timeout"
-        return rel_key, {
-            "run_metrics": run_metrics,
-            "summary": summary,
-            "meta": meta,
-            "status": status,
-            "start_time": start_time,
-            "end_time": end_time,
-            "duration_seconds": duration_seconds,
-        }
+                    else:
+                        for split in expected_splits:
+                            if not isinstance(run_metrics.get(split, {}), dict) or "macro" not in run_metrics[split]:
+                                status = "partial"
+                                break
+            end_ts = datetime.datetime.now()
+            end_time = end_ts.isoformat()
+            duration_seconds = (end_ts - start_ts).total_seconds()
+            if max_duration_seconds is not None and duration_seconds > max_duration_seconds:
+                status = "timeout"
+            mlflow.set_tag("status", status)
+            if error:
+                mlflow.set_tag("error", error)
+            mlflow.log_metric("duration_seconds", duration_seconds)
+            if run_metrics:
+                mlflow.log_metrics(flatten_metrics(run_metrics))
+            if out_dir and out_dir.exists():
+                mlflow.log_artifacts(str(out_dir))
     except Exception as exc:  # noqa: BLE001
         logger.exception("Dataset training failed for %s: %s", rel_key, exc)
+        error = str(exc)
         end_ts = datetime.datetime.now()
         end_time = end_ts.isoformat()
         duration_seconds = (end_ts - start_ts).total_seconds()
-        return rel_key, {
-            "run_metrics": None,
-            "meta": meta,
-            "error": str(exc),
-            "status": "error",
-            "start_time": start_time,
-            "end_time": end_time,
-            "duration_seconds": duration_seconds,
-        }
+        try:
+            active_run = mlflow.active_run()
+            if active_run is None:
+                set_mlflow_tracking(tracking_uri, experiment_name)
+                with mlflow.start_run(run_name=rel_key, tags=tags):
+                    mlflow.set_tag("status", "error")
+                    mlflow.set_tag("error", error)
+                    mlflow.log_metric("duration_seconds", duration_seconds)
+            else:
+                mlflow.set_tag("status", "error")
+                mlflow.set_tag("error", error)
+                mlflow.log_metric("duration_seconds", duration_seconds)
+        except Exception:  # noqa: BLE001
+            logger.debug("Failed to log MLflow error state", exc_info=True)
+
+    return rel_key, {
+        "run_metrics": run_metrics,
+        "summary": summary,
+        "meta": meta,
+        "status": status,
+        "start_time": start_time,
+        "end_time": end_time,
+        "duration_seconds": duration_seconds,
+        "error": error,
+    }
 
 
 class BaseEnsembleTrainer:
@@ -161,6 +223,12 @@ class BaseEnsembleTrainer:
         max_duration_seconds: Optional[float] = None,
         n_fingerprint_bits: Optional[int] = None,
         featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP,
+        tracking_uri: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
+        base_params: Optional[Dict[str, object]] = None,
+        cli_params: Optional[Dict[str, object]] = None,
+        worker_thread_limit: Optional[int] = None,
     ) -> Dict[str, Dict[str, object]]:
         if output_root is None:
             output_root = Path("models")
@@ -168,16 +236,17 @@ class BaseEnsembleTrainer:
         if not hf_paths:
             raise ValueError(f"No 'hf_dataset' directories found under {root}.")
         logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
-        started_local_ray = False
-        if not ray.is_initialized():
+        cpu_count = num_cpus or multiprocessing.cpu_count()
+        worker_thread_limit = worker_thread_limit or max(1, cpu_count // max(1, min(len(hf_paths), cpu_count)))
+        if ray.is_initialized():
+            logger.info("Reusing existing Ray runtime (num_cpus=%s)", ray.cluster_resources().get("CPU"))
+        else:
             if ray_address and ray_address.lower() != "local":
                 logger.info("Connecting to existing Ray cluster at %s", ray_address)
                 ray.init(address=ray_address, ignore_reinit_error=True)
             else:
-                cpu_count = num_cpus or multiprocessing.cpu_count()
                 logger.info("Starting local Ray runtime with %d CPUs", cpu_count)
                 ray.init(num_cpus=cpu_count, ignore_reinit_error=True)
-                started_local_ray = True
         sorted_hf_paths = sorted(hf_paths, key=lambda p: str(p.relative_to(root)))
         base_seed = seed if seed is not None else 0
         try:
@@ -206,6 +275,12 @@ class BaseEnsembleTrainer:
                     max_duration_seconds=max_duration_seconds,
                     n_fingerprint_bits=n_fingerprint_bits,
                     featurization=featurization,
+                    tracking_uri=tracking_uri,
+                    experiment_name=experiment_name,
+                    parent_run_id=parent_run_id,
+                    base_params=base_params,
+                    cli_params=cli_params,
+                    worker_thread_limit=worker_thread_limit,
                 )
             )
         remaining = set(tasks)
@@ -260,12 +335,6 @@ class BaseEnsembleTrainer:
             (output_root / "metrics_summary.csv").write_text(summary_df.to_csv(index=False))
             (output_root / "metrics_summary.json").write_text(summary_df.to_json(orient="records", indent=2))
             logger.info("Ray training summary: %d succeeded, %d failed", success_count, failure_count)
-
-        if started_local_ray:
-            try:
-                ray.shutdown()
-            except Exception:  # noqa: BLE001
-                logger.warning("ray.shutdown() raised an exception during cleanup", exc_info=True)
 
         # TODO: Run predictions, compute metrics, and visualize performance of the entire ensemble (report mean and stderr)
 

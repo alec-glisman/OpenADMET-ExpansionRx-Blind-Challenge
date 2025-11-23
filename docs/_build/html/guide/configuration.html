@@ -301,6 +301,8 @@ They capture default hyperparameters for model training.</p>
 <span class="w">      </span><span class="nt">reg_alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
 
 <span class="nt">training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;xgb&quot;</span><span class="w">   </span><span class="c1"># MLflow experiment (required for logging)</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">       </span><span class="c1"># optional; fallback to MLFLOW_TRACKING_URI env var</span>
 <span class="w">  </span><span class="nt">sample_weights</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="w">    </span><span class="nt">weights</span><span class="p">:</span>
@@ -332,6 +334,18 @@ They capture default hyperparameters for model training.</p>
 <li><p>Environment variables (future extension), e.g. <cite>ADMET_LEARNING_RATE=0.1</cite>.</p></li>
 <li><p>A custom YAML passed with a CLI argument (e.g. <cite>–config configs/custom.yaml</cite>).</p></li>
 </ol>
+</section>
+<section id="mlflow-logging">
+<h2>MLflow Logging<a class="headerlink" href="#mlflow-logging" title="Link to this heading">¶</a></h2>
+<p>Training runs automatically log to MLflow with the following inputs:</p>
+<ul class="simple">
+<li><p><cite>training.experiment_name</cite> (required) and optional <cite>training.tracking_uri</cite>
+(or <cite>MLFLOW_TRACKING_URI</cite> environment variable).</p></li>
+<li><p>All YAML configuration values and CLI overrides recorded as MLflow parameters
+for reproducibility.</p></li>
+<li><p>Metrics and artifacts for single runs; ensembles create a parent run and
+child runs per discovered dataset/fold, plus aggregated summary artifacts.</p></li>
+</ul>
 </section>
 <section id="programmatic-loading">
 <h2>Programmatic Loading<a class="headerlink" href="#programmatic-loading" title="Link to this heading">¶</a></h2>
@@ -415,6 +429,7 @@ They capture default hyperparameters for model training.</p>
 <li><a class="reference internal" href="#primary-config-file">Primary Config File</a></li>
 <li><a class="reference internal" href="#example-illustrative">Example (Illustrative)</a></li>
 <li><a class="reference internal" href="#overriding-parameters">Overriding Parameters</a></li>
+<li><a class="reference internal" href="#mlflow-logging">MLflow Logging</a></li>
 <li><a class="reference internal" href="#programmatic-loading">Programmatic Loading</a></li>
 <li><a class="reference internal" href="#best-practices">Best Practices</a></li>
 </ul>

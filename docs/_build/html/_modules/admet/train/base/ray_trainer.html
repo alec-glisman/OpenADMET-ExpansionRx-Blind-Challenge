@@ -267,12 +267,15 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.model_trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModelTrainer</span><span class="p">,</span> <span class="n">FeaturizationMethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">infer_split_metadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..mlflow_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">flatten_metrics</span><span class="p">,</span> <span class="n">flatten_params</span><span class="p">,</span> <span class="n">set_mlflow_tracking</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -294,6 +297,12 @@
     <span class="n">max_duration_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">n_fingerprint_bits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">featurization</span><span class="p">:</span> <span class="n">FeaturizationMethod</span> <span class="o">=</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">,</span>
+    <span class="n">tracking_uri</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">experiment_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">base_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cli_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">worker_thread_limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]:</span>
     <span class="n">hf_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">hf_path</span><span class="p">)</span>
     <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">root_dir</span><span class="p">)</span>
@@ -310,79 +319,132 @@
             <span class="n">configure_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">log_level</span> <span class="ow">or</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">log_file</span><span class="p">,</span> <span class="n">structured</span><span class="o">=</span><span class="n">log_json</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
         <span class="k">pass</span>
+    <span class="n">run_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">summary</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
+    <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">end_time</span> <span class="o">=</span> <span class="n">start_time</span>
+    <span class="n">duration_seconds</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">out_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">local_trainer_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">trainer_kwargs</span><span class="p">)</span>
+
+    <span class="n">set_mlflow_tracking</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">)</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dataset.relative_path&quot;</span><span class="p">:</span> <span class="n">rel_key</span><span class="p">,</span> <span class="s2">&quot;featurization&quot;</span><span class="p">:</span> <span class="n">featurization</span><span class="o">.</span><span class="n">value</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">parent_run_id</span><span class="p">:</span>
+        <span class="n">tags</span><span class="p">[</span><span class="s2">&quot;mlflow.parentRunId&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parent_run_id</span>
+
+    <span class="k">if</span> <span class="n">worker_thread_limit</span><span class="p">:</span>
+        <span class="n">thread_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">worker_thread_limit</span><span class="p">)))</span>
+        <span class="k">for</span> <span class="n">env_var</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;OMP_NUM_THREADS&quot;</span><span class="p">,</span> <span class="s2">&quot;MKL_NUM_THREADS&quot;</span><span class="p">,</span> <span class="s2">&quot;NUMEXPR_NUM_THREADS&quot;</span><span class="p">,</span> <span class="s2">&quot;OPENBLAS_NUM_THREADS&quot;</span><span class="p">]:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">env_var</span><span class="p">]</span> <span class="o">=</span> <span class="n">thread_str</span>
+        <span class="n">model_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">local_trainer_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_params&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">model_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;n_jobs&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">worker_thread_limit</span><span class="p">))</span>
+        <span class="n">local_trainer_kwargs</span><span class="p">[</span><span class="s2">&quot;model_params&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_params</span>
+
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading dataset &#39;</span><span class="si">%s</span><span class="s2">&#39; with featurization=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hf_dir</span><span class="p">,</span> <span class="n">featurization</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">n_fingerprint_bits</span><span class="p">:</span>
-                <span class="n">dataset</span> <span class="o">=</span> <span class="n">_load_dataset</span><span class="p">(</span><span class="n">hf_dir</span><span class="p">,</span> <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="n">rel_key</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">base_params</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">base_params</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cli_params</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">cli_params</span><span class="p">)</span>
+
+            <span class="n">dataset_params</span> <span class="o">=</span> <span class="n">flatten_params</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;dataset&quot;</span><span class="p">)</span>
+            <span class="n">dataset_params</span><span class="p">[</span><span class="s2">&quot;featurization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">featurization</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">dataset_params</span><span class="p">[</span><span class="s2">&quot;seed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">dataset_params</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading dataset &#39;</span><span class="si">%s</span><span class="s2">&#39; with featurization=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hf_dir</span><span class="p">,</span> <span class="n">featurization</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">n_fingerprint_bits</span><span class="p">:</span>
+                    <span class="n">dataset</span> <span class="o">=</span> <span class="n">_load_dataset</span><span class="p">(</span><span class="n">hf_dir</span><span class="p">,</span> <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">dataset</span> <span class="o">=</span> <span class="n">_load_dataset</span><span class="p">(</span><span class="n">hf_dir</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">dataset</span> <span class="o">=</span> <span class="n">_load_dataset</span><span class="p">(</span><span class="n">hf_dir</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">dataset</span> <span class="o">=</span> <span class="n">_load_dataset</span><span class="p">(</span><span class="n">hf_dir</span><span class="p">)</span>
-        <span class="n">out_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">output_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_root</span><span class="p">)</span>
-            <span class="n">cluster</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cluster&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_method&quot;</span><span class="p">))</span>
-            <span class="n">split</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_split&quot;</span><span class="p">))</span>
-            <span class="n">fold</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fold&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_fold&quot;</span><span class="p">))</span>
-            <span class="n">out_dir</span> <span class="o">=</span> <span class="n">base</span> <span class="o">/</span> <span class="n">cluster</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;split_</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;fold_</span><span class="si">{</span><span class="n">fold</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">trainer_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">trainer_kwargs</span><span class="p">)</span>
-            <span class="n">trainer_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
-        <span class="n">trainer</span> <span class="o">=</span> <span class="n">trainer_cls</span><span class="p">(</span><span class="o">**</span><span class="n">trainer_kwargs</span><span class="p">)</span>
-        <span class="n">run_metrics</span><span class="p">,</span> <span class="n">summary</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-            <span class="n">dataset</span><span class="p">,</span>
-            <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sample_weight_mapping</span><span class="p">,</span>
-            <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
-            <span class="n">output_dir</span><span class="o">=</span><span class="n">out_dir</span><span class="p">,</span>
-            <span class="n">dry_run</span><span class="o">=</span><span class="n">dry_run</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">end_ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
-        <span class="n">end_time</span> <span class="o">=</span> <span class="n">end_ts</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
-        <span class="n">duration_seconds</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;ok&quot;</span>
-        <span class="k">if</span> <span class="n">dry_run</span><span class="p">:</span>
-            <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;skipped&quot;</span>
-            <span class="c1"># For dry-run in remote worker, don&#39;t return metrics/summary</span>
-            <span class="n">run_metrics</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">summary</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">run_metrics</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
-            <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-            <span class="n">expected_splits</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">}</span>
-            <span class="n">present</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">run_metrics</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">expected_splits</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">present</span><span class="p">):</span>
-                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;partial&quot;</span>
+            <span class="k">if</span> <span class="n">output_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_root</span><span class="p">)</span>
+                <span class="n">cluster</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cluster&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_method&quot;</span><span class="p">))</span>
+                <span class="n">split</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_split&quot;</span><span class="p">))</span>
+                <span class="n">fold</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fold&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_fold&quot;</span><span class="p">))</span>
+                <span class="n">out_dir</span> <span class="o">=</span> <span class="n">base</span> <span class="o">/</span> <span class="n">cluster</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;split_</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;fold_</span><span class="si">{</span><span class="n">fold</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">local_trainer_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+            <span class="n">trainer</span> <span class="o">=</span> <span class="n">trainer_cls</span><span class="p">(</span><span class="o">**</span><span class="n">local_trainer_kwargs</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">run_metrics</span><span class="p">,</span> <span class="n">summary</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="n">dataset</span><span class="p">,</span>
+                    <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sample_weight_mapping</span><span class="p">,</span>
+                    <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
+                    <span class="n">output_dir</span><span class="o">=</span><span class="n">out_dir</span><span class="p">,</span>
+                    <span class="n">dry_run</span><span class="o">=</span><span class="n">dry_run</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Dataset training failed for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">rel_key</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="n">expected_splits</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">run_metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="p">{}),</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;macro&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">run_metrics</span><span class="p">[</span><span class="n">split</span><span class="p">]:</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;ok&quot;</span>
+                <span class="k">if</span> <span class="n">dry_run</span><span class="p">:</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;skipped&quot;</span>
+                    <span class="n">run_metrics</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">summary</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">run_metrics</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                    <span class="n">expected_splits</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">}</span>
+                    <span class="n">present</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">run_metrics</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">expected_splits</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">present</span><span class="p">):</span>
                         <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;partial&quot;</span>
-                        <span class="k">break</span>
-        <span class="k">if</span> <span class="n">max_duration_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">duration_seconds</span> <span class="o">&gt;</span> <span class="n">max_duration_seconds</span><span class="p">:</span>
-            <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;timeout&quot;</span>
-        <span class="k">return</span> <span class="n">rel_key</span><span class="p">,</span> <span class="p">{</span>
-            <span class="s2">&quot;run_metrics&quot;</span><span class="p">:</span> <span class="n">run_metrics</span><span class="p">,</span>
-            <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="p">,</span>
-            <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">,</span>
-            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
-            <span class="s2">&quot;start_time&quot;</span><span class="p">:</span> <span class="n">start_time</span><span class="p">,</span>
-            <span class="s2">&quot;end_time&quot;</span><span class="p">:</span> <span class="n">end_time</span><span class="p">,</span>
-            <span class="s2">&quot;duration_seconds&quot;</span><span class="p">:</span> <span class="n">duration_seconds</span><span class="p">,</span>
-        <span class="p">}</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="n">expected_splits</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">run_metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="p">{}),</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;macro&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">run_metrics</span><span class="p">[</span><span class="n">split</span><span class="p">]:</span>
+                                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;partial&quot;</span>
+                                <span class="k">break</span>
+            <span class="n">end_ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="n">end_time</span> <span class="o">=</span> <span class="n">end_ts</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+            <span class="n">duration_seconds</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">max_duration_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">duration_seconds</span> <span class="o">&gt;</span> <span class="n">max_duration_seconds</span><span class="p">:</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;timeout&quot;</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="n">status</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">,</span> <span class="n">duration_seconds</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">run_metrics</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">flatten_metrics</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">out_dir</span> <span class="ow">and</span> <span class="n">out_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifacts</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">out_dir</span><span class="p">))</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Dataset training failed for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">rel_key</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
         <span class="n">end_ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
         <span class="n">end_time</span> <span class="o">=</span> <span class="n">end_ts</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
         <span class="n">duration_seconds</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">rel_key</span><span class="p">,</span> <span class="p">{</span>
-            <span class="s2">&quot;run_metrics&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">,</span>
-            <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span>
-            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;start_time&quot;</span><span class="p">:</span> <span class="n">start_time</span><span class="p">,</span>
-            <span class="s2">&quot;end_time&quot;</span><span class="p">:</span> <span class="n">end_time</span><span class="p">,</span>
-            <span class="s2">&quot;duration_seconds&quot;</span><span class="p">:</span> <span class="n">duration_seconds</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">active_run</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">active_run</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">set_mlflow_tracking</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="n">rel_key</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">):</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">,</span> <span class="n">duration_seconds</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">,</span> <span class="n">duration_seconds</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Failed to log MLflow error state&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">rel_key</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s2">&quot;run_metrics&quot;</span><span class="p">:</span> <span class="n">run_metrics</span><span class="p">,</span>
+        <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="p">,</span>
+        <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">,</span>
+        <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
+        <span class="s2">&quot;start_time&quot;</span><span class="p">:</span> <span class="n">start_time</span><span class="p">,</span>
+        <span class="s2">&quot;end_time&quot;</span><span class="p">:</span> <span class="n">end_time</span><span class="p">,</span>
+        <span class="s2">&quot;duration_seconds&quot;</span><span class="p">:</span> <span class="n">duration_seconds</span><span class="p">,</span>
+        <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="n">error</span><span class="p">,</span>
+    <span class="p">}</span>
 
 
 <div class="viewcode-block" id="BaseEnsembleTrainer">
@@ -434,6 +496,12 @@
         <span class="n">max_duration_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_fingerprint_bits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">featurization</span><span class="p">:</span> <span class="n">FeaturizationMethod</span> <span class="o">=</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">,</span>
+        <span class="n">tracking_uri</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">experiment_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">base_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cli_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">worker_thread_limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]:</span>
         <span class="k">if</span> <span class="n">output_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">output_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">)</span>
@@ -441,16 +509,17 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">hf_paths</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No &#39;hf_dataset&#39; directories found under </span><span class="si">{</span><span class="n">root</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Discovered </span><span class="si">%d</span><span class="s2"> hf_dataset directories under </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">hf_paths</span><span class="p">),</span> <span class="n">root</span><span class="p">)</span>
-        <span class="n">started_local_ray</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+        <span class="n">cpu_count</span> <span class="o">=</span> <span class="n">num_cpus</span> <span class="ow">or</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+        <span class="n">worker_thread_limit</span> <span class="o">=</span> <span class="n">worker_thread_limit</span> <span class="ow">or</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cpu_count</span> <span class="o">//</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">hf_paths</span><span class="p">),</span> <span class="n">cpu_count</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Reusing existing Ray runtime (num_cpus=</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">ray</span><span class="o">.</span><span class="n">cluster_resources</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CPU&quot;</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">ray_address</span> <span class="ow">and</span> <span class="n">ray_address</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;local&quot;</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Connecting to existing Ray cluster at </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ray_address</span><span class="p">)</span>
                 <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">address</span><span class="o">=</span><span class="n">ray_address</span><span class="p">,</span> <span class="n">ignore_reinit_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">cpu_count</span> <span class="o">=</span> <span class="n">num_cpus</span> <span class="ow">or</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting local Ray runtime with </span><span class="si">%d</span><span class="s2"> CPUs&quot;</span><span class="p">,</span> <span class="n">cpu_count</span><span class="p">)</span>
                 <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">num_cpus</span><span class="o">=</span><span class="n">cpu_count</span><span class="p">,</span> <span class="n">ignore_reinit_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">started_local_ray</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">sorted_hf_paths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">hf_paths</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">root</span><span class="p">)))</span>
         <span class="n">base_seed</span> <span class="o">=</span> <span class="n">seed</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
         <span class="k">try</span><span class="p">:</span>
@@ -479,6 +548,12 @@
                     <span class="n">max_duration_seconds</span><span class="o">=</span><span class="n">max_duration_seconds</span><span class="p">,</span>
                     <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
                     <span class="n">featurization</span><span class="o">=</span><span class="n">featurization</span><span class="p">,</span>
+                    <span class="n">tracking_uri</span><span class="o">=</span><span class="n">tracking_uri</span><span class="p">,</span>
+                    <span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span>
+                    <span class="n">parent_run_id</span><span class="o">=</span><span class="n">parent_run_id</span><span class="p">,</span>
+                    <span class="n">base_params</span><span class="o">=</span><span class="n">base_params</span><span class="p">,</span>
+                    <span class="n">cli_params</span><span class="o">=</span><span class="n">cli_params</span><span class="p">,</span>
+                    <span class="n">worker_thread_limit</span><span class="o">=</span><span class="n">worker_thread_limit</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="n">remaining</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">tasks</span><span class="p">)</span>
@@ -533,12 +608,6 @@
             <span class="p">(</span><span class="n">output_root</span> <span class="o">/</span> <span class="s2">&quot;metrics_summary.csv&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">summary_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
             <span class="p">(</span><span class="n">output_root</span> <span class="o">/</span> <span class="s2">&quot;metrics_summary.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">summary_df</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;records&quot;</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ray training summary: </span><span class="si">%d</span><span class="s2"> succeeded, </span><span class="si">%d</span><span class="s2"> failed&quot;</span><span class="p">,</span> <span class="n">success_count</span><span class="p">,</span> <span class="n">failure_count</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">started_local_ray</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">ray</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;ray.shutdown() raised an exception during cleanup&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># TODO: Run predictions, compute metrics, and visualize performance of the entire ensemble (report mean and stderr)</span>
 

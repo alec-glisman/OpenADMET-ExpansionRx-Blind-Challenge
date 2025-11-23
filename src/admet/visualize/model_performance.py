@@ -38,6 +38,19 @@ import matplotlib.pyplot as plt
 
 from admet.evaluate import metrics as eval_metrics
 
+_MAX_LOG10_BEFORE_OVERFLOW = 308.0  # log10(np.finfo(float).max) ~ 308.254
+
+
+def _safe_power10(values: np.ndarray) -> np.ndarray:
+    """Exponentiate base-10 values with clipping to avoid overflow."""
+
+    arr = np.asarray(values, dtype=float)
+    clipped = np.clip(arr, a_min=None, a_max=_MAX_LOG10_BEFORE_OVERFLOW)
+    result = np.power(10.0, clipped)
+    # Replace any residual infs/NaNs with NaN for downstream handling
+    result[~np.isfinite(result)] = np.nan
+    return result
+
 
 def to_linear(values: np.ndarray, endpoint: str) -> np.ndarray:
     """Convert log10 values to linear space for non-``LogD`` endpoints.
@@ -82,7 +95,7 @@ def _apply_transform_space(y: np.ndarray, endpoints: Sequence[str], space: str) 
     out = y.copy()
     for j, ep in enumerate(endpoints):
         if ep != "LogD":
-            out[:, j] = np.power(10.0, out[:, j])
+            out[:, j] = _safe_power10(out[:, j])
     return out
 
 
@@ -199,8 +212,8 @@ def _plot_parity_worker(
             t = y_t[valid]
             p = y_p[valid]
             if space == "linear" and ep != "LogD":
-                t = np.power(10.0, t)
-                p = np.power(10.0, p)
+                t = _safe_power10(t)
+                p = _safe_power10(p)
             pooled_vals.append(t)
             pooled_vals.append(p)
     if pooled_vals:
@@ -218,8 +231,8 @@ def _plot_parity_worker(
         mask = mask_dict[s][:, j]
         y_t_valid, y_p_valid = _masked_arrays(y_t.reshape(-1, 1), y_p.reshape(-1, 1), mask.reshape(-1, 1), 0)
         if space == "linear" and ep != "LogD":
-            y_t_valid = np.power(10.0, y_t_valid)
-            y_p_valid = np.power(10.0, y_p_valid)
+            y_t_valid = _safe_power10(y_t_valid)
+            y_p_valid = _safe_power10(y_p_valid)
 
         if y_t_valid.size == 0:
             ax.text(

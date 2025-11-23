@@ -275,7 +275,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoadedDataset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ModelProtocol</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_global_seeds</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_global_seeds</span><span class="p">,</span> <span class="n">get_git_commit_hash</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">AllMetrics</span><span class="p">,</span> <span class="n">compute_metrics_log_and_linear</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.visualize.model_performance</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_parity_grid</span><span class="p">,</span> <span class="n">plot_metric_bars</span>
 
@@ -339,6 +339,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">mixed_precision</span> <span class="o">=</span> <span class="n">mixed_precision</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span><span class="p">:</span> <span class="n">FeaturizationMethod</span> <span class="o">=</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">NONE</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="BaseModelTrainer.prepare_features">
 <a class="viewcode-back" href="../../../../api/admet.train.html#admet.train.BaseModelTrainer.prepare_features">[docs]</a>
@@ -453,6 +454,10 @@
         <span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;model&quot;</span><span class="p">))</span>
         <span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
 
+        <span class="n">git_commit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span> <span class="ow">or</span> <span class="n">get_git_commit_hash</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">git_commit</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving artifacts for git commit </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">git_commit</span><span class="p">)</span>
+
         <span class="c1"># Standardized run metadata used by downstream evaluation/ensembling.</span>
         <span class="n">run_meta</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
@@ -461,6 +466,7 @@
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;model&quot;</span><span class="p">,</span>
             <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
             <span class="s2">&quot;extra_meta&quot;</span><span class="p">:</span> <span class="n">extra_meta</span> <span class="ow">or</span> <span class="p">{},</span>
+            <span class="s2">&quot;git_commit&quot;</span><span class="p">:</span> <span class="n">git_commit</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;run_meta.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">run_meta</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
         <span class="n">n_cpus</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
@@ -506,6 +512,12 @@
         <span class="n">dry_run</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RunSummary</span><span class="p">]]:</span>
         <span class="n">set_global_seeds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span> <span class="o">=</span> <span class="n">get_git_commit_hash</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting training with git commit </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Git commit hash unavailable; proceeding without commit metadata.&quot;</span><span class="p">)</span>
         <span class="n">endpoints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">endpoints</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dry_run</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">({</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;macro&quot;</span><span class="p">:</span> <span class="p">{}},</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;macro&quot;</span><span class="p">:</span> <span class="p">{}},</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;macro&quot;</span><span class="p">:</span> <span class="p">{}}},</span> <span class="kc">None</span><span class="p">)</span>

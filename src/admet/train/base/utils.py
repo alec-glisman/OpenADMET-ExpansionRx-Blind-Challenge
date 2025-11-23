@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_features(df, fingerprint_cols: Sequence[str]) -> np.ndarray:
-    return df.loc[:, fingerprint_cols].to_numpy()
+    return df.loc[:, fingerprint_cols].to_numpy(dtype=np.float32, copy=False)
 
 
 def _extract_targets(df, endpoints: Sequence[str]) -> np.ndarray:
-    return df[endpoints].to_numpy(dtype=float)
+    return df[endpoints].to_numpy(dtype=np.float32, copy=False)
 
 
 def _target_mask(y: np.ndarray) -> np.ndarray:

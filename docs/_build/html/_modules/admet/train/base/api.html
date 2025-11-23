@@ -312,6 +312,12 @@
     <span class="n">ray_address</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">dry_run</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">max_duration_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_tracking_uri</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_experiment_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_cli_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">worker_thread_limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="n">ray_trainer</span> <span class="o">=</span> <span class="n">ensemble_trainer_cls</span><span class="p">(</span>
         <span class="n">trainer_cls</span><span class="o">=</span><span class="n">trainer_cls</span><span class="p">,</span>
@@ -328,6 +334,12 @@
         <span class="n">max_duration_seconds</span><span class="o">=</span><span class="n">max_duration_seconds</span><span class="p">,</span>
         <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
         <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+        <span class="n">tracking_uri</span><span class="o">=</span><span class="n">mlflow_tracking_uri</span><span class="p">,</span>
+        <span class="n">experiment_name</span><span class="o">=</span><span class="n">mlflow_experiment_name</span><span class="p">,</span>
+        <span class="n">parent_run_id</span><span class="o">=</span><span class="n">mlflow_parent_run_id</span><span class="p">,</span>
+        <span class="n">base_params</span><span class="o">=</span><span class="n">mlflow_params</span><span class="p">,</span>
+        <span class="n">cli_params</span><span class="o">=</span><span class="n">mlflow_cli_params</span><span class="p">,</span>
+        <span class="n">worker_thread_limit</span><span class="o">=</span><span class="n">worker_thread_limit</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 

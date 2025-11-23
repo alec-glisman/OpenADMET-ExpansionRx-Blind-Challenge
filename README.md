@@ -33,20 +33,33 @@ and dataset location. The dataset root lives under `data.root` in the config (ov
 To train a single XGBoost model on a specific fold, run the following command:
 
 ```bash
-admet train xgb \
+admet --log-level INFO \
+  train xgb \
   --config configs/xgb_train_single.yaml
 ```
+
+MLflow logging is on by default for training. Set `training.experiment_name`
+and optionally `training.tracking_uri` in your YAML (defaults can also be set
+with `MLFLOW_TRACKING_URI`). The CLI logs:
+
+- all YAML config values and CLI overrides as MLflow parameters for reproducibility
+- metrics and per-split summaries
+- artifacts (trained model, metrics.json, figures, and summary CSV/JSON for ensembles)
 
 #### Ensemble (Multi-Model) Training
 
 To train multiple XGBoost models across all folds, run the following command:
 
 ```bash
-admet train xgb \
+admet --log-level INFO \
+  train xgb \
   --config configs/xgb_train_ensemble.yaml
 ```
 
 To override the dataset location without editing the YAML, provide `--data-root path/to/dataset`.
+
+A parent MLflow run is created for ensembles; each fold/model is logged as a
+child run so artifacts and metrics stay grouped.
 
 A Ray cluster can be pre-initialized to accelerate multi-model training.
 If one is not already running, the job will create a local Ray cluster instance if `--ray-address "local"` is specified or will run without Ray if `--ray-address` is not provided.

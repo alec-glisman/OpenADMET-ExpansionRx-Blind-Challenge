@@ -4,13 +4,12 @@ Add a Typer command `admet ensemble-eval` that accepts a list of trained model
 directories (comma separated), an optional labeled CSV, optional blind CSV,
 output directory, and aggregation function. The command will load models from
 disk, run ensemble predictions, compute metrics (for labeled eval), and save
-predictions/metrics/plots to a standardized output directory.
+predictions/metrics to a standardized output directory.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-
 import logging
 import pandas as pd
 import typer
@@ -20,10 +19,6 @@ from admet.data.chem import parallel_canonicalize_smiles
 from admet.evaluate.ensemble import (
     EnsemblePredictConfig,
     run_ensemble_predictions_from_root,
-)
-from admet.visualize.ensemble_performance import (
-    plot_blind_distributions,
-    plot_labeled_ensemble,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,14 +62,18 @@ def ensemble_eval(
         raise typer.BadParameter("At least one of eval_csv or blind_csv must be provided in the config.")
 
     _ensure_outdir(output_dir)
+    data_root = output_dir / "data"
+    _ensure_outdir(data_root)
 
     df_eval = None
     df_blind = None
     if eval_csv is not None:
         df_eval = _read_csv(Path(eval_csv))
+        logger.info("Read eval CSV with %d rows from %s", len(df_eval), eval_csv)
         df_eval["SMILES"] = parallel_canonicalize_smiles(df_eval["SMILES"].astype(str))
     if blind_csv is not None:
         df_blind = _read_csv(Path(blind_csv))
+        logger.info("Read blind CSV with %d rows from %s", len(df_blind), blind_csv)
         df_blind["SMILES"] = parallel_canonicalize_smiles(df_blind["SMILES"].astype(str))
 
     pred_cfg = EnsemblePredictConfig(
@@ -86,35 +85,44 @@ def ensemble_eval(
     )
 
     summary = run_ensemble_predictions_from_root(pred_cfg, df_eval=df_eval, df_blind=df_blind)
+    eval_shape = summary.preds_log_eval.shape if summary.preds_log_eval is not None else None
+    blind_shape = summary.preds_log_blind.shape if summary.preds_log_blind is not None else None
+    logger.info(
+        "Completed ensemble predictions with shape eval=%s, blind=%s",
+        eval_shape,
+        blind_shape,
+    )
 
     # Save outputs using the same directory structure as before.
     if summary.preds_log_eval is not None and df_eval is not None:
-        eval_outdir = output_dir / "eval"
-        eval_outdir.mkdir(parents=True, exist_ok=True)
-        summary.preds_log_eval.to_csv(eval_outdir / "predictions_log.csv", index=False)
+        eval_data_dir = data_root / "eval"
+        eval_data_dir.mkdir(parents=True, exist_ok=True)
+        summary.preds_log_eval.to_csv(eval_data_dir / "predictions_log.csv", index=False)
+
         assert summary.preds_linear_eval is not None
         assert summary.metrics_log is not None
         assert summary.metrics_linear is not None
-        summary.preds_linear_eval.to_csv(eval_outdir / "predictions_linear.csv", index=False)
-        summary.metrics_log.to_csv(eval_outdir / "metrics_log.csv", index=False)
-        summary.metrics_linear.to_csv(eval_outdir / "metrics_linear.csv", index=False)
-        # Plots
-        plot_labeled_ensemble(
-            df_eval,
-            summary.preds_log_eval,
-            summary.preds_linear_eval,
-            list(summary.preds_log_eval.columns[2::]),
-            eval_outdir,
-            n_jobs=n_jobs,
-        )
+        summary.preds_linear_eval.to_csv(eval_data_dir / "predictions_linear.csv", index=False)
+        summary.metrics_log.to_csv(eval_data_dir / "metrics_log.csv", index=False)
+        summary.metrics_linear.to_csv(eval_data_dir / "metrics_linear.csv", index=False)
+
+        if summary.metrics_log_by_endpoint is not None:
+            summary.metrics_log_by_endpoint.to_csv(
+                eval_data_dir / "metrics_log_by_endpoint.csv", index=False
+            )
+        if summary.metrics_linear_by_endpoint is not None:
+            summary.metrics_linear_by_endpoint.to_csv(
+                eval_data_dir / "metrics_linear_by_endpoint.csv", index=False
+            )
 
     if summary.preds_log_blind is not None:
-        blind_outdir = output_dir / "blind"
-        blind_outdir.mkdir(parents=True, exist_ok=True)
-        summary.preds_log_blind.to_csv(blind_outdir / "predictions_log.csv", index=False)
+        blind_data_dir = data_root / "blind"
+        blind_data_dir.mkdir(parents=True, exist_ok=True)
+        summary.preds_log_blind.to_csv(blind_data_dir / "predictions_log.csv", index=False)
         assert summary.preds_linear_blind is not None
-        summary.preds_linear_blind.to_csv(blind_outdir / "predictions_linear.csv", index=False)
-        plot_blind_distributions(summary.preds_log_blind, summary.preds_linear_blind, [], blind_outdir)
+        summary.preds_linear_blind.to_csv(blind_data_dir / "predictions_linear.csv", index=False)
+
+    logger.info("Ensemble evaluation complete. Outputs written to %s", output_dir)
 
 
 __all__ = ["ensemble_eval"]

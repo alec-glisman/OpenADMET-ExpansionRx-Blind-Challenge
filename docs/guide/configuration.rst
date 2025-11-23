@@ -33,6 +33,8 @@ Example (Illustrative)
         reg_alpha: 0.0
 
   training:
+    experiment_name: "xgb"   # MLflow experiment (required for logging)
+    tracking_uri: null       # optional; fallback to MLFLOW_TRACKING_URI env var
     sample_weights:
       enabled: false
       weights:
@@ -63,6 +65,18 @@ You can override parameters via:
 1. CLI flags (if implemented): `--learning-rate 0.1` etc.
 2. Environment variables (future extension), e.g. `ADMET_LEARNING_RATE=0.1`.
 3. A custom YAML passed with a CLI argument (e.g. `--config configs/custom.yaml`).
+
+MLflow Logging
+--------------
+
+Training runs automatically log to MLflow with the following inputs:
+
+- `training.experiment_name` (required) and optional `training.tracking_uri`
+  (or `MLFLOW_TRACKING_URI` environment variable).
+- All YAML configuration values and CLI overrides recorded as MLflow parameters
+  for reproducibility.
+- Metrics and artifacts for single runs; ensembles create a parent run and
+  child runs per discovered dataset/fold, plus aggregated summary artifacts.
 
 Programmatic Loading
 --------------------

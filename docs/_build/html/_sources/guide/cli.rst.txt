@@ -40,6 +40,12 @@ To train an ensemble of models across multiple folds using Ray for parallel exec
 
 Provide ``--data-root path/to/dataset`` to override the directory specified in the YAML at runtime.
 
+MLflow logging is enabled by default. Set ``training.experiment_name`` (and optionally
+``training.tracking_uri``) in the YAML to control where runs are recorded. Ensemble
+training starts a parent run and logs each fold as a child run so metrics and artifacts
+are grouped together. All YAML config values and CLI overrides are logged as MLflow
+parameters for reproducibility.
+
 See also
 --------
 

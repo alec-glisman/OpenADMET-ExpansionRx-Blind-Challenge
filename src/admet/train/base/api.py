@@ -47,6 +47,12 @@ def train_ensemble(
     ray_address: Optional[str] = None,
     dry_run: bool = False,
     max_duration_seconds: Optional[float] = None,
+    mlflow_tracking_uri: Optional[str] = None,
+    mlflow_experiment_name: Optional[str] = None,
+    mlflow_parent_run_id: Optional[str] = None,
+    mlflow_params: Optional[Dict[str, object]] = None,
+    mlflow_cli_params: Optional[Dict[str, object]] = None,
+    worker_thread_limit: Optional[int] = None,
 ):
     ray_trainer = ensemble_trainer_cls(
         trainer_cls=trainer_cls,
@@ -63,6 +69,12 @@ def train_ensemble(
         max_duration_seconds=max_duration_seconds,
         n_fingerprint_bits=n_fingerprint_bits,
         seed=seed,
+        tracking_uri=mlflow_tracking_uri,
+        experiment_name=mlflow_experiment_name,
+        parent_run_id=mlflow_parent_run_id,
+        base_params=mlflow_params,
+        cli_params=mlflow_cli_params,
+        worker_thread_limit=worker_thread_limit,
     )
 
 

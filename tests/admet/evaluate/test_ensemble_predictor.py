@@ -92,6 +92,7 @@ def test_run_ensemble_predictions_from_root_smoke(tmp_path, monkeypatch):
 
     # Order of discovered runs is not guaranteed; compare as sets.
     assert set(summary.model_dirs) == {run1, run2}
+    assert summary.endpoints == ["LogD", "KSOL"]
     assert summary.preds_log_eval is not None
     assert "pred_LogD_ensemble_log" in summary.preds_log_eval.columns
     assert summary.metrics_log is not None

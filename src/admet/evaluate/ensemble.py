@@ -25,6 +25,7 @@ from typing import List, Sequence, Tuple, Dict, Optional
 import json
 import logging
 
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 
@@ -70,12 +71,47 @@ class EnsemblePredictSummary:
     """Summary of ensemble prediction outputs for eval and blind datasets."""
 
     model_dirs: List[Path]
+    endpoints: List[str]
     preds_log_eval: Optional[pd.DataFrame]
     preds_linear_eval: Optional[pd.DataFrame]
     metrics_log: Optional[pd.DataFrame]
     metrics_linear: Optional[pd.DataFrame]
+    metrics_log_by_endpoint: Optional[pd.DataFrame]
+    metrics_linear_by_endpoint: Optional[pd.DataFrame]
     preds_log_blind: Optional[pd.DataFrame]
     preds_linear_blind: Optional[pd.DataFrame]
+
+
+def aggregate_metrics_by_endpoint(metrics_df: pd.DataFrame) -> pd.DataFrame:
+    """Pivot long-form metrics to wide form keyed by endpoint."""
+    pivot_df = (
+        metrics_df.drop(columns=["space"], errors="ignore")
+        .pivot(index="endpoint", columns="metric", values="value")
+        .reset_index()
+        .sort_values("endpoint")
+        .reset_index(drop=True)
+    )
+    pivot_df.columns.name = None
+    return pivot_df
+
+
+def log_metrics_to_linear(aggregated_log_df: pd.DataFrame, endpoints: Sequence[str]) -> pd.DataFrame:
+    """Convert aggregated log metrics to linear space for non-LogD endpoints."""
+    linear_df = aggregated_log_df.copy(deep=True)
+    if "endpoint" not in linear_df.columns:
+        return linear_df
+
+    log_only_endpoints = set(endpoints)
+    log_only_endpoints.discard("LogD")
+    if not log_only_endpoints:
+        return linear_df
+
+    mask = linear_df["endpoint"].isin(log_only_endpoints)
+    for metric_col in ("mae", "rmse"):
+        if metric_col not in linear_df.columns:
+            continue
+        linear_df.loc[mask, metric_col] = np.power(10.0, linear_df.loc[mask, metric_col])
+    return linear_df
 
 
 def _detect_model_type_from_dir(model_dir: Path) -> Optional[str]:
@@ -172,6 +208,7 @@ def load_models(model_dirs: Sequence[str]) -> List[BaseModel]:
     return out
 
 
+# TODO: rewrite this to aggregate predictions without relying on existing evaluation functions
 def run_ensemble_predictions_from_root(
     config: EnsemblePredictConfig,
     df_eval: Optional[pd.DataFrame] = None,
@@ -181,6 +218,20 @@ def run_ensemble_predictions_from_root(
 
     This mirrors the training API style by accepting a configuration object
     and returning a summary of all relevant outputs.
+
+    Parameters
+    ----------
+    config : EnsemblePredictConfig
+        Configuration for the ensemble prediction run.
+    df_eval : Optional[pandas.DataFrame]
+        Optional labeled evaluation DataFrame.
+    df_blind : Optional[pandas.DataFrame]
+        Optional blind (unlabeled) DataFrame.
+
+    Returns
+    -------
+    EnsemblePredictSummary
+        Summary of ensemble prediction outputs.
     """
 
     run_dirs = discover_model_runs(config.models_root)
@@ -192,13 +243,32 @@ def run_ensemble_predictions_from_root(
         models.append(load_model_from_dir(d))
 
     endpoints = models[0].endpoints
+
+    # Eval dataset: All model outputs
     preds_log_eval: Optional[pd.DataFrame] = None
     preds_lin_eval: Optional[pd.DataFrame] = None
-    metrics_log: Optional[pd.DataFrame] = None
-    metrics_linear: Optional[pd.DataFrame] = None
+    metrics_log_eval: Optional[pd.DataFrame] = None
+    metrics_lin_eval: Optional[pd.DataFrame] = None
+
+    # Eval dataset: Aggregated metrics by endpoint
+    preds_log_eval_by_ep: Optional[pd.DataFrame] = None
+    preds_lin_eval_by_ep: Optional[pd.DataFrame] = None
+    metrics_log_eval_by_ep: Optional[pd.DataFrame] = None
+    metrics_lin_eval_by_ep: Optional[pd.DataFrame] = None
+
+    # Blind dataset: All model outputs
     preds_log_blind: Optional[pd.DataFrame] = None
     preds_lin_blind: Optional[pd.DataFrame] = None
+    metrics_log_by_ep: Optional[pd.DataFrame] = None
+    metrics_lin_by_ep: Optional[pd.DataFrame] = None
 
+    # Blind dataset: Aggregated metrics by endpoint
+    preds_log_blind_by_ep: Optional[pd.DataFrame] = None
+    preds_lin_blind_by_ep: Optional[pd.DataFrame] = None
+    metrics_log_blind_by_ep: Optional[pd.DataFrame] = None
+    metrics_lin_blind_by_ep: Optional[pd.DataFrame] = None
+
+    # TODO: rewrite the rest of the function
     if df_eval is not None:
         (
             preds_log_eval,
@@ -213,6 +283,8 @@ def run_ensemble_predictions_from_root(
             config.agg_fn,
             n_jobs=config.n_jobs,
         )
+        metrics_log_by_ep = aggregate_metrics_by_endpoint(metrics_log)
+        metrics_lin_by_ep = log_metrics_to_linear(metrics_log_by_ep, endpoints)
 
     if df_blind is not None:
         preds_log_blind, preds_lin_blind = evaluate_blind_dataset(
@@ -225,10 +297,13 @@ def run_ensemble_predictions_from_root(
 
     return EnsemblePredictSummary(
         model_dirs=run_dirs,
+        endpoints=list(endpoints),
         preds_log_eval=preds_log_eval,
         preds_linear_eval=preds_lin_eval,
         metrics_log=metrics_log,
         metrics_linear=metrics_linear,
+        metrics_log_by_endpoint=metrics_log_by_ep,
+        metrics_linear_by_endpoint=metrics_lin_by_ep,
         preds_log_blind=preds_log_blind,
         preds_linear_blind=preds_lin_blind,
     )
@@ -241,20 +316,27 @@ def _generate_features_for_models(models: List[BaseModel], smiles: pd.Series) ->
     ``model.predict``. All returned arrays are numeric numpy ndarrays
     (for fingerprints) or object arrays (for SMILES) depending on model.
     """
+
+    fingerprint_cache: Dict[int, np.ndarray] = {}
+    smiles_cache: Optional[np.ndarray] = None
     features = {}
-    for i, m in enumerate(models):
-        if getattr(m, "input_type", "fingerprint") == "fingerprint":
-            # Use the recorded feature dimension if available, else default 2048
-            fp_size = getattr(m, "n_features_", None) or 2048
-            fg = MorganFingerprintGenerator(fp_size=fp_size)
-            fp_df = fg.calculate_fingerprints(smiles)
-            features[i] = fp_df.to_numpy(dtype=float)
-        elif getattr(m, "input_type", "fingerprint") == "smiles":
-            # Predictors that operate on raw SMILES may accept a 1-D ndarray
-            # of strings (object dtype) or a 2D array; we convert to 2D
-            features[i] = smiles.to_numpy(dtype=object).reshape(-1, 1)
+    for i, m in tqdm(
+        enumerate(models), total=len(models), desc="Generating features for models", dynamic_ncols=True
+    ):
+        input_type = getattr(m, "input_type", "fingerprint")
+        if input_type == "fingerprint":
+            fp_size = int(getattr(m, "n_features_", None) or 2048)
+            if fp_size not in fingerprint_cache:
+                fg = MorganFingerprintGenerator(fp_size=fp_size)
+                fp_df = fg.calculate_fingerprints(smiles)
+                fingerprint_cache[fp_size] = fp_df.to_numpy(dtype=float)
+            features[i] = fingerprint_cache[fp_size]
+        elif input_type == "smiles":
+            if smiles_cache is None:
+                smiles_cache = smiles.to_numpy(dtype=object).reshape(-1, 1)
+            features[i] = smiles_cache
         else:
-            raise ValueError(f"Unsupported model input_type {getattr(m, 'input_type', None)}")
+            raise ValueError(f"Unsupported model input_type {input_type}")
     return features
 
 
@@ -335,29 +417,28 @@ def aggregate_predictions(per_model_preds: np.ndarray, agg_fn: str = "mean") -> 
 
 
 def predictions_to_dataframe(
-    df: pd.DataFrame,
-    per_model_preds: np.ndarray,
-    ensemble_preds: np.ndarray,
+    df_input: pd.DataFrame,
+    arr_ens_preds: np.ndarray,
     endpoints: Sequence[str],
-    prefix: str = "pred",
 ) -> pd.DataFrame:
     """Build a standardized predictions DataFrame containing per-model and
-    ensemble predictions for all endpoints in log space.
+    ensemble predictions for all endpoints
 
     The returned DataFrame contains at least: Molecule Name, SMILES and
-    for each endpoint: `pred_{endpoint}_{model_name}_log` and
-    `pred_{endpoint}_ensemble_log` columns.
+    for each endpoint: ensemble prediction
     """
-    out = df[["Molecule Name", "SMILES"]].copy()
-    n_models = per_model_preds.shape[0]
-    n_rows = per_model_preds.shape[1]
-    assert n_rows == len(out)
+    if len(arr_ens_preds.shape) != 2:
+        raise ValueError("ensemble_preds must be 2D (n_samples, n_endpoints)")
+    if len(endpoints) != arr_ens_preds.shape[1]:
+        raise ValueError("Mismatch between number of endpoints and ensemble predictions shape")
+
+    df_output = df_input[["Molecule Name", "SMILES"]].copy()
+
+    # output DataFrame
     for j, ep in enumerate(endpoints):
-        for i in range(n_models):
-            col = f"{prefix}_{ep}_model{i}_log"
-            out[col] = per_model_preds[i, :, j]
-        out[f"{prefix}_{ep}_ensemble_log"] = ensemble_preds[:, j]
-    return out
+        df_output[ep] = arr_ens_preds[:, j]
+
+    return df_output
 
 
 def to_linear_space_array(log_array: np.ndarray, endpoints: Sequence[str]) -> np.ndarray:
@@ -365,6 +446,72 @@ def to_linear_space_array(log_array: np.ndarray, endpoints: Sequence[str]) -> np
     the repository convention (exponentiate all endpoints except `LogD`).
     """
     return _apply_transform_space(log_array, endpoints, space="linear")
+
+
+def evaluate_dataset(
+    models: List[BaseModel],
+    df_input: pd.DataFrame,
+    endpoints: Sequence[str],
+    agg_fn: str = "mean",
+    *,
+    n_jobs: int = 1,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
+    # Validate endpoints
+    if not models:
+        raise ValueError("No models supplied")
+    for m in models:
+        if tuple(m.endpoints) != tuple(endpoints):
+            raise ValueError("Mismatch between provided endpoint schema and model endpoints")
+
+    smiles = df_input["SMILES"].astype(str)
+
+    # predict outputs for all models
+    model_preds_log = predict_per_model(models, smiles, n_jobs=n_jobs)  # (n_models, n_samples, n_endpoints)
+
+    # aggregate predictions across models
+    ens_preds_log = aggregate_predictions(model_preds_log, agg_fn)  # (n_samples, n_endpoints)
+
+    # convert to linear space
+    ens_preds_lin = to_linear_space_array(ens_preds_log, endpoints)  # (n_samples, n_endpoints)
+
+    # build prediction DataFrames
+    ens_preds_log_df = predictions_to_dataframe(df_input, ens_preds_log, endpoints)
+    ens_preds_lin_df = predictions_to_dataframe(df_input, ens_preds_lin, endpoints)
+
+    return ens_preds_log_df, ens_preds_lin_df
+
+
+def evaluate_metrics(
+    predictions: pd.DataFrame,
+    true_values: pd.DataFrame,
+    endpoints: Sequence[str],
+    transform: str = "log",
+) -> eval_metrics.SplitMetrics:
+    if not len(predictions) == len(true_values):
+        raise ValueError("Predictions and true_values must have the same number of rows")
+    if not all(ep in predictions.columns for ep in endpoints):
+        raise ValueError("Not all endpoints are present in predictions DataFrame")
+    if not all(ep in true_values.columns for ep in endpoints):
+        raise ValueError("Not all endpoints are present in true_values DataFrame")
+
+    # resort true values to match predictions
+    true_values = true_values.loc[predictions.index]
+    if not all(true_values["SMILES"] == predictions["SMILES"]):
+        raise ValueError("SMILES in predictions and true_values do not match")
+
+    y_true = true_values[list(endpoints)].to_numpy(dtype=float)
+    y_pred = predictions[list(endpoints)].to_numpy(dtype=float)
+    mask = (~np.isnan(y_true)).astype(int)
+    
+    if transform == "linear":
+        y_true = to_linear_space_array(y_true, endpoints)
+        y_pred = to_linear_space_array(y_pred, endpoints)
+    elif transform != "log":
+        raise ValueError(f"Unsupported transform '{transform}'")
+
+    metrics = eval_metrics.compute_metrics(y_true, y_pred, mask, endpoints)
+    return metrics
 
 
 def evaluate_labeled_dataset(
@@ -379,40 +526,23 @@ def evaluate_labeled_dataset(
 
     Returns a tuple of prediction and metric DataFrames for evaluation.
     """
-    # Validate endpoints
-    if not models:
-        raise ValueError("No models supplied")
-    for m in models:
-        if tuple(m.endpoints) != tuple(endpoints):
-            raise ValueError("Mismatch between provided endpoint schema and model endpoints")
+    ens_preds_log, ens_preds_lin = evaluate_dataset(models, df_eval, endpoints, agg_fn, n_jobs=n_jobs)
 
-    smiles = df_eval["SMILES"].astype(str)
-    per_model_preds = predict_per_model(models, smiles, n_jobs=n_jobs)  # (n_models, N, D)
-    ens_preds_log = aggregate_predictions(per_model_preds, agg_fn)
-    ens_preds_lin = to_linear_space_array(ens_preds_log, endpoints)
-
-    preds_log_df = predictions_to_dataframe(df_eval, per_model_preds, ens_preds_log, endpoints)
-    # For linear predictions, convert both per-model and ensemble
-    n_models = per_model_preds.shape[0]
-    per_model_preds_lin = per_model_preds.copy()
-    per_model_preds_lin = per_model_preds_lin.transpose(0, 2, 1)  # (n_models, D, N)
-    # Apply linear transform per endpoint and transpose back
-    for i in range(n_models):
-        per_model_preds_lin[i] = to_linear_space_array(per_model_preds[i], endpoints)
-    preds_lin_df = predictions_to_dataframe(
-        df_eval, per_model_preds_lin, ens_preds_lin, endpoints, prefix="pred_linear"
+    log_metrics = evaluate_metrics(
+        ens_preds_log,
+        df_eval,
+        endpoints,
     )
 
     # Construct masks and ground truth
     Y_true_log = df_eval[list(endpoints)].to_numpy(dtype=float)
     mask = (~np.isnan(Y_true_log)).astype(int)
 
-    log_metrics = eval_metrics.compute_metrics(Y_true_log, ens_preds_log, mask, endpoints)
+    log_metrics = eval_metrics.compute_metrics(
+        ens_preds_log, df_eval[list(endpoints)], mask, endpoints, transform="log"m
+    )
     lin_metrics = eval_metrics.compute_metrics(
-        to_linear_space_array(Y_true_log, endpoints),
-        to_linear_space_array(ens_preds_log, endpoints),
-        mask,
-        endpoints,
+        ens_preds_log, df_eval[list(endpoints)], mask, endpoints, transform="linear",
     )
 
     # Create metric dataframes for easy saving
@@ -427,9 +557,12 @@ def evaluate_labeled_dataset(
     metrics_log_df = metrics_dict_to_df(log_metrics, "log")
     metrics_lin_df = metrics_dict_to_df(lin_metrics, "linear")
 
+    # TODO: write the rest of this function
     # Per-model metrics
     per_model_rows = []
-    for i, m in enumerate(models):
+    for i, m in tqdm(
+        enumerate(models), desc="Computing per-model metrics on labeled data", dynamic_ncols=True
+    ):
         preds = per_model_preds[i]  # (N, D)
         m_metrics_log = eval_metrics.compute_metrics(Y_true_log, preds, mask, endpoints)
         m_metrics_lin = eval_metrics.compute_metrics(
@@ -475,27 +608,9 @@ def evaluate_blind_dataset(
 
     Returns: (preds_log_df, preds_lin_df)
     """
-    if not models:
-        raise ValueError("No models supplied")
-    for m in models:
-        if tuple(m.endpoints) != tuple(endpoints):
-            raise ValueError("Mismatch between provided endpoint schema and model endpoints")
+    ens_preds_log, ens_preds_lin = evaluate_dataset(models, df_blind, endpoints, agg_fn, n_jobs=n_jobs)
 
-    smiles = df_blind["SMILES"].astype(str)
-    per_model_preds = predict_per_model(models, smiles, n_jobs=n_jobs)
-    ens_preds_log = aggregate_predictions(per_model_preds, agg_fn)
-    ens_preds_lin = to_linear_space_array(ens_preds_log, endpoints)
-
-    preds_log_df = predictions_to_dataframe(df_blind, per_model_preds, ens_preds_log, endpoints)
-    n_models = per_model_preds.shape[0]
-    per_model_preds_lin = per_model_preds.copy()
-    for i in range(n_models):
-        per_model_preds_lin[i] = to_linear_space_array(per_model_preds[i], endpoints)
-    preds_lin_df = predictions_to_dataframe(
-        df_blind, per_model_preds_lin, ens_preds_lin, endpoints, prefix="pred_linear"
-    )
-
-    return preds_log_df, preds_lin_df
+    return ens_preds_log, ens_preds_lin
 
 
 __all__ = [
@@ -510,4 +625,6 @@ __all__ = [
     "predictions_to_dataframe",
     "evaluate_labeled_dataset",
     "evaluate_blind_dataset",
+    "aggregate_metrics_by_endpoint",
+    "log_metrics_to_linear",
 ]

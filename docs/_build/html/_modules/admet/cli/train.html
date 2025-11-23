@@ -304,17 +304,21 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">typer</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dataset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.train.xgb_train</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostTrainer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.train.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_model</span><span class="p">,</span> <span class="n">train_ensemble</span><span class="p">,</span> <span class="n">BaseEnsembleTrainer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.xgb_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostMultiEndpoint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.train.mlflow_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">flatten_metrics</span><span class="p">,</span> <span class="n">flatten_params</span><span class="p">,</span> <span class="n">set_mlflow_tracking</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_git_commit_hash</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">app</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Typer</span><span class="p">(</span><span class="n">help</span><span class="o">=</span><span class="s2">&quot;Model training commands.&quot;</span><span class="p">)</span>
@@ -371,6 +375,7 @@
         <span class="k">raise</span> <span class="n">typer</span><span class="o">.</span><span class="n">BadParameter</span><span class="p">(</span>
             <span class="s2">&quot;Dataset directory is not provided. Supply --data-root or set data.root in the config.&quot;</span>
         <span class="p">)</span>
+    <span class="n">data_cfg</span><span class="p">[</span><span class="s2">&quot;resolved_root&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">effective_data_root</span><span class="p">)</span>
     <span class="n">xgb_cfg</span> <span class="o">=</span> <span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;xgboost&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="n">model_params</span> <span class="o">=</span> <span class="n">xgb_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_params&quot;</span><span class="p">,</span> <span class="p">{})</span>
     <span class="n">objective</span> <span class="o">=</span> <span class="n">xgb_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;objective&quot;</span><span class="p">,</span> <span class="s2">&quot;rmse&quot;</span><span class="p">)</span>
@@ -380,20 +385,32 @@
     <span class="k">elif</span> <span class="n">objective</span> <span class="o">==</span> <span class="s2">&quot;rmse&quot;</span><span class="p">:</span>
         <span class="n">model_params</span><span class="p">[</span><span class="s2">&quot;objective&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;reg:squarederror&quot;</span>
         <span class="n">model_params</span><span class="p">[</span><span class="s2">&quot;eval_metric&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;rmse&quot;</span>
+    <span class="n">xgb_cfg</span><span class="p">[</span><span class="s2">&quot;objective&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">objective</span>
     <span class="n">early_stopping_rounds</span> <span class="o">=</span> <span class="n">xgb_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;early_stopping_rounds&quot;</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+    <span class="n">xgb_cfg</span><span class="p">[</span><span class="s2">&quot;early_stopping_rounds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">early_stopping_rounds</span>
     <span class="n">training_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="n">sw_cfg</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_weights&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="n">sw_enabled</span> <span class="o">=</span> <span class="n">sw_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
     <span class="n">sw_mapping</span> <span class="o">=</span> <span class="n">sw_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weights&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">sw_enabled</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="n">output_dir_raw</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;xgb_artifacts&quot;</span><span class="p">)</span>
+    <span class="n">training_cfg</span><span class="p">[</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_dir_raw</span>
     <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir_raw</span><span class="p">)</span>
     <span class="n">seed</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">)</span>
+    <span class="n">training_cfg</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
     <span class="n">n_fingerprint_bits</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_fingerprint_bits&quot;</span><span class="p">,</span> <span class="mi">2048</span><span class="p">))</span>
+    <span class="n">training_cfg</span><span class="p">[</span><span class="s2">&quot;n_fingerprint_bits&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_fingerprint_bits</span>
+    <span class="n">tracking_uri</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tracking_uri&quot;</span><span class="p">)</span>
+    <span class="n">experiment_name</span> <span class="o">=</span> <span class="n">training_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">)</span>
+    <span class="n">training_cfg</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">)</span>
+    <span class="n">training_cfg</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;tracking_uri&quot;</span><span class="p">,</span> <span class="n">tracking_uri</span><span class="p">)</span>
 
     <span class="n">ray_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ray&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
     <span class="n">multi</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multi&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+    <span class="n">ray_cfg</span><span class="p">[</span><span class="s2">&quot;multi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">multi</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_cpus&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">ray_cfg</span><span class="p">[</span><span class="s2">&quot;num_cpus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_cpus</span>
     <span class="n">ray_address</span> <span class="o">=</span> <span class="n">ray_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;address&quot;</span><span class="p">)</span>
+    <span class="n">ray_cfg</span><span class="p">[</span><span class="s2">&quot;address&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ray_address</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
         <span class="c1"># Format numeric values to 4 decimal places; for dicts, format inner numeric values;</span>
@@ -414,22 +431,62 @@
             <span class="k">return</span> <span class="n">formatted</span>
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 
+    <span class="n">flattened_cfg_params</span> <span class="o">=</span> <span class="n">flatten_params</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;cfg&quot;</span><span class="p">)</span>
+    <span class="n">cli_params</span> <span class="o">=</span> <span class="n">flatten_params</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;cli&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;config_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="p">),</span>
+                <span class="s2">&quot;data_root_override&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">data_root</span><span class="p">)</span> <span class="k">if</span> <span class="n">data_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;effective_data_root&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">effective_data_root</span><span class="p">),</span>
+                <span class="s2">&quot;multi&quot;</span><span class="p">:</span> <span class="n">multi</span><span class="p">,</span>
+                <span class="s2">&quot;ray_address&quot;</span><span class="p">:</span> <span class="n">ray_address</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;num_cpus&quot;</span><span class="p">:</span> <span class="n">num_cpus</span> <span class="k">if</span> <span class="n">num_cpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">git_commit</span> <span class="o">=</span> <span class="n">get_git_commit_hash</span><span class="p">()</span>
+
     <span class="k">if</span> <span class="ow">not</span> <span class="n">multi</span><span class="p">:</span>
-        <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span>
-            <span class="n">effective_data_root</span><span class="p">,</span>
-            <span class="n">endpoints</span><span class="o">=</span><span class="n">endpoints</span><span class="p">,</span>
-            <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">run_metrics</span><span class="p">,</span> <span class="n">summary</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span>
-            <span class="n">dataset</span><span class="p">,</span>
-            <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
-            <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
-            <span class="n">model_params</span><span class="o">=</span><span class="n">model_params</span><span class="p">,</span>
-            <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
-            <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sw_mapping</span><span class="p">,</span>
-            <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
-            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">set_mlflow_tracking</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">)</span>
+        <span class="n">single_tags</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;single&quot;</span><span class="p">,</span> <span class="s2">&quot;data_root&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">effective_data_root</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="n">git_commit</span><span class="p">:</span>
+            <span class="n">single_tags</span><span class="p">[</span><span class="s2">&quot;git_commit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git_commit</span>
+        <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="n">effective_data_root</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">single_tags</span><span class="p">):</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">flattened_cfg_params</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">cli_params</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;featurization&quot;</span><span class="p">,</span> <span class="s2">&quot;morgan_fp&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">endpoints</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;endpoints&quot;</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">endpoints</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+            <span class="n">start_ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span>
+                    <span class="n">effective_data_root</span><span class="p">,</span>
+                    <span class="n">endpoints</span><span class="o">=</span><span class="n">endpoints</span><span class="p">,</span>
+                    <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">run_metrics</span><span class="p">,</span> <span class="n">summary</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span>
+                    <span class="n">dataset</span><span class="p">,</span>
+                    <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
+                    <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
+                    <span class="n">model_params</span><span class="o">=</span><span class="n">model_params</span><span class="p">,</span>
+                    <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
+                    <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sw_mapping</span><span class="p">,</span>
+                    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+                    <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+                <span class="k">raise</span>
+            <span class="n">duration_seconds</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;ok&quot;</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">,</span> <span class="n">duration_seconds</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">flatten_metrics</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">output_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifacts</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span><span class="p">))</span>
 
         <span class="c1"># output macro metrics for train, val, and test with 4 decimal places</span>
         <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">]:</span>
@@ -438,30 +495,73 @@
             <span class="n">formatted_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">macro_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
             <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="n">train_ensemble</span><span class="p">(</span>
-            <span class="n">effective_data_root</span><span class="p">,</span>
-            <span class="n">ensemble_trainer_cls</span><span class="o">=</span><span class="n">BaseEnsembleTrainer</span><span class="p">,</span>
-            <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
-            <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
-            <span class="n">model_params</span><span class="o">=</span><span class="n">model_params</span><span class="p">,</span>
-            <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
-            <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sw_mapping</span><span class="p">,</span>
-            <span class="n">output_root</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
-            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-            <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
-            <span class="n">num_cpus</span><span class="o">=</span><span class="n">num_cpus</span><span class="p">,</span>
-            <span class="n">ray_address</span><span class="o">=</span><span class="n">ray_address</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">set_mlflow_tracking</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">)</span>
+        <span class="n">ensemble_tags</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;ensemble&quot;</span><span class="p">,</span> <span class="s2">&quot;data_root&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">effective_data_root</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="n">git_commit</span><span class="p">:</span>
+            <span class="n">ensemble_tags</span><span class="p">[</span><span class="s2">&quot;git_commit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git_commit</span>
+        <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;ensemble:</span><span class="si">{</span><span class="n">effective_data_root</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">ensemble_tags</span><span class="p">)</span> <span class="k">as</span> <span class="n">parent_run</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">flattened_cfg_params</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">cli_params</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+            <span class="n">start_ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">train_ensemble</span><span class="p">(</span>
+                    <span class="n">effective_data_root</span><span class="p">,</span>
+                    <span class="n">ensemble_trainer_cls</span><span class="o">=</span><span class="n">BaseEnsembleTrainer</span><span class="p">,</span>
+                    <span class="n">trainer_cls</span><span class="o">=</span><span class="n">XGBoostTrainer</span><span class="p">,</span>
+                    <span class="n">model_cls</span><span class="o">=</span><span class="n">XGBoostMultiEndpoint</span><span class="p">,</span>
+                    <span class="n">model_params</span><span class="o">=</span><span class="n">model_params</span><span class="p">,</span>
+                    <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="n">early_stopping_rounds</span><span class="p">,</span>
+                    <span class="n">sample_weight_mapping</span><span class="o">=</span><span class="n">sw_mapping</span><span class="p">,</span>
+                    <span class="n">output_root</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+                    <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+                    <span class="n">n_fingerprint_bits</span><span class="o">=</span><span class="n">n_fingerprint_bits</span><span class="p">,</span>
+                    <span class="n">num_cpus</span><span class="o">=</span><span class="n">num_cpus</span><span class="p">,</span>
+                    <span class="n">ray_address</span><span class="o">=</span><span class="n">ray_address</span><span class="p">,</span>
+                    <span class="n">mlflow_tracking_uri</span><span class="o">=</span><span class="n">tracking_uri</span><span class="p">,</span>
+                    <span class="n">mlflow_experiment_name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span>
+                    <span class="n">mlflow_parent_run_id</span><span class="o">=</span><span class="n">parent_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span> <span class="k">if</span> <span class="n">multi</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">mlflow_params</span><span class="o">=</span><span class="n">flattened_cfg_params</span><span class="p">,</span>
+                    <span class="n">mlflow_cli_params</span><span class="o">=</span><span class="n">cli_params</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;ensemble.duration_seconds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+                <span class="k">raise</span>
+            <span class="n">duration_seconds</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;ensemble.duration_seconds&quot;</span><span class="p">,</span> <span class="n">duration_seconds</span><span class="p">)</span>
 
-        <span class="c1"># Print metrics per discovered dataset</span>
-        <span class="k">for</span> <span class="n">rel_key</span><span class="p">,</span> <span class="n">payload</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;=== Results for dataset: </span><span class="si">{</span><span class="n">rel_key</span><span class="si">}</span><span class="s2"> ===&quot;</span><span class="p">)</span>
-            <span class="n">run_metrics</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;run_metrics&quot;</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">]:</span>
-                <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics for </span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2"> split:&quot;</span><span class="p">)</span>
-                <span class="n">macro_metrics</span> <span class="o">=</span> <span class="n">run_metrics</span><span class="p">[</span><span class="n">split</span><span class="p">][</span><span class="s2">&quot;macro&quot;</span><span class="p">]</span>
-                <span class="n">formatted_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">macro_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-                <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span></div>
+            <span class="n">status_counts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">rel_key</span><span class="p">,</span> <span class="n">payload</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">))</span>
+                <span class="n">status_counts</span><span class="p">[</span><span class="n">status</span><span class="p">]</span> <span class="o">=</span> <span class="n">status_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">run_metrics</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_metrics&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">run_metrics</span><span class="p">:</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">flatten_metrics</span><span class="p">(</span><span class="n">run_metrics</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;ensemble.</span><span class="si">{</span><span class="n">rel_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+            <span class="n">status_counts</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">status_counts</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;ensemble.status.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">status_counts</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+            <span class="n">failures</span> <span class="o">=</span> <span class="n">status_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">status_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;partial&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">status_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;timeout&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">parent_status</span> <span class="o">=</span> <span class="s2">&quot;ok&quot;</span> <span class="k">if</span> <span class="n">failures</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;error&quot;</span> <span class="k">if</span> <span class="n">failures</span> <span class="ow">and</span> <span class="n">failures</span> <span class="o">==</span> <span class="n">status_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;total&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;partial&quot;</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="n">parent_status</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">summary_file</span> <span class="ow">in</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics_summary.csv&quot;</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics_summary.json&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">summary_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">summary_file</span><span class="p">))</span>
+
+            <span class="c1"># Print metrics per discovered dataset</span>
+            <span class="k">for</span> <span class="n">rel_key</span><span class="p">,</span> <span class="n">payload</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;=== Results for dataset: </span><span class="si">{</span><span class="n">rel_key</span><span class="si">}</span><span class="s2"> ===&quot;</span><span class="p">)</span>
+                <span class="n">run_metrics</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_metrics&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">run_metrics</span><span class="p">:</span>
+                    <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No metrics available (status: </span><span class="si">{</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;unknown&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">split</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">]:</span>
+                    <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics for </span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2"> split:&quot;</span><span class="p">)</span>
+                    <span class="n">macro_metrics</span> <span class="o">=</span> <span class="n">run_metrics</span><span class="p">[</span><span class="n">split</span><span class="p">][</span><span class="s2">&quot;macro&quot;</span><span class="p">]</span>
+                    <span class="n">formatted_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_format_value</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">macro_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                    <span class="n">typer</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_metrics</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span></div>
 
 
 

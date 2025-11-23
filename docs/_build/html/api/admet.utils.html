@@ -284,11 +284,29 @@
 <h4>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h4>
 <ul class="simple">
 <li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">set_global_seeds()</span></code> – Seed Python/NumPy/Torch RNGs for reproducibility.</p></li>
-<li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">configure_logging()</span></code> – Re-export of <code class="xref py py-func docutils literal notranslate"><span class="pre">admet.logging.configure_logging()</span></code>.</p></li>
+<li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">get_git_commit_hash()</span></code> – Retrieve the current git commit hash if available.</p></li>
 </ul>
 </section>
 </section>
 </section>
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.utils.</span></span><span class="sig-name descname"><span class="pre">get_git_commit_hash</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/utils.html#get_git_commit_hash"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Return the active git commit hash if the repository is available.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>repo_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><em>pathlib.Path</em></a><em>, </em><em>optional</em>) – Directory inside the git repository. Defaults to current working directory.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The commit hash if available; otherwise <code class="docutils literal notranslate"><span class="pre">None</span></code> when git is missing or
+the path is not within a repository.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py">
 <span class="sig-prename descclassname"><span class="pre">admet.utils.</span></span><span class="sig-name descname"><span class="pre">set_global_seeds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/utils.html#set_global_seeds"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>

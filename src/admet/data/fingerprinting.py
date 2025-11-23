@@ -136,7 +136,7 @@ class MorganFingerprintGenerator:
         pd.DataFrame
             DataFrame with fingerprint features as individual columns.
         """
-        logger.info(f"Calculating fingerprints for {len(smiles_series)} molecules")
+        logger.debug(f"Calculating fingerprints for {len(smiles_series)} molecules")
 
         # Convert SMILES to molecules
         mols = smiles_series.apply(self._smiles_to_mol)
@@ -151,7 +151,7 @@ class MorganFingerprintGenerator:
         fp_columns = [f"Morgan_FP_{i}" for i in range(fp_array.shape[1])]
         fp_df = pd.DataFrame(fp_array, columns=fp_columns, dtype=np.uint8)
 
-        logger.info(f"Generated {fp_df.shape[1]} fingerprint features")
+        logger.debug(f"Generated {fp_df.shape[1]} fingerprint features")
         return fp_df
 
     def add_fingerprints_to_dataframe(

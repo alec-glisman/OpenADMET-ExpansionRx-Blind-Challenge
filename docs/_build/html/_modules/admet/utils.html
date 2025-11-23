@@ -268,14 +268,16 @@
 <span class="sd">Functions</span>
 <span class="sd">^^^^^^^^^</span>
 <span class="sd">* :func:`set_global_seeds` – Seed Python/NumPy/Torch RNGs for reproducibility.</span>
-<span class="sd">* :func:`configure_logging` – Re-export of :func:`admet.logging.configure_logging`.</span>
+<span class="sd">* :func:`get_git_commit_hash` – Retrieve the current git commit hash if available.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="c1"># Re-export placed near top to satisfy lint rule about import grouping.</span>
 <span class="c1"># Removed previous re-export of configure_logging; import no longer needed.</span>
@@ -334,7 +336,40 @@
 
 
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;set_global_seeds&quot;</span><span class="p">]</span>
+<div class="viewcode-block" id="get_git_commit_hash">
+<a class="viewcode-back" href="../../api/admet.utils.html#admet.utils.get_git_commit_hash">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_git_commit_hash</span><span class="p">(</span><span class="n">repo_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the active git commit hash if the repository is available.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    repo_path : str or pathlib.Path, optional</span>
+<span class="sd">        Directory inside the git repository. Defaults to current working directory.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str or None</span>
+<span class="sd">        The commit hash if available; otherwise ``None`` when git is missing or</span>
+<span class="sd">        the path is not within a repository.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">completed</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span>
+            <span class="n">cwd</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">repo_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">repo_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">commit</span> <span class="o">=</span> <span class="n">completed</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">commit</span> <span class="ow">or</span> <span class="kc">None</span></div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;set_global_seeds&quot;</span><span class="p">,</span> <span class="s2">&quot;get_git_commit_hash&quot;</span><span class="p">]</span>
 </pre></div>
         </article>
       </div>

@@ -26,7 +26,8 @@ To train a single XGBoost model on a specific fold (dataset path is taken from
 
 .. code-block:: bash
 
-   admet train xgb \
+   admet --log-level INFO \
+       train xgb \
        --config configs/xgb_train_single.yaml
 
 **Distributed Training with Ray**
@@ -35,10 +36,17 @@ To train an ensemble of models across multiple folds using Ray for parallel exec
 
 .. code-block:: bash
 
-   admet train xgb \
+   admet --log-level INFO \
+       train xgb \
        --config configs/xgb_train_ensemble.yaml
 
 Provide ``--data-root path/to/dataset`` to override the directory specified in the YAML at runtime.
+
+MLflow logging is enabled by default. Set ``training.experiment_name`` (and optionally
+``training.tracking_uri``) in the YAML to control where runs are recorded. Ensemble
+training starts a parent run and logs each fold as a child run so metrics and artifacts
+are grouped together. All YAML config values and CLI overrides are logged as MLflow
+parameters for reproducibility.
 
 See also
 --------

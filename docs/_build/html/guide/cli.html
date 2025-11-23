@@ -300,6 +300,11 @@
 </pre></div>
 </div>
 <p>Provide <code class="docutils literal notranslate"><span class="pre">--data-root</span> <span class="pre">path/to/dataset</span></code> to override the directory specified in the YAML at runtime.</p>
+<p>MLflow logging is enabled by default. Set <code class="docutils literal notranslate"><span class="pre">training.experiment_name</span></code> (and optionally
+<code class="docutils literal notranslate"><span class="pre">training.tracking_uri</span></code>) in the YAML to control where runs are recorded. Ensemble
+training starts a parent run and logs each fold as a child run so metrics and artifacts
+are grouped together. All YAML config values and CLI overrides are logged as MLflow
+parameters for reproducibility.</p>
 </section>
 <section id="see-also">
 <h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
