@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="CLI Usage" href="../guide/cli.html"><link rel="prev" title="General Utilities (admet.utils)" href="admet.utils.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
         <title>Logging Configuration (admet.logging) - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -216,7 +216,7 @@
 <li class="toctree-l2"><a class="reference internal" href="admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.evaluate.html">Evaluation Metrics (<cite>admet.evaluate</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
@@ -300,7 +300,7 @@ dependencies while supporting a minimal JSON formatter.</p>
 </section>
 <dl class="py class">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.logging.</span></span><span class="sig-name descname"><span class="pre">JsonFormatter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fmt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datefmt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'%'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">validate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">defaults</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/logging.html#JsonFormatter"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.logging.</span></span><span class="sig-name descname"><span class="pre">JsonFormatter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fmt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datefmt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'%'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">validate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">defaults</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/logging.html#JsonFormatter"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Formatter</span></code></a></p>
 <p>Minimal JSON log formatter.</p>
 <p>Serializes standard log record fields plus an optional exception stack.</p>
@@ -346,6 +346,23 @@ enables structured JSON logging.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.logging.</span></span><span class="sig-name descname"><span class="pre">get_logging_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/logging.html#get_logging_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Return current root logging configuration.</p>
+<p>Inspects the root logger to determine level, file handler (if present),
+and whether structured logging is active.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Mapping with keys: <code class="docutils literal notranslate"><span class="pre">level</span></code> (str), <code class="docutils literal notranslate"><span class="pre">file</span></code> (str|None),
+<code class="docutils literal notranslate"><span class="pre">structured</span></code> (bool).</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -428,7 +445,7 @@ enables structured JSON logging.</p>
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

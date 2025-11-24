@@ -1,7 +1,17 @@
+"""Tests to validate data loader behavior and schema validation.
+
+These tests create simple CSV splits and assert that the schema validation
+and helper functions behave as expected.
+"""
+
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
 from pathlib import Path
+
+# No additional typing imports required in this test
 
 from admet.data.load import (
     validate_dataset_schema,
@@ -10,7 +20,7 @@ from admet.data.load import (
 )
 
 
-def _make_split(path: Path, n_rows: int = 20, n_bits: int = 16):
+def _make_split(path: Path, n_rows: int = 20, n_bits: int = 16) -> None:
     fp_cols = expected_fingerprint_columns(n_bits)
     data = {
         "Molecule Name": [f"MOL_{i}" for i in range(n_rows)],
@@ -27,7 +37,7 @@ def _make_split(path: Path, n_rows: int = 20, n_bits: int = 16):
     df.to_csv(path, index=False)
 
 
-def test_validate_dataset_schema_missing_column(tmp_path: Path):
+def test_validate_dataset_schema_missing_column(tmp_path: Path) -> None:
     _make_split(tmp_path / "train.csv")
     df = pd.read_csv(tmp_path / "train.csv")
     fp_cols = expected_fingerprint_columns(16)

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Tuple
 
 from admet.data.load import LoadedDataset
 from admet.model.base import ModelProtocol
+from admet.evaluate.metrics import AllMetrics
+from .model_trainer import RunSummary
 
 from .model_trainer import BaseModelTrainer
 from .ray_trainer import BaseEnsembleTrainer
@@ -21,7 +23,7 @@ def train_model(
     sample_weight_mapping: Optional[Dict[str, float]] = None,
     output_dir: Optional[Path] = None,
     seed: Optional[int] = None,
-):
+) -> Tuple[AllMetrics, Optional[RunSummary]]:
     trainer = trainer_cls(model_cls=model_cls, model_params=model_params, seed=seed)
     return trainer.fit(
         dataset,
@@ -53,7 +55,7 @@ def train_ensemble(
     mlflow_params: Optional[Dict[str, object]] = None,
     mlflow_cli_params: Optional[Dict[str, object]] = None,
     worker_thread_limit: Optional[int] = None,
-):
+) -> Dict[str, Dict[str, object]]:
     ray_trainer = ensemble_trainer_cls(
         trainer_cls=trainer_cls,
         trainer_kwargs={"model_cls": model_cls, "model_params": model_params, "seed": seed},

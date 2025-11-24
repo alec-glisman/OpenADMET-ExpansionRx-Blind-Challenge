@@ -38,6 +38,7 @@ labels with the same length.
 """
 
 from typing import Dict, Callable, Any
+from pathlib import Path
 import logging
 import gc
 
@@ -193,9 +194,7 @@ class DatasetSplitter:
 
         return fold_splits
 
-    def create_splits(
-        self, datasets: Dict[str, pd.DataFrame]
-    ) -> Dict[str, Dict[str, Dict[str, Dict[int, Dict[str, Dict[str, np.ndarray]]]]]]:
+    def create_splits(self, datasets: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
         """Create stratified indices for all datasets and registered methods.
 
         Parameters
@@ -299,9 +298,9 @@ class DatasetSplitter:
 
     def save_splits_as_huggingface(
         self,
-        split_structure: Dict,
+        split_structure: Dict[str, Any],
         datasets: Dict[str, pd.DataFrame],
-        output_dir: str,
+        output_dir: str | Path,
     ) -> None:
         """Persist generated splits as Hugging Face ``DatasetDict`` objects.
 
@@ -314,7 +313,7 @@ class DatasetSplitter:
         output_dir : str | Path
             Root directory under which split folders are created.
         """
-        from pathlib import Path
+        # Use module-level Path import
 
         output_dir = Path(output_dir)
 
@@ -356,10 +355,10 @@ class DatasetSplitter:
     def create_and_save_splits(
         self,
         datasets: Dict[str, pd.DataFrame],
-        output_dir,
+        output_dir: str | Path,
         visualizer=None,
-        overwrite=False,
-    ) -> Dict:
+        overwrite: bool = False,
+    ) -> Dict[str, Any]:
         """Convenience wrapper to generate and persist splits in one pass.
 
         Parameters
@@ -384,7 +383,7 @@ class DatasetSplitter:
         ValueError
             If fold combination encounters missing keys.
         """
-        from pathlib import Path
+        # Use module-level Path import
 
         output_dir = Path(output_dir)
         split_datasets: Dict[str, Any] = {}
@@ -481,7 +480,7 @@ class DatasetSplitter:
         visualizer : DatasetVisualizer, optional
             If provided, produces per‑fold visualisations.
         """
-        from pathlib import Path
+        # Use module-level Path import
 
         output_dir = Path(output_dir)
 

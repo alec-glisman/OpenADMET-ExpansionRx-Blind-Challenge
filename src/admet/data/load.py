@@ -53,7 +53,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple, cast
 import logging
 
-from datasets import load_from_disk
+from datasets import load_from_disk, DatasetDict
 import pandas as pd
 import numpy as np
 
@@ -192,7 +192,7 @@ def load_dataset_from_hf(
     ValueError
         If required splits are missing or schema validation fails.
     """
-    dset = load_from_disk(str(root))
+    dset: DatasetDict = load_from_disk(str(root))
 
     # Check for required splits
     required_splits = ["train", "validation", "test"]

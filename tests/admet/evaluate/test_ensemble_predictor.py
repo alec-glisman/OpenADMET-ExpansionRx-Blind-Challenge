@@ -1,5 +1,15 @@
+"""Tests for the ensemble predictor and discovery helpers.
+
+These unit tests verify the discovery of model run directories and that an
+ensemble prediction run returns a consistent `EnsemblePredictSummary` object.
+"""
+
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import List
+import pytest
 
 import pandas as pd
 
@@ -12,7 +22,7 @@ from admet.model.base import BaseModel
 
 
 class _DummyModel(BaseModel):
-    def __init__(self, endpoints):
+    def __init__(self, endpoints: List[str]):
         self.endpoints = list(endpoints)
         self.input_type = "smiles"
 
@@ -41,7 +51,7 @@ class _DummyModel(BaseModel):
         return {}
 
 
-def test_discover_model_runs_prefers_run_meta(tmp_path):
+def test_discover_model_runs_prefers_run_meta(tmp_path: Path) -> None:
     root = tmp_path / "runs"
     run1 = root / "run1"
     run2 = root / "run2"
@@ -54,7 +64,7 @@ def test_discover_model_runs_prefers_run_meta(tmp_path):
     assert set(found) == {run1, run2}
 
 
-def test_run_ensemble_predictions_from_root_smoke(tmp_path, monkeypatch):
+def test_run_ensemble_predictions_from_root_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Create fake runs with run_meta.json so that load_model_from_dir succeeds
     root = tmp_path / "runs"
     run1 = root / "run1"
@@ -94,5 +104,6 @@ def test_run_ensemble_predictions_from_root_smoke(tmp_path, monkeypatch):
     assert set(summary.model_dirs) == {run1, run2}
     assert summary.endpoints == ["LogD", "KSOL"]
     assert summary.preds_log_eval is not None
-    assert "pred_LogD_ensemble_log" in summary.preds_log_eval.columns
-    assert summary.metrics_log is not None
+    # Updated API: ensemble predictions stored directly in endpoint columns
+    assert "LogD" in summary.preds_log_eval.columns
+    assert summary.metrics_log_eval is not None

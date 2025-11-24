@@ -26,7 +26,7 @@ Custom output directory::
     admet download expansion_teaser --output-dir ./data
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any, cast
 from pathlib import Path
 import logging
 
@@ -84,7 +84,7 @@ def download(
             typer.echo(msg, err=True)
             raise typer.Exit(code=1)
 
-        dataset_info = DATASETS[dataset_name]
+        dataset_info = cast(Dict[str, Any], DATASETS[dataset_name])
         dataset_type = dataset_info.get("type")
         dataset_uri = dataset_info.get("uri")
         output_file = dataset_info.get("output_file")

@@ -5,13 +5,13 @@ This module provides classes and functions for visualizing the characteristics
 and distributions of dataset splits, including endpoint coverage and split sizes.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 import logging
 from pathlib import Path
 
-import pandas as pd
-import numpy as np
+import pandas as pd  # type: ignore[import-not-found]
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import seaborn as sns
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,9 @@ DEFAULT_ENDPOINTS: List[str] = [
     "MBPB",
     "MGMB",
 ]
+
+
+# MaxNLocator is used to ensure integer tick labels on y axes
 
 
 class DatasetVisualizer:
@@ -48,7 +51,7 @@ class DatasetVisualizer:
     def __init__(
         self,
         dpi: int = 600,
-        endpoints: List[str] = None,
+        endpoints: Optional[List[str]] = None,
     ) -> None:
         """
         Initialize the dataset visualizer.
@@ -62,7 +65,7 @@ class DatasetVisualizer:
         """
         self.dpi = dpi
         self.endpoints = endpoints or DEFAULT_ENDPOINTS
-        logger.debug(f"Initialized DatasetVisualizer with {len(self.endpoints)} endpoints")
+        logger.debug("Initialized DatasetVisualizer with %d endpoints", len(self.endpoints))
 
     def plot_endpoint_coverage(
         self,
@@ -107,8 +110,8 @@ class DatasetVisualizer:
         plt.savefig(output_path, dpi=self.dpi)
         plt.close()
 
-        logger.debug(f"Saved endpoint coverage plot to {output_path}")
-        logger.info(f"Saved endpoint coverage plot: {output_path.name}")
+        logger.debug("Saved endpoint coverage plot to %s", output_path)
+        logger.info("Saved endpoint coverage plot: %s", output_path.name)
 
     def plot_test_set_distribution(
         self,
@@ -134,8 +137,8 @@ class DatasetVisualizer:
         splits = split_structure[dataset_name]
 
         for split_name, split_data in splits.items():
-            for split_id, folds in split_data.items():
-                for fold_id, datasets_dict in folds.items():
+            for _split_id, folds in split_data.items():
+                for _fold_id, datasets_dict in folds.items():
                     if "total" not in datasets_dict:
                         continue
                     n_test_samples = len(datasets_dict["total"]["test"])
@@ -148,7 +151,7 @@ class DatasetVisualizer:
         ax.set_title(f"Distribution of Test Set Sizes for Different Split Methods\nDataset: {dataset_name}")
         ax.set_ylabel("Number of Test Samples")
         ax.set_xlabel("Split Method")
-        ax.yaxis.get_major_locator().set_params(integer=True)
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         ax.tick_params(axis="x", rotation=45)
         ax.grid(True, axis="y", linestyle="--", alpha=0.7)
 
@@ -156,8 +159,8 @@ class DatasetVisualizer:
         fig.savefig(output_path, dpi=self.dpi)
         plt.close()
 
-        logger.debug(f"Saved test set distribution plot to {output_path}")
-        logger.info(f"Saved test set distribution plot: {output_path.name}")
+        logger.debug("Saved test set distribution plot to %s", output_path)
+        logger.info("Saved test set distribution plot: %s", output_path.name)
 
     def plot_split_size_distribution(
         self,
@@ -185,8 +188,8 @@ class DatasetVisualizer:
         fold_sizes = []
         split_data = split_structure[dataset_name][split_method]
 
-        for split_id, folds in split_data.items():
-            for fold_id, groups in folds.items():
+        for _split_id, folds in split_data.items():
+            for _fold_id, groups in folds.items():
                 for group_name, datasets in groups.items():
                     if group_name == "total":
                         continue
@@ -195,8 +198,8 @@ class DatasetVisualizer:
                     test_size = len(datasets["test"])
                     fold_sizes.append(
                         {
-                            "Split ID": split_id,
-                            "Fold ID": fold_id,
+                            "Split ID": _split_id,
+                            "Fold ID": _fold_id,
                             "Group": group_name,
                             "Train Size": train_size,
                             "Test Size": test_size,
@@ -230,8 +233,8 @@ class DatasetVisualizer:
         fig.savefig(output_path, dpi=self.dpi)
         plt.close()
 
-        logger.debug(f"Saved split size distribution plot to {output_path}")
-        logger.info(f"Saved split size distribution plot: {output_path.name}")
+        logger.debug("Saved split size distribution plot to %s", output_path)
+        logger.info("Saved split size distribution plot: %s", output_path.name)
 
     def visualize_all_splits(
         self,
@@ -257,10 +260,10 @@ class DatasetVisualizer:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Generating visualizations in {output_dir}")
+        logger.info("Generating visualizations in %s", output_dir)
 
         for dset_name, splits in split_structure.items():
-            logger.info(f"Creating visualizations for dataset: {dset_name}")
+            logger.info("Creating visualizations for dataset: %s", dset_name)
 
             # Plot test set size distributions
             test_dist_path = output_dir / f"{dset_name}_test_set_size_distribution.png"
@@ -345,6 +348,12 @@ class DatasetVisualizer:
         self.plot_endpoint_coverage(train_df, val_df, test_df, endpoint_path)
 
         logger.debug(
-            f"Visualized {dset_name}_{split_name}_{split_id}_{fold_id}: "
-            f"train={len(train_idx)}, val={len(val_idx)}, test={len(test_idx)}"
+            "Visualized %s_%s_%s_%s: train=%d, val=%d, test=%d",
+            dset_name,
+            split_name,
+            split_id,
+            fold_id,
+            len(train_idx),
+            len(val_idx),
+            len(test_idx),
         )

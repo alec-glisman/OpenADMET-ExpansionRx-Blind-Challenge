@@ -1,8 +1,15 @@
-"""Integration tests for CLI training with MLflow and Ray."""
+"""Integration tests for CLI training with MLflow and Ray.
+
+These tests create temporary HF-like datasets and run the CLI to assert that
+training and MLflow tracking produce expected artifacts. Tests are intentionally
+small and use minimal estimators to keep runtime manageable in CI.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+# No additional typing imports necessary for this test module
 import numpy as np
 import pandas as pd
 import pytest
@@ -36,7 +43,14 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 24, n_bits: int = 16) -> Pat
     return root
 
 
-def _write_config(cfg_path: Path, *, data_root: Path, output_dir: Path, tracking_dir: Path, multi: bool):
+def _write_config(
+    cfg_path: Path,
+    *,
+    data_root: Path,
+    output_dir: Path,
+    tracking_dir: Path,
+    multi: bool,
+) -> None:
     cfg = {
         "models": {
             "xgboost": {
@@ -66,14 +80,16 @@ def limit_threads(monkeypatch):
     yield
 
 
-def test_cli_single_training_logs_to_mlflow(tmp_path: Path):
+def test_cli_single_training_logs_to_mlflow(tmp_path: Path) -> None:
     data_root = tmp_path / "hf_dataset"
     data_root.mkdir(parents=True)
     _make_hf_like_dataset(data_root)
     cfg_path = tmp_path / "single.yaml"
     output_dir = tmp_path / "artifacts_single"
     tracking_dir = tmp_path / "mlruns_single"
-    _write_config(cfg_path, data_root=data_root, output_dir=output_dir, tracking_dir=tracking_dir, multi=False)
+    _write_config(
+        cfg_path, data_root=data_root, output_dir=output_dir, tracking_dir=tracking_dir, multi=False
+    )
 
     runner = CliRunner()
     result = runner.invoke(app, ["train", "xgb", "--config", str(cfg_path)])
@@ -88,7 +104,7 @@ def test_cli_single_training_logs_to_mlflow(tmp_path: Path):
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
-def test_cli_ensemble_training_logs_parent_and_child(tmp_path: Path):
+def test_cli_ensemble_training_logs_parent_and_child(tmp_path: Path) -> None:
     root = tmp_path / "ensemble_root"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)

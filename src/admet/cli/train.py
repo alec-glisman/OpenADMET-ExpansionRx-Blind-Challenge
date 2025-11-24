@@ -49,7 +49,7 @@ from pathlib import Path
 import logging
 
 import typer
-import yaml
+import yaml  # type: ignore[import-not-found]
 import numpy as np
 import mlflow
 
@@ -59,6 +59,8 @@ from admet.train.base import train_model, train_ensemble, BaseEnsembleTrainer
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 from admet.train.mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
 from admet.utils import get_git_commit_hash
+from admet.evaluate.metrics import AllMetrics
+from typing import cast
 
 logger = logging.getLogger(__name__)
 app = typer.Typer(
@@ -101,6 +103,7 @@ def xgb(
         Override for the dataset directory. If omitted, ``data.root`` from the YAML
         configuration is used. Required when ``data.root`` is missing.
     """
+    logger.info("Starting XGBoost training CLI invocation")
     cfg = yaml.safe_load(config.read_text()) or {}
     # Use `or {}` to guard against keys being present with a null value in YAML
     # (yaml.safe_load can return None for empty files, and a key that maps to
@@ -154,7 +157,7 @@ def xgb(
     ray_address = ray_cfg.get("address")
     ray_cfg["address"] = ray_address
 
-    def _format_value(v):
+    def _format_value(v: object) -> object:
         # Format numeric values to 4 decimal places; for dicts, format inner numeric values;
         # otherwise fall back to JSON-serializable Python types (strings or None).
         if v is None:
@@ -208,7 +211,7 @@ def xgb(
                     endpoints=endpoints,
                     n_fingerprint_bits=n_fingerprint_bits,
                 )
-                run_metrics, summary = train_model(
+                run_metrics, _ = train_model(
                     dataset,
                     trainer_cls=XGBoostTrainer,
                     model_cls=XGBoostMultiEndpoint,
@@ -283,9 +286,10 @@ def xgb(
             for rel_key, payload in results.items():
                 status = str(payload.get("status", "unknown"))
                 status_counts[status] = status_counts.get(status, 0) + 1
-                run_metrics = payload.get("run_metrics")
-                if run_metrics:
-                    mlflow.log_metrics(flatten_metrics(run_metrics, prefix=f"ensemble.{rel_key}"))
+                run_metrics_val = payload.get("run_metrics")
+                if run_metrics_val:
+                    run_metrics_cast = cast(AllMetrics, run_metrics_val)
+                    mlflow.log_metrics(flatten_metrics(run_metrics_cast, prefix=f"ensemble.{rel_key}"))
             status_counts["total"] = len(results)
             if status_counts:
                 mlflow.log_metrics({f"ensemble.status.{k}": v for k, v in status_counts.items()})
@@ -307,13 +311,14 @@ def xgb(
             # Print metrics per discovered dataset
             for rel_key, payload in results.items():
                 typer.echo(f"=== Results for dataset: {rel_key} ===")
-                run_metrics = payload.get("run_metrics")
-                if not run_metrics:
+                run_metrics_val = payload.get("run_metrics")
+                if not run_metrics_val:
                     typer.echo(f"No metrics available (status: {payload.get('status', 'unknown')})")
                     continue
+                run_metrics_cast = cast(AllMetrics, run_metrics_val)
                 for split in ["train", "validation", "test"]:
                     typer.echo(f"Metrics for {split} split:")
-                    macro_metrics = run_metrics[split]["macro"]
+                    macro_metrics = run_metrics_cast[split]["macro"]
                     formatted_metrics = {k: _format_value(v) for k, v in macro_metrics.items()}
                     typer.echo(json.dumps(formatted_metrics, indent=2))
 

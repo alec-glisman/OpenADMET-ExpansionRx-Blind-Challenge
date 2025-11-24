@@ -1,11 +1,15 @@
-"""Unit tests for the ensemble evaluation helpers."""
+"""Unit tests for the ensemble evaluation helpers.
+
+These tests validate prediction aggregation, evaluation on labeled datasets
+and blind datasets, and expected data frame shapes.
+"""
 
 from __future__ import annotations
 
+from typing import Sequence
+
 import numpy as np
 import pandas as pd
-import tempfile
-from pathlib import Path
 
 from admet.evaluate.ensemble import (
     aggregate_predictions,
@@ -15,7 +19,7 @@ from admet.evaluate.ensemble import (
 
 
 class DummyModel:
-    def __init__(self, endpoints, input_type="smiles", constant=0.0):
+    def __init__(self, endpoints: Sequence[str], input_type: str = "smiles", constant: float = 0.0):
         self.endpoints = list(endpoints)
         self.input_type = input_type
         self.constant = constant
@@ -26,7 +30,7 @@ class DummyModel:
         return np.full((n, len(self.endpoints)), self.constant)
 
 
-def test_aggregate_predictions_mean_median():
+def test_aggregate_predictions_mean_median() -> None:
     # 2 models, 3 rows, 2 endpoints
     arr = np.zeros((2, 3, 2))
     arr[0] += 1.0
@@ -39,7 +43,7 @@ def test_aggregate_predictions_mean_median():
     assert np.allclose(median, 2.0)
 
 
-def test_evaluate_labeled_dataset_perfect_prediction():
+def test_evaluate_labeled_dataset_perfect_prediction() -> None:
     endpoints = ["LogD", "KSOL"]
     # Create a tiny DataFrame with two rows
     df = pd.DataFrame(
@@ -60,15 +64,18 @@ def test_evaluate_labeled_dataset_perfect_prediction():
 
         def predict(self, X):
             # X shape (n, 1) -> simple backfill from df input
-            n = X.shape[0]
-            # Return the 'true' mapping from SMILES via known DF order
-            # For test, we manually return same values
+            # Use DF order implicitly; predictions mirror true targets
             return np.array([[0.0, 1.0], [1.0, 2.0]])
 
     models = [PerfectModel(endpoints), PerfectModel(endpoints)]
-    preds_log_df, preds_lin_df, metrics_log_df, metrics_lin_df, model_vs_ens_df = evaluate_labeled_dataset(
+    preds_log_df, preds_lin_df, metrics_log_df, metrics_lin_df = evaluate_labeled_dataset(
         models, df, endpoints, agg_fn="mean"
     )
+    # Ensure all returned DataFrames are present and not empty
+    assert preds_log_df is not None and not preds_log_df.empty
+    assert preds_lin_df is not None and not preds_lin_df.empty
+    assert metrics_log_df is not None and not metrics_log_df.empty
+    assert metrics_lin_df is not None and not metrics_lin_df.empty
     # Perfect predictions should yield small RMSE and R2 close to 1 per endpoint
     # We expect RMSE close to 0 and R2 close to 1
     # Metrics CSVs contain rows for endpoints -> check for presence
@@ -76,7 +83,7 @@ def test_evaluate_labeled_dataset_perfect_prediction():
     assert "KSOL" in metrics_log_df[metrics_log_df["endpoint"] == "KSOL"]["endpoint"].values
 
 
-def test_evaluate_blind_dataset_basic():
+def test_evaluate_blind_dataset_basic() -> None:
     endpoints = ["LogD", "KSOL"]
     df = pd.DataFrame({"Molecule Name": ["a"], "SMILES": ["CCO"]})
     # Model returns fixed prediction
@@ -88,5 +95,6 @@ def test_evaluate_blind_dataset_basic():
     assert "Molecule Name" in preds_log_df.columns
     assert "SMILES" in preds_log_df.columns
     # Ensemble column present
-    assert f"pred_{endpoints[0]}_ensemble_log" in preds_log_df.columns
-    assert f"pred_linear_{endpoints[0]}_ensemble_log" in preds_lin_df.columns
+    # New API: predictions DataFrames contain endpoint columns directly
+    assert endpoints[0] in preds_log_df.columns
+    assert endpoints[0] in preds_lin_df.columns

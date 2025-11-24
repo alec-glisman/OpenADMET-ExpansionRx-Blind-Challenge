@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
         <link rel="prefetch" href="../../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
         <title>admet.visualize.model_performance - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=580074bf" />
@@ -207,7 +207,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/admet.evaluate.html">Evaluation Metrics (<cite>admet.evaluate</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
@@ -289,7 +289,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
@@ -299,8 +299,32 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="n">metrics</span> <span class="k">as</span> <span class="n">eval_metrics</span>
 
 
+<span class="c1"># _safe_endpoint_slug is defined in ensemble_eval; redefine lightweight here to avoid circular deps.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_safe_endpoint_slug</span><span class="p">(</span><span class="n">endpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a filesystem-safe slug for an endpoint name.&quot;&quot;&quot;</span>
+    <span class="n">replacements</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot; &quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">:</span> <span class="s2">&quot;lt&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span> <span class="s2">&quot;gt&quot;</span><span class="p">}</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">endpoint</span>
+    <span class="k">for</span> <span class="n">src</span><span class="p">,</span> <span class="n">tgt</span> <span class="ow">in</span> <span class="n">replacements</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">tgt</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="n">_MAX_LOG10_BEFORE_OVERFLOW</span> <span class="o">=</span> <span class="mf">308.0</span>  <span class="c1"># log10(np.finfo(float).max) ~ 308.254</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_safe_power10</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exponentiate base-10 values with clipping to avoid overflow.&quot;&quot;&quot;</span>
+
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">clipped</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">a_min</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">a_max</span><span class="o">=</span><span class="n">_MAX_LOG10_BEFORE_OVERFLOW</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">clipped</span><span class="p">)</span>
+    <span class="c1"># Replace any residual infs/NaNs with NaN for downstream handling</span>
+    <span class="n">result</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">result</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
 <div class="viewcode-block" id="to_linear">
-<a class="viewcode-back" href="../../../api/admet.visualize.html#admet.visualize.to_linear">[docs]</a>
+<a class="viewcode-back" href="../../../api/admet.visualize.html#admet.visualize.model_performance.to_linear">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">to_linear</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert log10 values to linear space for non-``LogD`` endpoints.</span>
 
@@ -345,13 +369,13 @@
     <span class="n">out</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">endpoints</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">ep</span> <span class="o">!=</span> <span class="s2">&quot;LogD&quot;</span><span class="p">:</span>
-            <span class="n">out</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">out</span><span class="p">[:,</span> <span class="n">j</span><span class="p">])</span>
+            <span class="n">out</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">_safe_power10</span><span class="p">(</span><span class="n">out</span><span class="p">[:,</span> <span class="n">j</span><span class="p">])</span>
     <span class="k">return</span> <span class="n">out</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_masked_arrays</span><span class="p">(</span>
     <span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract valid true/pred arrays for endpoint index ``j``.</span>
 
 <span class="sd">    Parameters</span>
@@ -462,8 +486,8 @@
             <span class="n">t</span> <span class="o">=</span> <span class="n">y_t</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
             <span class="n">p</span> <span class="o">=</span> <span class="n">y_p</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">&quot;linear&quot;</span> <span class="ow">and</span> <span class="n">ep</span> <span class="o">!=</span> <span class="s2">&quot;LogD&quot;</span><span class="p">:</span>
-                <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
-                <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="n">_safe_power10</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">_safe_power10</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
             <span class="n">pooled_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
             <span class="n">pooled_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">pooled_vals</span><span class="p">:</span>
@@ -481,8 +505,8 @@
         <span class="n">mask</span> <span class="o">=</span> <span class="n">mask_dict</span><span class="p">[</span><span class="n">s</span><span class="p">][:,</span> <span class="n">j</span><span class="p">]</span>
         <span class="n">y_t_valid</span><span class="p">,</span> <span class="n">y_p_valid</span> <span class="o">=</span> <span class="n">_masked_arrays</span><span class="p">(</span><span class="n">y_t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">y_p</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">mask</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">&quot;linear&quot;</span> <span class="ow">and</span> <span class="n">ep</span> <span class="o">!=</span> <span class="s2">&quot;LogD&quot;</span><span class="p">:</span>
-            <span class="n">y_t_valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">y_t_valid</span><span class="p">)</span>
-            <span class="n">y_p_valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">y_p_valid</span><span class="p">)</span>
+            <span class="n">y_t_valid</span> <span class="o">=</span> <span class="n">_safe_power10</span><span class="p">(</span><span class="n">y_t_valid</span><span class="p">)</span>
+            <span class="n">y_p_valid</span> <span class="o">=</span> <span class="n">_safe_power10</span><span class="p">(</span><span class="n">y_p_valid</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">y_t_valid</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
@@ -545,7 +569,7 @@
         <span class="p">)</span>
 
     <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">))</span>
-    <span class="n">fpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;parity_</span><span class="si">{</span><span class="n">ep</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.png&quot;</span>
+    <span class="n">fpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_dir</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;parity_</span><span class="si">{</span><span class="n">_safe_endpoint_slug</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span><span class="si">}</span><span class="s2">.png&quot;</span>
     <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="n">dpi</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 
@@ -629,7 +653,7 @@
 
 
 <div class="viewcode-block" id="plot_parity_grid">
-<a class="viewcode-back" href="../../../api/admet.visualize.html#admet.visualize.plot_parity_grid">[docs]</a>
+<a class="viewcode-back" href="../../../api/admet.visualize.html#admet.visualize.model_performance.plot_parity_grid">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_parity_grid</span><span class="p">(</span>
     <span class="n">y_true_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">y_pred_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -683,7 +707,7 @@
 
 
 <div class="viewcode-block" id="plot_metric_bars">
-<a class="viewcode-back" href="../../../api/admet.visualize.html#admet.visualize.plot_metric_bars">[docs]</a>
+<a class="viewcode-back" href="../../../api/admet.visualize.html#admet.visualize.model_performance.plot_metric_bars">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_metric_bars</span><span class="p">(</span>
     <span class="n">y_true_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">y_pred_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -793,7 +817,7 @@
     </aside>
   </div>
 </div><script src="../../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>

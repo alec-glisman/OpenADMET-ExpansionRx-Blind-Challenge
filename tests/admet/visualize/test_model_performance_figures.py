@@ -1,3 +1,11 @@
+"""Visualization tests for model performance plotting functions.
+
+These confirm that parity and metric plots are generated on disk and have
+non-empty payloads for both log and linear spaces.
+"""
+
+from __future__ import annotations
+
 import numpy as np
 from pathlib import Path
 from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
@@ -14,7 +22,7 @@ def _make_synthetic():
     return endpoints, y, y_pred, mask
 
 
-def test_plot_generation(tmp_path: Path):
+def test_plot_generation(tmp_path: Path) -> None:
     endpoints, y_true, y_pred, mask = _make_synthetic()
     y_true_dict = {"train": y_true, "validation": y_true, "test": y_true}
     y_pred_dict = {"train": y_pred, "validation": y_pred, "test": y_pred}
@@ -29,7 +37,7 @@ def test_plot_generation(tmp_path: Path):
             endpoints,
             space=space,
             save_dir=space_dir,
-            n_jobs=2,
+            n_jobs=1,
         )
         for ep in endpoints:
             fname = space_dir / f"parity_{ep.replace(' ', '_').replace('/', '_')}.png"
@@ -52,7 +60,7 @@ def test_plot_generation(tmp_path: Path):
             space=space,
             save_path_r2=r2_path,
             save_path_spr2=spr2_path,
-            n_jobs=2,
+            n_jobs=1,
         )
         for p in metric_paths:
             assert p.exists() and p.stat().st_size > 0

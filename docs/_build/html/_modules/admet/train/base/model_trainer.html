@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
         <link rel="prefetch" href="../../../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
         <title>admet.train.base.model_trainer - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=580074bf" />
@@ -207,7 +207,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.evaluate.html">Evaluation Metrics (<cite>admet.evaluate</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
@@ -344,14 +344,28 @@
 <div class="viewcode-block" id="BaseModelTrainer.prepare_features">
 <a class="viewcode-back" href="../../../../api/admet.train.html#admet.train.BaseModelTrainer.prepare_features">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">prepare_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="s2">&quot;LoadedDataset&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare feature matrices for train/validation/test splits.</span>
+
+<span class="sd">        For fingerprint featurization, this delegates to ``_extract_features`` which</span>
+<span class="sd">        returns ``float32`` NumPy arrays without unnecessary copies.</span>
+
+<span class="sd">        For SMILES featurization, this returns the configured SMILES column as</span>
+<span class="sd">        an ``object``-dtype 2D array of shape ``(n_samples, 1)`` for each split.</span>
+<span class="sd">        Keeping SMILES as objects prevents pandas from attempting a lossy string</span>
+<span class="sd">        -&gt; float conversion while still satisfying the expected shapes in</span>
+<span class="sd">        unit tests and downstream featurizers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">:</span>
             <span class="n">feature_cols</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">fingerprint_cols</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">SMILES</span><span class="p">:</span>
             <span class="n">feature_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">dataset</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported featurization method: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">featurization</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="n">feature_cols</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No feature columns found in dataset; cannot prepare features.&quot;</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="p">[</span>
             <span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">),</span>
             <span class="p">(</span><span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">val</span><span class="p">),</span>
@@ -360,11 +374,26 @@
             <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">feature_cols</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing fingerprint columns in </span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2"> split: </span><span class="si">{</span><span class="n">missing</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
-            <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">val</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
-            <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">test</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
-        <span class="p">)</span></div>
+
+        <span class="c1"># Numeric fingerprint features use the optimized float32 extractor.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
+                <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">val</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
+                <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">test</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># SMILES featurization keeps raw SMILES strings as object arrays.</span>
+        <span class="c1"># Each split is returned as shape (n_samples, 1) to match tests and</span>
+        <span class="c1"># provide a consistent interface to downstream featurizers.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">SMILES</span><span class="p">:</span>
+            <span class="n">X_train</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">feature_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+            <span class="n">X_val</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">val</span><span class="p">[</span><span class="n">feature_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+            <span class="n">X_test</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">test</span><span class="p">[</span><span class="n">feature_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">X_test</span>
+
+        <span class="c1"># The above branches should be exhaustive, but keep mypy satisfied.</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported featurization method: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">featurization</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="BaseModelTrainer.prepare_targets">
@@ -390,8 +419,29 @@
 
 <div class="viewcode-block" id="BaseModelTrainer.prepare_masks">
 <a class="viewcode-back" href="../../../../api/admet.train.html#admet.train.BaseModelTrainer.prepare_masks">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">Y_val</span><span class="p">,</span> <span class="n">Y_test</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_target_mask</span><span class="p">(</span><span class="n">Y_train</span><span class="p">),</span> <span class="n">_target_mask</span><span class="p">(</span><span class="n">Y_val</span><span class="p">),</span> <span class="n">_target_mask</span><span class="p">(</span><span class="n">Y_test</span><span class="p">)</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_masks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Y_train</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">Y_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">Y_test</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build presence masks (1 if target present else 0) for each split.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        Y_train, Y_val, Y_test : numpy.ndarray</span>
+<span class="sd">            2-D target arrays (``(N_samples, N_endpoints)``) for each split.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]</span>
+<span class="sd">            Tuple of ``(mask_train, mask_val, mask_test)`` with ``int`` dtype.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">_target_mask</span><span class="p">(</span><span class="n">Y_train</span><span class="p">),</span>
+            <span class="n">_target_mask</span><span class="p">(</span><span class="n">Y_val</span><span class="p">),</span>
+            <span class="n">_target_mask</span><span class="p">(</span><span class="n">Y_test</span><span class="p">),</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="BaseModelTrainer.build_sample_weights">
@@ -400,7 +450,22 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">dataset</span><span class="p">:</span> <span class="s2">&quot;LoadedDataset&quot;</span><span class="p">,</span>
         <span class="n">sample_weight_mapping</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return per-sample weights for the training split.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        dataset : LoadedDataset</span>
+<span class="sd">            Loaded dataset object containing a training split with a ``Dataset`` column.</span>
+<span class="sd">        sample_weight_mapping : dict[str, float] | None</span>
+<span class="sd">            Mapping of dataset label -&gt; weight. Special key ``&quot;default&quot;`` is used when</span>
+<span class="sd">            a label is missing.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray | None</span>
+<span class="sd">            1-D float array of length ``len(dataset.train)`` or ``None`` if mapping absent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sample_weight_mapping</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="s2">&quot;Dataset&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
@@ -510,7 +575,7 @@
         <span class="n">output_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">extra_meta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dry_run</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RunSummary</span><span class="p">]]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">AllMetrics</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RunSummary</span><span class="p">]]:</span>
         <span class="n">set_global_seeds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span> <span class="o">=</span> <span class="n">get_git_commit_hash</span><span class="p">()</span>
@@ -620,7 +685,7 @@
     </aside>
   </div>
 </div><script src="../../../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>

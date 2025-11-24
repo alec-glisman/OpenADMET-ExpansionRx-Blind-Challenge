@@ -110,3 +110,7 @@ src_paths = ["src"]
 max-line-length = 109
 extend-ignore = "E203, W503"
 exclude = ".git,__pycache__,.venv,env,build,dist"
+
+[tool.mypy]
+# Avoid noisy missing-stub messages for third-party libs without types
+ignore_missing_imports = true

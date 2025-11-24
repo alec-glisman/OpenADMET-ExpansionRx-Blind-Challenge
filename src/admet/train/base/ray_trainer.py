@@ -138,7 +138,10 @@ def _train_single_dataset_remote(
                         status = "partial"
                     else:
                         for split in expected_splits:
-                            if not isinstance(run_metrics.get(split, {}), dict) or "macro" not in run_metrics[split]:
+                            if (
+                                not isinstance(run_metrics.get(split, {}), dict)
+                                or "macro" not in run_metrics[split]
+                            ):
                                 status = "partial"
                                 break
             end_ts = datetime.datetime.now()
@@ -198,12 +201,26 @@ class BaseEnsembleTrainer:
         self.trainer_kwargs = trainer_kwargs or {}
 
     def discover_datasets(self, root: Path) -> List[Path]:
+        """Return all directories named ``hf_dataset`` beneath ``root``.
+
+        Parameters
+        ----------
+        root : pathlib.Path
+            Root search path.
+
+        Returns
+        -------
+        list[pathlib.Path]
+            Discovered dataset directories.
+        """
         return [p for p in root.rglob("hf_dataset") if p.is_dir()]
 
     def infer_metadata(self, hf_path: Path, root: Path) -> Dict[str, object]:
+        """Wrapper around ``infer_split_metadata`` for potential overrides."""
         return infer_split_metadata(hf_path, root)
 
     def build_output_dir(self, base: Path, meta: Dict[str, object]) -> Path:
+        """Compute the output directory from metadata."""
         cluster = str(meta.get("cluster", "unknown_method"))
         split = str(meta.get("split", "unknown_split"))
         fold = str(meta.get("fold", "unknown_fold"))
@@ -232,12 +249,14 @@ class BaseEnsembleTrainer:
     ) -> Dict[str, Dict[str, object]]:
         if output_root is None:
             output_root = Path("models")
-        hf_paths = list(self.discover_datasets(root))
+        hf_paths: List[Path] = list(self.discover_datasets(root))
         if not hf_paths:
             raise ValueError(f"No 'hf_dataset' directories found under {root}.")
         logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
         cpu_count = num_cpus or multiprocessing.cpu_count()
-        worker_thread_limit = worker_thread_limit or max(1, cpu_count // max(1, min(len(hf_paths), cpu_count)))
+        worker_thread_limit = worker_thread_limit or max(
+            1, cpu_count // max(1, min(len(hf_paths), cpu_count))
+        )
         if ray.is_initialized():
             logger.info("Reusing existing Ray runtime (num_cpus=%s)", ray.cluster_resources().get("CPU"))
         else:
@@ -301,7 +320,7 @@ class BaseEnsembleTrainer:
                     rel_key,
                     len(remaining),
                 )
-        aggregated = {rel_key: payload for rel_key, payload in results}
+        aggregated: Dict[str, Dict[str, object]] = {rel_key: payload for rel_key, payload in results}
         summary_rows: List[Dict[str, object]] = []
         success_count = 0
         failure_count = 0
@@ -336,9 +355,10 @@ class BaseEnsembleTrainer:
             (output_root / "metrics_summary.json").write_text(summary_df.to_json(orient="records", indent=2))
             logger.info("Ray training summary: %d succeeded, %d failed", success_count, failure_count)
 
-        # TODO: Run predictions, compute metrics, and visualize performance of the entire ensemble (report mean and stderr)
-
-        # TODO: Run predictions (log and linear) on blind test set and save results
+        # Ensure Ray runtime is shut down after ensemble fit for test expectations.
+        if ray.is_initialized():
+            ray.shutdown()
+            logger.info("Shut down Ray runtime after fit_ensemble completion")
 
         return aggregated
 

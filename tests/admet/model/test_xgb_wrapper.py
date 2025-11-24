@@ -1,8 +1,17 @@
+"""Unit tests for XGBoost multi-endpoint wrapper.
+
+These tests exercise model save/load roundtrips, prediction dimension checks,
+and error handling when model prediction is invoked prior to fit.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
 from datasets import Dataset, DatasetDict
+from typing import Any
 
 from admet.data.load import load_dataset, expected_fingerprint_columns, ENDPOINT_COLUMNS
 
@@ -30,7 +39,7 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
 
 
 @pytest.fixture
-def synth_dataset(tmp_path: Path, n_rows: int = 40, n_bits: int = 16):
+def synth_dataset(tmp_path: Path, n_rows: int = 40, n_bits: int = 16) -> Any:
     fp_cols = expected_fingerprint_columns(n_bits)
     for split in ["train", "validation", "test"]:
         data = {
@@ -50,7 +59,7 @@ def synth_dataset(tmp_path: Path, n_rows: int = 40, n_bits: int = 16):
     return ds
 
 
-def test_xgboost_multiendpoint_save_load_roundtrip(tmp_path: Path):
+def test_xgboost_multiendpoint_save_load_roundtrip(tmp_path: Path) -> None:
     from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
     data_dir = tmp_path / "hf_dataset"
@@ -72,7 +81,7 @@ def test_xgboost_multiendpoint_save_load_roundtrip(tmp_path: Path):
     assert np.allclose(preds_before[mask], preds_after[mask], equal_nan=True)
 
 
-def test_predict_dimension_checks(tmp_path: Path):
+def test_predict_dimension_checks(tmp_path: Path) -> None:
     from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
     data_dir = tmp_path / "hf_dataset"
@@ -84,17 +93,18 @@ def test_predict_dimension_checks(tmp_path: Path):
     mask_train = (~np.isnan(Y_train)).astype(bool)
     model = XGBoostMultiEndpoint(endpoints=ds.endpoints, model_params={"n_estimators": 1}, random_state=42)
     model.fit(X_train, Y_train, Y_mask=mask_train, early_stopping_rounds=None)
-    import numpy as _np
+    # Use module-level numpy alias to avoid reimport
+    _np = np
 
     with pytest.raises(ValueError):
         model.predict(_np.zeros((len(X_train), X_train.shape[1] - 1)))
 
 
-def test_predict_errors_when_not_fit():
+def test_predict_errors_when_not_fit() -> None:
     from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
     model = XGBoostMultiEndpoint(endpoints=["LogD"], model_params={"n_estimators": 1}, random_state=42)
-    import numpy as _np
+    _np = np
 
     with pytest.raises(ValueError):
         model.predict(_np.zeros((2, 16)))

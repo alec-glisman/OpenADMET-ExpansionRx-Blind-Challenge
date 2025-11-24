@@ -286,7 +286,7 @@ def run_ensemble_predictions_from_root(
     )
 
 
-def _generate_features_for_models(models: List[BaseModel], smiles: pd.Series) -> dict:
+def _generate_features_for_models(models: List[BaseModel], smiles: pd.Series) -> Dict[int, np.ndarray]:
     """Prepare feature arrays per-model depending on model input type.
 
     Returns a mapping model_idx -> feature ndarray to be passed to
@@ -296,7 +296,7 @@ def _generate_features_for_models(models: List[BaseModel], smiles: pd.Series) ->
 
     fingerprint_cache: Dict[int, np.ndarray] = {}
     smiles_cache: Optional[np.ndarray] = None
-    features = {}
+    features: Dict[int, np.ndarray] = {}
     for i, m in tqdm(
         enumerate(models), total=len(models), desc="Generating features for models", dynamic_ncols=True
     ):
@@ -484,7 +484,7 @@ def evaluate_dataset(
         transform="log",
     )  # Dict[str, Dict[str, float]], endpoint -> metric -> value
     metrics["ensemble_linear"] = evaluate_metrics(
-        ens_preds_lin_df,
+        ens_preds_log_df,
         df_true_log,
         endpoints,
         transform="linear",
@@ -502,7 +502,7 @@ def evaluate_dataset(
             m_metrics = evaluate_metrics(
                 predictions=predictions_to_dataframe(
                     df_input,
-                    _apply_transform_space(preds, endpoints, space=space),
+                    preds,
                     endpoints,
                 ),
                 true_values=df_true_log,
@@ -517,10 +517,10 @@ def evaluate_dataset(
         endpoint_names = list(per_model_metrics[0].keys())
         metric_names = list(per_model_metrics[0][endpoint_names[0]].keys())
 
-        logger.debug(f"Aggregating per-model metrics for space '{space}'")
-        logger.debug(f"Collected per-model metrics for {len(per_model_metrics)} models")
-        logger.debug(f"Endpoint names: {endpoint_names}")
-        logger.debug(f"Metric names: {metric_names}")
+        logger.debug("Aggregating per-model metrics for space '%s'", space)
+        logger.debug("Collected per-model metrics for %d models", len(per_model_metrics))
+        logger.debug("Endpoint names: %s", endpoint_names)
+        logger.debug("Metric names: %s", metric_names)
 
         agg_mean_metrics: Dict[str, Dict[str, float]] = {}
         agg_stderr_metrics: Dict[str, Dict[str, float]] = {}
@@ -536,7 +536,10 @@ def evaluate_dataset(
                     std_err = float(np.nanstd(values, ddof=1) / np.sqrt(len(values)))
                 else:
                     logger.warning(
-                        f"No valid values to aggregate for metric '{metric}' at endpoint '{ep}' in space '  {space}'"
+                        "No valid values to aggregate for metric '%s' at endpoint '%s' in space '%s'",
+                        metric,
+                        ep,
+                        space,
                     )
                     mean_val = float("nan")
                     std_err = float("nan")
@@ -587,13 +590,56 @@ def evaluate_metrics(
     y_pred = predictions[list(endpoints)].to_numpy(dtype=float)
     mask = (~np.isnan(y_true)).astype(int)
 
+    # check finite
+    if not np.all(np.isfinite(y_true[mask == 1])):
+        raise ValueError("Non-finite values found in true values")
+    if not np.all(np.isfinite(y_pred[mask == 1])):
+        raise ValueError("Non-finite values found in predicted values")
+    # check that there is at least one valid value per endpoint
+    for j in range(y_true.shape[1]):
+        if np.sum(mask[:, j]) == 0:
+            raise ValueError(f"No valid true values found for endpoint '{endpoints[j]}'")
+
     if transform == "linear":
         y_true = to_linear_space_array(y_true, endpoints)
         y_pred = to_linear_space_array(y_pred, endpoints)
+
     elif transform != "log":
         raise ValueError(f"Unsupported transform '{transform}'")
 
     metrics = eval_metrics.compute_metrics(y_true, y_pred, mask, endpoints)
+
+    for ep, mdict in metrics.items():
+        for k, v in mdict.items():
+            if not np.isfinite(v):
+                try:
+                    y_true_vals = y_true[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)]
+                    y_pred_vals = y_pred[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)]
+                except (ValueError, IndexError):
+                    y_true_vals = np.array([np.nan])
+                    y_pred_vals = np.array([np.nan])
+
+                logger.debug(
+                    "y_true domain for endpoint '%s': min=%s, max=%s",
+                    ep,
+                    np.min(y_true_vals),
+                    np.max(y_true_vals),
+                )
+                logger.debug(
+                    "y_pred domain for endpoint '%s': min=%s, max=%s",
+                    ep,
+                    np.min(y_pred_vals),
+                    np.max(y_pred_vals),
+                )
+                logger.warning(
+                    "Non-finite metric '%s' for endpoint '%s' in space '%s'. True domain: min=%s, max=%s",
+                    k,
+                    ep,
+                    transform,
+                    np.min(y_true_vals),
+                    np.max(y_true_vals),
+                )
+
     return metrics
 
 

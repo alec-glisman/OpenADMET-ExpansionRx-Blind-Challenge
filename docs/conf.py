@@ -88,21 +88,21 @@ ogp_type = "website"
 
 # Intersphinx mapping for common dependencies
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", {}),
-    "numpy": ("https://numpy.org/doc/stable/", {}),
-    "pandas": ("https://pandas.pydata.org/docs/", {}),
-    "sklearn": ("https://scikit-learn.org/stable/", {}),
-    "xgboost": ("https://xgboost.readthedocs.io/en/stable/", {}),
-    "scipy": ("https://docs.scipy.org/doc/scipy/", {}),
-    "matplotlib": ("https://matplotlib.org/stable/", {}),
-    "seaborn": ("https://seaborn.pydata.org/", {}),
-    "statsmodels": ("https://www.statsmodels.org/stable/", {}),
-    "torch": ("https://docs.pytorch.org/docs/stable/", {}),
-    "ray": ("https://docs.ray.io/en/latest/", {}),
-    "lightgbm": ("https://lightgbm.readthedocs.io/en/latest/", {}),
-    # "mlflow": ("https://mlflow.org/docs/latest/", {}),
-    # "transformers": ("https://huggingface.co/docs/transformers/", {}),
-    # "datasets": ("https://huggingface.co/docs/datasets/", {}),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "xgboost": ("https://xgboost.readthedocs.io/en/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "seaborn": ("https://seaborn.pydata.org/", None),
+    "statsmodels": ("https://www.statsmodels.org/stable/", None),
+    "torch": ("https://docs.pytorch.org/docs/stable/", None),
+    "ray": ("https://docs.ray.io/en/latest/", None),
+    "lightgbm": ("https://lightgbm.readthedocs.io/en/latest/", None),
+    # "mlflow": ("https://mlflow.org/docs/latest/", None),
+    # "transformers": ("https://huggingface.co/docs/transformers/", None),
+    # "datasets": ("https://huggingface.co/docs/datasets/", None),
 }
 
 # Exclusions

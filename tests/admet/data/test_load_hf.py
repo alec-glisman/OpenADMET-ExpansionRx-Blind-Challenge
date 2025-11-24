@@ -1,3 +1,11 @@
+"""Tests for loading Hugging Face DatasetDicts from disk and validation.
+
+These tests cover round-trip serialization and ensure that expected
+columns and types are preserved after save/load.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -26,7 +34,7 @@ def make_df(n, start=0):
     return df
 
 
-def test_load_hf_roundtrip(tmp_path: Path):
+def test_load_hf_roundtrip(tmp_path: Path) -> None:
     train_df = make_df(8, start=0)
     val_df = make_df(2, start=8)
     test_df = make_df(3, start=10)

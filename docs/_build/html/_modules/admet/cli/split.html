@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
         <link rel="prefetch" href="../../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
         <title>admet.cli.split - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=580074bf" />
@@ -207,7 +207,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/admet.evaluate.html">Evaluation Metrics (<cite>admet.evaluate</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
@@ -356,7 +356,7 @@
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Overwrite existing files: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">pipeline</span> <span class="o">=</span> <span class="n">DatasetSplitPipeline</span><span class="p">(</span><span class="n">base_data_dir</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
+        <span class="n">pipeline</span><span class="p">:</span> <span class="n">DatasetSplitPipeline</span> <span class="o">=</span> <span class="n">DatasetSplitPipeline</span><span class="p">(</span><span class="n">base_data_dir</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
         <span class="n">pipeline</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
             <span class="n">create_temporal</span><span class="o">=</span><span class="n">create_temporal</span><span class="p">,</span>
             <span class="n">create_stratified</span><span class="o">=</span><span class="n">create_stratified</span><span class="p">,</span>
@@ -419,7 +419,7 @@
     </aside>
   </div>
 </div><script src="../../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>

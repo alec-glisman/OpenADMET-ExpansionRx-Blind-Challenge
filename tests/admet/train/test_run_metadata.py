@@ -1,11 +1,15 @@
+"""Unit tests for training run metadata saving.
+
+Validate that saving artifacts writes a `run_meta.json` containing expected
+structured metadata.
+"""
+
+from __future__ import annotations
+
 import json
 from pathlib import Path
-
 import numpy as np
-
 from admet.train.base.model_trainer import BaseModelTrainer, FeaturizationMethod, RunSummary
-
-
 from admet.model.base import BaseModel
 
 
@@ -41,12 +45,16 @@ class _DummyTrainer(BaseModelTrainer):
         self.featurization = FeaturizationMethod.MORGAN_FP
 
 
-def test_save_artifacts_writes_run_meta(tmp_path):
+def test_save_artifacts_writes_run_meta(tmp_path: Path) -> None:
     trainer = _DummyTrainer()
     model = _DummyModel(["LogD"])  # type: ignore[arg-type]
     endpoints = ["LogD"]
     _ = RunSummary  # silence unused import; we construct metadata manually
-    run_metrics = {"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}}
+    run_metrics: dict[str, dict] = {
+        "train": {"macro": {}},
+        "validation": {"macro": {}},
+        "test": {"macro": {}},
+    }
     out_dir = tmp_path / "run"
 
     # Call save_artifacts without generating plots to avoid expensive

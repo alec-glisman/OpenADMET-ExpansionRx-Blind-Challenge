@@ -16,11 +16,12 @@ kept private to avoid namespace clutter.
 """
 
 import logging
+from typing import Any, Optional
 
 import pandas as pd
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem import rdFingerprintGenerator
+from rdkit import Chem  # type: ignore[import-not-found]
+from rdkit.Chem import rdFingerprintGenerator  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 
@@ -76,19 +77,22 @@ class MorganFingerprintGenerator:
         self.include_chirality = include_chirality
         self.fp_size = fp_size
 
-        self._fpgen = rdFingerprintGenerator.GetMorganGenerator(
+        self._fpgen: Any = rdFingerprintGenerator.GetMorganGenerator(
             radius=radius,
             countSimulation=count_simulation,
             includeChirality=include_chirality,
             fpSize=fp_size,
         )
         logger.debug(
-            f"Initialized Morgan fingerprint generator: "
-            f"radius={radius}, count_simulation={count_simulation}, "
-            f"include_chirality={include_chirality}, fp_size={fp_size}"
+            "Initialized Morgan fingerprint generator: radius=%d, count_simulation=%s, "
+            "include_chirality=%s, fp_size=%d",
+            radius,
+            count_simulation,
+            include_chirality,
+            fp_size,
         )
 
-    def _smiles_to_mol(self, smiles: str) -> Chem.Mol | None:
+    def _smiles_to_mol(self, smiles: str) -> Optional[Any]:
         """
         Convert SMILES string to RDKit molecule object.
 
@@ -102,9 +106,9 @@ class MorganFingerprintGenerator:
         rdkit.Chem.Mol or None
             RDKit molecule object, or None if conversion fails.
         """
-        return Chem.MolFromSmiles(smiles)
+        return Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
 
-    def _mol_to_fingerprint(self, mol: Chem.Mol) -> np.ndarray:
+    def _mol_to_fingerprint(self, mol: Optional[Any]) -> np.ndarray:
         """
         Convert molecule to fingerprint array.
 
@@ -120,7 +124,7 @@ class MorganFingerprintGenerator:
         """
         if mol is None:
             return np.zeros(self.fp_size, dtype=np.uint8)
-        return self._fpgen.GetCountFingerprintAsNumPy(mol)
+        return self._fpgen.GetCountFingerprintAsNumPy(mol)  # type: ignore[attr-defined]
 
     def calculate_fingerprints(self, smiles_series: pd.Series) -> pd.DataFrame:
         """
@@ -136,7 +140,7 @@ class MorganFingerprintGenerator:
         pd.DataFrame
             DataFrame with fingerprint features as individual columns.
         """
-        logger.debug(f"Calculating fingerprints for {len(smiles_series)} molecules")
+        logger.debug("Calculating fingerprints for %d molecules", len(smiles_series))
 
         # Convert SMILES to molecules
         mols = smiles_series.apply(self._smiles_to_mol)
@@ -151,7 +155,7 @@ class MorganFingerprintGenerator:
         fp_columns = [f"Morgan_FP_{i}" for i in range(fp_array.shape[1])]
         fp_df = pd.DataFrame(fp_array, columns=fp_columns, dtype=np.uint8)
 
-        logger.debug(f"Generated {fp_df.shape[1]} fingerprint features")
+        logger.debug("Generated %d fingerprint features", fp_df.shape[1])
         return fp_df
 
     def add_fingerprints_to_dataframe(
@@ -180,7 +184,7 @@ class MorganFingerprintGenerator:
         if smiles_column not in df.columns:
             raise ValueError(f"SMILES column '{smiles_column}' not found in dataframe")
 
-        logger.debug(f"Adding fingerprints to dataframe with {len(df)} rows")
+        logger.debug("Adding fingerprints to dataframe with %d rows", len(df))
 
         # Calculate fingerprints
         fp_df = self.calculate_fingerprints(df[smiles_column])
@@ -197,7 +201,7 @@ class MorganFingerprintGenerator:
         # Insert fingerprint columns at the specified position
         reordered_cols = non_fp_cols[:insertion_index] + fp_cols + non_fp_cols[insertion_index:]
 
-        logger.debug(f"Reordered columns: {len(reordered_cols)} total columns")
+        logger.debug("Reordered columns: %d total columns", len(reordered_cols))
         return result_df[reordered_cols]
 
     __all__ = ["MorganFingerprintGenerator"]

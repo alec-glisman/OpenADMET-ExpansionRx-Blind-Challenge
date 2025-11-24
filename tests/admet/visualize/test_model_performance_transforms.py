@@ -1,8 +1,12 @@
+"""Tests for model performance transformation helpers (log <-> linear)."""
+
+from __future__ import annotations
+
 import numpy as np
 from admet.visualize.model_performance import to_linear
 
 
-def test_to_linear_identity_and_transform():
+def test_to_linear_identity_and_transform() -> None:
     arr = np.array([[-1.0], [0.0], [1.0]])
     out = to_linear(arr.flatten(), "KSOL")
     assert np.allclose(out, np.power(10.0, arr.flatten()))

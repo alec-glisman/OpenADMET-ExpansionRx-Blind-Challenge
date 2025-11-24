@@ -46,9 +46,9 @@ from concurrent import futures
 from typing import Iterable, List, Optional
 
 import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import Descriptors, Lipinski, SaltRemover, rdMolDescriptors
-from tqdm.auto import tqdm
+from rdkit import Chem  # type: ignore[import-not-found]
+from rdkit.Chem import Descriptors, Lipinski, SaltRemover, rdMolDescriptors  # type: ignore[import-not-found]
+from tqdm.auto import tqdm  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 _SALT_REMOVER = SaltRemover.SaltRemover()

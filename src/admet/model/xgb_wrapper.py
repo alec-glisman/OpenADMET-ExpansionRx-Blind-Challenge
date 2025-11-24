@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence, Optional
 import logging
 import numpy as np
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore[import-not-found]
 from xgboost import XGBRegressor
 
 from .base import BaseModel
@@ -45,6 +45,9 @@ class XGBoostMultiEndpoint(BaseModel):
         model_params: Optional[Dict[str, object]] = None,
         random_state: Optional[int] = 123,
     ) -> None:
+        # Explicit attribute type annotations to satisfy ModelProtocol structural typing.
+        self.endpoints: Sequence[str]
+        self.input_type: str
         self.endpoints = list(endpoints)
         self.input_type = "fingerprint"
         self.model_params = model_params or {
@@ -140,7 +143,7 @@ class XGBoostMultiEndpoint(BaseModel):
                 fit_kwargs["sample_weight_eval_set"] = eval_sample_weight
             try:
                 model.fit(X_tr_ep, y_tr_ep, **fit_kwargs)
-            except Exception as exc:  # pragma: no cover - fallback when GPU not available
+            except Exception as exc:  # pragma: no cover - fallback when GPU not available  # noqa: BLE001
                 self.logger.warning(
                     "Initial model.fit failed (likely GPU issue), retrying with CPU params: %s", exc
                 )

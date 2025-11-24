@@ -77,14 +77,28 @@ class BaseModelTrainer(ABC):
         self.git_commit: Optional[str] = None
 
     def prepare_features(self, dataset: "LoadedDataset") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Prepare feature matrices for train/validation/test splits.
+
+        For fingerprint featurization, this delegates to ``_extract_features`` which
+        returns ``float32`` NumPy arrays without unnecessary copies.
+
+        For SMILES featurization, this returns the configured SMILES column as
+        an ``object``-dtype 2D array of shape ``(n_samples, 1)`` for each split.
+        Keeping SMILES as objects prevents pandas from attempting a lossy string
+        -> float conversion while still satisfying the expected shapes in
+        unit tests and downstream featurizers.
+        """
+
         if self.featurization == FeaturizationMethod.MORGAN_FP:
             feature_cols = dataset.fingerprint_cols
         elif self.featurization == FeaturizationMethod.SMILES:
             feature_cols = [dataset.smiles_col]
         else:
             raise ValueError(f"Unsupported featurization method: {self.featurization}")
+
         if not feature_cols:
             raise ValueError("No feature columns found in dataset; cannot prepare features.")
+
         for split_name, df in [
             ("train", dataset.train),
             ("validation", dataset.val),
@@ -93,11 +107,26 @@ class BaseModelTrainer(ABC):
             missing = [c for c in feature_cols if c not in df.columns]
             if missing:
                 raise ValueError(f"Missing fingerprint columns in {split_name} split: {missing[:10]}")
-        return (
-            _extract_features(dataset.train, feature_cols),
-            _extract_features(dataset.val, feature_cols),
-            _extract_features(dataset.test, feature_cols),
-        )
+
+        # Numeric fingerprint features use the optimized float32 extractor.
+        if self.featurization == FeaturizationMethod.MORGAN_FP:
+            return (
+                _extract_features(dataset.train, feature_cols),
+                _extract_features(dataset.val, feature_cols),
+                _extract_features(dataset.test, feature_cols),
+            )
+
+        # SMILES featurization keeps raw SMILES strings as object arrays.
+        # Each split is returned as shape (n_samples, 1) to match tests and
+        # provide a consistent interface to downstream featurizers.
+        if self.featurization == FeaturizationMethod.SMILES:
+            X_train = dataset.train[feature_cols].to_numpy(dtype=object)
+            X_val = dataset.val[feature_cols].to_numpy(dtype=object)
+            X_test = dataset.test[feature_cols].to_numpy(dtype=object)
+            return X_train, X_val, X_test
+
+        # The above branches should be exhaustive, but keep mypy satisfied.
+        raise ValueError(f"Unsupported featurization method: {self.featurization}")
 
     def prepare_targets(self, dataset: "LoadedDataset") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         endpoints = dataset.endpoints
@@ -117,14 +146,50 @@ class BaseModelTrainer(ABC):
             _extract_targets(dataset.test, endpoints),
         )
 
-    def prepare_masks(self, Y_train, Y_val, Y_test):
-        return _target_mask(Y_train), _target_mask(Y_val), _target_mask(Y_test)
+    def prepare_masks(
+        self,
+        Y_train: np.ndarray,
+        Y_val: np.ndarray,
+        Y_test: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Build presence masks (1 if target present else 0) for each split.
+
+        Parameters
+        ----------
+        Y_train, Y_val, Y_test : numpy.ndarray
+            2-D target arrays (``(N_samples, N_endpoints)``) for each split.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
+            Tuple of ``(mask_train, mask_val, mask_test)`` with ``int`` dtype.
+        """
+        return (
+            _target_mask(Y_train),
+            _target_mask(Y_val),
+            _target_mask(Y_test),
+        )
 
     def build_sample_weights(
         self,
         dataset: "LoadedDataset",
         sample_weight_mapping: Optional[Dict[str, float]],
-    ):
+    ) -> Optional[np.ndarray]:
+        """Return per-sample weights for the training split.
+
+        Parameters
+        ----------
+        dataset : LoadedDataset
+            Loaded dataset object containing a training split with a ``Dataset`` column.
+        sample_weight_mapping : dict[str, float] | None
+            Mapping of dataset label -> weight. Special key ``"default"`` is used when
+            a label is missing.
+
+        Returns
+        -------
+        numpy.ndarray | None
+            1-D float array of length ``len(dataset.train)`` or ``None`` if mapping absent.
+        """
         if not sample_weight_mapping:
             return None
         if "Dataset" not in dataset.train.columns:
@@ -222,7 +287,7 @@ class BaseModelTrainer(ABC):
         output_dir: Optional[Path] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
-    ) -> Tuple[Dict[str, Dict[str, Any]], Optional[RunSummary]]:
+    ) -> Tuple[AllMetrics, Optional[RunSummary]]:
         set_global_seeds(self.seed)
         if self.git_commit is None:
             self.git_commit = get_git_commit_hash()

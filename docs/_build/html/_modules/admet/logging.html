@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../genindex.html"><link rel="search" title="Search" href="../../search.html">
         <link rel="prefetch" href="../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
         <title>admet.logging - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=580074bf" />
@@ -207,7 +207,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../api/admet.evaluate.html">Evaluation Metrics (<cite>admet.evaluate</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
@@ -281,10 +281,10 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
 
 
 <div class="viewcode-block" id="JsonFormatter">
@@ -379,6 +379,12 @@
     <span class="n">root</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
     <span class="n">root</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">lvl</span><span class="p">)</span>
 
+    <span class="c1"># Clamp verbose libraries when root logging is set to DEBUG.</span>
+    <span class="c1"># Matplotlib and Pillow can emit substantial debug noise otherwise.</span>
+    <span class="k">for</span> <span class="n">noisy_logger</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">,</span> <span class="s2">&quot;PIL&quot;</span><span class="p">):</span>
+        <span class="n">lib_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">noisy_logger</span><span class="p">)</span>
+        <span class="n">lib_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
     <span class="c1"># Optional file logging using same formatter</span>
     <span class="k">if</span> <span class="n">file</span><span class="p">:</span>
         <span class="n">fpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
@@ -394,10 +400,12 @@
 
 
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;configure_logging&quot;</span><span class="p">,</span> <span class="s2">&quot;JsonFormatter&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;configure_logging&quot;</span><span class="p">,</span> <span class="s2">&quot;JsonFormatter&quot;</span><span class="p">,</span> <span class="s2">&quot;get_logging_config&quot;</span><span class="p">]</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">get_logging_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<div class="viewcode-block" id="get_logging_config">
+<a class="viewcode-back" href="../../api/admet.logging.html#admet.logging.get_logging_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_logging_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return current root logging configuration.</span>
 
 <span class="sd">    Inspects the root logger to determine level, file handler (if present),</span>
@@ -429,7 +437,8 @@
             <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">formatter</span><span class="p">,</span> <span class="n">JsonFormatterLocal</span><span class="p">)</span>
         <span class="p">):</span>
             <span class="n">structured</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">level</span><span class="p">,</span> <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="n">file_path</span><span class="p">,</span> <span class="s2">&quot;structured&quot;</span><span class="p">:</span> <span class="n">structured</span><span class="p">}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">level</span><span class="p">,</span> <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="n">file_path</span><span class="p">,</span> <span class="s2">&quot;structured&quot;</span><span class="p">:</span> <span class="n">structured</span><span class="p">}</span></div>
+
 </pre></div>
         </article>
       </div>
@@ -463,7 +472,7 @@
     </aside>
   </div>
 </div><script src="../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>

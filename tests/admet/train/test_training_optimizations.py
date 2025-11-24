@@ -1,12 +1,19 @@
+"""Unit tests for training optimizations such as dtype casting and
+ray remote invocation parameters.
+"""
+
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import pytest
 
 from admet.train.base.utils import _extract_features, _extract_targets
 from admet.train.base.ray_trainer import BaseEnsembleTrainer
 
 
-def test_extractors_cast_to_float32_without_copy():
+def test_extractors_cast_to_float32_without_copy() -> None:
     df = pd.DataFrame(
         {
             "fp1": np.array([1.0, 2.0], dtype=np.float64),
@@ -23,12 +30,12 @@ def test_extractors_cast_to_float32_without_copy():
     assert targets.shape == (2, 1)
 
 
-def test_worker_thread_limit_passed_to_remote(monkeypatch, tmp_path: Path):
+def test_worker_thread_limit_passed_to_remote(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Stub ray API to avoid spinning up real cluster
     class StubRay:
         initialized = False
-        init_calls = []
-        results = []
+        init_calls: list[int] = []
+        results: list[object] = []
 
         @classmethod
         def is_initialized(cls):
@@ -52,6 +59,10 @@ def test_worker_thread_limit_passed_to_remote(monkeypatch, tmp_path: Path):
         def get(cls, obj):
             return cls.results.pop(0)
 
+        @classmethod
+        def shutdown(cls):
+            cls.initialized = False
+
     # Capture worker_thread_limit passed into remote calls
     remote_calls = []
 
@@ -63,10 +74,20 @@ def test_worker_thread_limit_passed_to_remote(monkeypatch, tmp_path: Path):
 
     # Prepare two fake results to satisfy the wait/get loop
     StubRay.results = [
-        ("ds1", {"run_metrics": {"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}},
-                 "status": "ok"}),
-        ("ds2", {"run_metrics": {"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}},
-                 "status": "ok"}),
+        (
+            "ds1",
+            {
+                "run_metrics": {"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}},
+                "status": "ok",
+            },
+        ),
+        (
+            "ds2",
+            {
+                "run_metrics": {"train": {"macro": {}}, "validation": {"macro": {}}, "test": {"macro": {}}},
+                "status": "ok",
+            },
+        ),
     ]
 
     from admet.train.base import ray_trainer as rt

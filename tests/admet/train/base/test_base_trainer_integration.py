@@ -5,7 +5,6 @@ flake8: noqa
 mypy: ignore-errors
 """
 
-import os
 from pathlib import Path
 import json
 from typing import Sequence, Any, cast
@@ -17,7 +16,6 @@ from admet.train.base import (
     BaseEnsembleTrainer,
     FeaturizationMethod,
     train_model,
-    train_ensemble,
 )
 
 
@@ -87,7 +85,7 @@ def synthetic_dataset():
     return make_dataset()
 
 
-def test_train_model_end_to_end(tmp_path, synthetic_dataset):
+def test_train_model_end_to_end(tmp_path: Path, synthetic_dataset) -> None:
     run_metrics, summary = train_model(
         synthetic_dataset,
         trainer_cls=FPTrainer,
@@ -101,7 +99,7 @@ def test_train_model_end_to_end(tmp_path, synthetic_dataset):
     assert (tmp_path / "single" / "metrics.json").is_file()
 
 
-def test_discover_datasets(tmp_path):
+def test_discover_datasets(tmp_path: Path) -> None:
     root = tmp_path / "root"
     d1 = root / "clusterA" / "split_train" / "fold_0" / "hf_dataset"
     d2 = root / "clusterB" / "split_test" / "fold_1" / "hf_dataset"

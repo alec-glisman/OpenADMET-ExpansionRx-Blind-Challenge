@@ -1,9 +1,15 @@
 """Comprehensive tests for XGBoost training & Ray orchestration.
 
+Integration and unit tests for multi-endpoint XGBoost training with Ray and
+MLflow orchestration. These tests are intentionally conservative in runtime
+and rely on minimal estimators for CI.
+
 pyright: ignore-all
 flake8: noqa
 mypy: ignore-errors
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 import numpy as np
@@ -57,7 +63,7 @@ def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Pat
     return root
 
 
-def test_infer_split_metadata_parses_cluster_split_fold(tmp_path: Path):
+def test_infer_split_metadata_parses_cluster_split_fold(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality"
     path = root / "random_cluster" / "split_0" / "fold_1" / "hf_dataset"
     path.mkdir(parents=True)
@@ -70,7 +76,7 @@ def test_infer_split_metadata_parses_cluster_split_fold(tmp_path: Path):
     assert meta["cluster"] == "high_quality/random_cluster"
 
 
-def test_train_model_runs_end_to_end(tmp_path: Path):
+def test_train_model_runs_end_to_end(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
@@ -84,11 +90,12 @@ def test_train_model_runs_end_to_end(tmp_path: Path):
         early_stopping_rounds=5,
         output_dir=out,
     )
+    assert summary is not None
     for split in ["train", "validation", "test"]:
         assert split in run_metrics and "macro" in run_metrics[split]
 
 
-def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path):
+def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir)
@@ -100,11 +107,12 @@ def test_xgb_trainer_fit_runs_end_to_end(tmp_path: Path):
     )
     out = tmp_path / "out"
     run_metrics, summary = trainer.fit(dataset, early_stopping_rounds=5, output_dir=out)
+    assert summary is not None
     for split in ["train", "validation", "test"]:
         assert split in run_metrics and "macro" in run_metrics[split]
 
 
-def test_build_model_uses_provided_model_cls():
+def test_build_model_uses_provided_model_cls() -> None:
     class FakeModel(BaseModel):
         def __init__(self, endpoints, model_params=None, random_state=None):
             self.endpoints = list(endpoints)
@@ -135,7 +143,7 @@ def test_build_model_uses_provided_model_cls():
     assert isinstance(model, FakeModel)
 
 
-def test_build_sample_weights_vectorized(tmp_path: Path):
+def test_build_sample_weights_vectorized(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -151,7 +159,7 @@ def test_build_sample_weights_vectorized(tmp_path: Path):
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
-def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path):
+def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     for split_idx in range(2):
         for fold_idx in range(1):
@@ -187,7 +195,7 @@ def test_train_xgb_models_ray_multiple_datasets_and_summary(tmp_path: Path):
     assert summary_json.exists() and summary_json.stat().st_size > 0
 
 
-def test_train_xgb_models_ray_handles_remote_errors(tmp_path: Path):
+def test_train_xgb_models_ray_handles_remote_errors(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     for split_idx in range(2):
         for fold_idx in range(1):
@@ -204,7 +212,7 @@ def test_train_xgb_models_ray_handles_remote_errors(tmp_path: Path):
         assert payload.get("status") == "error"
 
 
-def test_ray_shutdown_after_run_all(tmp_path: Path):
+def test_ray_shutdown_after_run_all(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)
@@ -216,7 +224,7 @@ def test_ray_shutdown_after_run_all(tmp_path: Path):
     assert not ray.is_initialized(), "Ray should be shut down after run_all"
 
 
-def test_dry_run_returns_minimal_metrics(tmp_path: Path):
+def test_dry_run_returns_minimal_metrics(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -233,7 +241,7 @@ def test_dry_run_returns_minimal_metrics(tmp_path: Path):
         assert "macro" in run_metrics[split]
 
 
-def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
+def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     for split_idx in range(1):
         ds_dir = root / f"split_{split_idx}" / "fold_0" / "hf_dataset"
@@ -263,7 +271,7 @@ def test_train_xgb_models_ray_dry_run_skipped_status(tmp_path: Path):
         assert isinstance(payload.get("duration_seconds"), float)
 
 
-def test_train_xgb_models_ray_timeout_status(tmp_path: Path):
+def test_train_xgb_models_ray_timeout_status(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)
@@ -285,7 +293,7 @@ def test_train_xgb_models_ray_timeout_status(tmp_path: Path):
         assert isinstance(payload.get("duration_seconds"), float)
 
 
-def test_train_xgb_models_ray_partial_status(tmp_path: Path):
+def test_train_xgb_models_ray_partial_status(tmp_path: Path) -> None:
     root = tmp_path / "assets" / "dataset" / "splits" / "high_quality" / "random_cluster"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"
     ds_dir.mkdir(parents=True)
@@ -302,7 +310,7 @@ def test_train_xgb_models_ray_partial_status(tmp_path: Path):
         assert isinstance(payload.get("duration_seconds"), float)
 
 
-def test_missing_fingerprint_columns_errors(tmp_path: Path):
+def test_missing_fingerprint_columns_errors(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -317,7 +325,7 @@ def test_missing_fingerprint_columns_errors(tmp_path: Path):
         trainer.fit(dataset, output_dir=tmp_path / "out")
 
 
-def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
+def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -352,11 +360,12 @@ def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch):
         seed=123,
     )
     run_metrics, summary = trainer.fit(dataset, early_stopping_rounds=1, output_dir=tmp_path / "out")
+    assert summary is not None
     for split in ["train", "validation", "test"]:
         assert split in run_metrics and "macro" in run_metrics[split]
 
 
-def test_save_artifacts_receives_outputs(tmp_path: Path):
+def test_save_artifacts_receives_outputs(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=20, n_bits=16)
@@ -375,6 +384,7 @@ def test_save_artifacts_receives_outputs(tmp_path: Path):
     )
     out = tmp_path / "out"
     _run_metrics, summary = trainer.fit(dataset, output_dir=out)
+    assert summary is not None
     assert captured
     summary = captured[0]
     assert isinstance(summary, RunSummary)
@@ -384,7 +394,7 @@ def test_save_artifacts_receives_outputs(tmp_path: Path):
     assert summary.mask_train.shape == summary.Y_train.shape
 
 
-def test_build_sample_weights_missing_dataset_column_raises(tmp_path: Path):
+def test_build_sample_weights_missing_dataset_column_raises(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -397,7 +407,7 @@ def test_build_sample_weights_missing_dataset_column_raises(tmp_path: Path):
         trainer.build_sample_weights(ds, {"default": 1.0, "dataset_a": 2.0})
 
 
-def test_build_sample_weights_explicit_default(tmp_path: Path):
+def test_build_sample_weights_explicit_default(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -411,7 +421,7 @@ def test_build_sample_weights_explicit_default(tmp_path: Path):
     assert sw is not None and sw.shape[0] == len(ds.train) and all(sw[:5] == 1.0) and all(sw[5:] == 2.0)
 
 
-def test_build_sample_weights_unknown_labels(tmp_path: Path):
+def test_build_sample_weights_unknown_labels(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -424,7 +434,7 @@ def test_build_sample_weights_unknown_labels(tmp_path: Path):
     assert sw is not None and sw.shape[0] == len(ds.train) and all(sw == 2.0)
 
 
-def test_build_sample_weights_no_mapping(tmp_path: Path):
+def test_build_sample_weights_no_mapping(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -438,7 +448,7 @@ def test_build_sample_weights_no_mapping(tmp_path: Path):
     assert sw_empty is None
 
 
-def test_prepare_features_missing_fingerprint_columns_raises(tmp_path: Path):
+def test_prepare_features_missing_fingerprint_columns_raises(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -451,7 +461,7 @@ def test_prepare_features_missing_fingerprint_columns_raises(tmp_path: Path):
         trainer.prepare_features(dataset)
 
 
-def test_prepare_targets_missing_endpoint_columns_raises(tmp_path: Path):
+def test_prepare_targets_missing_endpoint_columns_raises(tmp_path: Path) -> None:
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)

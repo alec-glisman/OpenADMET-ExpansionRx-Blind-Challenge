@@ -94,7 +94,7 @@ def datasets(
     logger.info("Overwrite existing files: %s", overwrite)
 
     try:
-        pipeline = DatasetSplitPipeline(base_data_dir, output_dir, overwrite=overwrite)
+        pipeline: DatasetSplitPipeline = DatasetSplitPipeline(base_data_dir, output_dir, overwrite=overwrite)
         pipeline.run(
             create_temporal=create_temporal,
             create_stratified=create_stratified,

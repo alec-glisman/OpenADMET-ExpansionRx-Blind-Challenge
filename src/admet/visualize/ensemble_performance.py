@@ -147,8 +147,8 @@ def plot_labeled_ensemble(
         n_jobs=n_jobs,
     )
     plot_parity_grid(
-        y_true_dict_log,
-        y_pred_dict_log,
+        y_true_dict_lin,
+        y_pred_dict_lin,
         mask_dict_lin,
         resolved_endpoints,
         space="linear",
@@ -175,8 +175,8 @@ def plot_labeled_ensemble(
         dpi=dpi,
     )
     plot_metric_bars(
-        y_true_dict_log,
-        y_pred_dict_log,
+        y_true_dict_lin,
+        y_pred_dict_lin,
         mask_dict_lin,
         resolved_endpoints,
         space="linear",

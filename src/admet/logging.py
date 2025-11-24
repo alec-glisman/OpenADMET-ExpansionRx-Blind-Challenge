@@ -21,10 +21,10 @@ Functions
 
 from __future__ import annotations
 
-import logging
 import json
-from typing import Optional
+import logging
 from pathlib import Path
+from typing import Dict, Optional
 
 
 class JsonFormatter(logging.Formatter):
@@ -111,6 +111,12 @@ def configure_logging(
     root.addHandler(handler)
     root.setLevel(lvl)
 
+    # Clamp verbose libraries when root logging is set to DEBUG.
+    # Matplotlib and Pillow can emit substantial debug noise otherwise.
+    for noisy_logger in ("matplotlib", "PIL"):
+        lib_logger = logging.getLogger(noisy_logger)
+        lib_logger.setLevel(logging.INFO)
+
     # Optional file logging using same formatter
     if file:
         fpath = Path(file)
@@ -125,10 +131,10 @@ def configure_logging(
         root.addHandler(fh)
 
 
-__all__ = ["configure_logging", "JsonFormatter"]
+__all__ = ["configure_logging", "JsonFormatter", "get_logging_config"]
 
 
-def get_logging_config() -> dict:
+def get_logging_config() -> Dict[str, object]:
     """Return current root logging configuration.
 
     Inspects the root logger to determine level, file handler (if present),

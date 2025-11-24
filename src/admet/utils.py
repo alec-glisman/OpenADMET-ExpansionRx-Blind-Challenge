@@ -54,21 +54,25 @@ def set_global_seeds(seed: Optional[int]) -> None:
         import numpy as np  # local import to avoid mandatory dependency here
 
         np.random.seed(seed)
-    except Exception:
+    except ImportError:
+        # Optional dependency missing; continue
         pass
     try:
         import torch  # type: ignore
 
         torch.manual_seed(seed)
-        if torch.cuda.is_available():  # pragma: no cover - depends on env
+        if (
+            getattr(torch, "cuda", None) is not None and torch.cuda.is_available()
+        ):  # pragma: no cover - depends on env
             torch.cuda.manual_seed_all(seed)
         # Make CuDNN deterministic
         try:
             torch.backends.cudnn.deterministic = True  # type: ignore[attr-defined]
             torch.backends.cudnn.benchmark = False  # type: ignore[attr-defined]
-        except Exception:
+        except AttributeError:
+            # Older torch or missing backend attributes; ignore
             pass
-    except Exception:
+    except ImportError:
         # PyTorch not installed; ok to ignore
         pass
 

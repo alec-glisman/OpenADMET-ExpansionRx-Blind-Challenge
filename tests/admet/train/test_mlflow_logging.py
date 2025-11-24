@@ -1,3 +1,11 @@
+"""Unit tests for MLflow integration helpers and CLI logging.
+
+These tests validate parameter flattening, metric flattening, and the
+integration of MLflow param/metric/artifact logging from CLI workflows.
+"""
+
+from __future__ import annotations
+
 import importlib.util
 import math
 from pathlib import Path
@@ -93,7 +101,7 @@ def fake_mlflow(monkeypatch) -> FakeMlflow:
     return fake
 
 
-def test_flatten_params_handles_nested_structures():
+def test_flatten_params_handles_nested_structures() -> None:
     cfg = {
         "models": {"xgboost": {"objective": "mae", "model_params": {"lr": 0.1, "layers": [64, 32]}}},
         "training": {"seed": None, "tracking_uri": "file:///tmp/mlruns"},
@@ -108,7 +116,7 @@ def test_flatten_params_handles_nested_structures():
     assert flat["cfg.ray.multi"] is True
 
 
-def test_flatten_metrics_ignores_non_numeric_and_nans():
+def test_flatten_metrics_ignores_non_numeric_and_nans() -> None:
     run_metrics = {
         "train": {
             "macro": {
@@ -126,7 +134,7 @@ def test_flatten_metrics_ignores_non_numeric_and_nans():
     assert not any("skip_me" in str(v) for v in flat.values())
 
 
-def test_set_mlflow_tracking_calls_both(monkeypatch):
+def test_set_mlflow_tracking_calls_both(monkeypatch) -> None:
     called = {"uri": None, "exp": None}
 
     class StubMlflow:
@@ -142,7 +150,9 @@ def test_set_mlflow_tracking_calls_both(monkeypatch):
     assert called["exp"] == "xgb"
 
 
-def test_single_run_logs_mlflow_params_and_artifacts(fake_mlflow: FakeMlflow, tmp_path: Path, monkeypatch):
+def test_single_run_logs_mlflow_params_and_artifacts(
+    fake_mlflow: FakeMlflow, tmp_path: Path, monkeypatch
+) -> None:
     cfg_path = tmp_path / "cfg.yaml"
     data_root = tmp_path / "data" / "hf_dataset"
     data_root.mkdir(parents=True)
@@ -205,7 +215,7 @@ def test_single_run_logs_mlflow_params_and_artifacts(fake_mlflow: FakeMlflow, tm
 
 def test_ensemble_run_logs_parent_status_and_child_metrics(
     fake_mlflow: FakeMlflow, tmp_path: Path, monkeypatch
-):
+) -> None:
     cfg_path = tmp_path / "cfg.yaml"
     data_root = tmp_path / "data" / "root"
     data_root.mkdir(parents=True)

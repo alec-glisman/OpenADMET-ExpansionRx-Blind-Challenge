@@ -29,7 +29,7 @@ Assumptions
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Tuple
 import concurrent.futures
 from tqdm import tqdm
 
@@ -37,6 +37,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from admet.evaluate import metrics as eval_metrics
+
+
+# _safe_endpoint_slug is defined in ensemble_eval; redefine lightweight here to avoid circular deps.
+def _safe_endpoint_slug(endpoint: str) -> str:
+    """Return a filesystem-safe slug for an endpoint name."""
+    replacements = {" ": "_", "/": "_", "<": "lt", ">": "gt"}
+    out = endpoint
+    for src, tgt in replacements.items():
+        out = out.replace(src, tgt)
+    return out
+
 
 _MAX_LOG10_BEFORE_OVERFLOW = 308.0  # log10(np.finfo(float).max) ~ 308.254
 
@@ -101,7 +112,7 @@ def _apply_transform_space(y: np.ndarray, endpoints: Sequence[str], space: str) 
 
 def _masked_arrays(
     y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, j: int
-) -> tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """Extract valid true/pred arrays for endpoint index ``j``.
 
     Parameters
@@ -295,7 +306,7 @@ def _plot_parity_worker(
         )
 
     fig.tight_layout(rect=(0, 0.03, 1, 0.95))
-    fpath = Path(save_dir) / f"parity_{ep.replace(' ', '_').replace('/', '_')}.png"
+    fpath = Path(save_dir) / f"parity_{_safe_endpoint_slug(ep)}.png"
     fig.savefig(fpath, dpi=dpi)
     plt.close(fig)
 

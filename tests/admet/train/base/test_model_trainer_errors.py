@@ -1,4 +1,10 @@
-"""Edge-case tests for BaseModelTrainer error conditions."""
+"""Edge-case tests for BaseModelTrainer error conditions.
+
+Tests focus on missing dataset columns, unsupported featurization, and empty
+dataset split handling to ensure clear errors are raised.
+"""
+
+from __future__ import annotations
 
 from typing import Any
 from pathlib import Path
@@ -28,7 +34,7 @@ class DummyDataset:
 
 
 class DummyEmptyDS:
-    endpoints = []
+    endpoints: list[str] = []
 
 
 class PipeTrainer(BaseModelTrainer):
@@ -39,11 +45,11 @@ class PipeTrainer(BaseModelTrainer):
 
 
 @pytest.fixture
-def dataset_fp():
+def dataset_fp() -> DummyDataset:
     return DummyDataset(FeaturizationMethod.MORGAN_FP)
 
 
-def test_sample_weights_raises_if_dataset_column_missing(dataset_fp):
+def test_sample_weights_raises_if_dataset_column_missing(dataset_fp: DummyDataset) -> None:
     ds = dataset_fp
     ds.train = ds.train.drop(columns=["Dataset"])
     trainer = PipeTrainer(model_cls=object)
@@ -51,13 +57,13 @@ def test_sample_weights_raises_if_dataset_column_missing(dataset_fp):
         trainer.build_sample_weights(ds, {"default": 1.0})
 
 
-def test_prepare_features_unsupported_featurization(dataset_fp):
+def test_prepare_features_unsupported_featurization(dataset_fp: DummyDataset) -> None:
     trainer = PipeTrainer(model_cls=object)
     with pytest.raises(ValueError):
         trainer.prepare_features(dataset_fp)
 
 
-def test_fit_requires_splits(tmp_path: Path):
+def test_fit_requires_splits(tmp_path: Path) -> None:
     trainer = PipeTrainer(model_cls=object)
     with pytest.raises(ValueError):
         trainer.fit(DummyEmptyDS(), output_dir=tmp_path / "out")
