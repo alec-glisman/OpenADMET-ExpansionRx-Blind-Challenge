@@ -18,9 +18,10 @@ Types
 from __future__ import annotations
 
 from typing import Dict, Sequence, TypedDict
+
 import numpy as np
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
-from scipy.stats import spearmanr, pearsonr, kendalltau
+from scipy.stats import kendalltau, pearsonr, spearmanr
+from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 
 
 def _apply_linear_transform(y: np.ndarray, endpoints: Sequence[str]) -> np.ndarray:

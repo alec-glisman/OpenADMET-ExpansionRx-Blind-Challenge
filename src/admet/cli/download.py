@@ -26,15 +26,14 @@ Custom output directory::
     admet download expansion_teaser --output-dir ./data
 """
 
-from typing import Optional, Dict, Any, cast
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Any, Dict, Optional, cast
 
 import typer
 
-from admet.data.download import Downloader
 from admet.data.constants import DATASETS, DEFAULT_DATASET_DIR
-
+from admet.data.download import Downloader
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +42,7 @@ def download(
     dataset_name: str = typer.Argument(
         "",
         help=(
-            "Name of the dataset to download. Available datasets: {0}. "
-            "Use 'all' or omit to download all datasets."
+            "Name of the dataset to download. Available datasets: {0}. " "Use 'all' or omit to download all datasets."
         ).format(", ".join(DATASETS.keys())),
     ),
     output_dir: Optional[Path] = typer.Option(

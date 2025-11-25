@@ -7,10 +7,12 @@ mypy: ignore-errors
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Any, cast
+from typing import Any, Dict, List, Optional, cast
+
 import numpy as np
 import pandas as pd
 import pytest
+
 from admet.train.base import BaseModelTrainer, FeaturizationMethod
 
 
@@ -47,9 +49,7 @@ class DummyDataset:
 
     def __init__(self, featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP):
         self.endpoints = ["A", "B"]
-        self.fingerprint_cols = (
-            ["fp1", "fp2", "fp3"] if featurization == FeaturizationMethod.MORGAN_FP else []
-        )
+        self.fingerprint_cols = ["fp1", "fp2", "fp3"] if featurization == FeaturizationMethod.MORGAN_FP else []
         self.smiles_col = "smiles"
         data_train = {
             "fp1": [0.1, 0.2, 0.3],
@@ -115,6 +115,7 @@ def dataset_fp_no_precomputed():
     return ds
 
 
+@pytest.mark.unit
 def test_prepare_features_fingerprint(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     X_train, X_val, X_test = trainer.prepare_features(dataset_fp)
@@ -123,6 +124,7 @@ def test_prepare_features_fingerprint(dataset_fp):
     assert X_test.shape == (1, 3)
 
 
+@pytest.mark.unit
 def test_prepare_features_fingerprint_generated(dataset_fp_no_precomputed):
     pytest.importorskip("rdkit")
     trainer = FPTrainer(model_cls=DummyModel)
@@ -132,6 +134,7 @@ def test_prepare_features_fingerprint_generated(dataset_fp_no_precomputed):
     assert X_test.shape == (1, 1024)
 
 
+@pytest.mark.unit
 def test_prepare_features_smiles(dataset_smiles):
     trainer = SMILESTrainer(model_cls=DummyModel)
     X_train, X_val, X_test = trainer.prepare_features(dataset_smiles)
@@ -140,6 +143,7 @@ def test_prepare_features_smiles(dataset_smiles):
     assert X_test.shape == (1, 1)
 
 
+@pytest.mark.unit
 def test_prepare_targets(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     Y_train, Y_val, Y_test = trainer.prepare_targets(dataset_fp)
@@ -148,6 +152,7 @@ def test_prepare_targets(dataset_fp):
     assert Y_test.shape == (1, 2)
 
 
+@pytest.mark.unit
 def test_prepare_masks(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     Y_train, Y_val, Y_test = trainer.prepare_targets(dataset_fp)
@@ -155,6 +160,7 @@ def test_prepare_masks(dataset_fp):
     assert m_tr.all() and m_val.all() and m_test.all()
 
 
+@pytest.mark.unit
 def test_sample_weights(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     mapping = {"d1": 2.0, "default": 1.0}
@@ -162,6 +168,7 @@ def test_sample_weights(dataset_fp):
     assert sw is not None and sw.tolist() == [2.0, 1.0, 2.0]
 
 
+@pytest.mark.unit
 def test_sample_weights_default_only(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     mapping = {"default": 1.5}
@@ -169,6 +176,7 @@ def test_sample_weights_default_only(dataset_fp):
     assert sw is not None and sw.tolist() == [1.5, 1.5, 1.5]
 
 
+@pytest.mark.unit
 def test_build_model_and_fit_call(tmp_path, dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel, seed=42)
     out = tmp_path / "out"
@@ -180,6 +188,7 @@ def test_build_model_and_fit_call(tmp_path, dataset_fp):
     assert call["early_stopping_rounds"] == 5
 
 
+@pytest.mark.unit
 def test_dry_run_returns_empty_metrics(tmp_path, dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     out = tmp_path / "out"
@@ -189,6 +198,7 @@ def test_dry_run_returns_empty_metrics(tmp_path, dataset_fp):
     assert run_metrics["test"]["macro"] == {}
 
 
+@pytest.mark.unit
 def test_artifact_saving(tmp_path, dataset_fp):
     pytest.importorskip("matplotlib")
     trainer = FPTrainer(model_cls=DummyModel)
@@ -203,6 +213,7 @@ def test_artifact_saving(tmp_path, dataset_fp):
     assert (out_dir / "figures" / "linear").is_dir()
 
 
+@pytest.mark.unit
 def test_errors_missing_features_without_smiles():
     ds = DummyDataset(FeaturizationMethod.MORGAN_FP)
     ds.train = ds.train.drop(columns=["fp1", "fp2", "fp3", "smiles"])
@@ -211,6 +222,7 @@ def test_errors_missing_features_without_smiles():
         trainer.prepare_features(cast(Any, ds))
 
 
+@pytest.mark.unit
 def test_errors_missing_endpoints(dataset_fp):
     ds = dataset_fp
     ds.train = ds.train.drop(columns=["A", "B"])

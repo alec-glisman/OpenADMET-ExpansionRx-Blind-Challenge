@@ -1,10 +1,11 @@
 import bblean
-import pandas as pd
 import bblean.similarity as iSIM
 import numpy as np
+import pandas as pd
 
 # This code is just a simple wrapper around code from one of the bblean example notebooks.
 # The code this is based on is here https://github.com/mqcomplab/bblean/blob/main/examples/bitbirch_best_practices.ipynb
+
 
 def bblean_cluster(
     dataframe: pd.DataFrame,
@@ -52,26 +53,21 @@ def bblean_cluster(
     """
     # Validate inputs
     if smiles_column not in dataframe.columns:
-        raise ValueError(f"Column '{smiles_column}' not found in dataframe. Available columns: {list(dataframe.columns)}")
-    
+        raise ValueError(
+            f"Column '{smiles_column}' not found in dataframe. Available columns: {list(dataframe.columns)}"
+        )
+
     if len(dataframe) == 0:
         raise ValueError("DataFrame is empty. Cannot cluster empty dataset.")
-    
+
     df_clustered = dataframe.copy()
 
     # Generate fingerprints
-    fps = bblean.fps_from_smiles(
-        df_clustered[smiles_column],
-        pack=True,
-        n_features=n_features,
-        kind=fp_kind
-    )
+    fps = bblean.fps_from_smiles(df_clustered[smiles_column], pack=True, n_features=n_features, kind=fp_kind)
 
     # Estimate an optimal clustering threshold
     average_sim = iSIM.jt_isim_packed(fps)
-    representative_samples = iSIM.jt_stratified_sampling(
-        fps, n_samples=n_samples_for_std
-    )
+    representative_samples = iSIM.jt_stratified_sampling(fps, n_samples=n_samples_for_std)
     sim_matrix = iSIM.jt_sim_matrix_packed(fps[representative_samples])
     # Exclude diagonal elements (self-similarity)
     sim_matrix = sim_matrix[~np.eye(sim_matrix.shape[0], dtype=bool)]
@@ -80,9 +76,7 @@ def bblean_cluster(
 
     # Initialize and fit the clustering model
     bb_tree = bblean.BitBirch(
-        branching_factor=branching_factor,
-        threshold=optimal_threshold,
-        merge_criterion="diameter"
+        branching_factor=branching_factor, threshold=optimal_threshold, merge_criterion="diameter"
     )
     bb_tree.fit(fps)
 
@@ -91,12 +85,7 @@ def bblean_cluster(
         print("Number of singletons before reclustering:", sum(1 for c in clusters if len(c) == 1))
 
     # Refine clusters
-    bb_tree.recluster_inplace(
-        iterations=recluster_iterations,
-        extra_threshold=std,
-        shuffle=False,
-        verbose=verbose
-    )
+    bb_tree.recluster_inplace(iterations=recluster_iterations, extra_threshold=std, shuffle=False, verbose=verbose)
 
     # Return cluster assignments and the fitted BitBirch tree
     return bb_tree.get_assignments(), bb_tree

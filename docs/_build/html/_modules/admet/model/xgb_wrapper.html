@@ -272,12 +272,15 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>  <span class="c1"># type: ignore[import-not-found]</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">xgboost</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBRegressor</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.fingerprinting</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span><span class="p">,</span> <span class="n">FingerprintConfig</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 
@@ -323,6 +326,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">random_state</span> <span class="o">=</span> <span class="n">random_state</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_features_</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span>
         <span class="c1"># Dict of endpoint -&gt; model (None if no training data for that endpoint)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">models</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># type: Dict[str, Optional[XGBRegressor]]</span>
 
@@ -408,9 +412,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr_ep</span><span class="p">,</span> <span class="n">y_tr_ep</span><span class="p">,</span> <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - fallback when GPU not available  # noqa: BLE001</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;Initial model.fit failed (likely GPU issue), retrying with CPU params: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span>
-                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Initial model.fit failed (likely GPU issue), retrying with CPU params: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
                 <span class="n">cpu_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;device&quot;</span><span class="p">,</span> <span class="s2">&quot;device_id&quot;</span><span class="p">)}</span>
                 <span class="n">cpu_params</span><span class="p">[</span><span class="s2">&quot;tree_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;hist&quot;</span>
                 <span class="n">model</span> <span class="o">=</span> <span class="n">XGBRegressor</span><span class="p">(</span><span class="o">**</span><span class="n">cpu_params</span><span class="p">)</span>
@@ -470,6 +472,12 @@
             <span class="s2">&quot;random_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">random_state</span><span class="p">,</span>
             <span class="s2">&quot;n_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_features_</span><span class="p">,</span>
         <span class="p">}</span>
+        <span class="n">fp_cfg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;fingerprint_config&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fp_cfg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fp_cfg</span><span class="p">,</span> <span class="n">FingerprintConfig</span><span class="p">):</span>
+                <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;fingerprint&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fp_cfg</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fp_cfg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;fingerprint&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fp_cfg</span>
         <span class="p">(</span><span class="n">out_dir</span> <span class="o">/</span> <span class="s2">&quot;config.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">ep</span><span class="p">,</span> <span class="n">mdl</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">mdl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -502,6 +510,11 @@
         <span class="p">)</span>
         <span class="c1"># restore recorded feature dimension</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">n_features_</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_features&quot;</span><span class="p">)</span>
+        <span class="n">fp_cfg_raw</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fingerprint&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fp_cfg_raw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">fingerprint_config</span> <span class="o">=</span> <span class="n">FingerprintConfig</span><span class="o">.</span><span class="n">from_mapping</span><span class="p">(</span><span class="n">fp_cfg_raw</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_FINGERPRINT_CONFIG</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">fingerprint_config</span> <span class="o">=</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span>
         <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">endpoints</span><span class="p">:</span>
             <span class="n">ep_path</span> <span class="o">=</span> <span class="n">in_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">.json&quot;</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">ep_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>

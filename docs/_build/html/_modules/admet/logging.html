@@ -431,11 +431,7 @@
             <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
                 <span class="n">file_path</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># Structured if using JsonFormatter</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;formatter&quot;</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">JsonFormatterLocal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">formatter</span><span class="p">,</span> <span class="n">JsonFormatterLocal</span><span class="p">)</span>
-        <span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;formatter&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">JsonFormatterLocal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">formatter</span><span class="p">,</span> <span class="n">JsonFormatterLocal</span><span class="p">):</span>
             <span class="n">structured</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">level</span><span class="p">,</span> <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="n">file_path</span><span class="p">,</span> <span class="s2">&quot;structured&quot;</span><span class="p">:</span> <span class="n">structured</span><span class="p">}</span></div>
 

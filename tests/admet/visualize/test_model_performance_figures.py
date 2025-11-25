@@ -6,9 +6,12 @@ non-empty payloads for both log and linear spaces.
 
 from __future__ import annotations
 
-import numpy as np
 from pathlib import Path
-from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
+
+import numpy as np
+import pytest
+
+from admet.visualize.model_performance import plot_metric_bars, plot_parity_grid
 
 
 def _make_synthetic():
@@ -22,6 +25,7 @@ def _make_synthetic():
     return endpoints, y, y_pred, mask
 
 
+@pytest.mark.unit
 def test_plot_generation(tmp_path: Path) -> None:
     endpoints, y_true, y_pred, mask = _make_synthetic()
     y_true_dict = {"train": y_true, "validation": y_true, "test": y_true}

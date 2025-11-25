@@ -1,26 +1,25 @@
 # %% [markdown]
 # ## Setup
 
-# %%
-from pathlib import Path
-import logging
+import gc
 import itertools
+import logging
 import warnings
 from datetime import datetime
-import gc
 
-import pandas as pd
-import numpy as np
-from tqdm.auto import tqdm
-from datasets import Dataset, DatasetDict
+# %%
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+import pandas as pd
 import scienceplots
-
+import seaborn as sns
 import useful_rdkit_utils as uru
+from datasets import Dataset, DatasetDict
 from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
+from tqdm.auto import tqdm
 
 # %%
 plt.style.use(["science"])
@@ -68,12 +67,8 @@ for dataset_dir in base_data_dir.iterdir():
 # Load input datasets
 datasets = {
     "high": pd.read_csv(base_data_dir / "cleaned_combined_datasets_high_quality.csv"),
-    "medium": pd.read_csv(
-        base_data_dir / "cleaned_combined_datasets_medium_high_quality.csv", low_memory=False
-    ),
-    "low": pd.read_csv(
-        base_data_dir / "cleaned_combined_datasets_low_medium_high_quality.csv", low_memory=False
-    ),
+    "medium": pd.read_csv(base_data_dir / "cleaned_combined_datasets_medium_high_quality.csv", low_memory=False),
+    "low": pd.read_csv(base_data_dir / "cleaned_combined_datasets_low_medium_high_quality.csv", low_memory=False),
 }
 
 for name, df in datasets.items():
@@ -271,9 +266,7 @@ for dset_name, splits in split_datasets.items():
         for split_number, folds in split_data.items():
             for fold_number, datasets_dict in folds.items():
 
-                split_output_dir = (
-                    output_dir / f"{dset_name}_quality/{split_name}/{split_number}/{fold_number}"
-                )
+                split_output_dir = output_dir / f"{dset_name}_quality/{split_name}/{split_number}/{fold_number}"
                 split_output_dir.mkdir(parents=True, exist_ok=True)
                 logger.debug(f"Saving dataset to {split_output_dir}")
 
@@ -303,9 +296,7 @@ for dset_name, splits in split_datasets.items():
     for split_name, split_data in splits.items():
         for split_number, folds in split_data.items():
             for fold_number, datasets_dict in folds.items():
-                split_output_dir = (
-                    output_dir / f"{dset_name}_quality/{split_name}/{split_number}/{fold_number}"
-                )
+                split_output_dir = output_dir / f"{dset_name}_quality/{split_name}/{split_number}/{fold_number}"
 
                 train_idx = datasets_dict["total"]["train"]
                 val_idx = datasets_dict["total"]["validation"]
@@ -422,7 +413,6 @@ for dset_name, splits in split_datasets.items():
 
         fig.tight_layout()
         fig.savefig(
-            output_fig_dir
-            / f"{dset_name}_quality_{split_name}_split_train_test_size_distribution_boxplot.png",
+            output_fig_dir / f"{dset_name}_quality_{split_name}_split_train_test_size_distribution_boxplot.png",
             dpi=600,
         )

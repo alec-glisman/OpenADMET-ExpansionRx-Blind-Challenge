@@ -22,9 +22,10 @@ All dynamically retrieved names are converted to lowercase for uniform CLI
 and API usage.
 """
 
-from typing import Mapping, TypedDict, Any, Callable, Dict
-import numpy as np
 from pathlib import Path
+from typing import Any, Callable, Dict, Mapping, TypedDict
+
+import numpy as np
 from tdc import utils
 
 
@@ -52,9 +53,7 @@ for name in utils.retrieve_benchmark_names("ADMET_Group"):
 
 DATASETS["expansion_teaser"] = {
     "type": "huggingface",
-    "uri": (
-        "hf://datasets/openadmet/" "openadmet-expansionrx-challenge-teaser/" "expansion_data_teaser.csv"
-    ),
+    "uri": ("hf://datasets/openadmet/" "openadmet-expansionrx-challenge-teaser/" "expansion_data_teaser.csv"),
     "output_file": "expansion_teaser.csv",
 }
 DATASETS["expansion"] = {

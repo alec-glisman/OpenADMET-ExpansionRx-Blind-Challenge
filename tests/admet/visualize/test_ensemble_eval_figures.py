@@ -7,8 +7,11 @@ contain expected files.
 from __future__ import annotations
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import pytest
+
 from admet.visualize.ensemble_eval import plot_blind_distributions, plot_labeled_eval_outputs
 
 
@@ -83,6 +86,7 @@ def _make_eval_frames():
     return df_eval, preds_log, preds_linear, metrics_log, metrics_lin
 
 
+@pytest.mark.unit
 def test_labeled_eval_plots(tmp_path: Path) -> None:
     df_eval, preds_log, preds_lin, metrics_log, metrics_lin = _make_eval_frames()
     figures_dir = tmp_path / "figures"
@@ -113,6 +117,7 @@ def test_labeled_eval_plots(tmp_path: Path) -> None:
     assert log_dists and lin_dists
 
 
+@pytest.mark.unit
 def test_blind_distribution_plots(tmp_path: Path) -> None:
     df_blind_log = pd.DataFrame(
         {

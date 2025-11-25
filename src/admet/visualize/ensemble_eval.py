@@ -17,7 +17,7 @@ logic reusable for tests.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence, Dict, List, Tuple, Optional
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -261,10 +261,7 @@ def _plot_labeled_distribution_family(
         pred_without_true = pred_series[~mask_true_aligned]
         overlap = pred_with_true.index.intersection(pred_without_true.index)
         if not overlap.empty:
-            msg = (
-                f"Prediction partitions overlap for endpoint '{ep}' in {space_label} space: "
-                f"{overlap.tolist()}"
-            )
+            msg = f"Prediction partitions overlap for endpoint '{ep}' in {space_label} space: " f"{overlap.tolist()}"
             raise ValueError(msg)
         combined = len(pred_with_true) + len(pred_without_true)
         if combined != len(pred_series):
@@ -357,9 +354,7 @@ def plot_labeled_eval_outputs(
     # Metric bar plots
     metrics_root = figures_dir / "metrics"
     metrics_for_order = metrics_log_df if metrics_log_df is not None else metrics_linear_df
-    endpoints_with_macro = _ensure_endpoint_order(
-        endpoints, include_macro=True, metrics_df=metrics_for_order
-    )
+    endpoints_with_macro = _ensure_endpoint_order(endpoints, include_macro=True, metrics_df=metrics_for_order)
 
     if metrics_log_df is not None and not metrics_log_df.empty:
         _plot_metric_family(

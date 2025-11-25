@@ -27,9 +27,9 @@ substantial RAM. Fingerprints are inserted near the front of the column list
 to maintain readability of target endpoints.
 """
 
-from pathlib import Path
 import logging
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
@@ -127,28 +127,26 @@ class DatasetSplitPipeline:
         for quality, filename in self.DATASET_CONFIGS.items():
             filepath = self.base_data_dir / filename
             if not filepath.exists():
-                logger.warning(f"Dataset not found: {filepath}")
+                logger.warning("Dataset not found: %s", filepath)
                 continue
 
-            logger.info(f"Loading {quality} quality dataset from {filepath}")
-            self.datasets[quality] = pd.read_csv(filepath, low_memory=False if quality != "high" else True)
+            logger.info("Loading %s quality dataset from %s", quality, filepath)
+            self.datasets[quality] = pd.read_csv(filepath, low_memory=quality == "high")
 
             df = self.datasets[quality]
-            logger.info(f"  Shape: {df.shape}")
-            logger.info(f"  Columns: {df.columns.tolist()}")
-            logger.info(f"  Unique sources: {df['Dataset'].unique()}")
+            logger.info("  Shape: %s", df.shape)
+            logger.info("  Columns: %s", df.columns.tolist())
+            logger.info("  Unique sources: %s", df["Dataset"].unique())
 
         if not self.datasets:
             raise ValueError("No datasets loaded successfully")
 
     def add_fingerprints(self) -> None:
         """Calculate and add Morgan fingerprints to all loaded datasets."""
-        from admet.data.fingerprinting import MorganFingerprintGenerator
-
         logger.info("Calculating fingerprints for all datasets...")
 
         for name, df in self.datasets.items():
-            logger.info(f"Adding fingerprints to {name} quality dataset")
+            logger.info("Adding fingerprints to %s quality dataset", name)
             self.datasets[name] = self.fp_generator.add_fingerprints_to_dataframe(
                 df, smiles_column="SMILES", insertion_index=3
             )
@@ -222,7 +220,7 @@ class DatasetSplitPipeline:
         coverage_path = temporal_viz_dir / "temporal_endpoint_coverage.png"
         self.visualizer.plot_endpoint_coverage(train_df, validation_df, test_df, coverage_path)
 
-        logger.info(f"Temporal split visualizations saved to {temporal_viz_dir}")
+        logger.info("Temporal split visualizations saved to %s", temporal_viz_dir)
 
     def create_stratified_splits_with_visualization(self) -> None:
         """Create and save stratified k-fold splits with concurrent visualization.
@@ -243,9 +241,7 @@ class DatasetSplitPipeline:
         logger.info("Generating aggregate visualizations...")
         self.visualizer.visualize_all_splits(self.split_structure, self.datasets, self.figure_dir)
 
-        logger.info(
-            f"Created and saved {len(self.split_structure)} quality levels of splits with visualizations"
-        )
+        logger.info("Created and saved %d quality levels of splits with visualizations", len(self.split_structure))
 
     def run(self, create_temporal: bool = True, create_stratified: bool = True) -> None:
         """
@@ -285,17 +281,17 @@ def setup_logging(level: int = logging.DEBUG) -> logging.Logger:
     logging.Logger
         Configured logger instance.
     """
-    logger = logging.getLogger(__name__)
-    if logger.hasHandlers():
-        logger.handlers.clear()
+    log = logging.getLogger(__name__)
+    if log.hasHandlers():
+        log.handlers.clear()
 
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     ch = logging.StreamHandler()
     ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    logger.setLevel(level)
+    log.addHandler(ch)
+    log.setLevel(level)
 
-    return logger
+    return log
 
 
 __all__ = ["DatasetSplitPipeline", "setup_logging"]

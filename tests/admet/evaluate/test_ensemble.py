@@ -10,12 +10,9 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from admet.evaluate.ensemble import (
-    aggregate_predictions,
-    evaluate_labeled_dataset,
-    evaluate_blind_dataset,
-)
+from admet.evaluate.ensemble import aggregate_predictions, evaluate_blind_dataset, evaluate_labeled_dataset
 
 
 class DummyModel:
@@ -30,6 +27,7 @@ class DummyModel:
         return np.full((n, len(self.endpoints)), self.constant)
 
 
+@pytest.mark.unit
 def test_aggregate_predictions_mean_median() -> None:
     # 2 models, 3 rows, 2 endpoints
     arr = np.zeros((2, 3, 2))
@@ -43,6 +41,7 @@ def test_aggregate_predictions_mean_median() -> None:
     assert np.allclose(median, 2.0)
 
 
+@pytest.mark.unit
 def test_evaluate_labeled_dataset_perfect_prediction() -> None:
     endpoints = ["LogD", "KSOL"]
     # Create a tiny DataFrame with two rows
@@ -83,6 +82,7 @@ def test_evaluate_labeled_dataset_perfect_prediction() -> None:
     assert "KSOL" in metrics_log_df[metrics_log_df["endpoint"] == "KSOL"]["endpoint"].values
 
 
+@pytest.mark.unit
 def test_evaluate_blind_dataset_basic() -> None:
     endpoints = ["LogD", "KSOL"]
     df = pd.DataFrame({"Molecule Name": ["a"], "SMILES": ["CCO"]})

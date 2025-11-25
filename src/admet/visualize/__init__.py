@@ -8,13 +8,13 @@ Plotting and visualization utilities.
 
 """
 
+import colorcet as cc
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from cycler import cycler
-import colorcet as cc
 
-from .model_performance import plot_parity_grid, plot_metric_bars, to_linear
+from .model_performance import plot_metric_bars, plot_parity_grid, to_linear
 
 GLASBEY_PALETTE = list(cc.glasbey)
 

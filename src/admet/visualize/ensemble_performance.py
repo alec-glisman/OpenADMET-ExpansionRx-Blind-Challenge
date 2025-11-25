@@ -15,7 +15,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
+from admet.visualize.model_performance import plot_metric_bars, plot_parity_grid
 from admet.visualize.plots import plot_numeric_distributions
 
 logger = logging.getLogger(__name__)

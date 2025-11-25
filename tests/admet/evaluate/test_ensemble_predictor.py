@@ -9,15 +9,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import List
-import pytest
 
 import pandas as pd
+import pytest
 
-from admet.evaluate.ensemble import (
-    EnsemblePredictConfig,
-    discover_model_runs,
-    run_ensemble_predictions_from_root,
-)
+from admet.evaluate.ensemble import EnsemblePredictConfig, discover_model_runs, run_ensemble_predictions_from_root
 from admet.model.base import BaseModel
 
 
@@ -51,6 +47,7 @@ class _DummyModel(BaseModel):
         return {}
 
 
+@pytest.mark.unit
 def test_discover_model_runs_prefers_run_meta(tmp_path: Path) -> None:
     root = tmp_path / "runs"
     run1 = root / "run1"
@@ -64,6 +61,7 @@ def test_discover_model_runs_prefers_run_meta(tmp_path: Path) -> None:
     assert set(found) == {run1, run2}
 
 
+@pytest.mark.unit
 def test_run_ensemble_predictions_from_root_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Create fake runs with run_meta.json so that load_model_from_dir succeeds
     root = tmp_path / "runs"

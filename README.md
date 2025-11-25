@@ -1,6 +1,6 @@
 # OpenADMET + ExpansionRx Blind Challenge
 
-**Authors**: Alec Glisman, PhD  
+**Authors**: Alec Glisman, PhD
 **Date**: October 2025
 
 ## Getting Started
@@ -9,6 +9,34 @@ This repository contains code and documentation for participating in the OpenADM
 
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
+
+### Tech Stack Highlights
+
+- `Python 3.11`: modern baseline with `Typer`/`Rich` powering the CLI.
+- `RDKit` + `useful-rdkit-utils`: molecular featurization and cheminformatics helpers.
+- `Chemprop`: graph neural networks tailored to molecular property prediction.
+- `Transformers` (`ChemBERTa`): SMILES sequence modeling and transfer learning.
+- `XGBoost` + `LightGBM`: strong tabular baselines for speed and interpretability.
+- `PyTorch` + `TorchMetrics`: deep learning backbone with consistent metric logging.
+- `Ray Tune`: distributed hyperparameter search and parallel training orchestration.
+- `MLflow`: experiment tracking, artifacts, and configuration capture.
+- `Matplotlib`/`Seaborn`: visualization stack for EDA and reporting.
+- `Polaris`/`TDC`/`Hugging Face Datasets`: curated ADMET data access and augmentation.
+
+### Pre-commit Quality Gates
+
+- `pre-commit-hooks`: whitespace/EOF/merge-conflict/mixed-line-ending guards, secret and size checks, JSON/YAML/TOML validation.
+- `Prettier`: consistent formatting for TOML and YAML configs.
+- `nbstripout`: strips notebook outputs while keeping metadata tidy.
+- `beautysh`: enforces clean formatting for shell scripts.
+- `Black`: opinionated Python formatting to keep diffs small.
+- `isort`: import ordering aligned with Black style.
+- `flake8`: fast linting for common Python style and correctness issues.
+- `pylint`: deeper Python linting to catch code smells.
+- `mypy`: optional static type checks on the `src` package.
+- `pytest -q`: quick test suite smoke run on commit.
+- `docs` rebuild hook: ensures Sphinx docs compile cleanly before commits.
+- `Commitizen`: commit message linting to enforce changelog-friendly messages.
 
 ### Split the dataset
 

@@ -11,6 +11,8 @@ for ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) property p
 
 from __future__ import annotations
 
+__version__ = "0.0.1"
+
 import importlib
 from typing import Any, Dict, List
 

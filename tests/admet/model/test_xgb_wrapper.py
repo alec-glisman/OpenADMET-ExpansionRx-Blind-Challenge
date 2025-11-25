@@ -7,13 +7,14 @@ and error handling when model prediction is invoked prior to fit.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
 from datasets import Dataset, DatasetDict
-from typing import Any
 
-from admet.data.load import load_dataset, expected_fingerprint_columns, ENDPOINT_COLUMNS
+from admet.data.load import ENDPOINT_COLUMNS, expected_fingerprint_columns, load_dataset
 
 
 def _make_hf_like_dataset(root: Path, n_rows: int = 30, n_bits: int = 16) -> Path:
@@ -59,6 +60,7 @@ def synth_dataset(tmp_path: Path, n_rows: int = 40, n_bits: int = 16) -> Any:
     return ds
 
 
+@pytest.mark.unit
 def test_xgboost_multiendpoint_save_load_roundtrip(tmp_path: Path) -> None:
     from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
@@ -81,6 +83,7 @@ def test_xgboost_multiendpoint_save_load_roundtrip(tmp_path: Path) -> None:
     assert np.allclose(preds_before[mask], preds_after[mask], equal_nan=True)
 
 
+@pytest.mark.unit
 def test_predict_dimension_checks(tmp_path: Path) -> None:
     from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 
@@ -100,6 +103,7 @@ def test_predict_dimension_checks(tmp_path: Path) -> None:
         model.predict(_np.zeros((len(X_train), X_train.shape[1] - 1)))
 
 
+@pytest.mark.unit
 def test_predict_errors_when_not_fit() -> None:
     from admet.model.xgb_wrapper import XGBoostMultiEndpoint
 

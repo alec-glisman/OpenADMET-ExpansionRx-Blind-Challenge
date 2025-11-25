@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
+import numpy as np
+import pandas as pd
 from lightgbm import LGBMRegressor
 from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
-import numpy as np
 from sklearn.model_selection import train_test_split
-import pandas as pd
 
 
 class LGBMMorganCountWrapper:
@@ -33,9 +33,7 @@ class LGBMMorganCountWrapper:
 
 
 def main():
-    df = pd.read_csv(
-        "https://raw.githubusercontent.com/PatWalters/datafiles/refs/heads/main/biogen_logS.csv"
-    )
+    df = pd.read_csv("https://raw.githubusercontent.com/PatWalters/datafiles/refs/heads/main/biogen_logS.csv")
     train, test = train_test_split(df)
     lgbm_wrapper = LGBMMorganCountWrapper("logS")
     pred = lgbm_wrapper.validate(train, test)

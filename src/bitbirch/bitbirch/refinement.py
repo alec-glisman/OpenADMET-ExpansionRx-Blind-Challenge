@@ -22,55 +22,61 @@ import bitbirch.bitbirch as bb
 
 
 ##Functions##
-#add docstrings to functions
-def radius(fps, threshold = 0.65, branching_factor=50):
+# add docstrings to functions
+def radius(fps, threshold=0.65, branching_factor=50):
     """Runnign radius birch; classic birch"""
-    bb.set_merge('radius')
+    bb.set_merge("radius")
     brc = bb.BitBirch(branching_factor=branching_factor, threshold=threshold)
     brc.fit(fps)
     return brc
 
-def diameter(fps, threshold = 0.65):
-    bb.set_merge('diameter')
+
+def diameter(fps, threshold=0.65):
+    bb.set_merge("diameter")
     brc = bb.BitBirch(branching_factor=50, threshold=threshold)
     brc.fit(fps)
     return brc
 
-def diameter_prune(fps, threshold = 0.65):
-    bb.set_merge('diameter')
+
+def diameter_prune(fps, threshold=0.65):
+    bb.set_merge("diameter")
     brc = bb.BitBirch(branching_factor=50, threshold=threshold)
     brc.fit(fps, singly=False)
     brc.prune(fps)
     return brc
 
-def diameter_prune_tolerance(fps, tol=0.05, threshold = 0.65):
-    bb.set_merge('diameter')
+
+def diameter_prune_tolerance(fps, tol=0.05, threshold=0.65):
+    bb.set_merge("diameter")
     brc = bb.BitBirch(branching_factor=50, threshold=threshold)
     brc.fit(fps, singly=False)
-    bb.set_merge('tolerance', tolerance=tol)
+    bb.set_merge("tolerance", tolerance=tol)
     brc.prune(fps)
     return brc
 
-def diameter_prune_reassign(fps, threshold = 0.65):
-    bb.set_merge('diameter')
-    brc = bb.BitBirch(branching_factor=50, threshold=threshold)  
+
+def diameter_prune_reassign(fps, threshold=0.65):
+    bb.set_merge("diameter")
+    brc = bb.BitBirch(branching_factor=50, threshold=threshold)
     brc.fit(fps, singly=False)
     brc.prune(fps)
     brc.reassign(fps)
     return brc
 
-def diameter_prune_tolerance_reassign(fps, tol=0.05, threshold = 0.65):
-    bb.set_merge('diameter')
+
+def diameter_prune_tolerance_reassign(fps, tol=0.05, threshold=0.65):
+    bb.set_merge("diameter")
     brc = bb.BitBirch(branching_factor=50, threshold=threshold)
     brc.fit(fps, singly=False)
-    bb.set_merge('tolerance', tolerance=tol)
+    bb.set_merge("tolerance", tolerance=tol)
     brc.prune(fps)
     brc.reassign(fps)
     return brc
 
-def BFs_reclustering(fps, init_threshold = 0.65, second_threshold = 0.7, second_tolerance = 0.0):
+
+def BFs_reclustering(fps, init_threshold=0.65, second_threshold=0.7, second_tolerance=0.0):
     # Do the diameter clustering
-    bb.set_merge('diameter')
+    bb.set_merge("diameter")
     brc = bb.BitBirch(branching_factor=50, threshold=init_threshold)
     brc.fit(fps, singly=True)
 
@@ -78,8 +84,8 @@ def BFs_reclustering(fps, init_threshold = 0.65, second_threshold = 0.7, second_
     BFs = brc.prepare_BFs(fps)
 
     # Do the second clustering
-    bb.set_merge('tolerance', tolerance=second_tolerance)
+    bb.set_merge("tolerance", tolerance=second_tolerance)
     brc = bb.BitBirch(branching_factor=50, threshold=second_threshold)
-    brc.fit_BFs(BFs) # Note that we fit the BFs, not the fps
+    brc.fit_BFs(BFs)  # Note that we fit the BFs, not the fps
 
     return brc

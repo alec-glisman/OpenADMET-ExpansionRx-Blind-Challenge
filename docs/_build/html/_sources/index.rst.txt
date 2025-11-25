@@ -46,22 +46,22 @@ Quick links
     .. link-button:: api/admet.html
         :text: ADMET Package CLI
         :classes: stretched-link
-    
+
     :badge:`Examples,badge-primary`
-    
+
     .. link-button:: cli.html
         :text: ADMET Package CLI Examples
         :classes: stretched-link
-    
+
     ---
 
     Contributing
     ^^^^^^^^^^^^
 
     Learn how to run tests and prepare PRs in :doc:`/guide/development`.
-    
+
     :badge:`Repository,badge-primary`
-    
+
     .. link-button:: https://github.com/alec-glisman/OpenADMET-ExpansionRx-Blind-Challenge
         :text: Code Repository
         :classes: stretched-link
@@ -100,12 +100,12 @@ To build the docs locally, follow one of these methods:
       .. code-block:: bash
 
          make -C docs clean && make -C docs html
-    
+
    .. tab:: Sphinx-Autobuild
 
       .. code-block:: bash
 
-         sphinx-autobuild docs docs/_build/html --open-browser 
+         sphinx-autobuild docs docs/_build/html --open-browser
 
    .. tab:: Python
 

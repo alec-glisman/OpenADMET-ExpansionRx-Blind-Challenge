@@ -6,18 +6,15 @@ and helper functions behave as expected.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
+
+from admet.data.load import ENDPOINT_COLUMNS, expected_fingerprint_columns, validate_dataset_schema
 
 # No additional typing imports required in this test
-
-from admet.data.load import (
-    validate_dataset_schema,
-    expected_fingerprint_columns,
-    ENDPOINT_COLUMNS,
-)
 
 
 def _make_split(path: Path, n_rows: int = 20, n_bits: int = 16) -> None:
@@ -37,6 +34,7 @@ def _make_split(path: Path, n_rows: int = 20, n_bits: int = 16) -> None:
     df.to_csv(path, index=False)
 
 
+@pytest.mark.unit
 def test_validate_dataset_schema_missing_column(tmp_path: Path) -> None:
     _make_split(tmp_path / "train.csv")
     df = pd.read_csv(tmp_path / "train.csv")

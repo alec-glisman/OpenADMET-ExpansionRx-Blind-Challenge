@@ -4,15 +4,17 @@ ray remote invocation parameters.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 import pytest
 
-from admet.train.base.utils import _extract_features, _extract_targets
 from admet.train.base.ray_trainer import BaseEnsembleTrainer
+from admet.train.base.utils import _extract_features, _extract_targets
 
 
+@pytest.mark.unit
 def test_extractors_cast_to_float32_without_copy() -> None:
     df = pd.DataFrame(
         {
@@ -30,6 +32,7 @@ def test_extractors_cast_to_float32_without_copy() -> None:
     assert targets.shape == (2, 1)
 
 
+@pytest.mark.unit
 def test_worker_thread_limit_passed_to_remote(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Stub ray API to avoid spinning up real cluster
     class StubRay:

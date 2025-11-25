@@ -14,15 +14,15 @@ Classes
 
 from __future__ import annotations
 
-from typing import Sequence, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, Sequence
 
-from lightgbm import LGBMRegressor
-from rdkit import Chem  # type: ignore[import-not-found]
-from rdkit.Chem import rdFingerprintGenerator  # type: ignore[import-not-found]
 import numpy as np
 import pandas as pd  # type: ignore[import-not-found]
 import useful_rdkit_utils as uru  # type: ignore[import-not-found]
+from lightgbm import LGBMRegressor
+from rdkit import Chem  # type: ignore[import-not-found]
+from rdkit.Chem import rdFingerprintGenerator  # type: ignore[import-not-found]
 
 
 class LGBMPropWrapper:

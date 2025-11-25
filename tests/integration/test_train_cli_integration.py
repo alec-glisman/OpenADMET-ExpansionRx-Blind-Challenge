@@ -83,6 +83,8 @@ def limit_threads(monkeypatch):
     yield
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_cli_single_training_logs_to_mlflow(tmp_path: Path) -> None:
     data_root = tmp_path / "hf_dataset"
     data_root.mkdir(parents=True)
@@ -90,9 +92,7 @@ def test_cli_single_training_logs_to_mlflow(tmp_path: Path) -> None:
     cfg_path = tmp_path / "single.yaml"
     output_dir = tmp_path / "artifacts_single"
     tracking_dir = tmp_path / "mlruns_single"
-    _write_config(
-        cfg_path, data_root=data_root, output_dir=output_dir, tracking_dir=tracking_dir, multi=False
-    )
+    _write_config(cfg_path, data_root=data_root, output_dir=output_dir, tracking_dir=tracking_dir, multi=False)
 
     runner = CliRunner()
     result = runner.invoke(app, ["train", "xgb", "--config", str(cfg_path)])
@@ -107,6 +107,8 @@ def test_cli_single_training_logs_to_mlflow(tmp_path: Path) -> None:
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
+@pytest.mark.integration
+@pytest.mark.slow
 def test_cli_ensemble_training_logs_parent_and_child(tmp_path: Path) -> None:
     root = tmp_path / "ensemble_root"
     ds_dir = root / "split_0" / "fold_0" / "hf_dataset"

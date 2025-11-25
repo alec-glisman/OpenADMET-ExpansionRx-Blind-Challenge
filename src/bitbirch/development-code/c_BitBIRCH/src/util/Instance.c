@@ -33,7 +33,7 @@ double* instance_read(char* line, int dimensionality, char* delimiters)
         sscanf(field, "%lf", &sample[i]);
         free(field);
     }
-    
+
     return sample;
 }
 

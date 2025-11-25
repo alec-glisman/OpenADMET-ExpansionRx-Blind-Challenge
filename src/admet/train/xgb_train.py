@@ -12,8 +12,9 @@ Components
 """
 
 from __future__ import annotations
-from typing import Any, Dict, Optional, Type
+
 import logging
+from typing import Any, Dict, Optional, Type
 
 from admet.model.base import ModelProtocol
 from admet.train.base import BaseModelTrainer, FeaturizationMethod

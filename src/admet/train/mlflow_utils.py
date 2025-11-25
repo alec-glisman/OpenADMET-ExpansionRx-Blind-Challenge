@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
 import math
 import re
+from typing import Any, Dict, Optional
 
 import mlflow
 import numpy as np
@@ -47,7 +47,9 @@ def _coerce_metric(value: Any) -> Optional[float]:
     return float(numeric) if math.isfinite(float(numeric)) else None
 
 
-def flatten_metrics(run_metrics: Dict[str, Dict[str, Dict[str, Dict[str, float]]]], *, prefix: str = "metrics") -> Dict[str, float]:
+def flatten_metrics(
+    run_metrics: Dict[str, Dict[str, Dict[str, Dict[str, float]]]], *, prefix: str = "metrics"
+) -> Dict[str, float]:
     """Flatten nested metric structure produced by trainers."""
 
     flat: Dict[str, float] = {}
@@ -70,6 +72,12 @@ def flatten_metrics(run_metrics: Dict[str, Dict[str, Dict[str, Dict[str, float]]
 
 
 def set_mlflow_tracking(tracking_uri: Optional[str], experiment_name: Optional[str]) -> None:
+    """Set MLflow tracking URI and experiment name.
+
+    Args:
+        tracking_uri: MLflow tracking URI (e.g., file:///path/to/mlruns)
+        experiment_name: Name of the MLflow experiment
+    """
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
     if experiment_name:

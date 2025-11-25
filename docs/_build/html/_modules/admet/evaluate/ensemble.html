@@ -279,21 +279,22 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">joblib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parallel</span><span class="p">,</span> <span class="n">delayed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.fingerprinting</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span><span class="p">,</span> <span class="n">FingerprintConfig</span><span class="p">,</span> <span class="n">MorganFingerprintGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="n">metrics</span> <span class="k">as</span> <span class="n">eval_metrics</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.xgb_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostMultiEndpoint</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.fingerprinting</span><span class="w"> </span><span class="kn">import</span> <span class="n">MorganFingerprintGenerator</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="n">metrics</span> <span class="k">as</span> <span class="n">eval_metrics</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.visualize.model_performance</span><span class="w"> </span><span class="kn">import</span> <span class="n">_apply_transform_space</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -320,13 +321,19 @@
 <span class="sd">        Aggregation function to combine per-model predictions.</span>
 <span class="sd">    n_jobs</span>
 <span class="sd">        Level of parallelism across models when running predictions.</span>
+<span class="sd">    train_data_root</span>
+<span class="sd">        Optional path to the Hugging Face datasets used during training. When</span>
+<span class="sd">        provided, train/validation/test splits are evaluated and returned in</span>
+<span class="sd">        the summary.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">models_root</span><span class="p">:</span> <span class="n">Path</span>
     <span class="n">eval_csv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">blind_csv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">agg_fn</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span>
-    <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span></div>
+    <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">FingerprintConfig</span> <span class="o">=</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span>
+    <span class="n">train_data_root</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 
@@ -334,7 +341,7 @@
 <a class="viewcode-back" href="../../../api/admet.evaluate.html#admet.evaluate.ensemble.EnsemblePredictSummary">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EnsemblePredictSummary</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Summary of ensemble prediction outputs for eval and blind datasets.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Summary of ensemble prediction outputs for eval, blind, and training datasets.&quot;&quot;&quot;</span>
 
     <span class="n">model_dirs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span>  <span class="c1"># (n_models,)</span>
     <span class="n">endpoints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>  <span class="c1"># (n_endpoints,)</span>
@@ -347,7 +354,24 @@
 
     <span class="c1"># Blind dataset: All model outputs</span>
     <span class="n">preds_log_blind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
-    <span class="n">preds_linear_blind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span></div>
+    <span class="n">preds_linear_blind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
+
+    <span class="c1"># Training split evaluations (optional, keyed by split name)</span>
+    <span class="n">train_split_evaluations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;SplitEvaluation&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="SplitEvaluation">
+<a class="viewcode-back" href="../../../api/admet.evaluate.html#admet.evaluate.ensemble.SplitEvaluation">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SplitEvaluation</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Container for a single split&#39;s evaluation artifacts.&quot;&quot;&quot;</span>
+
+    <span class="n">df_true</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">preds_log</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">preds_linear</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">metrics_log</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">metrics_linear</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span></div>
 
 
 
@@ -434,6 +458,61 @@
             <span class="n">unique_dirs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">unique_dirs</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_split_fold_from_model_dir</span><span class="p">(</span><span class="n">model_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract split and fold identifiers from a model directory path.&quot;&quot;&quot;</span>
+    <span class="n">split_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fold_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">model_dir</span><span class="o">.</span><span class="n">parts</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;split_&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">split_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">part</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;split_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;fold_&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">fold_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">part</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;fold_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">continue</span>
+    <span class="k">if</span> <span class="n">split_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">fold_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not infer split/fold from model directory </span><span class="si">{</span><span class="n">model_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">split_id</span><span class="p">,</span> <span class="n">fold_id</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_collect_training_splits</span><span class="p">(</span>
+    <span class="n">train_data_root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">model_dirs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Path</span><span class="p">],</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">FingerprintConfig</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and concatenate train/val/test splits for all discovered models.&quot;&quot;&quot;</span>
+    <span class="n">combined_frames</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+    <span class="n">seen_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">md</span> <span class="ow">in</span> <span class="n">model_dirs</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">split_id</span><span class="p">,</span> <span class="n">fold_id</span> <span class="o">=</span> <span class="n">_parse_split_fold_from_model_dir</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">; skipping training split collection for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">,</span> <span class="n">md</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">ds_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">train_data_root</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;split_</span><span class="si">{</span><span class="n">split_id</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;fold_</span><span class="si">{</span><span class="n">fold_id</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">/</span> <span class="s2">&quot;hf_dataset&quot;</span>
+        <span class="k">if</span> <span class="n">ds_path</span> <span class="ow">in</span> <span class="n">seen_paths</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ds_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Expected training dataset missing at </span><span class="si">%s</span><span class="s2"> (derived from </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">ds_path</span><span class="p">,</span> <span class="n">md</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading training splits from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ds_path</span><span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="n">ds_path</span><span class="p">,</span> <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">fingerprint_config</span><span class="p">)</span>
+        <span class="n">seen_paths</span><span class="p">[</span><span class="n">ds_path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">combined_frames</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
+        <span class="n">combined_frames</span><span class="p">[</span><span class="s2">&quot;validation&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
+        <span class="n">combined_frames</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">test</span><span class="p">)</span>
+
+    <span class="n">concatenated</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">frames</span> <span class="ow">in</span> <span class="n">combined_frames</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">frames</span><span class="p">:</span>
+            <span class="n">concatenated</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">concatenated</span>
 
 
 <div class="viewcode-block" id="load_model_from_dir">
@@ -539,6 +618,9 @@
     <span class="n">preds_log_blind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">preds_linear_blind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
+    <span class="c1"># Training datasets (train/validation/test) aggregated across model folds</span>
+    <span class="n">train_split_evaluations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SplitEvaluation</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
     <span class="k">if</span> <span class="n">df_eval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">preds_log_eval</span><span class="p">,</span> <span class="n">preds_linear_eval</span><span class="p">,</span> <span class="n">metrics_log_eval</span><span class="p">,</span> <span class="n">metrics_linear_eval</span> <span class="o">=</span> <span class="n">evaluate_labeled_dataset</span><span class="p">(</span>
             <span class="n">models</span><span class="p">,</span>
@@ -546,7 +628,35 @@
             <span class="n">endpoints</span><span class="p">,</span>
             <span class="n">config</span><span class="o">.</span><span class="n">agg_fn</span><span class="p">,</span>
             <span class="n">n_jobs</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">,</span>
+            <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">,</span>
         <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">train_data_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">split_frames</span> <span class="o">=</span> <span class="n">_collect_training_splits</span><span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">train_data_root</span><span class="p">),</span>
+            <span class="n">run_dirs</span><span class="p">,</span>
+            <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Collected </span><span class="si">%d</span><span class="s2"> training splits from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_frames</span><span class="p">),</span> <span class="n">config</span><span class="o">.</span><span class="n">train_data_root</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">split_frames</span><span class="p">:</span>
+            <span class="n">train_split_evaluations</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">df_split</span> <span class="ow">in</span> <span class="n">split_frames</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Evaluating training split &#39;</span><span class="si">%s</span><span class="s2">&#39; with </span><span class="si">%d</span><span class="s2"> samples&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_split</span><span class="p">))</span>
+                <span class="n">preds_log_split</span><span class="p">,</span> <span class="n">preds_linear_split</span><span class="p">,</span> <span class="n">metrics_log_split</span><span class="p">,</span> <span class="n">metrics_linear_split</span> <span class="o">=</span> <span class="n">evaluate_labeled_dataset</span><span class="p">(</span>
+                    <span class="n">models</span><span class="p">,</span>
+                    <span class="n">df_split</span><span class="p">,</span>
+                    <span class="n">endpoints</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">.</span><span class="n">agg_fn</span><span class="p">,</span>
+                    <span class="n">n_jobs</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">,</span>
+                    <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">train_split_evaluations</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">SplitEvaluation</span><span class="p">(</span>
+                    <span class="n">df_true</span><span class="o">=</span><span class="n">df_split</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                    <span class="n">preds_log</span><span class="o">=</span><span class="n">preds_log_split</span><span class="p">,</span>
+                    <span class="n">preds_linear</span><span class="o">=</span><span class="n">preds_linear_split</span><span class="p">,</span>
+                    <span class="n">metrics_log</span><span class="o">=</span><span class="n">metrics_log_split</span><span class="p">,</span>
+                    <span class="n">metrics_linear</span><span class="o">=</span><span class="n">metrics_linear_split</span><span class="p">,</span>
+                <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">df_blind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">preds_log_blind</span><span class="p">,</span> <span class="n">preds_linear_blind</span> <span class="o">=</span> <span class="n">evaluate_blind_dataset</span><span class="p">(</span>
@@ -555,6 +665,7 @@
             <span class="n">endpoints</span><span class="p">,</span>
             <span class="n">config</span><span class="o">.</span><span class="n">agg_fn</span><span class="p">,</span>
             <span class="n">n_jobs</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">,</span>
+            <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">EnsemblePredictSummary</span><span class="p">(</span>
@@ -566,38 +677,92 @@
         <span class="n">metrics_linear_eval</span><span class="o">=</span><span class="n">metrics_linear_eval</span><span class="p">,</span>
         <span class="n">preds_log_blind</span><span class="o">=</span><span class="n">preds_log_blind</span><span class="p">,</span>
         <span class="n">preds_linear_blind</span><span class="o">=</span><span class="n">preds_linear_blind</span><span class="p">,</span>
+        <span class="n">train_split_evaluations</span><span class="o">=</span><span class="n">train_split_evaluations</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_generate_features_for_models</span><span class="p">(</span><span class="n">models</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">],</span> <span class="n">smiles</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_generate_features_for_models</span><span class="p">(</span>
+    <span class="n">models</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">],</span>
+    <span class="n">smiles</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Prepare feature arrays per-model depending on model input type.</span>
 
 <span class="sd">    Returns a mapping model_idx -&gt; feature ndarray to be passed to</span>
 <span class="sd">    ``model.predict``. All returned arrays are numeric numpy ndarrays</span>
 <span class="sd">    (for fingerprints) or object arrays (for SMILES) depending on model.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;Generating features for </span><span class="si">%d</span><span class="s2"> models with </span><span class="si">%d</span><span class="s2"> input SMILES and fingerprint_config=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">models</span><span class="p">),</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">smiles</span><span class="p">),</span>
+        <span class="n">fingerprint_config</span><span class="p">,</span>
+    <span class="p">)</span>
 
-    <span class="n">fingerprint_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">fingerprint_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">smiles_cache</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">features</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
-        <span class="nb">enumerate</span><span class="p">(</span><span class="n">models</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">models</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Generating features for models&quot;</span><span class="p">,</span> <span class="n">dynamic_ncols</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">models</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">models</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Generating features for models&quot;</span><span class="p">,</span> <span class="n">dynamic_ncols</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="n">input_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s2">&quot;input_type&quot;</span><span class="p">,</span> <span class="s2">&quot;fingerprint&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Preparing features for model </span><span class="si">%d</span><span class="s2"> with input_type </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">input_type</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">input_type</span> <span class="o">==</span> <span class="s2">&quot;fingerprint&quot;</span><span class="p">:</span>
-            <span class="n">fp_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s2">&quot;n_features_&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">2048</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">fp_size</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fingerprint_cache</span><span class="p">:</span>
-                <span class="n">fg</span> <span class="o">=</span> <span class="n">MorganFingerprintGenerator</span><span class="p">(</span><span class="n">fp_size</span><span class="o">=</span><span class="n">fp_size</span><span class="p">)</span>
+
+            <span class="n">model_fp_cfg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s2">&quot;fingerprint_config&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">model_fp_cfg</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Model </span><span class="si">%d</span><span class="s2"> missing fingerprint_config; defaulting to global or default config&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_fp_cfg</span><span class="p">,</span> <span class="p">(</span><span class="n">FingerprintConfig</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Model </span><span class="si">%d</span><span class="s2"> has unexpected fingerprint_config type </span><span class="si">%s</span><span class="s2">; defaulting to global or default config&quot;</span><span class="p">,</span>
+                    <span class="n">i</span><span class="p">,</span>
+                    <span class="nb">type</span><span class="p">(</span><span class="n">model_fp_cfg</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">model_fp_cfg</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Model </span><span class="si">%d</span><span class="s2"> has fingerprint_config: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">model_fp_cfg</span><span class="p">)</span>
+                <span class="n">model_fp_cfg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">FingerprintConfig</span><span class="o">.</span><span class="n">from_mapping</span><span class="p">(</span><span class="n">model_fp_cfg</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_fp_cfg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="n">model_fp_cfg</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">model_fp_cfg</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using model </span><span class="si">%d</span><span class="s2"> fingerprint_config&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">fp_cfg</span> <span class="o">=</span> <span class="n">model_fp_cfg</span>
+            <span class="k">elif</span> <span class="n">fingerprint_config</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using global fingerprint_config for model </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">fp_cfg</span> <span class="o">=</span> <span class="n">fingerprint_config</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using default fingerprint_config for model </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">fp_cfg</span> <span class="o">=</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span>
+
+            <span class="n">cache_key</span> <span class="o">=</span> <span class="p">(</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span> <span class="n">fp_cfg</span><span class="o">.</span><span class="n">n_bits</span><span class="p">,</span> <span class="n">fp_cfg</span><span class="o">.</span><span class="n">use_counts</span><span class="p">,</span> <span class="n">fp_cfg</span><span class="o">.</span><span class="n">include_chirality</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fingerprint_cache</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Generating fingerprints for model </span><span class="si">%d</span><span class="s2"> with config: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">fp_cfg</span><span class="p">)</span>
+                <span class="n">fg</span> <span class="o">=</span> <span class="n">MorganFingerprintGenerator</span><span class="p">(</span>
+                    <span class="n">radius</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span>
+                    <span class="n">count_simulation</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">use_counts</span><span class="p">,</span>
+                    <span class="n">include_chirality</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">include_chirality</span><span class="p">,</span>
+                    <span class="n">fp_size</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">n_bits</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="n">fp_cfg</span><span class="p">,</span>
+                <span class="p">)</span>
                 <span class="n">fp_df</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">calculate_fingerprints</span><span class="p">(</span><span class="n">smiles</span><span class="p">)</span>
-                <span class="n">fingerprint_cache</span><span class="p">[</span><span class="n">fp_size</span><span class="p">]</span> <span class="o">=</span> <span class="n">fp_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-            <span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">fingerprint_cache</span><span class="p">[</span><span class="n">fp_size</span><span class="p">]</span>
+                <span class="n">fingerprint_cache</span><span class="p">[</span><span class="n">cache_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">fp_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using cached fingerprints for model </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+
+            <span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">fingerprint_cache</span><span class="p">[</span><span class="n">cache_key</span><span class="p">]</span>
+
         <span class="k">elif</span> <span class="n">input_type</span> <span class="o">==</span> <span class="s2">&quot;smiles&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">smiles_cache</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Generating smiles for model </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
                 <span class="n">smiles_cache</span> <span class="o">=</span> <span class="n">smiles</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using cached smiles for model </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
             <span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">smiles_cache</span>
+
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported model input_type </span><span class="si">{</span><span class="n">input_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">features</span>
 
 
@@ -607,6 +772,7 @@
     <span class="n">models</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">],</span>
     <span class="n">smiles</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span>
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run predictions for each model on provided SMILES strings.</span>
 
@@ -625,7 +791,7 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">models</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`models` must contain at least one model&quot;</span><span class="p">)</span>
 
-    <span class="n">features_map</span> <span class="o">=</span> <span class="n">_generate_features_for_models</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="n">smiles</span><span class="p">)</span>
+    <span class="n">features_map</span> <span class="o">=</span> <span class="n">_generate_features_for_models</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="n">smiles</span><span class="p">,</span> <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">fingerprint_config</span><span class="p">)</span>
 
     <span class="c1"># Parallelize prediction across models when requested.</span>
     <span class="n">pred_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -634,9 +800,7 @@
         <span class="k">def</span><span class="w"> </span><span class="nf">_predict_single</span><span class="p">(</span><span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">mdl</span><span class="p">:</span> <span class="n">BaseModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">mdl</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">features_map</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>  <span class="c1"># type: ignore[no-any-return]</span>
 
-        <span class="n">parallel_results</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">)(</span>
-            <span class="n">delayed</span><span class="p">(</span><span class="n">_predict_single</span><span class="p">)(</span><span class="n">i</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">models</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">parallel_results</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">)(</span><span class="n">delayed</span><span class="p">(</span><span class="n">_predict_single</span><span class="p">)(</span><span class="n">i</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">models</span><span class="p">))</span>
         <span class="n">pred_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">parallel_results</span><span class="p">]</span>
 
     <span class="k">else</span><span class="p">:</span>
@@ -718,6 +882,7 @@
     <span class="n">df_true_log</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">agg_fn</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run ensemble predictions and optional evaluation on a dataset.</span>
 
@@ -753,7 +918,9 @@
     <span class="n">smiles</span> <span class="o">=</span> <span class="n">df_input</span><span class="p">[</span><span class="s2">&quot;SMILES&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
 
     <span class="c1"># predict outputs for all models</span>
-    <span class="n">model_preds_log</span> <span class="o">=</span> <span class="n">predict_per_model</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="n">smiles</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">)</span>  <span class="c1"># (n_models, n_samples, n_endpoints)</span>
+    <span class="n">model_preds_log</span> <span class="o">=</span> <span class="n">predict_per_model</span><span class="p">(</span>
+        <span class="n">models</span><span class="p">,</span> <span class="n">smiles</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span> <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">fingerprint_config</span>
+    <span class="p">)</span>  <span class="c1"># (n_models, n_samples, n_endpoints)</span>
 
     <span class="c1"># aggregate predictions across models</span>
     <span class="n">ens_preds_log</span> <span class="o">=</span> <span class="n">aggregate_predictions</span><span class="p">(</span><span class="n">model_preds_log</span><span class="p">,</span> <span class="n">agg_fn</span><span class="p">)</span>  <span class="c1"># (n_samples, n_endpoints)</span>
@@ -944,6 +1111,7 @@
     <span class="n">endpoints</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="n">agg_fn</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run ensemble evaluation for a labeled dataset.</span>
 
@@ -978,6 +1146,7 @@
         <span class="n">df_true_log</span><span class="p">,</span>
         <span class="n">agg_fn</span><span class="p">,</span>
         <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span>
+        <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">fingerprint_config</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">assert</span> <span class="n">metrics_log</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">metrics_linear</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -994,6 +1163,7 @@
     <span class="n">endpoints</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="n">agg_fn</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run ensemble inference on a blind (unlabeled) dataset.</span>
 
@@ -1022,6 +1192,7 @@
         <span class="n">df_true_log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">agg_fn</span><span class="o">=</span><span class="n">agg_fn</span><span class="p">,</span>
         <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span>
+        <span class="n">fingerprint_config</span><span class="o">=</span><span class="n">fingerprint_config</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">ens_preds_log</span><span class="p">,</span> <span class="n">ens_preds_lin</span></div>
 
@@ -1033,6 +1204,7 @@
     <span class="s2">&quot;discover_model_runs&quot;</span><span class="p">,</span>
     <span class="s2">&quot;EnsemblePredictConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;EnsemblePredictSummary&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SplitEvaluation&quot;</span><span class="p">,</span>
     <span class="s2">&quot;run_ensemble_predictions_from_root&quot;</span><span class="p">,</span>
     <span class="s2">&quot;predict_per_model&quot;</span><span class="p">,</span>
     <span class="s2">&quot;aggregate_predictions&quot;</span><span class="p">,</span>

@@ -28,13 +28,13 @@ Assumptions
 
 from __future__ import annotations
 
+import concurrent.futures
 from pathlib import Path
 from typing import Dict, Sequence, Tuple
-import concurrent.futures
-from tqdm import tqdm
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
 
 from admet.evaluate import metrics as eval_metrics
 
@@ -110,9 +110,7 @@ def _apply_transform_space(y: np.ndarray, endpoints: Sequence[str], space: str) 
     return out
 
 
-def _masked_arrays(
-    y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, j: int
-) -> Tuple[np.ndarray, np.ndarray]:
+def _masked_arrays(y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, j: int) -> Tuple[np.ndarray, np.ndarray]:
     """Extract valid true/pred arrays for endpoint index ``j``.
 
     Parameters
@@ -165,9 +163,7 @@ def _compute_stats(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
         }
 
     mask = np.ones((n, 1), dtype=int)
-    metrics = eval_metrics.compute_metrics(
-        y_true.reshape(-1, 1), y_pred.reshape(-1, 1), mask, endpoints=["ep"]
-    )
+    metrics = eval_metrics.compute_metrics(y_true.reshape(-1, 1), y_pred.reshape(-1, 1), mask, endpoints=["ep"])
     return {
         "mae": metrics["ep"]["mae"],
         "rmse": metrics["ep"]["rmse"],
@@ -428,14 +424,10 @@ def plot_parity_grid(
     else:
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as ex:
             futures = [
-                ex.submit(
-                    _plot_parity_worker, j, ep, y_true_dict, y_pred_dict, mask_dict, space, save_dir, dpi
-                )
+                ex.submit(_plot_parity_worker, j, ep, y_true_dict, y_pred_dict, mask_dict, space, save_dir, dpi)
                 for j, ep in enumerate(endpoints)
             ]
-            for fut in tqdm(
-                concurrent.futures.as_completed(futures), total=len(futures), desc="Parity plots"
-            ):
+            for fut in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Parity plots"):
                 # re-raise exceptions from workers
                 fut.result()
 
@@ -506,12 +498,8 @@ def plot_metric_bars(
     else:
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as ex:
             futures = [
-                ex.submit(
-                    _metric_plot_worker, metric_key, per_split_metrics, endpoints, Path(out_str), space, dpi
-                )
+                ex.submit(_metric_plot_worker, metric_key, per_split_metrics, endpoints, Path(out_str), space, dpi)
                 for metric_key, out_str in tasks
             ]
-            for fut in tqdm(
-                concurrent.futures.as_completed(futures), total=len(futures), desc="Metric bars"
-            ):
+            for fut in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Metric bars"):
                 fut.result()

@@ -25,9 +25,9 @@ defaults are used directly. Large numbers of columns may require adjusting
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple
-import logging
 
 import numpy as np
 import pandas as pd

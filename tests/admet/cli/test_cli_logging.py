@@ -8,14 +8,16 @@ from __future__ import annotations
 
 import logging
 
-# No third-party typing required in these small tests
-
 import pytest
 from typer.testing import CliRunner
 
 from admet.cli import app
 
+# No third-party typing required in these small tests
 
+
+@pytest.mark.integration
+@pytest.mark.slow
 def test_cli_sets_log_level_debug() -> None:
     """Ensure the CLI callback sets the global logging level to DEBUG.
 
@@ -29,6 +31,8 @@ def test_cli_sets_log_level_debug() -> None:
     assert logging.getLogger().level == logging.DEBUG
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_default_log_level_is_info() -> None:
     """Verify that the default global log level is INFO when not specified."""
     runner = CliRunner()

@@ -26,11 +26,12 @@ should ignore the argument gracefully.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Sequence, Protocol, runtime_checkable
+from typing import Any, Dict, Protocol, Sequence, runtime_checkable
+
 import numpy as np
 
 
-class BaseModel(ABC):
+class BaseModel(ABC):  # pylint: disable=invalid-name
     """Abstract base class for multi‑output regression models.
 
     Attributes
@@ -39,13 +40,19 @@ class BaseModel(ABC):
         Ordered list of endpoint (target) names.
     input_type : str
         String identifier for expected input modality (``'fingerprint'`` or ``'smiles'``).
+
+    Note
+    ----
+    Parameters use capital X/Y letters to follow scientific computing convention where
+    X denotes feature matrices and Y denotes target matrices. This is widespread in
+    scikit-learn and related ML libraries and takes precedence over PEP 8 naming style.
     """
 
     endpoints: Sequence[str]
     input_type: str  # "fingerprint" | "smiles"
 
     @abstractmethod
-    def fit(
+    def fit(  # pylint: disable=invalid-name
         self,
         X_train: np.ndarray,
         Y_train: np.ndarray,
@@ -156,7 +163,7 @@ class ModelProtocol(Protocol):
     endpoints: Sequence[str]
     input_type: str
 
-    def fit(
+    def fit(  # pylint: disable=invalid-name
         self,
         X_train: np.ndarray,
         Y_train: np.ndarray,
@@ -169,9 +176,30 @@ class ModelProtocol(Protocol):
         early_stopping_rounds: int | None = None,
     ) -> None: ...
 
-    def predict(self, X: np.ndarray) -> np.ndarray: ...
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Generate predictions for input features.
 
-    def save(self, path: str) -> None: ...
+        Args:
+            X: Feature matrix of shape (N, F)
+
+        Returns:
+            Prediction matrix of shape (N, D) where D is number of endpoints
+        """
+
+    def save(self, path: str) -> None:
+        """Save model to filesystem.
+
+        Args:
+            path: Directory path to save model artifacts
+        """
 
     @classmethod
-    def load(cls, path: str) -> "ModelProtocol": ...
+    def load(cls, path: str) -> "ModelProtocol":
+        """Load model from filesystem.
+
+        Args:
+            path: Directory path containing model artifacts
+
+        Returns:
+            Loaded model instance
+        """

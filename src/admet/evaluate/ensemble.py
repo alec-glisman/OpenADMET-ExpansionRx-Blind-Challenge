@@ -19,26 +19,22 @@ for parity with the project's conventions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Sequence, Tuple, Dict, Optional
 import json
 import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
 
-from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
+from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig, MorganFingerprintGenerator
 from admet.data.load import load_dataset
+from admet.evaluate import metrics as eval_metrics
 from admet.model.base import BaseModel
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
-from admet.data.fingerprinting import (
-    MorganFingerprintGenerator,
-    FingerprintConfig,
-    DEFAULT_FINGERPRINT_CONFIG,
-)
-from admet.evaluate import metrics as eval_metrics
 from admet.visualize.model_performance import _apply_transform_space
 
 logger = logging.getLogger(__name__)
@@ -360,15 +356,13 @@ def run_ensemble_predictions_from_root(
             train_split_evaluations = {}
             for split_name, df_split in split_frames.items():
                 logger.debug("Evaluating training split '%s' with %d samples", split_name, len(df_split))
-                preds_log_split, preds_linear_split, metrics_log_split, metrics_linear_split = (
-                    evaluate_labeled_dataset(
-                        models,
-                        df_split,
-                        endpoints,
-                        config.agg_fn,
-                        n_jobs=config.n_jobs,
-                        fingerprint_config=config.fingerprint_config,
-                    )
+                preds_log_split, preds_linear_split, metrics_log_split, metrics_linear_split = evaluate_labeled_dataset(
+                    models,
+                    df_split,
+                    endpoints,
+                    config.agg_fn,
+                    n_jobs=config.n_jobs,
+                    fingerprint_config=config.fingerprint_config,
                 )
                 train_split_evaluations[split_name] = SplitEvaluation(
                     df_true=df_split.reset_index(drop=True),
@@ -422,9 +416,7 @@ def _generate_features_for_models(
     fingerprint_cache: Dict[Tuple[int, int, bool, bool], np.ndarray] = {}
     smiles_cache: Optional[np.ndarray] = None
     features: Dict[int, np.ndarray] = {}
-    for i, m in tqdm(
-        enumerate(models), total=len(models), desc="Generating features for models", dynamic_ncols=True
-    ):
+    for i, m in tqdm(enumerate(models), total=len(models), desc="Generating features for models", dynamic_ncols=True):
         input_type = getattr(m, "input_type", "fingerprint")
         logger.debug("Preparing features for model %d with input_type %s", i, input_type)
 
@@ -432,9 +424,7 @@ def _generate_features_for_models(
 
             model_fp_cfg = getattr(m, "fingerprint_config", None)
             if not model_fp_cfg:
-                logger.debug(
-                    "Model %d missing fingerprint_config; defaulting to global or default config", i
-                )
+                logger.debug("Model %d missing fingerprint_config; defaulting to global or default config", i)
             elif not isinstance(model_fp_cfg, (FingerprintConfig, dict)):
                 logger.warning(
                     "Model %d has unexpected fingerprint_config type %s; defaulting to global or default config",
@@ -445,9 +435,7 @@ def _generate_features_for_models(
             else:
                 logger.debug("Model %d has fingerprint_config: %s", i, model_fp_cfg)
                 model_fp_cfg = (
-                    FingerprintConfig.from_mapping(model_fp_cfg)
-                    if isinstance(model_fp_cfg, dict)
-                    else model_fp_cfg
+                    FingerprintConfig.from_mapping(model_fp_cfg) if isinstance(model_fp_cfg, dict) else model_fp_cfg
                 )
 
             if model_fp_cfg:
@@ -523,9 +511,7 @@ def predict_per_model(
         def _predict_single(idx: int, mdl: BaseModel) -> np.ndarray:
             return mdl.predict(features_map[idx])  # type: ignore[no-any-return]
 
-        parallel_results = Parallel(n_jobs=n_jobs)(
-            delayed(_predict_single)(i, m) for i, m in enumerate(models)
-        )
+        parallel_results = Parallel(n_jobs=n_jobs)(delayed(_predict_single)(i, m) for i, m in enumerate(models))
         pred_list = [np.asarray(r) for r in parallel_results]
 
     else:

@@ -1,8 +1,8 @@
-/* 
+/*
  Part of the tree-management code was derived from https://github.com/douglas444/birch
  Author: Douglas Monteiro <douglas.m.cavalcanti@gmail.com>
 
- 
+
  BitBIRCH is an open-source clustering module based on iSIM
 
  BitBIRCH is free software; you can redistribute it and/or modify
@@ -150,11 +150,11 @@ int main(int argc, char* argv[])
         free(instance);
 
     } while(fgets(line, 1024, stream));
-    
+
     char buf[100];
 
     printf("done");
-    
+
     fclose(stream);
 
     print_output(tree, instances_indexes, output_file_path);

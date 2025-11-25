@@ -277,7 +277,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -306,9 +306,24 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_split_dicts</span><span class="p">(</span>
-    <span class="n">df_eval</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">preds_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">df_eval</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">preds_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">active_split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;validation&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct split dictionaries compatible with plot_parity_grid.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct split dictionaries compatible with plot_parity_grid.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df_eval : pandas.DataFrame</span>
+<span class="sd">        DataFrame containing true values for endpoints.</span>
+<span class="sd">    preds_df : pandas.DataFrame</span>
+<span class="sd">        DataFrame containing predicted values for endpoints.</span>
+<span class="sd">    endpoints : Sequence[str]</span>
+<span class="sd">        Ordered endpoint names.</span>
+<span class="sd">    active_split : str, optional</span>
+<span class="sd">        Which split should carry the true/pred data. Remaining splits are filled</span>
+<span class="sd">        with zeros so the plotting utilities receive the expected keys.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">active_split</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported split name &#39;</span><span class="si">{</span><span class="n">active_split</span><span class="si">}</span><span class="s2">&#39; for parity plotting&quot;</span><span class="p">)</span>
     <span class="n">df_true</span> <span class="o">=</span> <span class="n">df_eval</span><span class="p">[</span><span class="n">endpoints</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
     <span class="n">df_preds</span> <span class="o">=</span> <span class="n">preds_df</span><span class="p">[</span><span class="n">endpoints</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
     <span class="n">y_true</span> <span class="o">=</span> <span class="n">df_true</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
@@ -318,9 +333,13 @@
     <span class="n">zeros</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span>
     <span class="n">zeros_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
     <span class="n">zeros_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
-    <span class="n">y_true_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">zeros</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">y_true</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">zeros</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
-    <span class="n">y_pred_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">zeros_pred</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">y_pred</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">zeros_pred</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
-    <span class="n">mask_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">zeros_mask</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">mask</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">zeros_mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+    <span class="n">y_true_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">zeros</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">zeros</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">zeros</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+    <span class="n">y_pred_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">zeros_pred</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">zeros_pred</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">zeros_pred</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+    <span class="n">mask_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">zeros_mask</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">zeros_mask</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">zeros_mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+
+    <span class="n">y_true_dict</span><span class="p">[</span><span class="n">active_split</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_true</span>
+    <span class="n">y_pred_dict</span><span class="p">[</span><span class="n">active_split</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_pred</span>
+    <span class="n">mask_dict</span><span class="p">[</span><span class="n">active_split</span><span class="p">]</span> <span class="o">=</span> <span class="n">mask</span>
     <span class="k">return</span> <span class="n">y_true_dict</span><span class="p">,</span> <span class="n">y_pred_dict</span><span class="p">,</span> <span class="n">mask_dict</span>
 
 
@@ -502,10 +521,7 @@
         <span class="n">pred_without_true</span> <span class="o">=</span> <span class="n">pred_series</span><span class="p">[</span><span class="o">~</span><span class="n">mask_true_aligned</span><span class="p">]</span>
         <span class="n">overlap</span> <span class="o">=</span> <span class="n">pred_with_true</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">pred_without_true</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">overlap</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
-            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Prediction partitions overlap for endpoint &#39;</span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">&#39; in </span><span class="si">{</span><span class="n">space_label</span><span class="si">}</span><span class="s2"> space: &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">overlap</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Prediction partitions overlap for endpoint &#39;</span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">&#39; in </span><span class="si">{</span><span class="n">space_label</span><span class="si">}</span><span class="s2"> space: &quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">overlap</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         <span class="n">combined</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pred_with_true</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">pred_without_true</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">combined</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pred_series</span><span class="p">):</span>
@@ -537,8 +553,17 @@
     <span class="o">*</span><span class="p">,</span>
     <span class="n">dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">parity_split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render parity plots and metric bar charts for labeled ensemble evals.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render parity plots and metric bar charts for labeled ensemble evals.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parity_split : str, optional</span>
+<span class="sd">        Which split label to attribute the provided data to when rendering</span>
+<span class="sd">        parity plots (train|validation|test). Defaults to ``&quot;validation&quot;`` to</span>
+<span class="sd">        match the historical behavior for external eval sets.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">preds_log_df</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">df_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span>
     <span class="n">endpoints</span> <span class="o">=</span> <span class="n">_resolve_endpoints_from_preds</span><span class="p">(</span><span class="n">preds_log_df</span><span class="p">)</span>
@@ -563,7 +588,9 @@
         <span class="p">)</span>
 
     <span class="c1"># Parity plots (log + linear)</span>
-    <span class="n">y_true_dict</span><span class="p">,</span> <span class="n">y_pred_dict</span><span class="p">,</span> <span class="n">mask_dict</span> <span class="o">=</span> <span class="n">_build_split_dicts</span><span class="p">(</span><span class="n">df_eval</span><span class="p">,</span> <span class="n">preds_log_df</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">)</span>
+    <span class="n">y_true_dict</span><span class="p">,</span> <span class="n">y_pred_dict</span><span class="p">,</span> <span class="n">mask_dict</span> <span class="o">=</span> <span class="n">_build_split_dicts</span><span class="p">(</span>
+        <span class="n">df_eval</span><span class="p">,</span> <span class="n">preds_log_df</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">,</span> <span class="n">active_split</span><span class="o">=</span><span class="n">parity_split</span>
+    <span class="p">)</span>
     <span class="n">parity_root</span> <span class="o">=</span> <span class="n">figures_dir</span> <span class="o">/</span> <span class="s2">&quot;parity&quot;</span>
     <span class="n">plot_parity_grid</span><span class="p">(</span>
         <span class="n">y_true_dict</span><span class="p">,</span>
@@ -589,9 +616,7 @@
     <span class="c1"># Metric bar plots</span>
     <span class="n">metrics_root</span> <span class="o">=</span> <span class="n">figures_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics&quot;</span>
     <span class="n">metrics_for_order</span> <span class="o">=</span> <span class="n">metrics_log_df</span> <span class="k">if</span> <span class="n">metrics_log_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">metrics_linear_df</span>
-    <span class="n">endpoints_with_macro</span> <span class="o">=</span> <span class="n">_ensure_endpoint_order</span><span class="p">(</span>
-        <span class="n">endpoints</span><span class="p">,</span> <span class="n">include_macro</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metrics_df</span><span class="o">=</span><span class="n">metrics_for_order</span>
-    <span class="p">)</span>
+    <span class="n">endpoints_with_macro</span> <span class="o">=</span> <span class="n">_ensure_endpoint_order</span><span class="p">(</span><span class="n">endpoints</span><span class="p">,</span> <span class="n">include_macro</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metrics_df</span><span class="o">=</span><span class="n">metrics_for_order</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">metrics_log_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">metrics_log_df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
         <span class="n">_plot_metric_family</span><span class="p">(</span>

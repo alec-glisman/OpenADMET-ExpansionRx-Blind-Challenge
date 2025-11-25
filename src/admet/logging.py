@@ -160,10 +160,6 @@ def get_logging_config() -> Dict[str, object]:
             except AttributeError:
                 file_path = None
         # Structured if using JsonFormatter
-        if (
-            hasattr(h, "formatter")
-            and JsonFormatterLocal is not None
-            and isinstance(h.formatter, JsonFormatterLocal)
-        ):
+        if hasattr(h, "formatter") and JsonFormatterLocal is not None and isinstance(h.formatter, JsonFormatterLocal):
             structured = True
     return {"level": level, "file": file_path, "structured": structured}

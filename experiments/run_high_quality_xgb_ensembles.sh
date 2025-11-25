@@ -31,17 +31,17 @@ MODEL_NAME="xgb"
 
 for split_dir in "${CONFIG_ROOT}"/*/; do
   [[ -d "${split_dir}" ]] || continue # Skip non-directory files
-  
+
   split_name="$(basename "${split_dir}")" # Get the split name from the directory
-  
+
   train_cfg="${split_dir}${MODEL_NAME}_train_ensemble.yaml"
   predict_cfg="${split_dir}${MODEL_NAME}_predict_ensemble.yaml"
 
   if [[ -f "${train_cfg}" ]]; then
     echo "[${split_name}] Training ensemble"
     admet --log-level INFO \
-        train "${MODEL_NAME}" \
-        --config "${train_cfg}"
+      train "${MODEL_NAME}" \
+      --config "${train_cfg}"
   else
     echo "[${split_name}] Missing ${MODEL_NAME}_train_ensemble.yaml, skipping train" >&2
   fi
@@ -49,8 +49,8 @@ for split_dir in "${CONFIG_ROOT}"/*/; do
   if [[ -f "${predict_cfg}" ]]; then
     echo "[${split_name}] Evaluating ensemble"
     admet --log-level INFO \
-        ensemble-eval \
-        --config "${predict_cfg}"
+      ensemble-eval \
+      --config "${predict_cfg}"
   else
     echo "[${split_name}] Missing ${MODEL_NAME}_predict_ensemble.yaml, skipping eval" >&2
   fi

@@ -74,7 +74,7 @@ int tree_insert(BFTree* tree, double* sample)
 
     bool hold_memory = false;
     bool dont_split = node_insert_subcluster(tree->root, subcluster, &hold_memory);
-   
+
     if (dont_split == false)
     {
         // if dontSplit is false, it means there was not enough space to insert the new subcluster in the tree,
@@ -87,7 +87,7 @@ int tree_insert(BFTree* tree, double* sample)
     {
         subcluster_free(subcluster);
     }
-    
+
     return instance_index;
 }
 

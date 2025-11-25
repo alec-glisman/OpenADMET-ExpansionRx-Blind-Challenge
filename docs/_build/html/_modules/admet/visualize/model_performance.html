@@ -288,13 +288,13 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="n">metrics</span> <span class="k">as</span> <span class="n">eval_metrics</span>
 
@@ -373,9 +373,7 @@
     <span class="k">return</span> <span class="n">out</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_masked_arrays</span><span class="p">(</span>
-    <span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_masked_arrays</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract valid true/pred arrays for endpoint index ``j``.</span>
 
 <span class="sd">    Parameters</span>
@@ -428,9 +426,7 @@
         <span class="p">}</span>
 
     <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-    <span class="n">metrics</span> <span class="o">=</span> <span class="n">eval_metrics</span><span class="o">.</span><span class="n">compute_metrics</span><span class="p">(</span>
-        <span class="n">y_true</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">y_pred</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">mask</span><span class="p">,</span> <span class="n">endpoints</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ep&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">eval_metrics</span><span class="o">.</span><span class="n">compute_metrics</span><span class="p">(</span><span class="n">y_true</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">y_pred</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">mask</span><span class="p">,</span> <span class="n">endpoints</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ep&quot;</span><span class="p">])</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="s2">&quot;mae&quot;</span><span class="p">:</span> <span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;ep&quot;</span><span class="p">][</span><span class="s2">&quot;mae&quot;</span><span class="p">],</span>
         <span class="s2">&quot;rmse&quot;</span><span class="p">:</span> <span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;ep&quot;</span><span class="p">][</span><span class="s2">&quot;rmse&quot;</span><span class="p">],</span>
@@ -693,14 +689,10 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-                    <span class="n">_plot_parity_worker</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">ep</span><span class="p">,</span> <span class="n">y_true_dict</span><span class="p">,</span> <span class="n">y_pred_dict</span><span class="p">,</span> <span class="n">mask_dict</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">,</span> <span class="n">dpi</span>
-                <span class="p">)</span>
+                <span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_plot_parity_worker</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">ep</span><span class="p">,</span> <span class="n">y_true_dict</span><span class="p">,</span> <span class="n">y_pred_dict</span><span class="p">,</span> <span class="n">mask_dict</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">,</span> <span class="n">dpi</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">endpoints</span><span class="p">)</span>
             <span class="p">]</span>
-            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Parity plots&quot;</span>
-            <span class="p">):</span>
+            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Parity plots&quot;</span><span class="p">):</span>
                 <span class="c1"># re-raise exceptions from workers</span>
                 <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span></div>
 
@@ -774,14 +766,10 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-                    <span class="n">_metric_plot_worker</span><span class="p">,</span> <span class="n">metric_key</span><span class="p">,</span> <span class="n">per_split_metrics</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">out_str</span><span class="p">),</span> <span class="n">space</span><span class="p">,</span> <span class="n">dpi</span>
-                <span class="p">)</span>
+                <span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_metric_plot_worker</span><span class="p">,</span> <span class="n">metric_key</span><span class="p">,</span> <span class="n">per_split_metrics</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">out_str</span><span class="p">),</span> <span class="n">space</span><span class="p">,</span> <span class="n">dpi</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">metric_key</span><span class="p">,</span> <span class="n">out_str</span> <span class="ow">in</span> <span class="n">tasks</span>
             <span class="p">]</span>
-            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Metric bars&quot;</span>
-            <span class="p">):</span>
+            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Metric bars&quot;</span><span class="p">):</span>
                 <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span></div>
 
 </pre></div>

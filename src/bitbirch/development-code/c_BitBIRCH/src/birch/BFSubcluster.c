@@ -139,7 +139,7 @@ bool entry_is_within_threshold
 double jt_isim(int s1[], int n, int size)
 {
     int sum_kq=0;
-    int sum_kqsq=0; 
+    int sum_kqsq=0;
 
     for(int i=0; i<size; i++){
         sum_kq+=s1[i];

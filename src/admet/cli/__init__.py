@@ -10,11 +10,7 @@ Command-line interface for OpenADMET challenge tools and utilities.
 
 import typer
 
-from admet.cli import download
-from admet.cli import train as train_module
-from admet.cli import split as split_module
-from admet.cli import ensemble as ensemble_module
-
+from admet.cli import download, ensemble as ensemble_module, split as split_module, train as train_module
 
 app = typer.Typer(
     help="OpenADMET Challenge tools and utilities.",

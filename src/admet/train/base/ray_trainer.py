@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
 import datetime
 import logging
 import multiprocessing
 import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Type
 
+import mlflow
 import pandas as pd
 import ray
-import mlflow
 
 from admet.data.fingerprinting import FingerprintConfig
+
+from ..mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
 from .model_trainer import BaseModelTrainer, FeaturizationMethod
 from .utils import infer_split_metadata
-from ..mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +147,7 @@ def _train_single_dataset_remote(
                         status = "partial"
                     else:
                         for split in expected_splits:
-                            if (
-                                not isinstance(run_metrics.get(split, {}), dict)
-                                or "macro" not in run_metrics[split]
-                            ):
+                            if not isinstance(run_metrics.get(split, {}), dict) or "macro" not in run_metrics[split]:
                                 status = "partial"
                                 break
             end_ts = datetime.datetime.now()
@@ -263,9 +261,7 @@ class BaseEnsembleTrainer:
             raise ValueError(f"No 'hf_dataset' directories found under {root}.")
         logger.info("Discovered %d hf_dataset directories under %s", len(hf_paths), root)
         cpu_count = num_cpus or multiprocessing.cpu_count()
-        worker_thread_limit = worker_thread_limit or max(
-            1, cpu_count // max(1, min(len(hf_paths), cpu_count))
-        )
+        worker_thread_limit = worker_thread_limit or max(1, cpu_count // max(1, min(len(hf_paths), cpu_count)))
         if ray.is_initialized():
             logger.info("Reusing existing Ray runtime (num_cpus=%s)", ray.cluster_resources().get("CPU"))
         else:

@@ -66,4 +66,3 @@ Cross-References
 - See :doc:`data_sources` for input provenance and curation.
 - See :doc:`splitting` for dataset partitioning methodology.
 - See :doc:`modeling` (planned) for details on adding new model wrappers.
-

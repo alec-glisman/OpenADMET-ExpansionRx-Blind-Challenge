@@ -43,25 +43,25 @@ Multi-dataset Ray training::
 
 from __future__ import annotations
 
-import json
 import datetime
-from pathlib import Path
+import json
 import logging
+from pathlib import Path
+from typing import cast
 
+import mlflow
+import numpy as np
 import typer
 import yaml  # type: ignore[import-not-found]
-import numpy as np
-import mlflow
 
-from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
+from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig
 from admet.data.load import load_dataset
-from admet.train.xgb_train import XGBoostTrainer
-from admet.train.base import train_model, train_ensemble, BaseEnsembleTrainer
-from admet.model.xgb_wrapper import XGBoostMultiEndpoint
-from admet.train.mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
-from admet.utils import get_git_commit_hash
 from admet.evaluate.metrics import AllMetrics
-from typing import cast
+from admet.model.xgb_wrapper import XGBoostMultiEndpoint
+from admet.train.base import BaseEnsembleTrainer, train_ensemble, train_model
+from admet.train.mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
+from admet.train.xgb_train import XGBoostTrainer
+from admet.utils import get_git_commit_hash
 
 logger = logging.getLogger(__name__)
 app = typer.Typer(
@@ -260,9 +260,7 @@ def xgb(
         ensemble_tags = {"mode": "ensemble", "data_root": str(effective_data_root)}
         if git_commit:
             ensemble_tags["git_commit"] = git_commit
-        with mlflow.start_run(
-            run_name=f"ensemble:{effective_data_root.name}", tags=ensemble_tags
-        ) as parent_run:
+        with mlflow.start_run(run_name=f"ensemble:{effective_data_root.name}", tags=ensemble_tags) as parent_run:
             mlflow.log_params(flattened_cfg_params)
             mlflow.log_params(cli_params)
             if config.is_file():
@@ -292,9 +290,7 @@ def xgb(
             except Exception as exc:  # noqa: BLE001
                 mlflow.set_tag("status", "error")
                 mlflow.set_tag("error", str(exc))
-                mlflow.log_metric(
-                    "ensemble.duration_seconds", (datetime.datetime.now() - start_ts).total_seconds()
-                )
+                mlflow.log_metric("ensemble.duration_seconds", (datetime.datetime.now() - start_ts).total_seconds())
                 raise
             duration_seconds = (datetime.datetime.now() - start_ts).total_seconds()
             mlflow.log_metric("ensemble.duration_seconds", duration_seconds)
@@ -310,11 +306,7 @@ def xgb(
             status_counts["total"] = len(results)
             if status_counts:
                 mlflow.log_metrics({f"ensemble.status.{k}": v for k, v in status_counts.items()})
-            failures = (
-                status_counts.get("error", 0)
-                + status_counts.get("partial", 0)
-                + status_counts.get("timeout", 0)
-            )
+            failures = status_counts.get("error", 0) + status_counts.get("partial", 0) + status_counts.get("timeout", 0)
             parent_status = (
                 "ok"
                 if failures == 0

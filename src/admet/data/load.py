@@ -49,16 +49,16 @@ for non-null values.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple, cast
-import logging
 
-from datasets import load_from_disk, DatasetDict
-import pandas as pd
 import numpy as np
+import pandas as pd
+from datasets import DatasetDict, load_from_disk
 
-from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
+from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig
 
 logger = logging.getLogger(__name__)
 
@@ -155,9 +155,7 @@ def validate_dataset_schema(
     if fingerprint_cols:
         fp_missing = [c for c in fingerprint_cols if c not in df.columns]
         if fp_missing:
-            raise ValueError(
-                f"Missing fingerprint columns: {fp_missing[:10]} .... Found: {df.columns.tolist()}"
-            )
+            raise ValueError(f"Missing fingerprint columns: {fp_missing[:10]} .... Found: {df.columns.tolist()}")
     ep_missing = [c for c in endpoints if c not in df.columns]
     if ep_missing:
         raise ValueError(f"Missing endpoint columns: {ep_missing}. Found: {df.columns.tolist()}")

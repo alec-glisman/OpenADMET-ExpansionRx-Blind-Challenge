@@ -8,6 +8,6 @@ Metrics computation and evaluation utilities.
 
 """
 
-from .metrics import compute_metrics_log_and_linear, AllMetrics, EndpointMetrics, SplitMetrics
+from .metrics import AllMetrics, EndpointMetrics, SplitMetrics, compute_metrics_log_and_linear
 
 __all__ = ["compute_metrics_log_and_linear", "AllMetrics", "EndpointMetrics", "SplitMetrics"]

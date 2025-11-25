@@ -5,18 +5,15 @@ flake8: noqa
 mypy: ignore-errors
 """
 
-from pathlib import Path
 import json
-from typing import Sequence, Any, cast
+from pathlib import Path
+from typing import Any, Sequence, cast
+
 import numpy as np
 import pandas as pd
 import pytest
-from admet.train.base import (
-    BaseModelTrainer,
-    BaseEnsembleTrainer,
-    FeaturizationMethod,
-    train_model,
-)
+
+from admet.train.base import BaseEnsembleTrainer, BaseModelTrainer, FeaturizationMethod, train_model
 
 
 class DummyModel:
@@ -85,6 +82,8 @@ def synthetic_dataset():
     return make_dataset()
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_train_model_end_to_end(tmp_path: Path, synthetic_dataset) -> None:
     run_metrics, summary = train_model(
         synthetic_dataset,
@@ -99,6 +98,8 @@ def test_train_model_end_to_end(tmp_path: Path, synthetic_dataset) -> None:
     assert (tmp_path / "single" / "metrics.json").is_file()
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_discover_datasets(tmp_path: Path) -> None:
     root = tmp_path / "root"
     d1 = root / "clusterA" / "split_train" / "fold_0" / "hf_dataset"

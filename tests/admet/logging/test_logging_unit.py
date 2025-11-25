@@ -8,13 +8,15 @@ dependencies.
 from __future__ import annotations
 
 import json
-import pytest
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import pytest
 
 from admet.logging import configure_logging, get_logging_config
 
 
+@pytest.mark.unit
 def test_configure_logging_sets_level_and_file(tmp_path: Path) -> None:
     logfile = tmp_path / "test.log"
     configure_logging(level="DEBUG", file=str(logfile), structured=False)
@@ -30,6 +32,7 @@ def test_configure_logging_sets_level_and_file(tmp_path: Path) -> None:
         pytest.fail("Expected log message not found in logfile")
 
 
+@pytest.mark.unit
 def test_configure_logging_structured_json(tmp_path: Path) -> None:
     logfile = tmp_path / "test_json.log"
     configure_logging(level="INFO", file=str(logfile), structured=True)
@@ -47,6 +50,7 @@ def test_configure_logging_structured_json(tmp_path: Path) -> None:
                 break
 
 
+@pytest.mark.unit
 def test_get_logging_config_default_no_file() -> None:
     configure_logging(level="WARNING", file=None, structured=False)
     cfg = get_logging_config()
@@ -56,6 +60,7 @@ def test_get_logging_config_default_no_file() -> None:
         pytest.fail("Expected cfg['structured'] to be False by default")
 
 
+@pytest.mark.unit
 def test_configure_logging_clamps_noisy_dependencies() -> None:
     configure_logging(level="DEBUG", file=None, structured=False)
     mpl_logger = logging.getLogger("matplotlib")

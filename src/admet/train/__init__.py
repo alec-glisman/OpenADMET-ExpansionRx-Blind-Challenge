@@ -8,13 +8,7 @@ Training orchestration and trainer implementations.
 
 """
 
-from .base import (
-    BaseModelTrainer,
-    BaseEnsembleTrainer,
-    FeaturizationMethod,
-    train_model,
-    train_ensemble,
-)
+from .base import BaseEnsembleTrainer, BaseModelTrainer, FeaturizationMethod, train_ensemble, train_model
 from .xgb_train import XGBoostTrainer
 
 __all__ = [

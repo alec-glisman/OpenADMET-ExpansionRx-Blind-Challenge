@@ -95,4 +95,3 @@ Cross-References
 
 - See :doc:`data_sources` for upstream curated dataset provenance.
 - See :doc:`architecture` for the overall pipeline placement.
-

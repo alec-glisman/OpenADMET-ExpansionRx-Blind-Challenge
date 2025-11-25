@@ -1,10 +1,27 @@
 [project]
 name = "openadmet-challenge"
-version = "0.0.1"
+authors = [
+    { name = "Alec Glisman" },
+]
+dynamic = ["version"]
 description = "Tools and experiments for the OpenADMET challenge"
 readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Science/Research",
+]
+keywords = [
+    "ADMET",
+    "cheminformatics",
+    "machine learning",
+    "deep learning",
+    "drug discovery",
+]
 requires-python = ">=3.11,<3.12"
-
 dependencies = [
     # data science
     "numpy>=1.23,<2",
@@ -69,6 +86,10 @@ dev = [
     "pytest-xdist",
     "pre-commit",
     "nbstripout",
+    "beautysh",
+    "shfmt-py",
+    "pylint",
+    "commitizen",
 ]
 docs = [
     "sphinx>=7.0",
@@ -83,6 +104,10 @@ docs = [
     "myst-parser",
 ]
 
+[project.scripts]
+# Provide a convenient `admet` CLI entrypoint. Points to the package __main__.py main().
+admet = "admet.cli.__main__:main"
+
 [build-system]
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -90,28 +115,103 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 package-dir = { "" = "src" }
 
+[tool.setuptools.dynamic]
+version = { attr = "admet.__version__" }
+
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["tests*"]
 
-[project.scripts]
-# Provide a convenient `admet` CLI entrypoint. Points to the package __main__.py main().
-admet = "admet.cli.__main__:main"
-
-[tool.black]
-line-length = 109
-target-version = ["py311"]
-
 [tool.isort]
 profile = "black"
-line_length = 109
+line_length = 120
+combine_as_imports = true
 src_paths = ["src"]
+skip_glob = ["src/bitbirch/**"]
 
 [tool.flake8]
-max-line-length = 109
-extend-ignore = "E203, W503"
-exclude = ".git,__pycache__,.venv,env,build,dist"
+max-line-length = 120
+extend-ignore = ['E203', 'W503', 'BLE001']
+exclude = ['.git', '__pycache__', '.venv', 'env', 'build', 'dist', 'src/bitbirch', 'notebooks']
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+extend-exclude = '''
+/(
+  src/bitbirch
+)/
+'''
 
 [tool.mypy]
-# Avoid noisy missing-stub messages for third-party libs without types
+python_version = "3.11"
 ignore_missing_imports = true
+warn_unused_configs = true
+strict = false
+exclude = ["tests/.*", "src/bitbirch"]
+
+[tool.mypy-rdkit]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+[tool.pylint.main]
+max-locals = 15
+max-attributes = 10
+min-similarity-lines = 5
+ignore-imports = true
+good-names = ["i", "j", "k", "ex", "Run", "_", "x", "y", "df", "ax", "X", "y", "n", "m"]
+ignore-paths = ["src/bitbirch", "src/admet/train/_ray_test_stubs.py"]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    "fixme",
+    "suppressed-message",
+    "invalid-name",
+    "useless-suppression",
+    "too-few-public-methods",
+    "import-outside-toplevel",
+    "broad-exception-caught",
+    "unnecessary-pass",
+]
+
+[tool.pylint.reports]
+output-format = "colorized"
+score = true
+evaluation = "9.0"
+fail-under = 9.0
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["src/admet"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "src/bitbirch/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if sys.version_info",
+]
+precision = 2

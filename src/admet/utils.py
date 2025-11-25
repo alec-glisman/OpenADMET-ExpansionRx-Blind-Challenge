@@ -61,9 +61,7 @@ def set_global_seeds(seed: Optional[int]) -> None:
         import torch  # type: ignore
 
         torch.manual_seed(seed)
-        if (
-            getattr(torch, "cuda", None) is not None and torch.cuda.is_available()
-        ):  # pragma: no cover - depends on env
+        if getattr(torch, "cuda", None) is not None and torch.cuda.is_available():  # pragma: no cover - depends on env
             torch.cuda.manual_seed_all(seed)
         # Make CuDNN deterministic
         try:

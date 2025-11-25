@@ -3,9 +3,9 @@
 Small helper to download a Hugging Face dataset and save split(s) to CSV.
 """
 
-from typing import Optional, Union
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd  # type: ignore[import-not-found]
 
@@ -13,11 +13,10 @@ try:
     import polaris as po
 except (ImportError, AttributeError):
     po = None  # type: ignore
-from tqdm import tqdm  # type: ignore[import-not-found]
 from tdc.benchmark_group import admet_group  # type: ignore[import-not-found]
+from tqdm import tqdm  # type: ignore[import-not-found]
 
 from admet.data.constants import DATASETS, DEFAULT_DATASET_DIR
-
 
 logger = logging.getLogger(__name__)
 

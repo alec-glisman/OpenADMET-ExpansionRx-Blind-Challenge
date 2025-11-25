@@ -101,6 +101,8 @@ def fake_mlflow(monkeypatch) -> FakeMlflow:
     return fake
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_flatten_params_handles_nested_structures() -> None:
     cfg = {
         "models": {"xgboost": {"objective": "mae", "model_params": {"lr": 0.1, "layers": [64, 32]}}},
@@ -116,6 +118,8 @@ def test_flatten_params_handles_nested_structures() -> None:
     assert flat["cfg.ray.multi"] is True
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_flatten_metrics_ignores_non_numeric_and_nans() -> None:
     run_metrics = {
         "train": {
@@ -134,6 +138,8 @@ def test_flatten_metrics_ignores_non_numeric_and_nans() -> None:
     assert not any("skip_me" in str(v) for v in flat.values())
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_set_mlflow_tracking_calls_both(monkeypatch) -> None:
     called = {"uri": None, "exp": None}
 
@@ -150,9 +156,9 @@ def test_set_mlflow_tracking_calls_both(monkeypatch) -> None:
     assert called["exp"] == "xgb"
 
 
-def test_single_run_logs_mlflow_params_and_artifacts(
-    fake_mlflow: FakeMlflow, tmp_path: Path, monkeypatch
-) -> None:
+@pytest.mark.integration
+@pytest.mark.slow
+def test_single_run_logs_mlflow_params_and_artifacts(fake_mlflow: FakeMlflow, tmp_path: Path, monkeypatch) -> None:
     cfg_path = tmp_path / "cfg.yaml"
     data_root = tmp_path / "data" / "hf_dataset"
     data_root.mkdir(parents=True)
@@ -213,6 +219,8 @@ def test_single_run_logs_mlflow_params_and_artifacts(
     assert any(key == "duration_seconds" for key, _ in fake_mlflow.metric_calls)
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_ensemble_run_logs_parent_status_and_child_metrics(
     fake_mlflow: FakeMlflow, tmp_path: Path, monkeypatch
 ) -> None:

@@ -22,8 +22,8 @@ Verbose debugging::
     admet split datasets path/to/data --log-level DEBUG
 """
 
-from pathlib import Path
 import logging
+from pathlib import Path
 from typing import Optional
 
 import typer

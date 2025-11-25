@@ -12,14 +12,16 @@ Classes
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Dict, List, Sequence, Optional
 import logging
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence
+
 import numpy as np
 from tqdm import tqdm  # type: ignore[import-not-found]
 from xgboost import XGBRegressor
 
-from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
+from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig
+
 from .base import BaseModel
 
 
@@ -146,9 +148,7 @@ class XGBoostMultiEndpoint(BaseModel):
             try:
                 model.fit(X_tr_ep, y_tr_ep, **fit_kwargs)
             except Exception as exc:  # pragma: no cover - fallback when GPU not available  # noqa: BLE001
-                self.logger.warning(
-                    "Initial model.fit failed (likely GPU issue), retrying with CPU params: %s", exc
-                )
+                self.logger.warning("Initial model.fit failed (likely GPU issue), retrying with CPU params: %s", exc)
                 cpu_params = {k: v for k, v in params.items() if k not in ("device", "device_id")}
                 cpu_params["tree_method"] = "hist"
                 model = XGBRegressor(**cpu_params)

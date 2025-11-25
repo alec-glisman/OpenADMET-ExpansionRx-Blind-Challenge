@@ -8,13 +8,14 @@ error handling, partial metrics, timeout simulation, etc.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any, Dict, List
-import time
+
 import numpy as np
 
-from admet.train.base import BaseModelTrainer, BaseEnsembleTrainer
 from admet.model.base import BaseModel
+from admet.train.base import BaseEnsembleTrainer, BaseModelTrainer
 
 
 # ---------------------------------------------------------------------------

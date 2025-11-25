@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
 from admet.visualize.model_performance import to_linear
 
 
+@pytest.mark.unit
 def test_to_linear_identity_and_transform() -> None:
     arr = np.array([[-1.0], [0.0], [1.0]])
     out = to_linear(arr.flatten(), "KSOL")

@@ -26,11 +26,13 @@
 
 import numpy as np
 from scipy import sparse
+
 from bitbirch.pruning import lazyPrune
+
 
 def set_merge(merge_criterion, tolerance=0.05):
     """
-    Sets merge_accept function for merge_subcluster, based on user specified merge_criteria. 
+    Sets merge_accept function for merge_subcluster, based on user specified merge_criteria.
 
     Radius: merge subcluster based on comparison to centroid of the cluster
     Diameter: merge subcluster based on instant Tanimoto similarity of cluster
@@ -38,25 +40,30 @@ def set_merge(merge_criterion, tolerance=0.05):
 
     Parameters:
     -----------
-    merge_criterion: str(); 
+    merge_criterion: str();
                         radius, diameter or tolerance
-    tolerance: float; 
+    tolerance: float;
                         sets penalty value for similarity threshold when callng tolerance merge criteria
 
     Returns:
     --------
-    merge_accept(): function 
+    merge_accept(): function
                         if cluster is accepted to merge, merge the cluster based on the criteria specified
     """
-    if merge_criterion == 'radius':
+    if merge_criterion == "radius":
+
         def merge_accept(threshold, new_ls, new_centroid, new_n, old_ls, nom_ls, old_n, nom_n):
             jt_sim = jt_isim(new_ls + new_centroid, new_n + 1) * (new_n + 1) - jt_isim(new_ls, new_n) * (new_n - 1)
-            return jt_sim >= threshold*2
-    elif merge_criterion == 'diameter':
-        def merge_accept(threshold, new_ls, new_centroid, new_n, old_ls, nom_ls, old_n, nom_n): 
+            return jt_sim >= threshold * 2
+
+    elif merge_criterion == "diameter":
+
+        def merge_accept(threshold, new_ls, new_centroid, new_n, old_ls, nom_ls, old_n, nom_n):
             jt_radius = jt_isim(new_ls, new_n)
             return jt_radius >= threshold
-    elif merge_criterion == 'tolerance_tough':
+
+    elif merge_criterion == "tolerance_tough":
+
         def merge_accept(threshold, new_ls, new_centroid, new_n, old_ls, nom_ls, old_n, nom_n):
             jt_radius = jt_isim(new_ls, new_n)
             if jt_radius < threshold:
@@ -65,12 +72,18 @@ def set_merge(merge_criterion, tolerance=0.05):
                 if old_n == 1 and nom_n == 1:
                     return True
                 elif nom_n == 1:
-                    return (jt_isim(old_ls + nom_ls, old_n + 1) * (old_n + 1) - jt_isim(old_ls, old_n) * (old_n - 1))/2 >= jt_isim(old_ls, old_n) - tolerance and (jt_radius >= threshold)
+                    return (
+                        jt_isim(old_ls + nom_ls, old_n + 1) * (old_n + 1) - jt_isim(old_ls, old_n) * (old_n - 1)
+                    ) / 2 >= jt_isim(old_ls, old_n) - tolerance and (jt_radius >= threshold)
                 else:
-                    return (jt_isim(old_ls + nom_ls, old_n + nom_n) * (old_n + nom_n) * (old_n + nom_n - 1) 
-                    - jt_isim(old_ls, old_n) * old_n * (old_n - 1)
-                    - jt_isim(nom_ls, nom_n) * nom_n * (nom_n - 1))/(2 * old_n * nom_n) >= jt_isim(old_ls, old_n) - tolerance and (jt_radius >= threshold)
-    elif merge_criterion == 'tolerance':
+                    return (
+                        jt_isim(old_ls + nom_ls, old_n + nom_n) * (old_n + nom_n) * (old_n + nom_n - 1)
+                        - jt_isim(old_ls, old_n) * old_n * (old_n - 1)
+                        - jt_isim(nom_ls, nom_n) * nom_n * (nom_n - 1)
+                    ) / (2 * old_n * nom_n) >= jt_isim(old_ls, old_n) - tolerance and (jt_radius >= threshold)
+
+    elif merge_criterion == "tolerance":
+
         def merge_accept(threshold, new_ls, new_centroid, new_n, old_ls, nom_ls, old_n, nom_n):
             jt_radius = jt_isim(new_ls, new_n)
             if jt_radius < threshold:
@@ -79,24 +92,28 @@ def set_merge(merge_criterion, tolerance=0.05):
                 if old_n == 1 and nom_n == 1:
                     return True
                 elif nom_n == 1:
-                    return (jt_isim(old_ls + nom_ls, old_n + 1) * (old_n + 1) - jt_isim(old_ls, old_n) * (old_n - 1))/2 >= jt_isim(old_ls, old_n) - tolerance and (jt_radius >= threshold)
+                    return (
+                        jt_isim(old_ls + nom_ls, old_n + 1) * (old_n + 1) - jt_isim(old_ls, old_n) * (old_n - 1)
+                    ) / 2 >= jt_isim(old_ls, old_n) - tolerance and (jt_radius >= threshold)
                 else:
                     return True
-    globals()['merge_accept'] = merge_accept
+
+    globals()["merge_accept"] = merge_accept
+
 
 def jt_isim(c_total, n_objects):
     """iSIM Tanimoto calculation
-    
+
     https://pubs.rsc.org/en/content/articlelanding/2024/dd/d4dd00041b
-    
+
     Parameters
     ----------
     c_total : np.ndarray
               Sum of the elements column-wise
-              
+
     n_objects : int
                 Number of elements
-                
+
     Returns
     ----------
     isim : float
@@ -104,9 +121,10 @@ def jt_isim(c_total, n_objects):
     """
     sum_kq = np.sum(c_total)
     sum_kqsq = np.dot(c_total, c_total)
-    a = (sum_kqsq - sum_kq)/2
+    a = (sum_kqsq - sum_kq) / 2
 
-    return a/(a + n_objects * sum_kq - sum_kqsq)
+    return a / (a + n_objects * sum_kq - sum_kqsq)
+
 
 def max_separation(X):
     """Finds two objects in X that are very separated
@@ -114,12 +132,12 @@ def max_separation(X):
     the two absolutely most separated objects), but it is
     a very robust O(N) implementation. Quality of clustering
     does not diminish in the end.
-    
+
     Algorithm:
     a) Find centroid of X
     b) mol1 is the molecule most distant from the centroid
     c) mol2 is the molecule most distant from mol1
-    
+
     Returns
     -------
     (mol1, mol2) : (int, int)
@@ -132,11 +150,11 @@ def max_separation(X):
     """
     # Get the centroid of the set
     n_samples = len(X)
-    linear_sum = np.sum(X, axis = 0)
+    linear_sum = np.sum(X, axis=0)
     centroid = calc_centroid(linear_sum, n_samples)
 
     # Get the similarity of each molecule to the centroid
-    pop_counts = np.sum(X, axis = 1)
+    pop_counts = np.sum(X, axis=1)
     a_centroid = np.dot(X, centroid)
     sims_med = a_centroid / (pop_counts + np.sum(centroid) - a_centroid)
 
@@ -153,26 +171,28 @@ def max_separation(X):
     # Get the similarity of each molecule to mol2
     a_mol2 = np.dot(X, X[mol2])
     sims_mol2 = a_mol2 / (pop_counts + pop_counts[mol2] - a_mol2)
-    
+
     return (mol1, mol2), sims_mol1, sims_mol2
+
 
 def calc_centroid(linear_sum, n_samples):
     """Calculates centroid
-    
+
     Parameters
     ----------
-    
+
     linear_sum : np.ndarray
                  Sum of the elements column-wise
     n_samples : int
                 Number of samples
-                
+
     Returns
     -------
     centroid : np.ndarray
                Centroid fingerprints of the given set
     """
-    return np.where(linear_sum >= n_samples * 0.5 , 1, 0)
+    return np.where(linear_sum >= n_samples * 0.5, 1, 0)
+
 
 def _iterate_sparse_X(X):
     """This little hack returns a densified row when iterating over a sparse
@@ -190,6 +210,7 @@ def _iterate_sparse_X(X):
         nonzero_indices = X_indices[startptr:endptr]
         row[nonzero_indices] = X_data[startptr:endptr]
         yield row
+
 
 def _split_node(node, threshold, branching_factor, singly):
     """The node has to be split if there is no place for a new subcluster
@@ -228,10 +249,10 @@ def _split_node(node, threshold, branching_factor, singly):
         new_node2.prev_leaf_ = new_node1
         new_node2.next_leaf_ = node.next_leaf_
         if node.next_leaf_ is not None:
-            node.next_leaf_.prev_leaf_ = new_node2  
-    
+            node.next_leaf_.prev_leaf_ = new_node2
+
     # O(N) implementation of max separation
-    farthest_idx, node1_dist, node2_dist = max_separation(node.centroids_)    
+    farthest_idx, node1_dist, node2_dist = max_separation(node.centroids_)
     # Notice that max_separation is returning similarities and not distances
     node1_closer = node1_dist > node2_dist
     # Make sure node1 is closest to itself even if all distances are equal.
@@ -312,11 +333,11 @@ class _BFNode:
         n_samples = len(self.subclusters_)
         self.subclusters_.append(subcluster)
         self.init_centroids_[n_samples] = subcluster.centroid_
-        
+
         # Keep centroids as views. In this way
         # if we change init_centroids, it is sufficient
         self.centroids_ = self.init_centroids_[: n_samples + 1, :]
-        
+
     def update_split_subclusters(self, subcluster, new_subcluster1, new_subcluster2, singly):
         """Remove a subcluster from a node and update it with the
         split subclusters.
@@ -342,7 +363,7 @@ class _BFNode:
         # We need to find the closest subcluster among all the
         # subclusters so that we can insert our new subcluster.
         a = np.dot(self.centroids_, subcluster.centroid_)
-        sim_matrix = a / (np.sum(self.centroids_, axis = 1) + set_bits - a)
+        sim_matrix = a / (np.sum(self.centroids_, axis=1) + set_bits - a)
         closest_index = np.argmax(sim_matrix)
         closest_subcluster = self.subclusters_[closest_index]
 
@@ -364,14 +385,9 @@ class _BFNode:
             # subcluster to accommodate the new child.
             else:
                 new_subcluster1, new_subcluster2 = _split_node(
-                    closest_subcluster.child_,
-                    threshold,
-                    branching_factor,
-                    singly
+                    closest_subcluster.child_, threshold, branching_factor, singly
                 )
-                self.update_split_subclusters(
-                    closest_subcluster, new_subcluster1, new_subcluster2, singly
-                )
+                self.update_split_subclusters(closest_subcluster, new_subcluster1, new_subcluster2, singly)
 
                 if len(self.subclusters_) > self.branching_factor:
                     return True
@@ -425,7 +441,7 @@ class _BFSubcluster:
     centroid_ : ndarray of shape (branching_factor + 1, n_features)
         Centroid of the subcluster. Prevent recomputing of centroids when
         ``BFNode.centroids_`` is called.
-    
+
     mol_indices : list, default=[]
         List of indices of molecules included in the given cluster.
 
@@ -434,7 +450,7 @@ class _BFSubcluster:
         of the _BFNode, it is set to ``self.child_``.
     """
 
-    def __init__(self, *, linear_sum = None, mol_indices = []):
+    def __init__(self, *, linear_sum=None, mol_indices=[]):
         if linear_sum is None:
             self.n_samples_ = 0
             self.centroid_ = self.linear_sum_ = 0
@@ -443,7 +459,7 @@ class _BFSubcluster:
             self.n_samples_ = 1
             self.centroid_ = self.linear_sum_ = linear_sum
             self.mol_indices = mol_indices
-        
+
         self.child_ = None
         self.parent_ = None
 
@@ -460,26 +476,35 @@ class _BFSubcluster:
         new_ls = self.linear_sum_ + nominee_cluster.linear_sum_
         new_n = self.n_samples_ + nominee_cluster.n_samples_
         new_centroid = calc_centroid(new_ls, new_n)
-        
-        if merge_accept(threshold, new_ls, new_centroid, new_n, self.linear_sum_, nominee_cluster.linear_sum_, self.n_samples_, nominee_cluster.n_samples_):
-            (
-                self.n_samples_,
-                self.linear_sum_,
-                self.centroid_,
-                self.mol_indices
-            ) = (new_n, new_ls, new_centroid, self.mol_indices + nominee_cluster.mol_indices)
+
+        if merge_accept(
+            threshold,
+            new_ls,
+            new_centroid,
+            new_n,
+            self.linear_sum_,
+            nominee_cluster.linear_sum_,
+            self.n_samples_,
+            nominee_cluster.n_samples_,
+        ):
+            (self.n_samples_, self.linear_sum_, self.centroid_, self.mol_indices) = (
+                new_n,
+                new_ls,
+                new_centroid,
+                self.mol_indices + nominee_cluster.mol_indices,
+            )
             return True
         return False
 
 
-class BitBirch():
+class BitBirch:
     """Implements the BitBIRCH clustering algorithm.
-    
-    BitBIRCH paper: 
+
+    BitBIRCH paper:
 
     Memory- and time-efficient, online-learning algorithm.
     It constructs a tree data structure with the cluster centroids being read off the leaf.
-    
+
     Parameters
     ----------
     threshold : float, default=0.5
@@ -520,7 +545,6 @@ class BitBirch():
     subcluster are updated. This is done recursively till the properties of
     the leaf node are updated.
     """
-
 
     def __init__(
         self,
@@ -570,7 +594,7 @@ class BitBirch():
                 n_features=n_features,
                 dtype=d_type,
             )
-    
+
             # To enable getting back subclusters.
             self.dummy_leaf_ = _BFNode(
                 threshold=threshold,
@@ -590,13 +614,11 @@ class BitBirch():
 
         for sample in iter_func(X):
             set_bits = np.sum(sample)
-            subcluster = _BFSubcluster(linear_sum=sample, mol_indices = [self.index_tracker])
-            split = self.root_.insert_bf_subcluster(subcluster, set_bits,subcluster.parent_, singly)
+            subcluster = _BFSubcluster(linear_sum=sample, mol_indices=[self.index_tracker])
+            split = self.root_.insert_bf_subcluster(subcluster, set_bits, subcluster.parent_, singly)
 
             if split:
-                new_subcluster1, new_subcluster2 = _split_node(
-                    self.root_, threshold, branching_factor, singly
-                )
+                new_subcluster1, new_subcluster2 = _split_node(self.root_, threshold, branching_factor, singly)
                 del self.root_
                 self.root_ = _BFNode(
                     threshold=threshold,
@@ -619,10 +641,10 @@ class BitBirch():
         centroids = np.concatenate([leaf.centroids_ for leaf in self._get_leaves()])
         self.subcluster_centers_ = centroids
         self._n_features_out = self.subcluster_centers_.shape[0]
-        
+
         self.first_call = False
         return self
-    
+
     def fit_reinsert(self, X, reinsert_indices, singly=False):
         """X corresponds to only the molecules that will be reinserted into the tree
         reinsert indices are the indices of the molecules that will be reinserted into the tree"""
@@ -643,7 +665,7 @@ class BitBirch():
                 n_features=n_features,
                 dtype=d_type,
             )
-    
+
             # To enable getting back subclusters.
             self.dummy_leaf_ = _BFNode(
                 threshold=threshold,
@@ -663,12 +685,10 @@ class BitBirch():
 
         for sample, mol_ind in zip(iter_func(X), reinsert_indices):
             set_bits = np.sum(sample)
-            subcluster = _BFSubcluster(linear_sum=sample, mol_indices = [mol_ind])
+            subcluster = _BFSubcluster(linear_sum=sample, mol_indices=[mol_ind])
             split = self.root_.insert_bf_subcluster(subcluster, set_bits, subcluster.parent_, False)
             if split:
-                new_subcluster1, new_subcluster2 = _split_node(
-                    self.root_, threshold, branching_factor, False
-                )
+                new_subcluster1, new_subcluster2 = _split_node(self.root_, threshold, branching_factor, False)
                 del self.root_
                 self.root_ = _BFNode(
                     threshold=threshold,
@@ -689,10 +709,10 @@ class BitBirch():
         centroids = np.concatenate([leaf.centroids_ for leaf in self._get_leaves()])
         self.subcluster_centers_ = centroids
         self._n_features_out = self.subcluster_centers_.shape[0]
-        
+
         self.first_call = False
         return self
-    
+
     def fit_BFs(self, X):
         """
         Method to fit a BitBirch model with the given BitFeatyres.
@@ -708,8 +728,8 @@ class BitBirch():
 
         # Check that the input is a list of BitFeatures
         if type(X) != list or len(X[0]) != 3:
-            raise ValueError('The input must be a list of BitFeatures')
-        
+            raise ValueError("The input must be a list of BitFeatures")
+
         threshold = self.threshold
         branching_factor = self.branching_factor
 
@@ -727,7 +747,7 @@ class BitBirch():
                 n_features=n_features,
                 dtype=d_type,
             )
-    
+
             # To enable getting back subclusters.
             self.dummy_leaf_ = _BFNode(
                 threshold=threshold,
@@ -749,9 +769,7 @@ class BitBirch():
             split = self.root_.insert_bf_subcluster(cluster, set_bits, cluster.parent_, True)
 
             if split:
-                new_subcluster1, new_subcluster2 = _split_node(
-                    self.root_, threshold, branching_factor, True
-                )
+                new_subcluster1, new_subcluster2 = _split_node(self.root_, threshold, branching_factor, True)
                 del self.root_
                 self.root_ = _BFNode(
                     threshold=threshold,
@@ -767,10 +785,9 @@ class BitBirch():
         centroids = np.concatenate([leaf.centroids_ for leaf in self._get_leaves()])
         self.subcluster_centers_ = centroids
         self._n_features_out = self.subcluster_centers_.shape[0]
-        
+
         self.first_call = False
         return self
-
 
     def _get_leaves(self):
         """
@@ -787,12 +804,12 @@ class BitBirch():
             leaves.append(leaf_ptr)
             leaf_ptr = leaf_ptr.next_leaf_
         return leaves
-    
+
     def get_centroids_mol_ids(self):
         """Method to return a dictionary containing the centroids and mol indices of the leaves"""
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
-        
+            raise ValueError("The model has not been fitted yet.")
+
         centroids = []
         mol_ids = []
         for leaf in self._get_leaves():
@@ -800,57 +817,57 @@ class BitBirch():
                 centroids.append(subcluster.centroid_)
                 mol_ids.append(subcluster.mol_indices)
 
-        dict_centroids_mol_ids = {'centroids': centroids, 'mol_ids': mol_ids}
+        dict_centroids_mol_ids = {"centroids": centroids, "mol_ids": mol_ids}
 
         return dict_centroids_mol_ids
-    
+
     def get_centroids(self):
         """Method to return a list of Numpy arrays containing the centroids' fingerprints"""
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
-        
+            raise ValueError("The model has not been fitted yet.")
+
         centroids = []
         for leaf in self._get_leaves():
             for subcluster in leaf.subclusters_:
                 centroids.append(subcluster.centroid_)
 
         return centroids
-    
+
     def get_cluster_mol_ids(self):
         """Method to return the indices of molecules in each cluster"""
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
-        
+            raise ValueError("The model has not been fitted yet.")
+
         clusters_mol_id = []
         for leaf in self._get_leaves():
             for subcluster in leaf.subclusters_:
                 clusters_mol_id.append(subcluster.mol_indices)
 
         # Sort the clusters by the number of samples in the cluster
-        clusters_mol_id = sorted(clusters_mol_id, key = lambda x: len(x), reverse = True)
+        clusters_mol_id = sorted(clusters_mol_id, key=lambda x: len(x), reverse=True)
 
         return clusters_mol_id
-    
+
     def _get_BFs(self):
         """Method to return the BitFeatures of the leaves"""
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
-        
+            raise ValueError("The model has not been fitted yet.")
+
         BFs = []
         for leaf in self._get_leaves():
             for subcluster in leaf.subclusters_:
                 BFs.append(subcluster)
 
         # Sort the BitFeatures by the number of samples in the cluster
-        BFs = sorted(BFs, key = lambda x: x.n_samples_, reverse = True)
+        BFs = sorted(BFs, key=lambda x: x.n_samples_, reverse=True)
 
         return BFs
-         
-    def prepare_data_BFs(self, fps, initial_mol = 0):
+
+    def prepare_data_BFs(self, fps, initial_mol=0):
         """Method to prepare the BitFeatures of the largest cluster and the rest of the clusters"""
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
-        
+            raise ValueError("The model has not been fitted yet.")
+
         BFs = self._get_BFs()
         big, rest = BFs[0], BFs[1:]
 
@@ -863,7 +880,7 @@ class BitBirch():
             bigs.append([1, fps[mol - initial_mol].astype(np.int64), [mol]])
 
         return data, bigs
-    
+
     def get_assignments(self, n_mols):
         clustered_ids = self.get_cluster_mol_ids()
 
@@ -875,8 +892,8 @@ class BitBirch():
         assert np.all(assignments != -1)
 
         return assignments
-    
-#Refinement functionality 
+
+    # Refinement functionality
 
     def _get_prune_indices(self):
         """Method to return the indices of molecules in the largest cluster, specifically to be used in fit_reinsert."""
@@ -889,12 +906,12 @@ class BitBirch():
             key=lambda x: x[2],  # Sort by the cluster size
             default=(None, None, 0),  # Default if no clusters are found
         )
-        prune_indices = lazyPrune(largest_cluster[0], largest_cluster[1], self) 
+        prune_indices = lazyPrune(largest_cluster[0], largest_cluster[1], self)
         return prune_indices
 
     def prune(self, X):
         """
-        Retrieves the molecules in the largest cluster and "prunes" the tree by redistributing these molecules. 
+        Retrieves the molecules in the largest cluster and "prunes" the tree by redistributing these molecules.
 
         Parameters
         ----------
@@ -909,22 +926,22 @@ class BitBirch():
         mol_indices = self._get_prune_indices()
         cluster_fps = X[mol_indices]
         self.fit_reinsert(cluster_fps, mol_indices)
-        return self 
+        return self
 
     def _calc_centroid(self, X, cluster):
         """Calculates centroid
-    
+
         Parameters
         ----------
         X : {array-like, sparse matrix} of shape (n_samples, n_features)
                 Input data.
         cluster: np.array of the molecule indices within the cluster
-                
+
         Returns
         -------
         centroid : np.ndarray
                Centroid fingerprints of the given set
-    """
+        """
 
         full_fp = X[cluster]
         linear_sum = np.sum(full_fp, axis=0)
@@ -933,12 +950,12 @@ class BitBirch():
 
     def _get_top_cluster_params(self, X, top):
         """Method to recieve the cluster mol indices, centroids, and fingerprints of the top user-specified clusters.
-        
+
         Parameters
         ----------
         X : {array-like, sparse matrix} of shape (n_samples, n_features)
             Input data.
-        
+
         top: int
             default: 20; specifies number of top largest clusters to reassign
 
@@ -965,7 +982,7 @@ class BitBirch():
 
     def _get_sim_matrix(self, data_top_clusters, centroids):
         """Method to receive the similarity matrix of the user-sepcified top clusters for reassign.
-        
+
         Parameters
         ----------
         data_top_clusters: np.array; shape (n_molecules, n_features)
@@ -980,18 +997,17 @@ class BitBirch():
             Each entry is the index of the cluster centroid to which the molecule was closest
         """
         pop_counts = np.sum(centroids, axis=1)
-        pop_mols = np.sum(data_top_clusters, axis=1).reshape(-1,1)
+        pop_mols = np.sum(data_top_clusters, axis=1).reshape(-1, 1)
         ei = np.einsum("ij,kj->ik", data_top_clusters, centroids)
-        tanis = ei/(pop_counts + pop_mols -ei)
+        tanis = ei / (pop_counts + pop_mols - ei)
         row_max = np.argmax(tanis, axis=1)
         assert row_max.shape == data_top_clusters.shape[0:1]
-        
+
         return row_max
 
-        
     def reassign(self, X, top=20, quick=False):
         """
-        Reassign molecules across the user-specified (default 20) top largest clusters in the tree based on the tanimoto similarity matrix. 
+        Reassign molecules across the user-specified (default 20) top largest clusters in the tree based on the tanimoto similarity matrix.
 
         Parameters
         ----------
@@ -1015,20 +1031,21 @@ class BitBirch():
         top_clusters, centroids, mol_indices, data_top_clusters = self._get_top_cluster_params(X, top)
         row_max = self._get_sim_matrix(data_top_clusters, centroids)
 
-
         final_clusters = {i: [] for i in np.unique(row_max)}
         for mol, cluster_idx in zip(mol_indices, row_max):
             final_clusters[cluster_idx].append(mol)
-        
+
         if quick:
-            return dict(sorted(final_clusters.items(), key=lambda item: len(item[1]), reverse=True))    #Return dict sorted by largest to smallest newly reassigned top clusters
-        
+            return dict(
+                sorted(final_clusters.items(), key=lambda item: len(item[1]), reverse=True)
+            )  # Return dict sorted by largest to smallest newly reassigned top clusters
+
         else:
             sub_clusters = [sc for leaf in self._get_leaves() for sc in leaf.subclusters_]
             assert len(sub_clusters) == len(self.get_cluster_mol_ids())
-           
+
             top_sub_clusters = sorted(sub_clusters, key=lambda c: c.n_samples_, reverse=True)[:top]
-   
+
             for sc, tc in zip(top_sub_clusters, top_clusters):
                 assert sc.n_samples_ == len(tc)
 
@@ -1038,4 +1055,3 @@ class BitBirch():
                 cluster.mol_indices = c_ids
                 cluster.centroid_ = calc_centroid(cluster.linear_sum_, cluster.n_samples_)
         return self
-            

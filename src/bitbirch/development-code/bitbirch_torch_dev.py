@@ -27,9 +27,10 @@
 import torch
 from scipy import sparse
 
+
 def jt_isim(c_total, n_objects):
-    """iSIM Tanimoto calculation 
-        
+    """iSIM Tanimoto calculation
+
     https://pubs.rsc.org/en/content/articlelanding/2024/dd/d4dd00041b
 
     Parameters
@@ -48,11 +49,12 @@ def jt_isim(c_total, n_objects):
     sum_kq = torch.sum(c_total)
     sum_kqsq = torch.dot(c_total, c_total)
     a = (sum_kqsq - sum_kq) / 2
-    
+
     return a / (a + (n_objects * sum_kq) - sum_kqsq)
 
+
 def max_separation(X):
-    """Finds two objects in X that are very separated 
+    """Finds two objects in X that are very separated
     This is an approximation (is not guaranteed to find
     the two absolutely most separated objects), but it is
     a very robust O(N) implementation. Quality of clustering
@@ -67,7 +69,7 @@ def max_separation(X):
     ---------
     X : torch.Tensor
         Set of fingerprints
-    
+
     Returns
     -------
     (mol1, mol2) : (int, int)
@@ -106,8 +108,8 @@ def max_separation(X):
 
 
 def calc_centroid(linear_sum, n_samples):
-    """Calculates centroid 
-    
+    """Calculates centroid
+
     Parameters
     ----------
     linear_sum : torch.Tensor
@@ -120,19 +122,23 @@ def calc_centroid(linear_sum, n_samples):
     centroid : torch.Tensor
                Centroid fingerprints of the given set
     """
-    return torch.where(linear_sum >= n_samples * 0.5, torch.tensor(1.0, dtype=linear_sum.dtype), torch.tensor(0.0, dtype=linear_sum.dtype))
+    return torch.where(
+        linear_sum >= n_samples * 0.5,
+        torch.tensor(1.0, dtype=linear_sum.dtype),
+        torch.tensor(0.0, dtype=linear_sum.dtype),
+    )
 
 
 def _iterate_sparse_X(X):
     """This function returns a densified row when iterating over a sparse
     matrix, instead of constructing a sparse matrix for every row, which is
     expensive.
-    
+
     Parameters
     ----------
     X : torch.sparse.Tensor
         A sparse matrix in coordinate format.
-    
+
     Yields
     ------
     row : torch.Tensor
@@ -140,7 +146,7 @@ def _iterate_sparse_X(X):
 
     """
     n_samples, n_features = X.size()
-    X_coo = X.coalesce()  
+    X_coo = X.coalesce()
     X_indices = X_coo.indices()
     X_values = X_coo.values()
 
@@ -149,9 +155,10 @@ def _iterate_sparse_X(X):
 
     for i in range(n_samples):
         row = torch.zeros(n_features, device=X.device)
-        mask = (row_indices == i)
+        mask = row_indices == i
         row[col_indices[mask]] = X_values[mask]
         yield row
+
 
 def _split_node(node, threshold, branching_factor):
     """The node has to be split if there is no place for a new subcluster
@@ -179,8 +186,10 @@ def _split_node(node, threshold, branching_factor):
     new_subcluster2: _BFSubcluster
         New subcluster
     """
-    new_subcluster1 = _BFSubcluster(n_features = node.n_features, device=node.device)           #check with other sized data to make sure this works
-    new_subcluster2 = _BFSubcluster(n_features = node.n_features, device=node.device)
+    new_subcluster1 = _BFSubcluster(
+        n_features=node.n_features, device=node.device
+    )  # check with other sized data to make sure this works
+    new_subcluster2 = _BFSubcluster(n_features=node.n_features, device=node.device)
     new_node1 = _BFNode(
         threshold=threshold,
         branching_factor=branching_factor,
@@ -226,6 +235,7 @@ def _split_node(node, threshold, branching_factor):
             new_node2.append_subcluster(subcluster)
             new_subcluster2.update(subcluster)
     return new_subcluster1, new_subcluster2
+
 
 class _BFNode:
     """Each node in a BFTree is called a BFNode.
@@ -291,7 +301,7 @@ class _BFNode:
         # Keep centroids as views. In this way
         # if we change init_centroids, it is sufficient
         self.centroids_ = self.init_centroids_[: n_samples + 1, :]
-    
+
     def update_split_subclusters(self, subcluster, new_subcluster1, new_subcluster2):
         """Remove a subcluster from a node and update it with the
         split subclusters.
@@ -332,18 +342,14 @@ class _BFNode:
             # subcluster to accommodate the new child.
             else:
                 new_subcluster1, new_subcluster2 = _split_node(
-                    closest_subcluster.child_,
-                    self.threshold,
-                    self.branching_factor
+                    closest_subcluster.child_, self.threshold, self.branching_factor
                 )
-                self.update_split_subclusters(
-                    closest_subcluster, new_subcluster1, new_subcluster2
-                )
+                self.update_split_subclusters(closest_subcluster, new_subcluster1, new_subcluster2)
 
                 if len(self.subclusters_) > self.branching_factor:
                     return True
                 return False
-        
+
         # good to go!
         else:
             merged = closest_subcluster.merge_subcluster(subcluster, self.threshold)
@@ -357,8 +363,8 @@ class _BFNode:
             elif len(self.subclusters_) < self.branching_factor:
                 self.append_subcluster(subcluster)
                 return False
-            
-            # We do not have enough space nor is it closer to 
+
+            # We do not have enough space nor is it closer to
             # another subcluster. We need to split.
             else:
                 self.append_subcluster(subcluster)
@@ -375,7 +381,7 @@ class _BFSubcluster:
     linear_sum : torch.Tensor of shape (n_features,), default=None
         Sample. This is kept optional to allow initialization of empty
         subclusters.
-    
+
     n_features: int
         feature count in fingerprints. This is necessary to keep tensor sizes consistent
 
@@ -403,25 +409,25 @@ class _BFSubcluster:
         of the _BFNode, it is set to ``self.child_``.
     """
 
-    def __init__(self, *, linear_sum=None, mol_indices=None, n_features=2048, device):    
+    def __init__(self, *, linear_sum=None, mol_indices=None, n_features=2048, device):
         if linear_sum is None:
             self.n_samples_ = 0
-            self.linear_sum_ = torch.zeros(n_features, dtype=torch.float32, device=device)            
+            self.linear_sum_ = torch.zeros(n_features, dtype=torch.float32, device=device)
             self.centroid_ = self.linear_sum_
         else:
             self.n_samples_ = 1
             self.linear_sum_ = linear_sum.to(device)
             self.centroid_ = linear_sum.to(device)
-        
+
         self.mol_indices = mol_indices or []
         self.child_ = None
         self.n_features = n_features
-        self.device=device
-    
+        self.device = device
+
     def update(self, subcluster):
-        #Check to see that linear_sum_ is on the necessary device
-        #Current instances tested do not use this if statement
-        #If instance found that does use this method, need to find other place to fix issue
+        # Check to see that linear_sum_ is on the necessary device
+        # Current instances tested do not use this if statement
+        # If instance found that does use this method, need to find other place to fix issue
         if subcluster.linear_sum_.device != self.device:
             subcluster.linear_sum_ = subcluster.linear_sum_.to(self.device)
 
@@ -437,8 +443,7 @@ class _BFSubcluster:
         new_ls = self.linear_sum_ + nominee_cluster.linear_sum_
         new_n = self.n_samples_ + nominee_cluster.n_samples_
         new_centroid = calc_centroid(new_ls, new_n)
-        
-        
+
         jt_radius = jt_isim(new_ls + new_centroid, new_n + 1) * (new_n + 1) - jt_isim(new_ls, new_n) * (new_n - 1)
 
         if jt_radius >= threshold * 2:
@@ -449,15 +454,16 @@ class _BFSubcluster:
             return True
         return False
 
-class BitBirch():
+
+class BitBirch:
     """Implements the BitBIRCH clustering algorithm.
 
-    BitBIRCH paper: 
+    BitBIRCH paper:
 
     Memory- and time-efficient, online-learning algorithm.
     It constructs a tree data structure with the cluster centroids being read off the leaf.
-    
-    
+
+
     Parameters
     ----------
     threshold : float, default=0.5
@@ -509,7 +515,7 @@ class BitBirch():
     ):
         self.threshold = threshold
         self.branching_factor = branching_factor
-        self.index_tracker = 0 
+        self.index_tracker = 0
         self.first_call = True
 
     def fit(self, X, y=None):
@@ -549,7 +555,7 @@ class BitBirch():
                 dtype=d_type,
                 device=device,
             )
-        
+
             # To enable getting back subclusters.
             self.dummy_leaf_ = _BFNode(
                 threshold=threshold,
@@ -566,7 +572,7 @@ class BitBirch():
         if not sparse.issparse(X):
             iter_func = iter
         else:
-            iter_func = _iterate_sparse_X 
+            iter_func = _iterate_sparse_X
 
         for sample in iter_func(X):
             set_bits = torch.sum(sample)
@@ -575,7 +581,9 @@ class BitBirch():
 
             if split:
                 new_subcluster1, new_subcluster2 = _split_node(
-                    self.root_, threshold, branching_factor,
+                    self.root_,
+                    threshold,
+                    branching_factor,
                 )
                 del self.root_
                 self.root_ = _BFNode(
@@ -617,7 +625,7 @@ class BitBirch():
         """Method to return the indices of molecules in each cluster"""
         # TODO: create torch version of this function for torch output
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
+            raise ValueError("The model has not been fitted yet.")
 
         centroids = []
         for leaf in self._get_leaves():
@@ -630,7 +638,7 @@ class BitBirch():
         """Method to return the indices of molecules in each cluster"""
         # TODO: create torch version of this function for tensor output
         if self.first_call:
-            raise ValueError('The model has not been fitted yet.')
+            raise ValueError("The model has not been fitted yet.")
 
         clusters_mol_id = []
         for leaf in self._get_leaves():

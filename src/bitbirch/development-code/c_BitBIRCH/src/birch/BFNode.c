@@ -478,7 +478,7 @@ bool node_insert_subcluster(BFNode* node, BFSubcluster* subcluster, bool* hold_m
     }
 
     closest_subcluster = find_closest_subcluster(node, subcluster);
-    
+
     /*for(int i=0; i<closest_subcluster->dim;i++){
         printf("%d",closest_subcluster->ls[i]);
     }

@@ -37,20 +37,19 @@ must accept a ``pandas.Series`` of SMILES and return a sequence of cluster
 labels with the same length.
 """
 
-from typing import Dict, Callable, Any
-from pathlib import Path
-import logging
 import gc
+import logging
+from pathlib import Path
+from typing import Any, Callable, Dict
 
+import numpy as np
+import pandas as pd
+import useful_rdkit_utils as uru
+from datasets import Dataset, DatasetDict
+from rdkit import Chem
+from tqdm import tqdm
 
 from bitbirch.bitbirch import bitbirch as bb
-from rdkit import Chem
-import useful_rdkit_utils as uru
-
-import pandas as pd
-import numpy as np
-from datasets import Dataset, DatasetDict
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -189,9 +188,7 @@ class DatasetSplitter:
         cluster_list = split_method(subdata["SMILES"])
         subdata_indices = subdata.index.to_numpy().copy()
 
-        group_kfold_shuffle = uru.GroupKFoldShuffle(
-            n_splits=self.n_folds, random_state=random_state, shuffle=True
-        )
+        group_kfold_shuffle = uru.GroupKFoldShuffle(n_splits=self.n_folds, random_state=random_state, shuffle=True)
 
         fold_splits: Dict[int, Dict[str, np.ndarray]] = {}
 
@@ -261,17 +258,12 @@ class DatasetSplitter:
 
                             # Store group splits
                             for fold_id, fold_indices in group_folds.items():
-                                if (
-                                    f"fold_{fold_id}"
-                                    not in split_datasets[dset_name][split_name][f"split_{split_id}"]
-                                ):
-                                    split_datasets[dset_name][split_name][f"split_{split_id}"][
-                                        f"fold_{fold_id}"
-                                    ] = {}
+                                if f"fold_{fold_id}" not in split_datasets[dset_name][split_name][f"split_{split_id}"]:
+                                    split_datasets[dset_name][split_name][f"split_{split_id}"][f"fold_{fold_id}"] = {}
 
-                                split_datasets[dset_name][split_name][f"split_{split_id}"][
-                                    f"fold_{fold_id}"
-                                ][group] = fold_indices
+                                split_datasets[dset_name][split_name][f"split_{split_id}"][f"fold_{fold_id}"][
+                                    group
+                                ] = fold_indices
 
                         # Combine group splits into final indices for each fold
                         self._combine_group_splits(
@@ -351,8 +343,7 @@ class DatasetSplitter:
                             continue
 
                         split_output_dir = (
-                            output_dir
-                            / f"{dset_name}_quality/{split_name}/{split_number}/{fold_number}/hf_dataset"
+                            output_dir / f"{dset_name}_quality/{split_name}/{split_number}/{fold_number}/hf_dataset"
                         )
                         split_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -372,9 +363,7 @@ class DatasetSplitter:
                         logger.debug("Saved HF dataset to %s", split_output_dir)
 
                 # Print folder size
-                folder_size = sum(
-                    f.stat().st_size for f in split_output_dir.parent.glob("**/*") if f.is_file()
-                )
+                folder_size = sum(f.stat().st_size for f in split_output_dir.parent.glob("**/*") if f.is_file())
                 folder_size_mb = folder_size / (1024 * 1024)
                 logger.info("Saved splits for %s, %s: %.2f MB", dset_name, split_name, folder_size_mb)
 
@@ -461,17 +450,12 @@ class DatasetSplitter:
 
                             # Store group splits
                             for fold_id, fold_indices in group_folds.items():
-                                if (
-                                    f"fold_{fold_id}"
-                                    not in split_datasets[dset_name][split_name][f"split_{split_id}"]
-                                ):
-                                    split_datasets[dset_name][split_name][f"split_{split_id}"][
-                                        f"fold_{fold_id}"
-                                    ] = {}
+                                if f"fold_{fold_id}" not in split_datasets[dset_name][split_name][f"split_{split_id}"]:
+                                    split_datasets[dset_name][split_name][f"split_{split_id}"][f"fold_{fold_id}"] = {}
 
-                                split_datasets[dset_name][split_name][f"split_{split_id}"][
-                                    f"fold_{fold_id}"
-                                ][group] = fold_indices
+                                split_datasets[dset_name][split_name][f"split_{split_id}"][f"fold_{fold_id}"][
+                                    group
+                                ] = fold_indices
 
                         # Combine group splits into final indices for each fold
                         self._combine_group_splits(
@@ -535,9 +519,7 @@ class DatasetSplitter:
             if "total" not in datasets_dict:
                 continue
 
-            split_output_dir = (
-                output_dir / f"{dset_name}_quality/{split_name}/{split_id_key}/{fold_id_key}/hf_dataset"
-            )
+            split_output_dir = output_dir / f"{dset_name}_quality/{split_name}/{split_id_key}/{fold_id_key}/hf_dataset"
             if not overwrite and split_output_dir.exists():
                 logger.info(
                     "Skipping existing split: %s/%s/%s/%s",
@@ -572,9 +554,7 @@ class DatasetSplitter:
 
             # Log each saved component
             logger.debug("Saved train set (%d samples) to %s/train", len(train_idx), split_output_dir)
-            logger.debug(
-                "Saved validation set (%d samples) to %s/validation", len(val_idx), split_output_dir
-            )
+            logger.debug("Saved validation set (%d samples) to %s/validation", len(val_idx), split_output_dir)
             logger.debug("Saved test set (%d samples) to %s/test", len(test_idx), split_output_dir)
             logger.info(
                 "Saved %s (%d|%d|%d train|val|test) for %s_%s_%s",

@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
-from abc import ABC
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
-from enum import Enum
 import json
 import logging
 import multiprocessing
+from abc import ABC
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import pandas as pd
 
+from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig, MorganFingerprintGenerator
 from admet.data.load import LoadedDataset
-from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG, MorganFingerprintGenerator
-from admet.model.base import BaseModel, ModelProtocol
-from admet.utils import set_global_seeds, get_git_commit_hash
 from admet.evaluate.metrics import AllMetrics, compute_metrics_log_and_linear
-from admet.visualize.model_performance import plot_parity_grid, plot_metric_bars
+from admet.model.base import BaseModel, ModelProtocol
+from admet.utils import get_git_commit_hash, set_global_seeds
+from admet.visualize.model_performance import plot_metric_bars, plot_parity_grid
 
 from .utils import _extract_features, _extract_targets, _target_mask
 
@@ -123,10 +123,7 @@ class BaseModelTrainer(ABC):
             if dataset.smiles_col not in dataset.train.columns:
                 raise ValueError("SMILES column missing; cannot generate fingerprints on the fly.")
             fp_cfg = getattr(dataset, "fingerprint_config", None) or self.fingerprint_config
-            if (
-                self._fingerprint_generator is None
-                or getattr(self._fingerprint_generator, "config", None) != fp_cfg
-            ):
+            if self._fingerprint_generator is None or getattr(self._fingerprint_generator, "config", None) != fp_cfg:
                 self._fingerprint_generator = MorganFingerprintGenerator(
                     radius=fp_cfg.radius,
                     count_simulation=fp_cfg.use_counts,
@@ -274,9 +271,9 @@ class BaseModelTrainer(ABC):
             "model_type": type(model).__name__,
             "endpoints": summary.endpoints,
             "featurization": summary.featurization.value,
-            "fingerprint": summary.fingerprint_config.to_dict()
-            if summary.featurization == FeaturizationMethod.MORGAN_FP
-            else None,
+            "fingerprint": (
+                summary.fingerprint_config.to_dict() if summary.featurization == FeaturizationMethod.MORGAN_FP else None
+            ),
             "model_path": "model",
             "seed": self.seed,
             "extra_meta": extra_meta or {},

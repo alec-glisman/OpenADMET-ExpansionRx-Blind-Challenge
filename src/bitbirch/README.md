@@ -1,6 +1,6 @@
 # BitBirch: Efficient Clustering of Large Molecular Libraries
 
-**Miranda-Quintana Group**  
+**Miranda-Quintana Group**
 *University of Florida*
 
 ![BitBirch Logo](data/BitBIRCH.png)
@@ -9,11 +9,11 @@
 of the BitBIRCH algorithm for huge molecular libraries check out the [BitBirch-Lean
 (bblean)](https://github.com/mqcomplab/bblean) repository.
 
-## Reference  
+## Reference
 
 [DOI: 10.1039/D5DD00030K](https://doi.org/10.1039/D5DD00030K)
 
-## Installation  
+## Installation
 
 ```bash
 git clone https://github.com/mqcomplab/bitbirch.git

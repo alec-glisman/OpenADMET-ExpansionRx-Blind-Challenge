@@ -135,4 +135,3 @@ Cross-References
 
 - See :doc:`splitting` for how quality tiers influence train/validation/test partitioning.
 - See :doc:`architecture` for where curation lives in the broader system.
-

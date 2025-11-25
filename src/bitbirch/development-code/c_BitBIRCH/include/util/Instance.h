@@ -8,4 +8,3 @@ double* instance_read(char* line, int dimensionality, char* delimiters);
 int instance_calculate_dimensionality(char* line, char* delimiters, bool last_column_is_label);
 
 #endif
-

@@ -9,21 +9,17 @@ Submodules:
 Public re‑exports maintained for previous names (without deprecation shims).
 """
 
+from .api import train_ensemble, train_model
+from .model_trainer import BaseModelTrainer, FeaturizationMethod, RunSummary
+from .ray_trainer import BaseEnsembleTrainer
 from .utils import (
+    SplitMetadata,
     _extract_features,
     _extract_targets,
     _target_mask,
     infer_split_metadata,
-    SplitMetadata,
     metadata_from_dict,
 )
-from .model_trainer import (
-    BaseModelTrainer,
-    RunSummary,
-    FeaturizationMethod,
-)
-from .ray_trainer import BaseEnsembleTrainer
-from .api import train_model, train_ensemble
 
 __all__ = [
     "_extract_features",

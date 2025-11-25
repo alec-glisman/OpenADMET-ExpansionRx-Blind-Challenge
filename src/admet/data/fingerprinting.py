@@ -19,8 +19,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from rdkit import Chem  # type: ignore[import-not-found]
 from rdkit.Chem import rdFingerprintGenerator  # type: ignore[import-not-found]
 
@@ -251,5 +251,6 @@ class MorganFingerprintGenerator:
 
         logger.debug("Reordered columns: %d total columns", len(reordered_cols))
         return result_df[reordered_cols]
+
 
 __all__ = ["MorganFingerprintGenerator", "FingerprintConfig", "DEFAULT_FINGERPRINT_CONFIG"]

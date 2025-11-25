@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional, Type, Tuple
+from typing import Dict, Optional, Tuple, Type
 
-from admet.data.load import LoadedDataset
 from admet.data.fingerprinting import FingerprintConfig
-from admet.model.base import ModelProtocol
+from admet.data.load import LoadedDataset
 from admet.evaluate.metrics import AllMetrics
-from .model_trainer import RunSummary
+from admet.model.base import ModelProtocol
 
-from .model_trainer import BaseModelTrainer
+from .model_trainer import BaseModelTrainer, RunSummary
 from .ray_trainer import BaseEnsembleTrainer
 
 

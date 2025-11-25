@@ -6,6 +6,7 @@ Markdown, and type hint processing. The build expects the package source in
 """
 
 from __future__ import annotations
+
 import os
 import sys
 from datetime import datetime

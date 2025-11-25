@@ -262,22 +262,24 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.fingerprinting</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span><span class="p">,</span> <span class="n">FingerprintConfig</span><span class="p">,</span> <span class="n">MorganFingerprintGenerator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.load</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoadedDataset</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ModelProtocol</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_global_seeds</span><span class="p">,</span> <span class="n">get_git_commit_hash</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.evaluate.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">AllMetrics</span><span class="p">,</span> <span class="n">compute_metrics_log_and_linear</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.visualize.model_performance</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_parity_grid</span><span class="p">,</span> <span class="n">plot_metric_bars</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ModelProtocol</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_git_commit_hash</span><span class="p">,</span> <span class="n">set_global_seeds</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.visualize.model_performance</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_metric_bars</span><span class="p">,</span> <span class="n">plot_parity_grid</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_extract_features</span><span class="p">,</span> <span class="n">_extract_targets</span><span class="p">,</span> <span class="n">_target_mask</span>
 
@@ -304,6 +306,7 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RunSummary</span><span class="p">:</span>
     <span class="n">featurization</span><span class="p">:</span> <span class="n">FeaturizationMethod</span>
+    <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">FingerprintConfig</span>
     <span class="n">endpoints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Any</span>
     <span class="n">X_train</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
@@ -331,6 +334,7 @@
         <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">mixed_precision</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">fingerprint_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FingerprintConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span> <span class="o">=</span> <span class="n">model_cls</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_params</span> <span class="o">=</span> <span class="n">model_params</span> <span class="ow">or</span> <span class="p">{}</span>
@@ -340,6 +344,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span><span class="p">:</span> <span class="n">FeaturizationMethod</span> <span class="o">=</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">NONE</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">git_commit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fingerprint_config</span> <span class="o">=</span> <span class="n">fingerprint_config</span> <span class="ow">or</span> <span class="n">DEFAULT_FINGERPRINT_CONFIG</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fingerprint_generator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MorganFingerprintGenerator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="BaseModelTrainer.prepare_features">
 <a class="viewcode-back" href="../../../../api/admet.train.html#admet.train.BaseModelTrainer.prepare_features">[docs]</a>
@@ -357,14 +363,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">:</span>
-            <span class="n">feature_cols</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">fingerprint_cols</span>
+            <span class="n">feature_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">fingerprint_cols</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">SMILES</span><span class="p">:</span>
             <span class="n">feature_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">dataset</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported featurization method: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">featurization</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">feature_cols</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No feature columns found in dataset; cannot prepare features.&quot;</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="p">[</span>
             <span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">),</span>
@@ -372,15 +375,40 @@
             <span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">test</span><span class="p">),</span>
         <span class="p">]:</span>
             <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">feature_cols</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">feature_cols</span> <span class="ow">and</span> <span class="n">missing</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing fingerprint columns in </span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2"> split: </span><span class="si">{</span><span class="n">missing</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="c1"># Numeric fingerprint features use the optimized float32 extractor.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span><span class="p">:</span>
+        <span class="c1"># Numeric fingerprint features use the optimized float32 extractor when precomputed.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span> <span class="ow">and</span> <span class="n">feature_cols</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">(</span>
                 <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
                 <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">val</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
                 <span class="n">_extract_features</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">test</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">feature_cols</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">dataset</span><span class="o">.</span><span class="n">smiles_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;SMILES column missing; cannot generate fingerprints on the fly.&quot;</span><span class="p">)</span>
+            <span class="n">fp_cfg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;fingerprint_config&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">fingerprint_config</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fingerprint_generator</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fingerprint_generator</span><span class="p">,</span> <span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="n">fp_cfg</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_fingerprint_generator</span> <span class="o">=</span> <span class="n">MorganFingerprintGenerator</span><span class="p">(</span>
+                    <span class="n">radius</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span>
+                    <span class="n">count_simulation</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">use_counts</span><span class="p">,</span>
+                    <span class="n">include_chirality</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">include_chirality</span><span class="p">,</span>
+                    <span class="n">fp_size</span><span class="o">=</span><span class="n">fp_cfg</span><span class="o">.</span><span class="n">n_bits</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="n">fp_cfg</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">_featurize</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
+                <span class="k">if</span> <span class="n">dataset</span><span class="o">.</span><span class="n">smiles_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;SMILES column missing from split; cannot featurize.&quot;</span><span class="p">)</span>
+                <span class="n">fps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fingerprint_generator</span><span class="o">.</span><span class="n">calculate_fingerprints</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">dataset</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">fps</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">_featurize</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">train</span><span class="p">),</span>
+                <span class="n">_featurize</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">val</span><span class="p">),</span>
+                <span class="n">_featurize</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">test</span><span class="p">),</span>
             <span class="p">)</span>
 
         <span class="c1"># SMILES featurization keeps raw SMILES strings as object arrays.</span>
@@ -528,6 +556,9 @@
             <span class="s2">&quot;model_type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;endpoints&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">endpoints</span><span class="p">,</span>
             <span class="s2">&quot;featurization&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">featurization</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="s2">&quot;fingerprint&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">summary</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">summary</span><span class="o">.</span><span class="n">featurization</span> <span class="o">==</span> <span class="n">FeaturizationMethod</span><span class="o">.</span><span class="n">MORGAN_FP</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;model&quot;</span><span class="p">,</span>
             <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
             <span class="s2">&quot;extra_meta&quot;</span><span class="p">:</span> <span class="n">extra_meta</span> <span class="ow">or</span> <span class="p">{},</span>
@@ -595,6 +626,10 @@
         <span class="n">mask_train</span><span class="p">,</span> <span class="n">mask_val</span><span class="p">,</span> <span class="n">mask_test</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_masks</span><span class="p">(</span><span class="n">Y_train</span><span class="p">,</span> <span class="n">Y_val</span><span class="p">,</span> <span class="n">Y_test</span><span class="p">)</span>
         <span class="n">sample_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_sample_weights</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">sample_weight_mapping</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_model</span><span class="p">(</span><span class="n">endpoints</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;fingerprint_config&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - defensive attribute set</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Model does not accept fingerprint_config attribute; continuing without it.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
             <span class="n">X_train</span><span class="p">,</span>
             <span class="n">Y_train</span><span class="p">,</span>
@@ -622,6 +657,7 @@
         <span class="p">)</span>
         <span class="n">summary</span> <span class="o">=</span> <span class="n">RunSummary</span><span class="p">(</span>
             <span class="n">featurization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">featurization</span><span class="p">,</span>
+            <span class="n">fingerprint_config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fingerprint_config</span><span class="p">,</span>
             <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
             <span class="n">endpoints</span><span class="o">=</span><span class="n">endpoints</span><span class="p">,</span>
             <span class="n">X_train</span><span class="o">=</span><span class="n">X_train</span><span class="p">,</span>

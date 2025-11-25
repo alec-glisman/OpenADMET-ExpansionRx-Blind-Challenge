@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
 import numpy as np
-from admet.train.base.model_trainer import BaseModelTrainer, FeaturizationMethod, RunSummary
+import pytest
+
 from admet.model.base import BaseModel
+from admet.train.base.model_trainer import BaseModelTrainer, FeaturizationMethod, RunSummary
 
 
 class _DummyModel(BaseModel):
@@ -45,6 +48,8 @@ class _DummyTrainer(BaseModelTrainer):
         self.featurization = FeaturizationMethod.MORGAN_FP
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 def test_save_artifacts_writes_run_meta(tmp_path: Path) -> None:
     trainer = _DummyTrainer()
     model = _DummyModel(["LogD"])  # type: ignore[arg-type]

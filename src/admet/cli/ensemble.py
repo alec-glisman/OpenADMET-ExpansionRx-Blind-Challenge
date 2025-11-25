@@ -9,16 +9,16 @@ predictions/metrics to a standardized output directory.
 
 from __future__ import annotations
 
-from pathlib import Path
 import logging
-from typing import Optional, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import pandas as pd
 import typer
 import yaml  # type: ignore[import-not-found]
 
 from admet.data.chem import parallel_canonicalize_smiles
-from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
+from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig
 from admet.evaluate.ensemble import EnsemblePredictConfig, run_ensemble_predictions_from_root
 from admet.visualize.ensemble_eval import plot_blind_distributions, plot_labeled_eval_outputs
 

@@ -282,8 +282,8 @@
 <span class="sd">    admet split datasets path/to/data --log-level DEBUG</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">typer</span>
@@ -296,10 +296,17 @@
 <div class="viewcode-block" id="datasets">
 <a class="viewcode-back" href="../../../api/admet.cli.html#admet.cli.split.datasets">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">datasets</span><span class="p">(</span>
-    <span class="n">base_data_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Argument</span><span class="p">(</span>
+    <span class="n">base_data_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span>
         <span class="o">...</span><span class="p">,</span>
+        <span class="s2">&quot;--input&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-i&quot;</span><span class="p">,</span>
         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to directory containing cleaned dataset CSV files.&quot;</span><span class="p">,</span>
         <span class="n">exists</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">dir_okay</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">file_okay</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">readable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">resolve_path</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;BASE_DATA_DIR&quot;</span><span class="p">,</span>
     <span class="p">),</span>
     <span class="n">output_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
@@ -328,7 +335,7 @@
         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Logging level (DEBUG, INFO, WARNING, ERROR).&quot;</span><span class="p">,</span>
     <span class="p">),</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create dataset splits with fingerprints and optional visualizations.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create dataset splits with optional visualizations (no precomputed fingerprints).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>

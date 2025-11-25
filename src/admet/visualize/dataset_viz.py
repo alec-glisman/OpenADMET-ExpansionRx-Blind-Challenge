@@ -5,14 +5,14 @@ This module provides classes and functions for visualizing the characteristics
 and distributions of dataset splits, including endpoint coverage and split sizes.
 """
 
-from typing import Dict, List, Optional
 import logging
 from pathlib import Path
+from typing import Dict, List, Optional
 
-import pandas as pd  # type: ignore[import-not-found]
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
+import pandas as pd  # type: ignore[import-not-found]
 import seaborn as sns
+from matplotlib.ticker import MaxNLocator
 
 logger = logging.getLogger(__name__)
 
@@ -272,8 +272,7 @@ class DatasetVisualizer:
             # Plot endpoint coverage and split size distributions for each method
             for split_name, split_data in splits.items():
                 split_size_path = (
-                    output_dir
-                    / f"{dset_name}_quality_{split_name}_split_train_test_size_distribution_boxplot.png"
+                    output_dir / f"{dset_name}_quality_{split_name}_split_train_test_size_distribution_boxplot.png"
                 )
                 self.plot_split_size_distribution(split_structure, dset_name, split_name, split_size_path)
 

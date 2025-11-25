@@ -39,7 +39,7 @@ bool pair_cmp(Pair* p1, Pair* p2)
     return false;
 }
 
-//max_separation 
+//max_separation
 /*
 Pair* pair_find_farthest
 (
@@ -84,7 +84,7 @@ Pair* pair_find_farthest
     return pair;
 }
 */
- 
+
 //n_samp is height; n_feat is width
 int *dot(int **centroids, int mlc[], int n_samp, int n_feat){
     int *arr=(int*)malloc(n_samp * sizeof(int));
@@ -125,7 +125,7 @@ Pair* pair_find_farthest
         printf("here");
         return NULL;
     }
-   
+
 
     BFSubcluster* t;
     t= (BFSubcluster*) array_get(subclusters,0);
@@ -199,7 +199,7 @@ Pair* pair_find_farthest
 
     //float sims_mol1[n_samples];
     float* sims_mol1=(float*)malloc(n_samples*sizeof(float));
-    
+
     for(int i=0; i<n_samples; i++){
         sims_mol1[i]=a_mol1[i] / (pop_counts[mol1] + pop_counts[i] - a_mol1[i]);
     }

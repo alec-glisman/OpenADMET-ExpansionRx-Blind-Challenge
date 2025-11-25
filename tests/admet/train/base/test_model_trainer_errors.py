@@ -6,10 +6,12 @@ dataset split handling to ensure clear errors are raised.
 
 from __future__ import annotations
 
-from typing import Any
 from pathlib import Path
-import pytest
+from typing import Any
+
 import pandas as pd
+import pytest
+
 from admet.train.base import BaseModelTrainer, FeaturizationMethod
 
 
@@ -17,9 +19,7 @@ class DummyDataset:
 
     def __init__(self, featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP):
         self.endpoints = ["A", "B"]
-        self.fingerprint_cols = (
-            ["fp1", "fp2", "fp3"] if featurization == FeaturizationMethod.MORGAN_FP else []
-        )
+        self.fingerprint_cols = ["fp1", "fp2", "fp3"] if featurization == FeaturizationMethod.MORGAN_FP else []
         self.smiles_col = "smiles"
         data_train = {
             "fp1": [0.1, 0.2, 0.3],
@@ -49,6 +49,7 @@ def dataset_fp() -> DummyDataset:
     return DummyDataset(FeaturizationMethod.MORGAN_FP)
 
 
+@pytest.mark.unit
 def test_sample_weights_raises_if_dataset_column_missing(dataset_fp: DummyDataset) -> None:
     ds = dataset_fp
     ds.train = ds.train.drop(columns=["Dataset"])
@@ -57,12 +58,14 @@ def test_sample_weights_raises_if_dataset_column_missing(dataset_fp: DummyDatase
         trainer.build_sample_weights(ds, {"default": 1.0})
 
 
+@pytest.mark.unit
 def test_prepare_features_unsupported_featurization(dataset_fp: DummyDataset) -> None:
     trainer = PipeTrainer(model_cls=object)
     with pytest.raises(ValueError):
         trainer.prepare_features(dataset_fp)
 
 
+@pytest.mark.unit
 def test_fit_requires_splits(tmp_path: Path) -> None:
     trainer = PipeTrainer(model_cls=object)
     with pytest.raises(ValueError):

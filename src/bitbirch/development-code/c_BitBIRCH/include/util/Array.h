@@ -19,4 +19,3 @@ void array_clear(Array *array);
 void array_deep_clear(Array *array);
 
 #endif
-
