@@ -34,10 +34,17 @@ logger = logging.getLogger(__name__)
 
 
 def datasets(
-    base_data_dir: Path = typer.Argument(
+    base_data_dir: Path = typer.Option(
         ...,
+        "--input",
+        "-i",
         help="Path to directory containing cleaned dataset CSV files.",
         exists=True,
+        dir_okay=True,
+        file_okay=False,
+        readable=True,
+        resolve_path=True,
+        metavar="BASE_DATA_DIR",
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -66,7 +73,7 @@ def datasets(
         help="Logging level (DEBUG, INFO, WARNING, ERROR).",
     ),
 ) -> None:
-    """Create dataset splits with fingerprints and optional visualizations.
+    """Create dataset splits with optional visualizations (no precomputed fingerprints).
 
     Parameters
     ----------

@@ -13,6 +13,7 @@ import pandas as pd
 import ray
 import mlflow
 
+from admet.data.fingerprinting import FingerprintConfig
 from .model_trainer import BaseModelTrainer, FeaturizationMethod
 from .utils import infer_split_metadata
 from ..mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
@@ -20,7 +21,7 @@ from ..mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
 logger = logging.getLogger(__name__)
 
 
-@ray.remote
+@ray.remote(num_cpus=4)
 def _train_single_dataset_remote(
     trainer_cls: Type[BaseModelTrainer],
     trainer_kwargs: Dict[str, Any],
@@ -37,6 +38,7 @@ def _train_single_dataset_remote(
     max_duration_seconds: Optional[float] = None,
     n_fingerprint_bits: Optional[int] = None,
     featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP,
+    fingerprint_config: Optional[FingerprintConfig] = None,
     tracking_uri: Optional[str] = None,
     experiment_name: Optional[str] = None,
     parent_run_id: Optional[str] = None,
@@ -49,6 +51,7 @@ def _train_single_dataset_remote(
     from admet.data.load import load_dataset as _load_dataset
 
     meta = infer_split_metadata(hf_dir, root)
+    fp_cfg = fingerprint_config or FingerprintConfig()
     rel_key = str(meta.get("relative_path", hf_dir.name))
     start_ts = datetime.datetime.now()
     start_time = start_ts.isoformat()
@@ -90,18 +93,23 @@ def _train_single_dataset_remote(
 
             dataset_params = flatten_params(meta, prefix="dataset")
             dataset_params["featurization"] = featurization.value
+            dataset_params["fingerprint.radius"] = fp_cfg.radius
+            dataset_params["fingerprint.n_bits"] = fp_cfg.n_bits
+            dataset_params["fingerprint.use_counts"] = fp_cfg.use_counts
+            dataset_params["fingerprint.include_chirality"] = fp_cfg.include_chirality
             if seed is not None:
                 dataset_params["seed"] = seed
             mlflow.log_params(dataset_params)
 
             logger.info("Loading dataset '%s' with featurization=%s", hf_dir, featurization)
             if featurization == FeaturizationMethod.MORGAN_FP:
-                if n_fingerprint_bits:
-                    dataset = _load_dataset(hf_dir, n_fingerprint_bits=n_fingerprint_bits)
-                else:
-                    dataset = _load_dataset(hf_dir)
+                dataset = _load_dataset(
+                    hf_dir,
+                    n_fingerprint_bits=n_fingerprint_bits,
+                    fingerprint_config=fingerprint_config,
+                )
             else:
-                dataset = _load_dataset(hf_dir)
+                dataset = _load_dataset(hf_dir, fingerprint_config=fingerprint_config)
             if output_root is not None:
                 base = Path(output_root)
                 cluster = str(meta.get("cluster", "unknown_method"))
@@ -239,6 +247,7 @@ class BaseEnsembleTrainer:
         dry_run: bool = False,
         max_duration_seconds: Optional[float] = None,
         n_fingerprint_bits: Optional[int] = None,
+        fingerprint_config: Optional[FingerprintConfig] = None,
         featurization: FeaturizationMethod = FeaturizationMethod.MORGAN_FP,
         tracking_uri: Optional[str] = None,
         experiment_name: Optional[str] = None,
@@ -293,6 +302,7 @@ class BaseEnsembleTrainer:
                     dry_run=dry_run,
                     max_duration_seconds=max_duration_seconds,
                     n_fingerprint_bits=n_fingerprint_bits,
+                    fingerprint_config=fingerprint_config,
                     featurization=featurization,
                     tracking_uri=tracking_uri,
                     experiment_name=experiment_name,

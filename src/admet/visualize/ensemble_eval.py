@@ -46,9 +46,24 @@ def _resolve_endpoints_from_preds(preds_df: pd.DataFrame) -> list[str]:
 
 
 def _build_split_dicts(
-    df_eval: pd.DataFrame, preds_df: pd.DataFrame, endpoints: Sequence[str]
+    df_eval: pd.DataFrame, preds_df: pd.DataFrame, endpoints: Sequence[str], active_split: str = "validation"
 ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-    """Construct split dictionaries compatible with plot_parity_grid."""
+    """Construct split dictionaries compatible with plot_parity_grid.
+
+    Parameters
+    ----------
+    df_eval : pandas.DataFrame
+        DataFrame containing true values for endpoints.
+    preds_df : pandas.DataFrame
+        DataFrame containing predicted values for endpoints.
+    endpoints : Sequence[str]
+        Ordered endpoint names.
+    active_split : str, optional
+        Which split should carry the true/pred data. Remaining splits are filled
+        with zeros so the plotting utilities receive the expected keys.
+    """
+    if active_split not in {"train", "validation", "test"}:
+        raise ValueError(f"Unsupported split name '{active_split}' for parity plotting")
     df_true = df_eval[endpoints].apply(pd.to_numeric, errors="coerce")
     df_preds = preds_df[endpoints].apply(pd.to_numeric, errors="coerce")
     y_true = df_true.to_numpy(dtype=float)
@@ -58,9 +73,13 @@ def _build_split_dicts(
     zeros = np.zeros_like(y_true)
     zeros_pred = np.zeros_like(y_pred)
     zeros_mask = np.zeros_like(mask)
-    y_true_dict = {"train": zeros.copy(), "validation": y_true, "test": zeros.copy()}
-    y_pred_dict = {"train": zeros_pred.copy(), "validation": y_pred, "test": zeros_pred.copy()}
-    mask_dict = {"train": zeros_mask.copy(), "validation": mask, "test": zeros_mask.copy()}
+    y_true_dict = {"train": zeros.copy(), "validation": zeros.copy(), "test": zeros.copy()}
+    y_pred_dict = {"train": zeros_pred.copy(), "validation": zeros_pred.copy(), "test": zeros_pred.copy()}
+    mask_dict = {"train": zeros_mask.copy(), "validation": zeros_mask.copy(), "test": zeros_mask.copy()}
+
+    y_true_dict[active_split] = y_true
+    y_pred_dict[active_split] = y_pred
+    mask_dict[active_split] = mask
     return y_true_dict, y_pred_dict, mask_dict
 
 
@@ -275,8 +294,17 @@ def plot_labeled_eval_outputs(
     *,
     dpi: int = 600,
     n_jobs: int = 1,
+    parity_split: str = "validation",
 ) -> None:
-    """Render parity plots and metric bar charts for labeled ensemble evals."""
+    """Render parity plots and metric bar charts for labeled ensemble evals.
+
+    Parameters
+    ----------
+    parity_split : str, optional
+        Which split label to attribute the provided data to when rendering
+        parity plots (train|validation|test). Defaults to ``"validation"`` to
+        match the historical behavior for external eval sets.
+    """
     if preds_log_df is None or df_eval is None:
         return
     endpoints = _resolve_endpoints_from_preds(preds_log_df)
@@ -301,7 +329,9 @@ def plot_labeled_eval_outputs(
         )
 
     # Parity plots (log + linear)
-    y_true_dict, y_pred_dict, mask_dict = _build_split_dicts(df_eval, preds_log_df, endpoints)
+    y_true_dict, y_pred_dict, mask_dict = _build_split_dicts(
+        df_eval, preds_log_df, endpoints, active_split=parity_split
+    )
     parity_root = figures_dir / "parity"
     plot_parity_grid(
         y_true_dict,

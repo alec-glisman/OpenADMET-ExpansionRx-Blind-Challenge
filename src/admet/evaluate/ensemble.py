@@ -30,9 +30,14 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
+from admet.data.load import load_dataset
 from admet.model.base import BaseModel
 from admet.model.xgb_wrapper import XGBoostMultiEndpoint
-from admet.data.fingerprinting import MorganFingerprintGenerator
+from admet.data.fingerprinting import (
+    MorganFingerprintGenerator,
+    FingerprintConfig,
+    DEFAULT_FINGERPRINT_CONFIG,
+)
 from admet.evaluate import metrics as eval_metrics
 from admet.visualize.model_performance import _apply_transform_space
 
@@ -58,6 +63,10 @@ class EnsemblePredictConfig:
         Aggregation function to combine per-model predictions.
     n_jobs
         Level of parallelism across models when running predictions.
+    train_data_root
+        Optional path to the Hugging Face datasets used during training. When
+        provided, train/validation/test splits are evaluated and returned in
+        the summary.
     """
 
     models_root: Path
@@ -65,11 +74,13 @@ class EnsemblePredictConfig:
     blind_csv: Optional[Path] = None
     agg_fn: str = "mean"
     n_jobs: int = 1
+    fingerprint_config: FingerprintConfig = DEFAULT_FINGERPRINT_CONFIG
+    train_data_root: Optional[Path] = None
 
 
 @dataclass
 class EnsemblePredictSummary:
-    """Summary of ensemble prediction outputs for eval and blind datasets."""
+    """Summary of ensemble prediction outputs for eval, blind, and training datasets."""
 
     model_dirs: List[Path]  # (n_models,)
     endpoints: List[str]  # (n_endpoints,)
@@ -83,6 +94,20 @@ class EnsemblePredictSummary:
     # Blind dataset: All model outputs
     preds_log_blind: Optional[pd.DataFrame]
     preds_linear_blind: Optional[pd.DataFrame]
+
+    # Training split evaluations (optional, keyed by split name)
+    train_split_evaluations: Optional[Dict[str, "SplitEvaluation"]] = None
+
+
+@dataclass
+class SplitEvaluation:
+    """Container for a single split's evaluation artifacts."""
+
+    df_true: pd.DataFrame
+    preds_log: pd.DataFrame
+    preds_linear: pd.DataFrame
+    metrics_log: pd.DataFrame
+    metrics_linear: pd.DataFrame
 
 
 def aggregate_metrics_by_endpoint(metrics_df: pd.DataFrame) -> pd.DataFrame:
@@ -159,6 +184,61 @@ def discover_model_runs(models_root: Path) -> List[Path]:
             seen[d] = True
             unique_dirs.append(d)
     return unique_dirs
+
+
+def _parse_split_fold_from_model_dir(model_dir: Path) -> Tuple[int, int]:
+    """Extract split and fold identifiers from a model directory path."""
+    split_id: Optional[int] = None
+    fold_id: Optional[int] = None
+    for part in model_dir.parts:
+        if part.startswith("split_"):
+            try:
+                split_id = int(part.replace("split_", ""))
+            except ValueError:
+                continue
+        if part.startswith("fold_"):
+            try:
+                fold_id = int(part.replace("fold_", ""))
+            except ValueError:
+                continue
+    if split_id is None or fold_id is None:
+        raise ValueError(f"Could not infer split/fold from model directory {model_dir}")
+    return split_id, fold_id
+
+
+def _collect_training_splits(
+    train_data_root: Path,
+    model_dirs: Sequence[Path],
+    fingerprint_config: FingerprintConfig,
+) -> Dict[str, pd.DataFrame]:
+    """Load and concatenate train/val/test splits for all discovered models."""
+    combined_frames: Dict[str, List[pd.DataFrame]] = {"train": [], "validation": [], "test": []}
+    seen_paths: Dict[Path, bool] = {}
+
+    for md in model_dirs:
+        try:
+            split_id, fold_id = _parse_split_fold_from_model_dir(md)
+        except ValueError as exc:
+            logger.warning("%s; skipping training split collection for %s", exc, md)
+            continue
+        ds_path = Path(train_data_root) / f"split_{split_id}" / f"fold_{fold_id}" / "hf_dataset"
+        if ds_path in seen_paths:
+            continue
+        if not ds_path.exists():
+            logger.warning("Expected training dataset missing at %s (derived from %s)", ds_path, md)
+            continue
+        logger.debug("Loading training splits from %s", ds_path)
+        ds = load_dataset(ds_path, fingerprint_config=fingerprint_config)
+        seen_paths[ds_path] = True
+        combined_frames["train"].append(ds.train)
+        combined_frames["validation"].append(ds.val)
+        combined_frames["test"].append(ds.test)
+
+    concatenated: Dict[str, pd.DataFrame] = {}
+    for split_name, frames in combined_frames.items():
+        if frames:
+            concatenated[split_name] = pd.concat(frames, ignore_index=True)
+    return concatenated
 
 
 def load_model_from_dir(model_dir: Path) -> BaseModel:
@@ -256,6 +336,9 @@ def run_ensemble_predictions_from_root(
     preds_log_blind: Optional[pd.DataFrame] = None
     preds_linear_blind: Optional[pd.DataFrame] = None
 
+    # Training datasets (train/validation/test) aggregated across model folds
+    train_split_evaluations: Optional[Dict[str, SplitEvaluation]] = None
+
     if df_eval is not None:
         preds_log_eval, preds_linear_eval, metrics_log_eval, metrics_linear_eval = evaluate_labeled_dataset(
             models,
@@ -263,7 +346,37 @@ def run_ensemble_predictions_from_root(
             endpoints,
             config.agg_fn,
             n_jobs=config.n_jobs,
+            fingerprint_config=config.fingerprint_config,
         )
+
+    if config.train_data_root is not None:
+        split_frames = _collect_training_splits(
+            Path(config.train_data_root),
+            run_dirs,
+            fingerprint_config=config.fingerprint_config,
+        )
+        logger.info("Collected %d training splits from %s", len(split_frames), config.train_data_root)
+        if split_frames:
+            train_split_evaluations = {}
+            for split_name, df_split in split_frames.items():
+                logger.debug("Evaluating training split '%s' with %d samples", split_name, len(df_split))
+                preds_log_split, preds_linear_split, metrics_log_split, metrics_linear_split = (
+                    evaluate_labeled_dataset(
+                        models,
+                        df_split,
+                        endpoints,
+                        config.agg_fn,
+                        n_jobs=config.n_jobs,
+                        fingerprint_config=config.fingerprint_config,
+                    )
+                )
+                train_split_evaluations[split_name] = SplitEvaluation(
+                    df_true=df_split.reset_index(drop=True),
+                    preds_log=preds_log_split,
+                    preds_linear=preds_linear_split,
+                    metrics_log=metrics_log_split,
+                    metrics_linear=metrics_linear_split,
+                )
 
     if df_blind is not None:
         preds_log_blind, preds_linear_blind = evaluate_blind_dataset(
@@ -272,6 +385,7 @@ def run_ensemble_predictions_from_root(
             endpoints,
             config.agg_fn,
             n_jobs=config.n_jobs,
+            fingerprint_config=config.fingerprint_config,
         )
 
     return EnsemblePredictSummary(
@@ -283,37 +397,97 @@ def run_ensemble_predictions_from_root(
         metrics_linear_eval=metrics_linear_eval,
         preds_log_blind=preds_log_blind,
         preds_linear_blind=preds_linear_blind,
+        train_split_evaluations=train_split_evaluations,
     )
 
 
-def _generate_features_for_models(models: List[BaseModel], smiles: pd.Series) -> Dict[int, np.ndarray]:
+def _generate_features_for_models(
+    models: List[BaseModel],
+    smiles: pd.Series,
+    fingerprint_config: Optional[FingerprintConfig] = None,
+) -> Dict[int, np.ndarray]:
     """Prepare feature arrays per-model depending on model input type.
 
     Returns a mapping model_idx -> feature ndarray to be passed to
     ``model.predict``. All returned arrays are numeric numpy ndarrays
     (for fingerprints) or object arrays (for SMILES) depending on model.
     """
+    logger.info(
+        "Generating features for %d models with %d input SMILES and fingerprint_config=%s",
+        len(models),
+        len(smiles),
+        fingerprint_config,
+    )
 
-    fingerprint_cache: Dict[int, np.ndarray] = {}
+    fingerprint_cache: Dict[Tuple[int, int, bool, bool], np.ndarray] = {}
     smiles_cache: Optional[np.ndarray] = None
     features: Dict[int, np.ndarray] = {}
     for i, m in tqdm(
         enumerate(models), total=len(models), desc="Generating features for models", dynamic_ncols=True
     ):
         input_type = getattr(m, "input_type", "fingerprint")
+        logger.debug("Preparing features for model %d with input_type %s", i, input_type)
+
         if input_type == "fingerprint":
-            fp_size = int(getattr(m, "n_features_", None) or 2048)
-            if fp_size not in fingerprint_cache:
-                fg = MorganFingerprintGenerator(fp_size=fp_size)
+
+            model_fp_cfg = getattr(m, "fingerprint_config", None)
+            if not model_fp_cfg:
+                logger.debug(
+                    "Model %d missing fingerprint_config; defaulting to global or default config", i
+                )
+            elif not isinstance(model_fp_cfg, (FingerprintConfig, dict)):
+                logger.warning(
+                    "Model %d has unexpected fingerprint_config type %s; defaulting to global or default config",
+                    i,
+                    type(model_fp_cfg),
+                )
+                model_fp_cfg = None
+            else:
+                logger.debug("Model %d has fingerprint_config: %s", i, model_fp_cfg)
+                model_fp_cfg = (
+                    FingerprintConfig.from_mapping(model_fp_cfg)
+                    if isinstance(model_fp_cfg, dict)
+                    else model_fp_cfg
+                )
+
+            if model_fp_cfg:
+                logger.debug("Using model %d fingerprint_config", i)
+                fp_cfg = model_fp_cfg
+            elif fingerprint_config:
+                logger.debug("Using global fingerprint_config for model %d", i)
+                fp_cfg = fingerprint_config
+            else:
+                logger.debug("Using default fingerprint_config for model %d", i)
+                fp_cfg = DEFAULT_FINGERPRINT_CONFIG
+
+            cache_key = (fp_cfg.radius, fp_cfg.n_bits, fp_cfg.use_counts, fp_cfg.include_chirality)
+            if cache_key not in fingerprint_cache:
+                logger.debug("Generating fingerprints for model %d with config: %s", i, fp_cfg)
+                fg = MorganFingerprintGenerator(
+                    radius=fp_cfg.radius,
+                    count_simulation=fp_cfg.use_counts,
+                    include_chirality=fp_cfg.include_chirality,
+                    fp_size=fp_cfg.n_bits,
+                    config=fp_cfg,
+                )
                 fp_df = fg.calculate_fingerprints(smiles)
-                fingerprint_cache[fp_size] = fp_df.to_numpy(dtype=float)
-            features[i] = fingerprint_cache[fp_size]
+                fingerprint_cache[cache_key] = fp_df.to_numpy(dtype=float)
+            else:
+                logger.debug("Using cached fingerprints for model %d", i)
+
+            features[i] = fingerprint_cache[cache_key]
+
         elif input_type == "smiles":
             if smiles_cache is None:
+                logger.debug("Generating smiles for model %d", i)
                 smiles_cache = smiles.to_numpy(dtype=object).reshape(-1, 1)
+            else:
+                logger.debug("Using cached smiles for model %d", i)
             features[i] = smiles_cache
+
         else:
             raise ValueError(f"Unsupported model input_type {input_type}")
+
     return features
 
 
@@ -321,6 +495,7 @@ def predict_per_model(
     models: List[BaseModel],
     smiles: pd.Series,
     n_jobs: int = 1,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> np.ndarray:
     """Run predictions for each model on provided SMILES strings.
 
@@ -339,7 +514,7 @@ def predict_per_model(
     if not models:
         raise ValueError("`models` must contain at least one model")
 
-    features_map = _generate_features_for_models(models, smiles)
+    features_map = _generate_features_for_models(models, smiles, fingerprint_config=fingerprint_config)
 
     # Parallelize prediction across models when requested.
     pred_list: List[np.ndarray] = []
@@ -425,6 +600,7 @@ def evaluate_dataset(
     df_true_log: Optional[pd.DataFrame] = None,
     agg_fn: str = "mean",
     n_jobs: int = 1,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame], Optional[pd.DataFrame]]:
     """Run ensemble predictions and optional evaluation on a dataset.
 
@@ -460,7 +636,9 @@ def evaluate_dataset(
     smiles = df_input["SMILES"].astype(str)
 
     # predict outputs for all models
-    model_preds_log = predict_per_model(models, smiles, n_jobs=n_jobs)  # (n_models, n_samples, n_endpoints)
+    model_preds_log = predict_per_model(
+        models, smiles, n_jobs=n_jobs, fingerprint_config=fingerprint_config
+    )  # (n_models, n_samples, n_endpoints)
 
     # aggregate predictions across models
     ens_preds_log = aggregate_predictions(model_preds_log, agg_fn)  # (n_samples, n_endpoints)
@@ -649,6 +827,7 @@ def evaluate_labeled_dataset(
     endpoints: Sequence[str],
     agg_fn: str = "mean",
     n_jobs: int = 1,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run ensemble evaluation for a labeled dataset.
 
@@ -683,6 +862,7 @@ def evaluate_labeled_dataset(
         df_true_log,
         agg_fn,
         n_jobs=n_jobs,
+        fingerprint_config=fingerprint_config,
     )
 
     assert metrics_log is not None and metrics_linear is not None
@@ -696,6 +876,7 @@ def evaluate_blind_dataset(
     endpoints: Sequence[str],
     agg_fn: str = "mean",
     n_jobs: int = 1,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Run ensemble inference on a blind (unlabeled) dataset.
 
@@ -724,6 +905,7 @@ def evaluate_blind_dataset(
         df_true_log=None,
         agg_fn=agg_fn,
         n_jobs=n_jobs,
+        fingerprint_config=fingerprint_config,
     )
     return ens_preds_log, ens_preds_lin
 
@@ -734,6 +916,7 @@ __all__ = [
     "discover_model_runs",
     "EnsemblePredictConfig",
     "EnsemblePredictSummary",
+    "SplitEvaluation",
     "run_ensemble_predictions_from_root",
     "predict_per_model",
     "aggregate_predictions",

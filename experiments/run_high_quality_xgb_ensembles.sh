@@ -37,12 +37,6 @@ for split_dir in "${CONFIG_ROOT}"/*/; do
   train_cfg="${split_dir}${MODEL_NAME}_train_ensemble.yaml"
   predict_cfg="${split_dir}${MODEL_NAME}_predict_ensemble.yaml"
 
-  # if not "temporal_cluster" skip
-  if [[ "${split_name}" != "temporal_cluster" ]]; then
-    echo "[${split_name}] Skipping non-temporal_cluster split"
-    continue
-  fi
-
   if [[ -f "${train_cfg}" ]]; then
     echo "[${split_name}] Training ensemble"
     admet --log-level INFO \

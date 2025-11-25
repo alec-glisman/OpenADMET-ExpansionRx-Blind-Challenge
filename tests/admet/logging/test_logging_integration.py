@@ -50,10 +50,12 @@ def _make_config(tmp_path: Path) -> Path:
         "training": {
             "output_dir": str(tmp_path / "out"),
             "seed": 42,
-            "n_fingerprint_bits": 16,
             "sample_weights": {"enabled": False, "weights": {"default": 1.0}},
         },
-        "data": {"endpoints": ["LogD"]},
+        "data": {
+            "endpoints": ["LogD"],
+            "fingerprint": {"radius": 2, "n_bits": 16, "use_counts": True, "include_chirality": False},
+        },
     }
     import yaml
 

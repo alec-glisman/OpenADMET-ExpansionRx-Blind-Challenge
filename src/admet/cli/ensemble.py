@@ -18,6 +18,7 @@ import typer
 import yaml  # type: ignore[import-not-found]
 
 from admet.data.chem import parallel_canonicalize_smiles
+from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
 from admet.evaluate.ensemble import EnsemblePredictConfig, run_ensemble_predictions_from_root
 from admet.visualize.ensemble_eval import plot_blind_distributions, plot_labeled_eval_outputs
 
@@ -62,6 +63,7 @@ def ensemble_eval(
         models_root: path/to/parent/models_dir
         eval_csv: path/to/eval.csv            # optional labeled evaluation set
         blind_csv: path/to/blind.csv          # optional blind set (no targets)
+        train_data_root: path/to/training_splits_root  # optional HF splits root used for training
         agg_fn: mean                          # aggregation function (mean|median)
         output_dir: path/to/output_dir        # directory for artifacts
         n_jobs: 4                             # parallelism for plotting/canonicalization
@@ -81,10 +83,15 @@ def ensemble_eval(
     models_root = Path(str(cfg_dict["models_root"])).expanduser()
     eval_csv: Optional[str] = cfg_dict.get("eval_csv")
     blind_csv: Optional[str] = cfg_dict.get("blind_csv")
+    train_data_root_raw: Optional[str] = cfg_dict.get("train_data_root")
+    train_data_root: Optional[Path] = (
+        Path(str(train_data_root_raw)).expanduser() if train_data_root_raw is not None else None
+    )
     agg_fn: str = str(cfg_dict.get("agg_fn", "mean"))
     output_dir_raw: str = str(cfg_dict.get("output_dir", "ensemble_eval_output"))
     output_dir = Path(output_dir_raw)
     n_jobs: int = int(cfg_dict.get("n_jobs", 1))
+    fp_cfg = FingerprintConfig.from_mapping(cfg_dict.get("fingerprint"), default=DEFAULT_FINGERPRINT_CONFIG)
 
     if eval_csv is None and blind_csv is None:
         raise typer.BadParameter("At least one of eval_csv or blind_csv must be provided in the config.")
@@ -112,6 +119,8 @@ def ensemble_eval(
         blind_csv=Path(blind_csv) if blind_csv is not None else None,
         agg_fn=agg_fn,
         n_jobs=n_jobs,
+        fingerprint_config=fp_cfg,
+        train_data_root=train_data_root,
     )
 
     summary = run_ensemble_predictions_from_root(pred_cfg, df_eval=df_eval, df_blind=df_blind)
@@ -147,6 +156,34 @@ def ensemble_eval(
             dpi=600,
             n_jobs=n_jobs,
         )
+
+    if summary.train_split_evaluations:
+        train_data_dir = data_root / "train"
+        train_figures_dir = figures_root / "train"
+        logger.info(
+            "Writing training split predictions and metrics to %s (splits=%s)",
+            train_data_dir,
+            ",".join(sorted(summary.train_split_evaluations.keys())),
+        )
+        for split_name, artifacts in summary.train_split_evaluations.items():
+            split_dir = train_data_dir / split_name
+            split_dir.mkdir(parents=True, exist_ok=True)
+            artifacts.preds_log.to_csv(split_dir / "predictions_log.csv", index=False)
+            artifacts.preds_linear.to_csv(split_dir / "predictions_linear.csv", index=False)
+            artifacts.metrics_log.to_csv(split_dir / "metrics_log.csv", index=False)
+            artifacts.metrics_linear.to_csv(split_dir / "metrics_linear.csv", index=False)
+
+            plot_labeled_eval_outputs(
+                df_eval=artifacts.df_true,
+                preds_log_df=artifacts.preds_log,
+                preds_linear_df=artifacts.preds_linear,
+                metrics_log_df=artifacts.metrics_log,
+                metrics_linear_df=artifacts.metrics_linear,
+                figures_dir=train_figures_dir / split_name,
+                dpi=600,
+                n_jobs=n_jobs,
+                parity_split=split_name if split_name in {"train", "validation", "test"} else "validation",
+            )
 
     if summary.preds_log_blind is not None:
         blind_data_dir = data_root / "blind"

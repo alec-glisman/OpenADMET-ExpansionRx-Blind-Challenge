@@ -105,12 +105,31 @@ def dataset_smiles():
     return DummyDataset(FeaturizationMethod.SMILES)
 
 
+@pytest.fixture
+def dataset_fp_no_precomputed():
+    ds = DummyDataset(FeaturizationMethod.MORGAN_FP)
+    ds.train = ds.train.drop(columns=["fp1", "fp2", "fp3"])
+    ds.val = ds.val.drop(columns=["fp1", "fp2", "fp3"])
+    ds.test = ds.test.drop(columns=["fp1", "fp2", "fp3"])
+    ds.fingerprint_cols = []
+    return ds
+
+
 def test_prepare_features_fingerprint(dataset_fp):
     trainer = FPTrainer(model_cls=DummyModel)
     X_train, X_val, X_test = trainer.prepare_features(dataset_fp)
     assert X_train.shape == (3, 3)
     assert X_val.shape == (2, 3)
     assert X_test.shape == (1, 3)
+
+
+def test_prepare_features_fingerprint_generated(dataset_fp_no_precomputed):
+    pytest.importorskip("rdkit")
+    trainer = FPTrainer(model_cls=DummyModel)
+    X_train, X_val, X_test = trainer.prepare_features(dataset_fp_no_precomputed)
+    assert X_train.shape == (3, 1024)
+    assert X_val.shape == (2, 1024)
+    assert X_test.shape == (1, 1024)
 
 
 def test_prepare_features_smiles(dataset_smiles):
@@ -184,9 +203,9 @@ def test_artifact_saving(tmp_path, dataset_fp):
     assert (out_dir / "figures" / "linear").is_dir()
 
 
-def test_errors_missing_features():
+def test_errors_missing_features_without_smiles():
     ds = DummyDataset(FeaturizationMethod.MORGAN_FP)
-    ds.train = ds.train.drop(columns=["fp1", "fp2", "fp3"])
+    ds.train = ds.train.drop(columns=["fp1", "fp2", "fp3", "smiles"])
     trainer = FPTrainer(model_cls=DummyModel)
     with pytest.raises(ValueError):
         trainer.prepare_features(cast(Any, ds))

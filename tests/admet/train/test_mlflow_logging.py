@@ -187,7 +187,7 @@ def test_single_run_logs_mlflow_params_and_artifacts(
         "test": {"macro": {"log": {"mae": 3.0}, "linear": {"mae": 3.1}}},
     }
 
-    def stub_load_dataset(path, endpoints=None, n_fingerprint_bits=None):
+    def stub_load_dataset(path, endpoints=None, n_fingerprint_bits=None, fingerprint_config=None):
         return object()
 
     def stub_train_model(*args, **kwargs):

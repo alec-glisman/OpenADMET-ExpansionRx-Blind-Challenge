@@ -15,10 +15,10 @@ You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if 
 To create train/validation/test splits of the dataset, run the dataset split pipeline:
 
 ```bash
-admet split datasets \
-  assets/dataset/eda/data/set \
-  --log-level DEBUG \
-  --output assets/dataset/splits \
+admet --log-level 'INFO' \
+  split datasets \
+  --input 'assets/dataset/eda/data/set' \
+  --output 'assets/dataset/splits' \
   --overwrite
 ```
 
@@ -97,6 +97,11 @@ The YAML fields are as follows:
   ```csv
   Molecule Name,SMILES
   ```
+
+- `train_data_root`: Optional path to the Hugging Face training splits used to
+  fit the ensemble. When provided, the CLI will score the aggregated
+  train/validation/test splits and emit predictions, metrics, and plots under
+  the `train/` output folders.
 
 - `agg_fn`: Aggregation function for ensemble predictions (choices: `mean` or
   `median`; default `mean`).

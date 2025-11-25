@@ -53,6 +53,7 @@ import yaml  # type: ignore[import-not-found]
 import numpy as np
 import mlflow
 
+from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
 from admet.data.load import load_dataset
 from admet.train.xgb_train import XGBoostTrainer
 from admet.train.base import train_model, train_ensemble, BaseEnsembleTrainer
@@ -142,20 +143,30 @@ def xgb(
     output_dir = Path(output_dir_raw)
     seed = training_cfg.get("seed")
     training_cfg.setdefault("seed", seed)
-    n_fingerprint_bits = int(training_cfg.get("n_fingerprint_bits", 2048))
-    training_cfg["n_fingerprint_bits"] = n_fingerprint_bits
+    legacy_bits = data_cfg.get("n_fingerprint_bits") or training_cfg.get("n_fingerprint_bits")
+    fp_cfg_dict_raw = data_cfg.get("fingerprint") or {}
+    default_fp_cfg = FingerprintConfig(
+        radius=2,
+        n_bits=int(legacy_bits) if legacy_bits is not None else DEFAULT_FINGERPRINT_CONFIG.n_bits,
+        use_counts=bool(fp_cfg_dict_raw.get("use_counts", True)),
+        include_chirality=bool(fp_cfg_dict_raw.get("include_chirality", False)),
+    )
+    fingerprint_cfg = FingerprintConfig.from_mapping(fp_cfg_dict_raw, default=default_fp_cfg)
+    data_cfg["fingerprint"] = fingerprint_cfg.to_dict()
+    n_fingerprint_bits = fingerprint_cfg.n_bits
     tracking_uri = training_cfg.get("tracking_uri")
     experiment_name = training_cfg.get("experiment_name")
     training_cfg.setdefault("experiment_name", experiment_name)
     training_cfg.setdefault("tracking_uri", tracking_uri)
 
-    ray_cfg = cfg.get("ray") or {}
+    ray_cfg = (training_cfg.get("ray") or cfg.get("ray") or {}) or {}
     multi = bool(ray_cfg.get("multi", False))
     ray_cfg["multi"] = multi
     num_cpus = ray_cfg.get("num_cpus", None)
     ray_cfg["num_cpus"] = num_cpus
     ray_address = ray_cfg.get("address")
     ray_cfg["address"] = ray_address
+    training_cfg["ray"] = ray_cfg
 
     def _format_value(v: object) -> object:
         # Format numeric values to 4 decimal places; for dicts, format inner numeric values;
@@ -176,6 +187,9 @@ def xgb(
             return formatted
         return str(v)
 
+    # update cfg dict so logged params reflect resolved values
+    cfg["data"] = data_cfg
+    cfg["training"] = training_cfg
     flattened_cfg_params = flatten_params(cfg, prefix="cfg")
     cli_params = flatten_params(
         {
@@ -210,6 +224,7 @@ def xgb(
                     effective_data_root,
                     endpoints=endpoints,
                     n_fingerprint_bits=n_fingerprint_bits,
+                    fingerprint_config=fingerprint_cfg,
                 )
                 run_metrics, _ = train_model(
                     dataset,
@@ -220,6 +235,7 @@ def xgb(
                     sample_weight_mapping=sw_mapping,
                     output_dir=output_dir,
                     seed=seed,
+                    fingerprint_config=fingerprint_cfg,
                 )
             except Exception as exc:  # noqa: BLE001
                 mlflow.set_tag("status", "error")
@@ -264,6 +280,7 @@ def xgb(
                     output_root=output_dir,
                     seed=seed,
                     n_fingerprint_bits=n_fingerprint_bits,
+                    fingerprint_config=fingerprint_cfg,
                     num_cpus=num_cpus,
                     ray_address=ray_address,
                     mlflow_tracking_uri=tracking_uri,

@@ -19,6 +19,7 @@ import numpy as np
 from tqdm import tqdm  # type: ignore[import-not-found]
 from xgboost import XGBRegressor
 
+from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
 from .base import BaseModel
 
 
@@ -61,6 +62,7 @@ class XGBoostMultiEndpoint(BaseModel):
         self.random_state = random_state
         self.logger = logging.getLogger(__name__)
         self.n_features_: Optional[int] = None
+        self.fingerprint_config: Optional[FingerprintConfig] = DEFAULT_FINGERPRINT_CONFIG
         # Dict of endpoint -> model (None if no training data for that endpoint)
         self.models = {}  # type: Dict[str, Optional[XGBRegressor]]
 
@@ -200,6 +202,12 @@ class XGBoostMultiEndpoint(BaseModel):
             "random_state": self.random_state,
             "n_features": self.n_features_,
         }
+        fp_cfg = getattr(self, "fingerprint_config", None)
+        if fp_cfg is not None:
+            if isinstance(fp_cfg, FingerprintConfig):
+                meta["fingerprint"] = fp_cfg.to_dict()
+            elif isinstance(fp_cfg, dict):
+                meta["fingerprint"] = fp_cfg
         (out_dir / "config.json").write_text(json.dumps(meta, indent=2))
         for ep, mdl in self.models.items():
             if mdl is None:
@@ -229,6 +237,11 @@ class XGBoostMultiEndpoint(BaseModel):
         )
         # restore recorded feature dimension
         obj.n_features_ = meta.get("n_features")
+        fp_cfg_raw = meta.get("fingerprint")
+        if fp_cfg_raw is not None:
+            obj.fingerprint_config = FingerprintConfig.from_mapping(fp_cfg_raw, default=DEFAULT_FINGERPRINT_CONFIG)
+        else:
+            obj.fingerprint_config = DEFAULT_FINGERPRINT_CONFIG
         for ep in obj.endpoints:
             ep_path = in_dir / f"{ep}.json"
             if not ep_path.exists():

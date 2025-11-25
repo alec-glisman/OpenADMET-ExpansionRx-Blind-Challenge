@@ -1,9 +1,11 @@
-"""End-to-end dataset split pipeline with fingerprint generation & visuals.
+"""End-to-end dataset split pipeline with visuals (fingerprints optional).
 
 This module provides the ``DatasetSplitPipeline`` class which loads cleaned
-datasets, appends Morgan fingerprint features, creates temporal and stratified
-splits, persists HuggingFace ``DatasetDict`` objects, and generates coverage /
-size distribution visualizations via ``DatasetVisualizer``.
+datasets, creates temporal and stratified splits, persists HuggingFace
+``DatasetDict`` objects, and generates coverage / size distribution
+visualizations via ``DatasetVisualizer``. Fingerprints are no longer
+materialized during splitting to keep disk usage low; models generate
+fingerprints on-the-fly during training/evaluation.
 
 Contents
 --------
@@ -31,7 +33,6 @@ from datetime import datetime
 
 import pandas as pd
 
-from admet.data.fingerprinting import MorganFingerprintGenerator
 from admet.data.splitter import DatasetSplitter
 from admet.visualize.dataset_viz import DatasetVisualizer
 
@@ -57,7 +58,7 @@ class DatasetSplitPipeline:
     DATASET_CONFIGS = {
         "high": "cleaned_combined_datasets_high_quality.csv",
         "medium": "cleaned_combined_datasets_medium_high_quality.csv",
-        # "low": "cleaned_combined_datasets_low_medium_high_quality.csv",
+        "low": "cleaned_combined_datasets_low_medium_high_quality.csv",
     }
 
     # Temporal split configuration
@@ -105,8 +106,6 @@ class DatasetSplitPipeline:
         logger.info("Figure directory set to %s", self.figure_dir)
         logger.info("Overwrite mode: %s", self.overwrite)
 
-        # Initialize components
-        self.fp_generator = MorganFingerprintGenerator()
         self.splitter = DatasetSplitter()
         self.visualizer = DatasetVisualizer()
 
@@ -144,6 +143,8 @@ class DatasetSplitPipeline:
 
     def add_fingerprints(self) -> None:
         """Calculate and add Morgan fingerprints to all loaded datasets."""
+        from admet.data.fingerprinting import MorganFingerprintGenerator
+
         logger.info("Calculating fingerprints for all datasets...")
 
         for name, df in self.datasets.items():
@@ -260,7 +261,6 @@ class DatasetSplitPipeline:
         logger.info("Starting dataset split pipeline...")
 
         self.load_datasets()
-        self.add_fingerprints()
 
         if create_temporal:
             self.create_temporal_split()

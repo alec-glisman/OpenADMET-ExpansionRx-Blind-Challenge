@@ -12,11 +12,12 @@ Base Columns
 ------------
 ``['Molecule Name', 'SMILES', 'Dataset']``
 
-Fingerprint Columns
--------------------
-Generated Morgan fingerprint bit columns named ``Morgan_FP_{i}`` for
-``i in [0, n_bits)``. A reduced bit length may be used in tests to decrease
-resource usage.
+Fingerprint Columns (Optional)
+------------------------------
+Precomputed Morgan fingerprint bit columns named ``Morgan_FP_{i}`` for
+``i in [0, n_bits)``. When absent, fingerprints are generated on-the-fly
+using the configured ``FingerprintConfig`` (default radius=2, n_bits=1024,
+count simulation enabled).
 
 Endpoint Columns
 ----------------
@@ -57,6 +58,8 @@ from datasets import load_from_disk, DatasetDict
 import pandas as pd
 import numpy as np
 
+from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG
+
 logger = logging.getLogger(__name__)
 
 REQUIRED_BASE_COLUMNS: Sequence[str] = [
@@ -78,7 +81,7 @@ ENDPOINT_COLUMNS: Sequence[str] = [
 ]
 
 
-def expected_fingerprint_columns(n_bits: int = 2046) -> List[str]:  # small for tests
+def expected_fingerprint_columns(n_bits: int = 1024) -> List[str]:  # small for tests
     """Return ordered Morgan fingerprint column names.
 
     Parameters
@@ -111,6 +114,8 @@ class LoadedDataset:
         Endpoint (target) column names included across all splits.
     fingerprint_cols : Sequence[str]
         Ordered list of fingerprint bit column names.
+    fingerprint_config : FingerprintConfig
+        Configuration used for generating fingerprints when not precomputed.
     """
 
     train: pd.DataFrame
@@ -119,6 +124,7 @@ class LoadedDataset:
     endpoints: Sequence[str]
     fingerprint_cols: Sequence[str]
     smiles_col: str
+    fingerprint_config: FingerprintConfig
 
 
 def validate_dataset_schema(
@@ -146,9 +152,12 @@ def validate_dataset_schema(
     missing = [c for c in REQUIRED_BASE_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required base columns: {missing}. Found: {df.columns.tolist()}")
-    fp_missing = [c for c in fingerprint_cols if c not in df.columns]
-    if fp_missing:
-        raise ValueError(f"Missing fingerprint columns: {fp_missing[:10]} .... Found: {df.columns.tolist()}")
+    if fingerprint_cols:
+        fp_missing = [c for c in fingerprint_cols if c not in df.columns]
+        if fp_missing:
+            raise ValueError(
+                f"Missing fingerprint columns: {fp_missing[:10]} .... Found: {df.columns.tolist()}"
+            )
     ep_missing = [c for c in endpoints if c not in df.columns]
     if ep_missing:
         raise ValueError(f"Missing endpoint columns: {ep_missing}. Found: {df.columns.tolist()}")
@@ -169,7 +178,8 @@ def load_dataset_from_hf(
     root: Path,
     *,
     endpoints: Optional[Sequence[str]] = None,
-    n_fingerprint_bits: int = 2048,
+    n_fingerprint_bits: Optional[int] = None,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> LoadedDataset:
     """Load and validate a Hugging Face ``DatasetDict`` from disk.
 
@@ -180,7 +190,11 @@ def load_dataset_from_hf(
     endpoints : Sequence[str], optional
         Override endpoint columns (defaults to ``ENDPOINT_COLUMNS``).
     n_fingerprint_bits : int, optional
-        Number of fingerprint bit columns; default ``2048``.
+        Legacy fingerprint bit override for precomputed fingerprints. When
+        omitted, the provided ``fingerprint_config`` is used.
+    fingerprint_config : FingerprintConfig, optional
+        Configuration for on-the-fly fingerprint generation when fingerprint
+        columns are absent. Defaults to ``DEFAULT_FINGERPRINT_CONFIG``.
 
     Returns
     -------
@@ -205,7 +219,48 @@ def load_dataset_from_hf(
     test_df = cast(pd.DataFrame, dset["test"].to_pandas())  # type: ignore[attr-defined]
 
     endpoints = endpoints or ENDPOINT_COLUMNS
-    fp_cols = expected_fingerprint_columns(n_fingerprint_bits)
+    fp_cfg = fingerprint_config or DEFAULT_FINGERPRINT_CONFIG
+    if n_fingerprint_bits is not None:
+        fp_cfg = FingerprintConfig(
+            radius=fp_cfg.radius,
+            n_bits=int(n_fingerprint_bits),
+            use_counts=fp_cfg.use_counts,
+            include_chirality=fp_cfg.include_chirality,
+        )
+
+    def _sorted_fp_cols(df: pd.DataFrame) -> List[str]:
+        cols = [c for c in df.columns if c.startswith("Morgan_FP_")]
+
+        def _key(name: str) -> int:
+            try:
+                return int(name.split("_")[-1])
+            except Exception:
+                return 0
+
+        return sorted(cols, key=_key)
+
+    fp_cols_train = _sorted_fp_cols(train_df)
+    fp_cols_val = _sorted_fp_cols(val_df)
+    fp_cols_test = _sorted_fp_cols(test_df)
+    fp_cols: List[str] = []
+    if fp_cols_train or fp_cols_val or fp_cols_test:
+        if not (fp_cols_train and fp_cols_val and fp_cols_test):
+            raise ValueError("Fingerprint columns must be present in all splits if provided.")
+        if set(fp_cols_train) != set(fp_cols_val) or set(fp_cols_train) != set(fp_cols_test):
+            raise ValueError("Fingerprint columns differ across splits.")
+        fp_cols = fp_cols_train
+        if len(fp_cols) != fp_cfg.n_bits:
+            logger.warning(
+                "Detected %d fingerprint columns but fingerprint_config specifies %d bits; using detected columns.",
+                len(fp_cols),
+                fp_cfg.n_bits,
+            )
+            fp_cfg = FingerprintConfig(
+                radius=fp_cfg.radius,
+                n_bits=len(fp_cols),
+                use_counts=fp_cfg.use_counts,
+                include_chirality=fp_cfg.include_chirality,
+            )
 
     for name, df in [("train", train_df), ("validation", val_df), ("test", test_df)]:
         try:
@@ -220,6 +275,7 @@ def load_dataset_from_hf(
         endpoints=endpoints,
         fingerprint_cols=fp_cols,
         smiles_col="SMILES",
+        fingerprint_config=fp_cfg,
     )
 
 
@@ -227,7 +283,8 @@ def load_dataset(
     root: Path,
     *,
     endpoints: Optional[Sequence[str]] = None,
-    n_fingerprint_bits: int = 2048,
+    n_fingerprint_bits: Optional[int] = None,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> LoadedDataset:
     """Public wrapper to load a Hugging Face dataset splits directory.
 
@@ -238,14 +295,21 @@ def load_dataset(
     endpoints : Sequence[str], optional
         Subset of endpoint columns to retain.
     n_fingerprint_bits : int, optional
-        Fingerprint bit length (affects expected columns).
+        Legacy fingerprint bit length (for precomputed fingerprints).
+    fingerprint_config : FingerprintConfig, optional
+        Configuration for on-the-fly fingerprint generation.
 
     Returns
     -------
     LoadedDataset
         Loaded splits and metadata.
     """
-    return load_dataset_from_hf(root, endpoints=endpoints, n_fingerprint_bits=n_fingerprint_bits)
+    return load_dataset_from_hf(
+        root,
+        endpoints=endpoints,
+        n_fingerprint_bits=n_fingerprint_bits,
+        fingerprint_config=fingerprint_config,
+    )
 
 
 def load_blinded_dataset(path: Path) -> pd.DataFrame:

@@ -20,16 +20,14 @@ training:
   experiment_name: "xgb"
   tracking_uri: null # e.g., "file:///tmp/mlruns" or "http://localhost:5000"
   seed: 123
-  n_fingerprint_bits: 2048
   sample_weights:
     enabled: false
     weights:
       default: 1.0
-
-ray:
-  multi: true
-  address: "local"
-  # num_cpus: 8    # limit local Ray runtime to N CPUs (defaults to all)
+  ray:
+    multi: true
+    address: "local"
+    # num_cpus: 8    # limit local Ray runtime to N CPUs (defaults to all)
 
 data:
   root: "assets/dataset/splits/high_quality/temporal_cluster"
@@ -43,3 +41,8 @@ data:
     - "MPPB"
     - "MBPB"
     - "MGMB"
+  fingerprint:
+    radius: 2
+    n_bits: 1024
+    use_counts: true
+    include_chirality: false

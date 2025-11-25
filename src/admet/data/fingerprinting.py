@@ -16,7 +16,8 @@ kept private to avoid namespace clutter.
 """
 
 import logging
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any, Mapping, Optional
 
 import pandas as pd
 import numpy as np
@@ -24,6 +25,44 @@ from rdkit import Chem  # type: ignore[import-not-found]
 from rdkit.Chem import rdFingerprintGenerator  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class FingerprintConfig:
+    """Configuration for Morgan fingerprint generation."""
+
+    radius: int = 2
+    n_bits: int = 1024
+    use_counts: bool = True
+    include_chirality: bool = False
+
+    @classmethod
+    def from_mapping(
+        cls,
+        cfg: Optional[Mapping[str, object]],
+        default: Optional["FingerprintConfig"] = None,
+    ) -> "FingerprintConfig":
+        """Construct a config from a mapping, falling back to defaults."""
+        base = default or cls()
+        if cfg is None:
+            return base
+        return cls(
+            radius=int(cfg.get("radius", base.radius)),
+            n_bits=int(cfg.get("n_bits", base.n_bits)),
+            use_counts=bool(cfg.get("use_counts", base.use_counts)),
+            include_chirality=bool(cfg.get("include_chirality", base.include_chirality)),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "radius": self.radius,
+            "n_bits": self.n_bits,
+            "use_counts": self.use_counts,
+            "include_chirality": self.include_chirality,
+        }
+
+
+DEFAULT_FINGERPRINT_CONFIG = FingerprintConfig()
 
 
 class MorganFingerprintGenerator:
@@ -37,9 +76,9 @@ class MorganFingerprintGenerator:
     Parameters
     ----------
     radius : int, optional
-        Radius of the Morgan fingerprint (default: 3).
+        Radius of the Morgan fingerprint (default: 2).
     count_simulation : bool, optional
-        Whether to use count simulation (default: False).
+        Whether to use count simulation (default: True).
     include_chirality : bool, optional
         Whether to include chirality information (default: False).
     fp_size : int, optional
@@ -53,10 +92,12 @@ class MorganFingerprintGenerator:
 
     def __init__(
         self,
-        radius: int = 3,
-        count_simulation: bool = False,
+        radius: int = 2,
+        count_simulation: bool = True,
         include_chirality: bool = False,
-        fp_size: int = 2048,
+        fp_size: int = 1024,
+        *,
+        config: Optional[FingerprintConfig] = None,
     ) -> None:
         """
         Initialize the Morgan fingerprint generator with specified parameters.
@@ -64,32 +105,39 @@ class MorganFingerprintGenerator:
         Parameters
         ----------
         radius : int, optional
-            Radius of the Morgan fingerprint (default: 3).
+            Radius of the Morgan fingerprint (default: 2).
         count_simulation : bool, optional
-            Whether to use count simulation (default: False).
+            Whether to use count simulation (default: True).
         include_chirality : bool, optional
             Whether to include chirality information (default: False).
         fp_size : int, optional
-            Size of the fingerprint in bits (default: 2048).
+            Size of the fingerprint in bits (default: 1024).
         """
-        self.radius = radius
-        self.count_simulation = count_simulation
-        self.include_chirality = include_chirality
-        self.fp_size = fp_size
+        cfg = config or FingerprintConfig(
+            radius=radius,
+            n_bits=fp_size,
+            use_counts=count_simulation,
+            include_chirality=include_chirality,
+        )
+        self.radius = cfg.radius
+        self.count_simulation = cfg.use_counts
+        self.include_chirality = cfg.include_chirality
+        self.fp_size = cfg.n_bits
+        self.config = cfg
 
         self._fpgen: Any = rdFingerprintGenerator.GetMorganGenerator(
-            radius=radius,
-            countSimulation=count_simulation,
-            includeChirality=include_chirality,
-            fpSize=fp_size,
+            radius=self.radius,
+            countSimulation=self.count_simulation,
+            includeChirality=self.include_chirality,
+            fpSize=self.fp_size,
         )
         logger.debug(
             "Initialized Morgan fingerprint generator: radius=%d, count_simulation=%s, "
             "include_chirality=%s, fp_size=%d",
-            radius,
-            count_simulation,
-            include_chirality,
-            fp_size,
+            self.radius,
+            self.count_simulation,
+            self.include_chirality,
+            self.fp_size,
         )
 
     def _smiles_to_mol(self, smiles: str) -> Optional[Any]:
@@ -204,4 +252,4 @@ class MorganFingerprintGenerator:
         logger.debug("Reordered columns: %d total columns", len(reordered_cols))
         return result_df[reordered_cols]
 
-    __all__ = ["MorganFingerprintGenerator"]
+__all__ = ["MorganFingerprintGenerator", "FingerprintConfig", "DEFAULT_FINGERPRINT_CONFIG"]

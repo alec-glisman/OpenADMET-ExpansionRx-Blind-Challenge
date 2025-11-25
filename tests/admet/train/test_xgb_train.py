@@ -311,6 +311,7 @@ def test_train_xgb_models_ray_partial_status(tmp_path: Path) -> None:
 
 
 def test_missing_fingerprint_columns_errors(tmp_path: Path) -> None:
+    pytest.importorskip("rdkit")
     data_dir = tmp_path / "hf_dataset"
     data_dir.mkdir(parents=True)
     _make_hf_like_dataset(data_dir, n_rows=10, n_bits=16)
@@ -321,8 +322,8 @@ def test_missing_fingerprint_columns_errors(tmp_path: Path) -> None:
         model_params={"n_estimators": 10},
         seed=123,
     )
-    with pytest.raises(ValueError):
-        trainer.fit(dataset, output_dir=tmp_path / "out")
+    run_metrics, _ = trainer.fit(dataset, output_dir=tmp_path / "out")
+    assert run_metrics
 
 
 def test_xgb_gpu_fallback_retry(tmp_path: Path, monkeypatch) -> None:

@@ -55,7 +55,6 @@ dependencies = [
     # marimo
     "marimo",
     "altair",
-    # "bblean",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +67,8 @@ dev = [
     "pytest-cov",
     "pytest-mock",
     "pytest-xdist",
+    "pre-commit",
+    "nbstripout",
 ]
 docs = [
     "sphinx>=7.0",

@@ -12,8 +12,10 @@ import logging
 import multiprocessing
 
 import numpy as np
+import pandas as pd
 
 from admet.data.load import LoadedDataset
+from admet.data.fingerprinting import FingerprintConfig, DEFAULT_FINGERPRINT_CONFIG, MorganFingerprintGenerator
 from admet.model.base import BaseModel, ModelProtocol
 from admet.utils import set_global_seeds, get_git_commit_hash
 from admet.evaluate.metrics import AllMetrics, compute_metrics_log_and_linear
@@ -41,6 +43,7 @@ class FeaturizationMethod(str, Enum):
 @dataclass
 class RunSummary:
     featurization: FeaturizationMethod
+    fingerprint_config: FingerprintConfig
     endpoints: List[str]
     model: Any
     X_train: np.ndarray
@@ -66,6 +69,7 @@ class BaseModelTrainer(ABC):
         seed: Optional[int] = None,
         device: Optional[str] = None,
         mixed_precision: bool = False,
+        fingerprint_config: Optional[FingerprintConfig] = None,
     ) -> None:
         self.model_cls = model_cls
         self.model_params = model_params or {}
@@ -75,6 +79,8 @@ class BaseModelTrainer(ABC):
         self.featurization: FeaturizationMethod = FeaturizationMethod.NONE
         self.model: Optional[BaseModel] = None
         self.git_commit: Optional[str] = None
+        self.fingerprint_config = fingerprint_config or DEFAULT_FINGERPRINT_CONFIG
+        self._fingerprint_generator: Optional[MorganFingerprintGenerator] = None
 
     def prepare_features(self, dataset: "LoadedDataset") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Prepare feature matrices for train/validation/test splits.
@@ -90,14 +96,11 @@ class BaseModelTrainer(ABC):
         """
 
         if self.featurization == FeaturizationMethod.MORGAN_FP:
-            feature_cols = dataset.fingerprint_cols
+            feature_cols = list(dataset.fingerprint_cols)
         elif self.featurization == FeaturizationMethod.SMILES:
             feature_cols = [dataset.smiles_col]
         else:
             raise ValueError(f"Unsupported featurization method: {self.featurization}")
-
-        if not feature_cols:
-            raise ValueError("No feature columns found in dataset; cannot prepare features.")
 
         for split_name, df in [
             ("train", dataset.train),
@@ -105,15 +108,43 @@ class BaseModelTrainer(ABC):
             ("test", dataset.test),
         ]:
             missing = [c for c in feature_cols if c not in df.columns]
-            if missing:
+            if feature_cols and missing:
                 raise ValueError(f"Missing fingerprint columns in {split_name} split: {missing[:10]}")
 
-        # Numeric fingerprint features use the optimized float32 extractor.
-        if self.featurization == FeaturizationMethod.MORGAN_FP:
+        # Numeric fingerprint features use the optimized float32 extractor when precomputed.
+        if self.featurization == FeaturizationMethod.MORGAN_FP and feature_cols:
             return (
                 _extract_features(dataset.train, feature_cols),
                 _extract_features(dataset.val, feature_cols),
                 _extract_features(dataset.test, feature_cols),
+            )
+
+        if self.featurization == FeaturizationMethod.MORGAN_FP and not feature_cols:
+            if dataset.smiles_col not in dataset.train.columns:
+                raise ValueError("SMILES column missing; cannot generate fingerprints on the fly.")
+            fp_cfg = getattr(dataset, "fingerprint_config", None) or self.fingerprint_config
+            if (
+                self._fingerprint_generator is None
+                or getattr(self._fingerprint_generator, "config", None) != fp_cfg
+            ):
+                self._fingerprint_generator = MorganFingerprintGenerator(
+                    radius=fp_cfg.radius,
+                    count_simulation=fp_cfg.use_counts,
+                    include_chirality=fp_cfg.include_chirality,
+                    fp_size=fp_cfg.n_bits,
+                    config=fp_cfg,
+                )
+
+            def _featurize(df: "pd.DataFrame") -> np.ndarray:  # type: ignore[name-defined]
+                if dataset.smiles_col not in df.columns:
+                    raise ValueError("SMILES column missing from split; cannot featurize.")
+                fps = self._fingerprint_generator.calculate_fingerprints(df[dataset.smiles_col])
+                return fps.to_numpy(dtype=np.float32, copy=False)
+
+            return (
+                _featurize(dataset.train),
+                _featurize(dataset.val),
+                _featurize(dataset.test),
             )
 
         # SMILES featurization keeps raw SMILES strings as object arrays.
@@ -243,6 +274,9 @@ class BaseModelTrainer(ABC):
             "model_type": type(model).__name__,
             "endpoints": summary.endpoints,
             "featurization": summary.featurization.value,
+            "fingerprint": summary.fingerprint_config.to_dict()
+            if summary.featurization == FeaturizationMethod.MORGAN_FP
+            else None,
             "model_path": "model",
             "seed": self.seed,
             "extra_meta": extra_meta or {},
@@ -307,6 +341,10 @@ class BaseModelTrainer(ABC):
         mask_train, mask_val, mask_test = self.prepare_masks(Y_train, Y_val, Y_test)
         sample_weight = self.build_sample_weights(dataset, sample_weight_mapping)
         self.model = self.build_model(endpoints)
+        try:
+            setattr(self.model, "fingerprint_config", self.fingerprint_config)
+        except Exception:  # pragma: no cover - defensive attribute set
+            logger.debug("Model does not accept fingerprint_config attribute; continuing without it.")
         self.model.fit(
             X_train,
             Y_train,
@@ -334,6 +372,7 @@ class BaseModelTrainer(ABC):
         )
         summary = RunSummary(
             featurization=self.featurization,
+            fingerprint_config=self.fingerprint_config,
             model=self.model,
             endpoints=endpoints,
             X_train=X_train,

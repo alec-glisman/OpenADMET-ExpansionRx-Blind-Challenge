@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Optional, Type, Tuple
 
 from admet.data.load import LoadedDataset
+from admet.data.fingerprinting import FingerprintConfig
 from admet.model.base import ModelProtocol
 from admet.evaluate.metrics import AllMetrics
 from .model_trainer import RunSummary
@@ -23,8 +24,11 @@ def train_model(
     sample_weight_mapping: Optional[Dict[str, float]] = None,
     output_dir: Optional[Path] = None,
     seed: Optional[int] = None,
+    fingerprint_config: Optional[FingerprintConfig] = None,
 ) -> Tuple[AllMetrics, Optional[RunSummary]]:
-    trainer = trainer_cls(model_cls=model_cls, model_params=model_params, seed=seed)
+    trainer = trainer_cls(
+        model_cls=model_cls, model_params=model_params, seed=seed, fingerprint_config=fingerprint_config
+    )
     return trainer.fit(
         dataset,
         sample_weight_mapping=sample_weight_mapping,
@@ -45,6 +49,7 @@ def train_ensemble(
     output_root: Optional[Path] = None,
     seed: Optional[int] = None,
     n_fingerprint_bits: Optional[int] = None,
+    fingerprint_config: Optional[FingerprintConfig] = None,
     num_cpus: Optional[int] = None,
     ray_address: Optional[str] = None,
     dry_run: bool = False,
@@ -58,7 +63,12 @@ def train_ensemble(
 ) -> Dict[str, Dict[str, object]]:
     ray_trainer = ensemble_trainer_cls(
         trainer_cls=trainer_cls,
-        trainer_kwargs={"model_cls": model_cls, "model_params": model_params, "seed": seed},
+        trainer_kwargs={
+            "model_cls": model_cls,
+            "model_params": model_params,
+            "seed": seed,
+            "fingerprint_config": fingerprint_config,
+        },
     )
     return ray_trainer.fit_ensemble(
         root,
@@ -70,6 +80,7 @@ def train_ensemble(
         dry_run=dry_run,
         max_duration_seconds=max_duration_seconds,
         n_fingerprint_bits=n_fingerprint_bits,
+        fingerprint_config=fingerprint_config,
         seed=seed,
         tracking_uri=mlflow_tracking_uri,
         experiment_name=mlflow_experiment_name,

@@ -64,10 +64,13 @@ def _write_config(
             "experiment_name": "xgb_integration",
             "tracking_uri": f"file://{tracking_dir}",
             "seed": 123,
-            "n_fingerprint_bits": 16,
+            "ray": {"multi": multi, "num_cpus": 1, "address": "local"},
         },
-        "ray": {"multi": multi, "num_cpus": 1, "address": "local"},
-        "data": {"root": str(data_root), "endpoints": ENDPOINT_COLUMNS[:2]},
+        "data": {
+            "root": str(data_root),
+            "endpoints": ENDPOINT_COLUMNS[:2],
+            "fingerprint": {"radius": 2, "n_bits": 16, "use_counts": True, "include_chirality": False},
+        },
     }
     cfg_path.write_text(yaml.safe_dump(cfg))
 

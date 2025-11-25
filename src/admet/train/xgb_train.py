@@ -45,6 +45,7 @@ class XGBoostTrainer(BaseModelTrainer):
         seed: Optional[int] = None,
         device: Optional[str] = None,
         mixed_precision: bool = False,
+        fingerprint_config=None,
     ) -> None:
         super().__init__(
             model_cls,
@@ -52,6 +53,7 @@ class XGBoostTrainer(BaseModelTrainer):
             seed=seed,
             device=device,
             mixed_precision=mixed_precision,
+            fingerprint_config=fingerprint_config,
         )
 
         self.featurization = FeaturizationMethod.MORGAN_FP
