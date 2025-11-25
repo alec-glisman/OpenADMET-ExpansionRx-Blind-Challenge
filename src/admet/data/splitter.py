@@ -42,13 +42,38 @@ from pathlib import Path
 import logging
 import gc
 
+
+from bitbirch.bitbirch import bitbirch as bb
+from rdkit import Chem
+import useful_rdkit_utils as uru
+
 import pandas as pd
 import numpy as np
 from datasets import Dataset, DatasetDict
-import useful_rdkit_utils as uru
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+def get_bitbirch_clusters(smiles_list):
+    BRANCHING_FACTOR = 50
+    THRESHOLD = 0.65
+    bb.set_merge("radius")
+
+    mols = [Chem.MolFromSmiles(smiles) for smiles in smiles_list]
+    fps = np.array([Chem.RDKFingerprint(mol) for mol in mols])
+    bitbirch = bb.BitBirch(branching_factor=BRANCHING_FACTOR, threshold=THRESHOLD)
+    bitbirch.fit(fps)
+    cluster_list = bitbirch.get_cluster_mol_ids()
+
+    # Map each mol ID to its cluster ID
+    n_molecules = len(fps)
+    cluster_labels = [0] * n_molecules
+    for cluster_id, indices in enumerate(cluster_list):
+        for idx in indices:
+            cluster_labels[idx] = cluster_id
+
+    return cluster_labels
 
 
 class DatasetSplitter:
@@ -82,7 +107,8 @@ class DatasetSplitter:
         "scaffold_cluster": uru.get_bemis_murcko_clusters,
         "kmeans_cluster": uru.get_kmeans_clusters,
         "umap_cluster": uru.get_umap_clusters,
-        "butina_cluster": uru.get_butina_clusters,
+        # "butina_cluster": uru.get_butina_clusters,
+        "bitbirch_cluster": get_bitbirch_clusters,
     }
 
     def __init__(
@@ -389,14 +415,6 @@ class DatasetSplitter:
         split_datasets: Dict[str, Any] = {}
 
         # Check if splits already exist
-        if not overwrite:
-            quality_dirs = [d for d in output_dir.glob("*_quality") if d.is_dir()]
-            if quality_dirs:
-                logger.warning(
-                    "Stratified splits already exist at %s. Skipping (use --overwrite to replace)",
-                    output_dir,
-                )
-                return split_datasets
         n_iter = len(datasets) * len(self.split_methods) * self.n_splits
 
         logger.info("Creating %d total dataset splits", n_iter)
@@ -411,6 +429,31 @@ class DatasetSplitter:
 
                     for split_id in range(self.n_splits):
                         split_datasets[dset_name][split_name][f"split_{split_id}"] = {}
+
+                        split_output_dir = output_dir / f"{dset_name}_quality/{split_name}/split_{split_id}"
+                        if not overwrite and split_output_dir.exists():
+                            logger.info(
+                                "Skipping existing split: %s/%s/split_%s",
+                                dset_name,
+                                split_name,
+                                split_id,
+                            )
+                            pbar.update(len(data[self.stratify_column].unique()))
+                            continue
+                        elif overwrite and split_output_dir.exists():
+                            logger.warning(
+                                "Overwriting existing split: %s/%s/split_%s",
+                                dset_name,
+                                split_name,
+                                split_id,
+                            )
+                        else:
+                            logger.debug(
+                                "Creating new split: %s/%s/split_%s",
+                                dset_name,
+                                split_name,
+                                split_id,
+                            )
 
                         for group in data[self.stratify_column].unique():
                             subdata = data[data[self.stratify_column] == group]
@@ -444,7 +487,8 @@ class DatasetSplitter:
                             split_datasets[dset_name][split_name][f"split_{split_id}"],
                             data,
                             output_dir,
-                            visualizer,
+                            visualizer=visualizer,
+                            overwrite=overwrite,
                         )
 
                         pbar.update(1)
@@ -460,6 +504,7 @@ class DatasetSplitter:
         data: pd.DataFrame,
         output_dir,
         visualizer=None,
+        overwrite=False,
     ) -> None:
         """Persist all folds belonging to a single split identifier.
 
@@ -479,6 +524,8 @@ class DatasetSplitter:
             Root output directory.
         visualizer : DatasetVisualizer, optional
             If provided, produces per‑fold visualisations.
+        overwrite : bool, optional
+            Overwrite existing split directories if present. Default is False.
         """
         # Use module-level Path import
 
@@ -491,7 +538,25 @@ class DatasetSplitter:
             split_output_dir = (
                 output_dir / f"{dset_name}_quality/{split_name}/{split_id_key}/{fold_id_key}/hf_dataset"
             )
-            split_output_dir.mkdir(parents=True, exist_ok=True)
+            if not overwrite and split_output_dir.exists():
+                logger.info(
+                    "Skipping existing split: %s/%s/%s/%s",
+                    dset_name,
+                    split_name,
+                    split_id_key,
+                    fold_id_key,
+                )
+                return
+            elif overwrite and split_output_dir.exists():
+                logger.warning(
+                    "Overwriting existing split: %s/%s/%s/%s",
+                    dset_name,
+                    split_name,
+                    split_id_key,
+                    fold_id_key,
+                )
+            else:
+                split_output_dir.mkdir(parents=True)
 
             train_idx = datasets_dict["total"]["train"]
             val_idx = datasets_dict["total"]["validation"]

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple
+import logging
 
 import numpy as np
 import pandas as pd
@@ -34,6 +35,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from pandas import DataFrame, Series
 from scipy import stats
+
+logger = logging.getLogger(__name__)
 
 
 def calc_stats(series: Series) -> str:
@@ -72,6 +75,28 @@ def calc_stats(series: Series) -> str:
         f"count: {out['count']}"
     )
     return stats_str
+
+
+def latex_sanitize(text: str) -> str:
+    """Sanitize text for LaTeX rendering in plots.
+
+    Parameters
+    ----------
+    text : str
+        Input text.
+
+    Returns
+    -------
+    str
+        Sanitized text.
+    """
+    return (
+        text.replace(">", r"$>$")
+        .replace("<", r"$<$")
+        .replace("_", r"\_")
+        .replace("%", r"\%")
+        .replace("10^-6", r"10$^{-6}$")
+    )
 
 
 def plot_numeric_distributions(
@@ -127,12 +152,31 @@ def plot_numeric_distributions(
     for i, col in enumerate(columns):
         ax = axes[i]
         series = df[col].dropna()
+        col_latex = latex_sanitize(col)
+        if series.empty:
+            logger.warning(f"Column {col} is empty after dropping NaNs; skipping plot.")
+            ax.text(
+                0.5,
+                0.5,
+                "No data",
+                transform=ax.transAxes,
+                fontsize=12,
+                verticalalignment="center",
+                horizontalalignment="center",
+            )
+            ax.set_xlabel(col_latex, fontsize=12)
+            ax.set_ylabel("Count", fontsize=12)
+            continue
+
         sns.histplot(series, kde=kde, ax=ax)
+
         try:
             stat_text = stat_func(series)
         except Exception:
+            logger.exception(f"Error computing stats for column {col}")
             stat_text = ""
-        ax.set_xlabel(col, fontsize=12)
+
+        ax.set_xlabel(col_latex, fontsize=12)
         ax.set_ylabel("Count", fontsize=12)
         ax.grid(True, linestyle=":", alpha=0.7)
         ax.tick_params(axis="x", labelrotation=30, labelsize=10)
@@ -224,6 +268,11 @@ def plot_correlation_matrix(
         columns = df.select_dtypes(include=["number"]).columns.tolist()
     if len(columns) == 0:
         raise ValueError("No numeric columns to compute correlation for.")
+
+    # sanitize column names for LaTeX rendering
+    df = df.copy()
+    df.columns = [latex_sanitize(col) for col in df.columns]
+    columns = [latex_sanitize(col) for col in columns]
 
     corr = df[columns].corr()
 
