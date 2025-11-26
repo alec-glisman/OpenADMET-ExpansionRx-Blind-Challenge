@@ -118,7 +118,8 @@ def _train_single_dataset_remote(
                 fold = str(meta.get("fold", "unknown_fold"))
                 out_dir = base / cluster / f"split_{split}" / f"fold_{fold}"
             if seed is not None:
-                local_trainer_kwargs.setdefault("seed", seed)
+                # Override any default seed so each dataset run uses its own deterministic seed.
+                local_trainer_kwargs["seed"] = seed
             trainer = trainer_cls(**local_trainer_kwargs)
             try:
                 run_metrics, summary = trainer.fit(
