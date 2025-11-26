@@ -99,12 +99,18 @@ class DatasetVisualizer:
 
         counts_df = pd.DataFrame(counts, index=self.endpoints)
 
+        # make local copy of df and replace ">" in column with "$>$" for latex rendering
+        counts_df = counts_df.rename(index=lambda x: x.replace(">", r"$>$").replace("<", r"$<$"))
+
         # Create plot
         ax = counts_df.plot.bar(rot=45, figsize=(10, 6))
         ax.set_title("Sample Counts per Endpoint")
         ax.set_ylabel("Number of Samples")
         ax.set_xlabel("Endpoint")
         ax.grid(True, axis="y", linestyle="--", alpha=0.7)
+
+        # make the x-axis logarithmic
+        ax.set_yscale("log")
 
         plt.tight_layout()
         plt.savefig(output_path, dpi=self.dpi)

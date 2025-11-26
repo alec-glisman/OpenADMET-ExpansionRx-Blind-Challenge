@@ -103,11 +103,11 @@ class DatasetSplitter:
     # Default clustering methods
     DEFAULT_SPLIT_METHODS: Dict[str, Callable] = {
         "random_cluster": uru.get_random_clusters,
+        "bitbirch_cluster": get_bitbirch_clusters,
         "scaffold_cluster": uru.get_bemis_murcko_clusters,
         "kmeans_cluster": uru.get_kmeans_clusters,
         "umap_cluster": uru.get_umap_clusters,
         # "butina_cluster": uru.get_butina_clusters,
-        "bitbirch_cluster": get_bitbirch_clusters,
     }
 
     def __init__(
