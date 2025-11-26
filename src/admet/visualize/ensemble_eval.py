@@ -141,10 +141,18 @@ def _metric_bar_plot(
     ax.set_ylabel(metric_name.upper())
     ax.set_title(f"{title_prefix} - {metric_name.upper()} ({space})")
     ax.grid(axis="y", linestyle="--", alpha=0.3)
-    # Annotate NaNs to clarify missing metrics
-    for rect, val in zip(bars, values):
+    finite_vals = values[np.isfinite(values)]
+    offset_base = 0.02 * float(np.nanmax(np.abs(finite_vals)) if finite_vals.size else 1.0)
+    for idx, rect in enumerate(bars):
+        val = values[idx]
+        err = float(errors[idx]) if errors is not None and idx < len(errors) and np.isfinite(errors[idx]) else 0.0
+        x_center = rect.get_x() + rect.get_width() / 2
         if not np.isfinite(val):
-            ax.text(rect.get_x() + rect.get_width() / 2, 0.02, "NaN", rotation=90, ha="center", va="bottom")
+            ax.text(x_center, 0.02, "NaN", rotation=90, ha="center", va="bottom")
+            continue
+        top = val + err if val >= 0 else val - err
+        y_pos = top + (offset_base if val >= 0 else -offset_base)
+        ax.text(x_center, y_pos, f"{val:.2f}", ha="center", va="bottom" if val >= 0 else "top")
     fig.tight_layout()
     fig.savefig(save_path, dpi=dpi)
     plt.close(fig)
