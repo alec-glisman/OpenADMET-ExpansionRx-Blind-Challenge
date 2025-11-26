@@ -8,7 +8,7 @@ output_dir: assets/models/xgb/ensemble/high_quality/butina_cluster/analysis
 train_data_root: assets/dataset/splits/v2/high_quality/butina_cluster
 
 # Labeled evaluation set (for metrics + plots); set to null if not used
-eval_csv: assets/dataset/eda/data/set/cleaned_combined_datasets_high_quality.csv
+eval_csv: assets/dataset/eda/v2/data/set/cleaned_combined_datasets_high_quality.csv
 
 # Blind set (for predictions only); set to null if not used
 blind_csv: assets/dataset/test/expansion_data_test_blinded.csv
