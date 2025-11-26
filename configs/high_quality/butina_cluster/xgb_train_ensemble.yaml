@@ -30,7 +30,7 @@ training:
     # num_cpus: 8    # limit local Ray runtime to N CPUs (defaults to all)
 
 data:
-  root: "assets/dataset/splits/high_quality/butina_cluster"
+  root: "assets/dataset/splits/v2/high_quality/butina_cluster"
   endpoints:
     - "LogD"
     - "KSOL"

@@ -30,7 +30,7 @@ training:
     # num_cpus: 8    # limit local Ray runtime to N CPUs (defaults to all)
 
 data:
-  root: "assets/dataset/splits/high_quality/random_cluster/split_0/fold_0/hf_dataset"
+  root: "assets/dataset/splits/v2/high_quality/random_cluster/split_0/fold_0/hf_dataset"
   endpoints:
     - "LogD"
     - "KSOL"

@@ -1,14 +1,14 @@
-# Parent directory containing many XGBoost runs produced by `admet train xgb`
-models_root: assets/models/xgb/ensemble/high_quality/scaffold_cluster
+# Parent directory containing many XGBoost runs produced by admet train xgb
+models_root: assets/models/xgb/ensemble/medium_quality/kmeans_cluster
 
 # Output directory for ensemble predictions, metrics and plots
-output_dir: assets/models/xgb/ensemble/high_quality/scaffold_cluster/analysis
+output_dir: assets/models/xgb/ensemble/medium_quality/kmeans_cluster/analysis
 
 # Optional: path to the HF training splits used for these models
-train_data_root: assets/dataset/splits/v2/high_quality/scaffold_cluster
+train_data_root: assets/dataset/splits/v2/medium_quality/kmeans_cluster
 
 # Labeled evaluation set (for metrics + plots); set to null if not used
-eval_csv: assets/dataset/eda/data/set/cleaned_combined_datasets_high_quality.csv
+eval_csv: assets/dataset/eda/v2/data/set/cleaned_combined_datasets_medium_quality.csv
 
 # Blind set (for predictions only); set to null if not used
 blind_csv: assets/dataset/test/expansion_data_test_blinded.csv

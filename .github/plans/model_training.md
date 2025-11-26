@@ -3,7 +3,7 @@
 ## High Level Overview
 
 1. **Load pre-split datasets**: Load the datasets that have been split using various clustering methods (random, scaffold-based, k-means, Butina).
-   - Input: Pre-split datasets from previous steps. Datasets are stored in a structured directory tree: `assets/dataset/splits/{quality}_quality/{split_method}/`. Non-temporal splits also include N-split and K-fold information with subdirectories `split_{n}/fold_{k}/`. All datasets are in Hugging Face `Dataset` format.
+   - Input: Pre-split datasets from previous steps. Datasets are stored in a structured directory tree: `assets/dataset/splits/v2/{quality}_quality/{split_method}/`. Non-temporal splits also include N-split and K-fold information with subdirectories `split_{n}/fold_{k}/`. All datasets are in Hugging Face `Dataset` format.
    - Blinded Test Data: Blinded test data can be found at `assets/dataset/test/expansion_data_test_blinded.csv`.
    - User should specify through Typer CLI:
      - Quality level of the dataset (e.g., high, medium, low).
@@ -80,7 +80,7 @@ Define a small dataset API in the library code (for example in `admet.data`):
 
 Split directory conventions:
 
-- Non-temporal splits live under `assets/dataset/splits/{quality}_quality/{split_method}/split_{split_id}/fold_{fold_id}/`.
+- Non-temporal splits live under `assets/dataset/splits/v2/{quality}_quality/{split_method}/split_{split_id}/fold_{fold_id}/`.
 - Temporal splits can omit `split_{n}/fold_{k}/` and use a temporal naming scheme. `split_level="temporal"` indicates this convention.
 
 Data schema validation on loading (`validate_dataset_schema` helper):
