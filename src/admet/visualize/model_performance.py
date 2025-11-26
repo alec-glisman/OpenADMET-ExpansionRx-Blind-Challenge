@@ -343,7 +343,25 @@ def _metric_plot_worker(
             [per_split_metrics[s][ep].get(metric_key, float("nan")) for ep in endpoints],
             dtype=float,
         )
-        ax.bar(x + (i - 1) * width, vals, width, label=s)
+        rects = ax.bar(x + (i - 1) * width, vals, width, label=s)
+        # Add value labels above each bar. For negative values the label is placed below
+        for rect in rects:
+            height = rect.get_height()
+            # Skip NaNs/unplottable values
+            if np.isnan(height):
+                continue
+            # Offset the label a few points above (or below) the bar
+            y_offset = 3 if height >= 0 else -3
+            va = "bottom" if height >= 0 else "top"
+            ax.annotate(
+                f"{height:.3g}",
+                xy=(rect.get_x() + rect.get_width() / 2, height),
+                xytext=(0, y_offset),
+                textcoords="offset points",
+                ha="center",
+                va=va,
+                fontsize=9,
+            )
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=30, ha="right")
 

@@ -218,7 +218,7 @@ def _plot_true_vs_pred_distribution(
             color=pred_with_true_color,
             alpha=0.45,
             ax=ax,
-            label=f"Predicted (with true) (n={len(pred_with_true_clean)}, {percent_true:.1f}%)",
+            label=f"Predicted (with true) (n={len(pred_with_true_clean)}, {percent_true:.1f}" + r"\%)",
         )
     if not pred_without_true_clean.empty:
         sns.histplot(

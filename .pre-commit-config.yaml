@@ -77,18 +77,17 @@ repos:
 
       - id: pylint
         name: pylint
-        entry: pylint src
+        entry: pylint
         language: system
         types: [python]
-        exclude: ^(docs/|notebooks/)
+        exclude: ^(docs/|notebooks/|tests/)
         args: ["--fail-under=9.0"]
 
       - id: mypy
         name: mypy
-        entry: mypy src
+        entry: mypy
         language: system
         types: [python]
-        pass_filenames: false
 
       - id: pytest
         name: pytest
