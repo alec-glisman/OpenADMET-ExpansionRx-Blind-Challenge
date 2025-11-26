@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional, Type
 
-from admet.model.base import ModelProtocol
+from admet.model.base import BaseModel
 from admet.train.base import BaseModelTrainer, FeaturizationMethod
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class XGBoostTrainer(BaseModelTrainer):
 
     def __init__(
         self,
-        model_cls: Type[ModelProtocol],
+        model_cls: Type[BaseModel],
         *,
         model_params: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,

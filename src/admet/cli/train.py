@@ -176,7 +176,7 @@ def xgb(
         if isinstance(v, (int, float)):
             return np.round(v, 4)
         if isinstance(v, dict):
-            formatted = {}
+            formatted: dict[str, object] = {}
             for kk, vv in v.items():
                 if vv is None:
                     formatted[kk] = None

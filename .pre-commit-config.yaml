@@ -83,11 +83,12 @@ repos:
         exclude: ^(docs/|notebooks/)
         args: ["--fail-under=9.0"]
 
-      # - id: mypy
-      #   name: mypy
-      #   entry: mypy src
-      #   language: system
-      #   types: [python]
+      - id: mypy
+        name: mypy
+        entry: mypy src
+        language: system
+        types: [python]
+        pass_filenames: false
 
       - id: pytest
         name: pytest

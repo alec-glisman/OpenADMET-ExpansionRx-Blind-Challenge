@@ -80,7 +80,7 @@ def compute_metrics(
     SplitMetrics
         Mapping from endpoint name to metric dict plus a "macro" aggregate.
     """
-    results: Dict[str, Dict[str, float]] = {}
+    results: SplitMetrics = {}
 
     per_mae = []
     per_rmse = []
@@ -123,7 +123,7 @@ def compute_metrics(
     return results
 
 
-EndpointSpaceMetrics = Dict[str, Dict[str, float]]
+EndpointSpaceMetrics = Dict[str, EndpointMetrics]
 
 
 def compute_metrics_log_and_linear(
@@ -154,9 +154,11 @@ def compute_metrics_log_and_linear(
     y_true_lin = _apply_linear_transform(y_true, endpoints)
     y_pred_lin = _apply_linear_transform(y_pred, endpoints)
     linear_metrics = compute_metrics(y_true_lin, y_pred_lin, mask, endpoints)
+    from typing import cast
+
     combined: Dict[str, EndpointSpaceMetrics] = {}
     for ep in list(endpoints) + ["macro"]:
-        combined[ep] = {"log": log_metrics[ep], "linear": linear_metrics[ep]}
+        combined[ep] = cast(EndpointSpaceMetrics, {"log": log_metrics[ep], "linear": linear_metrics[ep]})
     return combined
 
 

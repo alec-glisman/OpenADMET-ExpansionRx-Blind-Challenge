@@ -8,7 +8,7 @@ from typing import Dict, Optional, Tuple, Type
 from admet.data.fingerprinting import FingerprintConfig
 from admet.data.load import LoadedDataset
 from admet.evaluate.metrics import AllMetrics
-from admet.model.base import ModelProtocol
+from admet.model.base import BaseModel
 
 from .model_trainer import BaseModelTrainer, RunSummary
 from .ray_trainer import BaseEnsembleTrainer
@@ -17,7 +17,7 @@ from .ray_trainer import BaseEnsembleTrainer
 def train_model(
     dataset: LoadedDataset,
     trainer_cls: Type[BaseModelTrainer],
-    model_cls: Type[ModelProtocol],
+    model_cls: Type[BaseModel],
     model_params: Optional[Dict[str, object]] = None,
     early_stopping_rounds: Optional[int] = None,
     sample_weight_mapping: Optional[Dict[str, float]] = None,
@@ -41,7 +41,7 @@ def train_ensemble(
     *,
     ensemble_trainer_cls: Type[BaseEnsembleTrainer],
     trainer_cls: Type[BaseModelTrainer],
-    model_cls: Type[ModelProtocol],
+    model_cls: Type[BaseModel],
     model_params: Optional[Dict[str, object]] = None,
     early_stopping_rounds: Optional[int] = None,
     sample_weight_mapping: Optional[Dict[str, float]] = None,

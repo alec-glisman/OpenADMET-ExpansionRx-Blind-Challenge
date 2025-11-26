@@ -9,7 +9,7 @@ from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ import pandas as pd
 from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig, MorganFingerprintGenerator
 from admet.data.load import LoadedDataset
 from admet.evaluate.metrics import AllMetrics, compute_metrics_log_and_linear
-from admet.model.base import BaseModel, ModelProtocol
+from admet.model.base import BaseModel
 from admet.utils import get_git_commit_hash, set_global_seeds
 from admet.visualize.model_performance import plot_metric_bars, plot_parity_grid
 
@@ -63,7 +63,7 @@ class RunSummary:
 class BaseModelTrainer(ABC):
     def __init__(
         self,
-        model_cls: Type[ModelProtocol],
+        model_cls: Type[BaseModel],
         *,
         model_params: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
@@ -132,10 +132,13 @@ class BaseModelTrainer(ABC):
                     config=fp_cfg,
                 )
 
+            assert self._fingerprint_generator is not None
+            fg = self._fingerprint_generator
+
             def _featurize(df: "pd.DataFrame") -> np.ndarray:  # type: ignore[name-defined]
                 if dataset.smiles_col not in df.columns:
                     raise ValueError("SMILES column missing from split; cannot featurize.")
-                fps = self._fingerprint_generator.calculate_fingerprints(df[dataset.smiles_col])
+                fps = fg.calculate_fingerprints(df[dataset.smiles_col])
                 return fps.to_numpy(dtype=np.float32, copy=False)
 
             return (
@@ -242,11 +245,14 @@ class BaseModelTrainer(ABC):
         mask_test,
         endpoints: List[str],
     ) -> AllMetrics:
-        return {
-            "train": compute_metrics_log_and_linear(Y_train, pred_train, mask_train, endpoints),
-            "validation": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
-            "test": compute_metrics_log_and_linear(Y_test, pred_test, mask_test, endpoints),
-        }
+        return cast(
+            AllMetrics,
+            {
+                "train": compute_metrics_log_and_linear(Y_train, pred_train, mask_train, endpoints),
+                "validation": compute_metrics_log_and_linear(Y_val, pred_val, mask_val, endpoints),
+                "test": compute_metrics_log_and_linear(Y_test, pred_test, mask_test, endpoints),
+            },
+        )
 
     def save_artifacts(
         self,
@@ -267,6 +273,10 @@ class BaseModelTrainer(ABC):
             logger.info("Saving artifacts for git commit %s", git_commit)
 
         # Standardized run metadata used by downstream evaluation/ensembling.
+        # We intentionally don't use the dataset parameter beyond its presence in
+        # the signature for API consistency; delete to quiet unused arg warnings
+        del dataset
+
         run_meta = {
             "model_type": type(model).__name__,
             "endpoints": summary.endpoints,

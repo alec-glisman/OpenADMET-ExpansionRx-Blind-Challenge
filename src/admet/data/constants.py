@@ -23,7 +23,7 @@ and API usage.
 """
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, TypedDict
+from typing import Any, Callable, Dict, TypedDict
 
 import numpy as np
 from tdc import utils
@@ -41,7 +41,7 @@ class DatasetInfo(TypedDict):
 DEFAULT_DATASET_DIR = Path(__file__).parents[3] / "assets/dataset/raw"
 
 #: Registry of available datasets keyed by lowercase name.
-DATASETS: Mapping[str, DatasetInfo] = {}
+DATASETS: Dict[str, DatasetInfo] = {}
 
 # Dynamically add all TDC ADMET_Group datasets
 for name in utils.retrieve_benchmark_names("ADMET_Group"):

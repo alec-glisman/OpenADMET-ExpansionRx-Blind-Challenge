@@ -17,7 +17,7 @@ kept private to avoid namespace clutter.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -47,10 +47,10 @@ class FingerprintConfig:
         if cfg is None:
             return base
         return cls(
-            radius=int(cfg.get("radius", base.radius)),
-            n_bits=int(cfg.get("n_bits", base.n_bits)),
-            use_counts=bool(cfg.get("use_counts", base.use_counts)),
-            include_chirality=bool(cfg.get("include_chirality", base.include_chirality)),
+            radius=int(cast(Any, cfg.get("radius", base.radius))),
+            n_bits=int(cast(Any, cfg.get("n_bits", base.n_bits))),
+            use_counts=bool(cast(Any, cfg.get("use_counts", base.use_counts))),
+            include_chirality=bool(cast(Any, cfg.get("include_chirality", base.include_chirality))),
         )
 
     def to_dict(self) -> dict[str, object]:

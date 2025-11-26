@@ -30,9 +30,11 @@ to maintain readability of target endpoints.
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 import pandas as pd
 
+from admet.data.fingerprinting import MorganFingerprintGenerator
 from admet.data.splitter import DatasetSplitter
 from admet.visualize.dataset_viz import DatasetVisualizer
 
@@ -62,7 +64,7 @@ class DatasetSplitPipeline:
     }
 
     # Temporal split configuration
-    TEMPORAL_SPLIT_CONFIG = {
+    TEMPORAL_SPLIT_CONFIG: Dict[str, Any] = {
         "quality": "high",
         "train_percentage": 0.9,
         "validation_percentage": 0.1,
@@ -108,9 +110,10 @@ class DatasetSplitPipeline:
 
         self.splitter = DatasetSplitter()
         self.visualizer = DatasetVisualizer()
+        self.fp_generator: MorganFingerprintGenerator = MorganFingerprintGenerator()
 
-        self.datasets = {}
-        self.split_structure = {}
+        self.datasets: Dict[str, pd.DataFrame] = {}
+        self.split_structure: Dict[str, Any] = {}
 
     def load_datasets(self) -> None:
         """Load all configured datasets from CSV files.
@@ -179,14 +182,14 @@ class DatasetSplitPipeline:
 
         data = self.datasets[quality].sort_values(by=config["sort_column"]).reset_index(drop=True)
         n_total = len(data)
-        n_train = int(n_total * config["train_percentage"])
+        n_train = int(n_total * float(config["train_percentage"]))
 
         train_df = data.iloc[:n_train]
         test_df = data.iloc[n_train:]
 
         # Split train into train/validation
         train_df = train_df.sample(frac=1, random_state=config["random_state"]).reset_index(drop=True)
-        n_validation = int(train_df.shape[0] * config["validation_percentage"])
+        n_validation = int(train_df.shape[0] * float(config["validation_percentage"]))
         validation_df = train_df.iloc[:n_validation]
         train_df = train_df.iloc[n_validation:]
 

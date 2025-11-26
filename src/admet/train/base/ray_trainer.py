@@ -16,7 +16,7 @@ import ray
 from admet.data.fingerprinting import FingerprintConfig
 
 from ..mlflow_utils import flatten_metrics, flatten_params, set_mlflow_tracking
-from .model_trainer import BaseModelTrainer, FeaturizationMethod
+from .model_trainer import AllMetrics, BaseModelTrainer, FeaturizationMethod
 from .utils import infer_split_metadata
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ def _train_single_dataset_remote(
             configure_logging(level=log_level or "INFO", file=log_file, structured=log_json)
     except Exception:  # noqa: BLE001
         pass
-    run_metrics: Optional[Dict[str, object]] = None
+    run_metrics: Optional[AllMetrics] = None
     summary: Optional[object] = None
     status = "error"
     error: Optional[str] = None
@@ -309,7 +309,7 @@ class BaseEnsembleTrainer:
                 )
             )
         remaining = set(tasks)
-        results: List[Tuple[str, Dict[str, object]]] = []
+        results: List[Tuple[str, Dict[str, Any]]] = []
         total = len(tasks)
         completed = 0
         logger.info("Starting Ray training for %d models", total)
@@ -326,7 +326,7 @@ class BaseEnsembleTrainer:
                     rel_key,
                     len(remaining),
                 )
-        aggregated: Dict[str, Dict[str, object]] = {rel_key: payload for rel_key, payload in results}
+            aggregated: Dict[str, Dict[str, Any]] = {rel_key: payload for rel_key, payload in results}
         summary_rows: List[Dict[str, object]] = []
         success_count = 0
         failure_count = 0

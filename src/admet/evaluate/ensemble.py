@@ -23,11 +23,12 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+from numpy.typing import NDArray
 from tqdm import tqdm
 
 from admet.data.fingerprinting import DEFAULT_FINGERPRINT_CONFIG, FingerprintConfig, MorganFingerprintGenerator
@@ -640,7 +641,7 @@ def evaluate_dataset(
         return ens_preds_log_df, ens_preds_lin_df, None, None
 
     # Compute aggregated metrics in both spaces
-    metrics = {}
+    metrics: Dict[str, Any] = {}
     metrics["ensemble_log"] = evaluate_metrics(
         ens_preds_log_df,
         df_true_log,
@@ -677,7 +678,9 @@ def evaluate_dataset(
 
     # Compute mean and standard error across models for each metric
     for space in ["log", "linear"]:
-        per_model_metrics = [metrics[f"model_{i}_{space}"] for i in range(len(models))]
+        per_model_metrics: List[Dict[str, Dict[str, float]]] = [
+            cast(Dict[str, Dict[str, float]], metrics[f"model_{i}_{space}"]) for i in range(len(models))
+        ]
         endpoint_names = list(per_model_metrics[0].keys())
         metric_names = list(per_model_metrics[0][endpoint_names[0]].keys())
 
@@ -693,7 +696,7 @@ def evaluate_dataset(
             agg_stderr_metrics[ep] = {}
 
             for metric in metric_names:
-                values = [m[ep][metric] for m in per_model_metrics if not np.isnan(m[ep][metric])]
+                values = [float(m[ep][metric]) for m in per_model_metrics if not np.isnan(float(m[ep][metric]))]
 
                 if values:
                     mean_val = float(np.nanmean(values))
@@ -750,8 +753,11 @@ def evaluate_metrics(
     if not all(true_values["SMILES"] == predictions["SMILES"]):
         raise ValueError("SMILES in predictions and true_values do not match")
 
-    y_true = true_values[list(endpoints)].to_numpy(dtype=float)
-    y_pred = predictions[list(endpoints)].to_numpy(dtype=float)
+    # Cast to explicit numeric arrays of float64 to satisfy numpy typing
+    # and avoid ambiguous 'object' dtype that can confuse mypy's ufunc
+    # overload resolution.
+    y_true: NDArray[np.float64] = np.asarray(true_values[list(endpoints)].to_numpy(dtype=float), dtype=float)
+    y_pred: NDArray[np.float64] = np.asarray(predictions[list(endpoints)].to_numpy(dtype=float), dtype=float)
     mask = (~np.isnan(y_true)).astype(int)
 
     # check finite
@@ -775,13 +781,24 @@ def evaluate_metrics(
 
     for ep, mdict in metrics.items():
         for k, v in mdict.items():
-            if not np.isfinite(v):
+            # Guard against non-numeric objects; convert to float for isfinite check.
+            if isinstance(v, (int, float, np.floating)):
+                _is_finite = bool(np.isfinite(v))
+            else:
+                _is_finite = False
+            if not _is_finite:
                 try:
-                    y_true_vals = y_true[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)]
-                    y_pred_vals = y_pred[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)]
+                    y_true_vals = cast(
+                        NDArray[np.float64],
+                        y_true[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)],
+                    )
+                    y_pred_vals = cast(
+                        NDArray[np.float64],
+                        y_pred[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)],
+                    )
                 except (ValueError, IndexError):
-                    y_true_vals = np.array([np.nan])
-                    y_pred_vals = np.array([np.nan])
+                    y_true_vals = np.array([float("nan")], dtype=float)
+                    y_pred_vals = np.array([float("nan")], dtype=float)
 
                 logger.debug(
                     "y_true domain for endpoint '%s': min=%s, max=%s",

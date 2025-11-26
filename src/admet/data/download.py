@@ -71,7 +71,7 @@ def download_polaris_dataset_to_csv(
 
 
 def download_tdc_dataset_to_csv(
-    dataset_uri: str,
+    dataset_uri: Union[str, Path],
     output_file: Union[str, Path],
 ) -> None:
     """Download a TDC ADMET_Group dataset and save it to a CSV file.
@@ -82,7 +82,7 @@ def download_tdc_dataset_to_csv(
     """
     logger.debug("Loading TDC benchmark: %s...", dataset_uri)
     group = admet_group(path="/tmp/tdc_download/")
-    benchmark = group.get(dataset_uri)
+    benchmark = group.get(str(dataset_uri))
     name = benchmark["name"]
     train_val, test = benchmark["train_val"], benchmark["test"]
 
@@ -105,14 +105,14 @@ class Downloader:
     etc.
     """
 
-    def __init__(self, logger_: Optional[logging.Logger] = None) -> None:
+    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
         """Initialize the DatasetDownloader.
 
         Args:
             logger (Optional[logging.Logger]): Logger instance. If None,
                 a default logger will be created.
         """
-        self.logger = logger_ or logging.getLogger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
     def download(
         self,
