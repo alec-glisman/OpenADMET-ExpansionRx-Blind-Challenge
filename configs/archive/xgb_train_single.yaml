@@ -17,7 +17,7 @@ models:
 
 training:
   output_dir: "assets/models/xgb/single/high_quality/random_cluster/split_0/fold_0"
-  experiment_name: "xgb"
+  experiment_name: "xgb_v2_data"
   tracking_uri: null # e.g., "file:///tmp/mlruns" or "http://localhost:5000"
   seed: 123
   sample_weights:
