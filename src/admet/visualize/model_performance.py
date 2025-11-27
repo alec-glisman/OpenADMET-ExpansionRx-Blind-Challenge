@@ -183,6 +183,7 @@ def _plot_parity_worker(
     space: str,
     save_dir: Path,
     dpi: int = 600,
+    max_points: int = 10_000,
 ) -> None:
     """Render a parity plot for a single endpoint.
 
@@ -202,6 +203,8 @@ def _plot_parity_worker(
         Directory to write figure PNG.
     dpi : int, optional
         Render DPI (default 600).
+    max_points : int, optional
+        Maximum points to plot per split (randomly sampled if exceeded).
     """
     splits = ["train", "validation", "test"]
     title_space = "(log10)" if space == "log" else "(linear)"
@@ -264,7 +267,12 @@ def _plot_parity_worker(
             ax.set_ylabel("Predicted", fontsize=14)
             continue
 
-        ax.scatter(y_t_valid, y_p_valid, alpha=0.7, s=10)
+        if y_t_valid.shape[0] > max_points:
+            indices = np.random.choice(y_t_valid.shape[0], size=max_points, replace=False)
+        else:
+            indices = np.arange(y_t_valid.shape[0])
+
+        ax.scatter(y_t_valid[indices], y_p_valid[indices], alpha=0.7, s=10)
         ax.set_aspect("equal", adjustable="box")
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(x_min, x_max)

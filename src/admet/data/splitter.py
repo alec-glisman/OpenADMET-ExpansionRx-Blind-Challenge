@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 def get_bitbirch_clusters(smiles_list):
     BRANCHING_FACTOR = 50
-    THRESHOLD = 0.65
+    THRESHOLD = 0.50
     bb.set_merge("radius")
 
     mols = [Chem.MolFromSmiles(smiles) for smiles in smiles_list]

@@ -759,16 +759,13 @@ def evaluate_metrics(
     y_true: NDArray[np.float64] = np.asarray(true_values[list(endpoints)].to_numpy(dtype=float), dtype=float)
     y_pred: NDArray[np.float64] = np.asarray(predictions[list(endpoints)].to_numpy(dtype=float), dtype=float)
     mask = (~np.isnan(y_true)).astype(int)
+    mask_counts = mask.sum(axis=0)
 
     # check finite
     if not np.all(np.isfinite(y_true[mask == 1])):
         raise ValueError("Non-finite values found in true values")
     if not np.all(np.isfinite(y_pred[mask == 1])):
         raise ValueError("Non-finite values found in predicted values")
-    # check that there is at least one valid value per endpoint
-    for j in range(y_true.shape[1]):
-        if np.sum(mask[:, j]) == 0:
-            raise ValueError(f"No valid true values found for endpoint '{endpoints[j]}'")
 
     if transform == "linear":
         y_true = to_linear_space_array(y_true, endpoints)
@@ -777,7 +774,44 @@ def evaluate_metrics(
     elif transform != "log":
         raise ValueError(f"Unsupported transform '{transform}'")
 
-    metrics = eval_metrics.compute_metrics(y_true, y_pred, mask, endpoints)
+    invalid_indices = [j for j, count in enumerate(mask_counts) if count == 0]
+    if invalid_indices:
+        invalid_set = set(invalid_indices)
+        for j in invalid_indices:
+            logger.error("No valid true values found for endpoint '%s'", endpoints[j])
+
+        valid_indices = [j for j, count in enumerate(mask_counts) if count > 0]
+        nan_metrics: eval_metrics.EndpointMetrics = {
+            "mae": float("nan"),
+            "rmse": float("nan"),
+            "R2": float("nan"),
+            "pearson_r2": float("nan"),
+            "spearman_rho2": float("nan"),
+            "kendall_tau": float("nan"),
+        }
+
+        # metrics_subset will always be a mapping from endpoint -> EndpointMetrics
+        metrics_subset: eval_metrics.SplitMetrics
+        if valid_indices:
+            valid_endpoints = [endpoints[j] for j in valid_indices]
+            metrics_subset = eval_metrics.compute_metrics(
+                y_true[:, valid_indices],
+                y_pred[:, valid_indices],
+                mask[:, valid_indices],
+                valid_endpoints,
+            )
+        else:
+            metrics_subset = cast(eval_metrics.SplitMetrics, {"macro": cast(eval_metrics.EndpointMetrics, nan_metrics)})
+
+        metrics: eval_metrics.SplitMetrics = {}
+        for idx, ep in enumerate(endpoints):
+            if idx in invalid_set:
+                metrics[ep] = nan_metrics
+            else:
+                metrics[ep] = cast(eval_metrics.EndpointMetrics, metrics_subset[ep])
+        metrics["macro"] = cast(eval_metrics.EndpointMetrics, metrics_subset.get("macro", nan_metrics))
+    else:
+        metrics = eval_metrics.compute_metrics(y_true, y_pred, mask, endpoints)
 
     for ep, mdict in metrics.items():
         for k, v in mdict.items():
@@ -797,6 +831,10 @@ def evaluate_metrics(
                         y_pred[mask[:, endpoints.index(ep)] == 1, endpoints.index(ep)],
                     )
                 except (ValueError, IndexError):
+                    y_true_vals = np.array([float("nan")], dtype=float)
+                    y_pred_vals = np.array([float("nan")], dtype=float)
+
+                if y_true_vals.size == 0:
                     y_true_vals = np.array([float("nan")], dtype=float)
                     y_pred_vals = np.array([float("nan")], dtype=float)
 

@@ -103,11 +103,12 @@ def ensemble_eval(
     _ensure_outdir(figures_root)
 
     df_eval: Optional[pd.DataFrame] = None
-    df_blind: Optional[pd.DataFrame] = None
     if eval_csv is not None:
         df_eval = _read_csv(Path(eval_csv))
         logger.info("Read eval CSV with %d rows from %s", len(df_eval), eval_csv)
         df_eval["SMILES"] = parallel_canonicalize_smiles(df_eval["SMILES"].astype(str))
+
+    df_blind: Optional[pd.DataFrame] = None
     if blind_csv is not None:
         df_blind = _read_csv(Path(blind_csv))
         logger.info("Read blind CSV with %d rows from %s", len(df_blind), blind_csv)
@@ -132,29 +133,18 @@ def ensemble_eval(
         blind_shape,
     )
 
-    # Save outputs using the same directory structure as before.
-    if summary.preds_log_eval is not None and df_eval is not None:
-        eval_data_dir = data_root / "eval"
-        eval_data_dir.mkdir(parents=True, exist_ok=True)
-        summary.preds_log_eval.to_csv(eval_data_dir / "predictions_log.csv", index=False)
-
-        assert summary.preds_linear_eval is not None
-        assert summary.metrics_log_eval is not None
-        assert summary.metrics_linear_eval is not None
-        logger.info("Writing evaluation predictions and metrics to %s", eval_data_dir)
-        summary.preds_linear_eval.to_csv(eval_data_dir / "predictions_linear.csv", index=False)
-        summary.metrics_log_eval.to_csv(eval_data_dir / "metrics_log.csv", index=False)
-        summary.metrics_linear_eval.to_csv(eval_data_dir / "metrics_linear.csv", index=False)
-
-        plot_labeled_eval_outputs(
-            df_eval=df_eval,
-            preds_log_df=summary.preds_log_eval,
-            preds_linear_df=summary.preds_linear_eval,
-            metrics_log_df=summary.metrics_log_eval,
-            metrics_linear_df=summary.metrics_linear_eval,
-            figures_dir=figures_root / "eval",
+    if summary.preds_log_blind is not None:
+        blind_data_dir = data_root / "blind"
+        blind_data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Writing blind predictions to %s", blind_data_dir)
+        summary.preds_log_blind.to_csv(blind_data_dir / "predictions_log.csv", index=False)
+        assert summary.preds_linear_blind is not None
+        summary.preds_linear_blind.to_csv(blind_data_dir / "predictions_linear.csv", index=False)
+        plot_blind_distributions(
+            preds_log_df=summary.preds_log_blind,
+            preds_linear_df=summary.preds_linear_blind,
+            figures_dir=figures_root / "blind",
             dpi=600,
-            n_jobs=n_jobs,
         )
 
     if summary.train_split_evaluations:
@@ -185,18 +175,29 @@ def ensemble_eval(
                 parity_split=split_name if split_name in {"train", "validation", "test"} else "validation",
             )
 
-    if summary.preds_log_blind is not None:
-        blind_data_dir = data_root / "blind"
-        blind_data_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Writing blind predictions to %s", blind_data_dir)
-        summary.preds_log_blind.to_csv(blind_data_dir / "predictions_log.csv", index=False)
-        assert summary.preds_linear_blind is not None
-        summary.preds_linear_blind.to_csv(blind_data_dir / "predictions_linear.csv", index=False)
-        plot_blind_distributions(
-            preds_log_df=summary.preds_log_blind,
-            preds_linear_df=summary.preds_linear_blind,
-            figures_dir=figures_root / "blind",
+    # Save outputs using the same directory structure as before.
+    if summary.preds_log_eval is not None and df_eval is not None:
+        eval_data_dir = data_root / "eval"
+        eval_data_dir.mkdir(parents=True, exist_ok=True)
+        summary.preds_log_eval.to_csv(eval_data_dir / "predictions_log.csv", index=False)
+
+        assert summary.preds_linear_eval is not None
+        assert summary.metrics_log_eval is not None
+        assert summary.metrics_linear_eval is not None
+        logger.info("Writing evaluation predictions and metrics to %s", eval_data_dir)
+        summary.preds_linear_eval.to_csv(eval_data_dir / "predictions_linear.csv", index=False)
+        summary.metrics_log_eval.to_csv(eval_data_dir / "metrics_log.csv", index=False)
+        summary.metrics_linear_eval.to_csv(eval_data_dir / "metrics_linear.csv", index=False)
+
+        plot_labeled_eval_outputs(
+            df_eval=df_eval,
+            preds_log_df=summary.preds_log_eval,
+            preds_linear_df=summary.preds_linear_eval,
+            metrics_log_df=summary.metrics_log_eval,
+            metrics_linear_df=summary.metrics_linear_eval,
+            figures_dir=figures_root / "eval",
             dpi=600,
+            n_jobs=n_jobs,
         )
 
     logger.info("Ensemble evaluation complete. Outputs written to %s", output_dir)

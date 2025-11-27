@@ -23,11 +23,16 @@
 #   - Logs stream directly from the admet CLI; consider redirecting stdout/stderr if desired.
 
 set -euo pipefail
-echo "Starting XGB ensemble runs for high, medium, and low quality datasets..."
 
 MODEL_NAME="xgb"
+QUALITIES=(
+  #   "high_quality"
+  "medium_quality"
+  "low_quality"
+)
 
-for quality in high_quality medium_quality low_quality; do
+echo "Starting ${MODEL_NAME} ensemble for ${#QUALITIES[@]}} quality tiers."
+for quality in "${QUALITIES[@]}"; do
   CONFIG_ROOT="configs/${quality}"
   [[ -d "${CONFIG_ROOT}" ]] || {
     echo "[${quality}] Config root missing, skipping"
