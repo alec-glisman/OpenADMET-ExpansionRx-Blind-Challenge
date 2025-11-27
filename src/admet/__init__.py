@@ -1,15 +1,17 @@
-"""Top-level admet package.
+"""
+ADMET Prediction Package
+========================
 
-This module implements a lazy-importing façade: heavy submodules (RDKit,
-seaborn, etc.) live under ``admet.data`` and ``admet.visualize``. Accessing
-helpers from ``admet`` will import the respective submodule on first use,
-keeping ``import admet`` fast.
+This package provides tools for training and evaluating machine learning models
+for ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) property prediction.
 
-Public API names are listed in ``__all__`` and resolved lazily via
-``__getattr__`` (PEP 562).
+.. module:: admet
+
 """
 
 from __future__ import annotations
+
+__version__ = "0.0.1"
 
 import importlib
 from typing import Any, Dict, List
@@ -23,13 +25,26 @@ _LAZY_MAP: Dict[str, tuple[str, str]] = {
     # dataset/constants (under admet.data.constants)
     "COLS_WITH_UNITS": ("admet.data.constants", "COLS_WITH_UNITS"),
     "TRANSFORMATIONS": ("admet.data.constants", "TRANSFORMATIONS"),
-    "cols_with_units": ("admet.data.constants", "cols_with_units"),
-    "transformations": ("admet.data.constants", "transformations"),
+    # data loading
+    "LoadedDataset": ("admet.data.load", "LoadedDataset"),
+    "load_dataset": ("admet.data.load", "load_dataset"),
+    "load_blinded_dataset": ("admet.data.load", "load_blinded_dataset"),
     # plotting utilities (under admet.visualize.plots)
     "calc_stats": ("admet.visualize.plots", "calc_stats"),
     "plot_numeric_distributions": ("admet.visualize.plots", "plot_numeric_distributions"),
     "plot_correlation_matrix": ("admet.visualize.plots", "plot_correlation_matrix"),
     "plot_property_distributions": ("admet.visualize.plots", "plot_property_distributions"),
+    # training
+    "BaseModelTrainer": ("admet.train.base", "BaseModelTrainer"),
+    "XGBoostTrainer": ("admet.train.xgb_train", "XGBoostTrainer"),
+    "train_model": ("admet.train.base", "train_model"),
+    "train_ensemble": ("admet.train.base", "train_ensemble"),
+    # models
+    "BaseModel": ("admet.model.base", "BaseModel"),
+    "XGBoostMultiEndpoint": ("admet.model.xgb_wrapper", "XGBoostMultiEndpoint"),
+    # evaluate
+    "compute_metrics_log_and_linear": ("admet.evaluate.metrics", "compute_metrics_log_and_linear"),
+    "AllMetrics": ("admet.evaluate.metrics", "AllMetrics"),
 }
 
 

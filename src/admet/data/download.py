@@ -3,17 +3,20 @@
 Small helper to download a Hugging Face dataset and save split(s) to CSV.
 """
 
-from typing import Optional, Union
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Optional, Union
 
-import pandas as pd
-import polaris as po
-from tqdm import tqdm
-from tdc.benchmark_group import admet_group
+import pandas as pd  # type: ignore[import-not-found]
+
+try:
+    import polaris as po
+except (ImportError, AttributeError):
+    po = None  # type: ignore
+from tdc.benchmark_group import admet_group  # type: ignore[import-not-found]
+from tqdm import tqdm  # type: ignore[import-not-found]
 
 from admet.data.constants import DATASETS, DEFAULT_DATASET_DIR
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +31,9 @@ def download_hf_dataset_to_csv(
         dataset_uri (Union[str, Path]): The URI of the Hugging Face dataset.
         output_file (Union[str, Path]): The path to the output CSV file.
     """
-    logger.debug(f"Loading dataset from {dataset_uri}...")
+    logger.debug("Loading dataset from %s...", dataset_uri)
     df = pd.read_csv(dataset_uri)
-    logger.info(f"Saving dataset to {output_file}...")
+    logger.info("Saving dataset to %s...", output_file)
     df.to_csv(output_file, index=False)
     logger.debug("Download and save complete.")
 
@@ -46,12 +49,14 @@ def download_polaris_dataset_to_csv(
             (e.g., 'asap-discovery/antiviral-admet-2025-unblinded').
         output_file (Union[str, Path]): The path to the output CSV file.
     """
-    logger.debug(f"Loading Polaris dataset: {dataset_uri}...")
+    logger.debug("Loading Polaris dataset: %s...", dataset_uri)
     dataset = po.load_dataset(str(dataset_uri))
-    logger.info(f"Dataset loaded with size {dataset.size()}")
-    print(f"Dataset loaded with size {dataset.size()}")
+    logger.info("Dataset loaded with size %s", dataset.size())
 
     logger.info("Converting Polaris dataset to DataFrame...")
+
+    if po is None:
+        raise ImportError("polaris is not installed: cannot download polaris datasets.")
 
     # Convert Polaris dataset to pandas DataFrame with tqdm progress bar
     data = []
@@ -60,13 +65,13 @@ def download_polaris_dataset_to_csv(
         data.append(row)
     df = pd.DataFrame(data)
 
-    logger.info(f"Saving dataset to {output_file}...")
+    logger.info("Saving dataset to %s...", output_file)
     df.to_csv(output_file, index=False)
     logger.debug("Download and save complete.")
 
 
 def download_tdc_dataset_to_csv(
-    dataset_uri: str,
+    dataset_uri: Union[str, Path],
     output_file: Union[str, Path],
 ) -> None:
     """Download a TDC ADMET_Group dataset and save it to a CSV file.
@@ -75,21 +80,19 @@ def download_tdc_dataset_to_csv(
         dataset_uri (str): TDC benchmark name (e.g., 'Caco2_Wang').
         output_file (Union[str, Path]): The path to the output CSV file.
     """
-    logger.debug(f"Loading TDC benchmark: {dataset_uri}...")
+    logger.debug("Loading TDC benchmark: %s...", dataset_uri)
     group = admet_group(path="/tmp/tdc_download/")
-    benchmark = group.get(dataset_uri)
+    benchmark = group.get(str(dataset_uri))
     name = benchmark["name"]
     train_val, test = benchmark["train_val"], benchmark["test"]
 
-    logger.info(f"Converting TDC benchmark '{name}' to DataFrame...")
+    logger.info("Converting TDC benchmark '%s' to DataFrame...", name)
     # Concatenate train/val and test splits
-    import pandas as pd
-
     df = pd.concat([pd.DataFrame(train_val), pd.DataFrame(test)], ignore_index=True)
     # tqdm progress bar for demonstration (not needed for concat, but for row-wise ops)
     # for _ in tqdm(df.iterrows(), total=len(df), desc="Converting rows", unit="row"):
     #     pass
-    logger.info(f"Saving dataset to {output_file}...")
+    logger.info("Saving dataset to %s...", output_file)
     df.to_csv(output_file, index=False)
     logger.debug("Download and save complete.")
 
@@ -160,7 +163,7 @@ class Downloader:
             output_file = dataset_info.get("output_file")
 
             if dataset_type and dataset_uri and output_file:
-                self.logger.info(f"Downloading dataset: {dataset_name}")
+                self.logger.info("Downloading dataset: %s", dataset_name)
                 output_file_path = output_dir / Path(str(output_file))
                 self.download(dataset_type, dataset_uri, output_file_path)
             else:

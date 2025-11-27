@@ -1,0 +1,122 @@
+/* Custom Sphinx styling - Merck-inspired professional palette */
+
+:root {
+    --primary: #005EB8;
+    /* strong blue */
+    --accent: #00A0A9;
+    /* teal accent */
+    --muted: #4C4C4C;
+    /* text gray */
+    --bg: #ffffff;
+}
+
+/* Body text adjustments */
+body {
+    color: var(--muted);
+    background: var(--bg);
+}
+
+/* Slight header background gradient */
+.top-banner,
+.hero,
+header {
+    background: linear-gradient(180deg, #f7f9fb, #ffffff);
+}
+
+.rst-content .admonition-title {
+    color: var(--primary);
+}
+
+/* Top banner (injected via template) */
+.release-banner {
+    background: var(--primary);
+    color: white;
+    padding: 0.45rem 0.8rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Logo sizing */
+.logo img {
+    max-height: 44px;
+    display: block;
+}
+
+/* Navigation/link colors (broad selectors to work across themes) */
+a,
+.reference.internal,
+.reference.external {
+    color: var(--primary);
+}
+
+a:visited {
+    color: var(--accent);
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Code block readability */
+.highlight pre {
+    line-height: 1.38;
+    font-size: 0.95rem;
+}
+
+/* Table styles */
+.docutils table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.docutils th,
+.docutils td {
+    border: 1px solid #e6e9ec;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Generic search/input tweak */
+input[type="search"],
+input[type="text"],
+.searchbox input[type="text"] {
+    border: 1px solid #e1e6ef;
+}
+
+/* Buttons and links (keep branding) */
+.btn,
+.button,
+.reference.internal,
+.reference.external {
+    color: var(--primary);
+}
+
+/* Footer adjustments */
+.footer {
+    color: #6b6f73;
+}
+
+
+/* tab styling adjustments (sphinx-tabs uses .tabset and .tab classes) */
+.tab-set,
+.tabs {
+    margin-top: 1rem;
+}
+
+.tab {
+    padding: 0.5rem;
+}
+
+
+/* badges + link-button adjustments */
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.5em;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.badge-primary {
+    background: var(--primary);
+    color: white;
+}

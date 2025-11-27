@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="64" viewBox="0 0 280 64" role="img" aria-label="OpenADMET logo">
+  <rect width="280" height="64" fill="#ffffff" rx="6"/>
+  <g transform="translate(12,8)">
+    <rect width="56" height="48" rx="6" fill="#005EB8" />
+    <text x="82" y="30" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#005EB8" font-weight="700">OpenADMET</text>
+    <text x="82" y="48" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#6b6f73">ExpansionRx Challenge</text>
+  </g>
+</svg>

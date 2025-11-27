@@ -60,6 +60,14 @@ isort .
 flake8
 ```
 
+### Documentation Standard
+
+All Python modules now follow a unified style:
+
+- Module headers: RST sections listing purpose, key components, examples.
+- Functions / classes: NumPy‑style docstrings with Parameters / Returns / Raises sections (and Notes / Examples where helpful).
+- Shape and schema conventions explicitly documented for data loading, model interfaces, splitting logic, and visualization utilities.
+
 ## Data and artifacts
 
 Handling datasets and model artifacts is the most sensitive part of an ML repository. Follow these rules:

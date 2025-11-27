@@ -1,0 +1,26 @@
+# Parent directory containing many XGBoost runs produced by admet train xgb
+models_root: assets/models/xgb/ensemble/medium_quality/kmeans_cluster
+
+# Output directory for ensemble predictions, metrics and plots
+output_dir: assets/models/xgb/ensemble/medium_quality/kmeans_cluster/analysis
+
+# Optional: path to the HF training splits used for these models
+train_data_root: assets/dataset/splits/v2/medium_quality/kmeans_cluster
+
+# Labeled evaluation set (for metrics + plots); set to null if not used
+eval_csv: assets/dataset/eda/v2/data/set/cleaned_combined_datasets_medium_quality.csv
+
+# Blind set (for predictions only); set to null if not used
+blind_csv: assets/dataset/test/expansion_data_test_blinded.csv
+
+# How to aggregate predictions across models: mean or median
+agg_fn: mean
+
+# Parallelism for model inference and plotting
+n_jobs: 12
+
+fingerprint:
+  radius: 2
+  n_bits: 1024
+  use_counts: true
+  include_chirality: false
