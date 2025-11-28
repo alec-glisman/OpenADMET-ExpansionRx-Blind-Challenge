@@ -37,6 +37,7 @@ cache
 assets
 models
 mlruns
+old
 *.db
 *.log
 *.out
@@ -44,3 +45,6 @@ mlruns
 *.csv
 *.npz
 *.parquet
+
+# keep raw data tracked
+!/data/*
