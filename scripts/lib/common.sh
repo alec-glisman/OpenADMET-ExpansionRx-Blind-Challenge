@@ -291,17 +291,48 @@ execute_command() {
     local cmd="$1"
     local dry_run="${2:-false}"
     local description="${3:-command}"
+    local custom_log_file="${4:-}"
+
+    # Determine log file:
+    # Priority: custom argument > LOG_FILE env var > default to assets/logs/{datetime}_chemprop_ensemble.log
+    local log_file
+    if [[ -n "$custom_log_file" ]]; then
+        log_file="$custom_log_file"
+    elif [[ -n "${LOG_FILE:-}" ]]; then
+        log_file="${LOG_FILE}"
+    else
+        local logs_dir="assets/logs"
+        mkdir -p "$logs_dir"
+        local ts
+        ts=$(date +%Y%m%d_%H%M%S)
+        log_file="${logs_dir}/${ts}_chemprop_ensemble.log"
+    fi
 
     log_cmd "$cmd"
+    log_info "Logging to: $log_file"
+
+    # Ensure we can write to the log file
+    if ! touch "$log_file" 2>/dev/null; then
+        log_error "Cannot write to log file: $log_file"
+        return 1
+    fi
 
     if [[ "$dry_run" == "true" ]]; then
         log_info "[DRY RUN] Would execute: $description"
+        printf '[%s] [DRY RUN] Would execute: %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" | tee -a "$log_file" >/dev/null
         return 0
     fi
 
-    if eval "$cmd"; then
-        return 0
-    else
-        return 1
-    fi
+    # Header for command execution
+    printf '[%s] === START: %s ===\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" | tee -a "$log_file"
+
+    # Execute the command and pipe both stdout and stderr to the log file while still showing it on console.
+    # Capture the exit code of the evaluated command via PIPESTATUS.
+    eval "$cmd" 2>&1 | tee -a "$log_file"
+    local rc="${PIPESTATUS[0]}"
+
+    # Footer with exit code
+    printf '[%s] === END: %s (exit %d) ===\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" "$rc" | tee -a "$log_file"
+
+    return "$rc"
 }
