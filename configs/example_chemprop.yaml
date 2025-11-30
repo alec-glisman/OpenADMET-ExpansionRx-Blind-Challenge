@@ -1,0 +1,106 @@
+# Example ChempropModel Configuration
+# ====================================
+# This YAML file demonstrates the full configuration structure for training
+# a Chemprop MPNN model. Load it with OmegaConf and pass to ChempropModel.from_config()
+#
+# Usage:
+#   from omegaconf import OmegaConf
+#   from admet.model.chemprop.config import ChempropConfig
+#   from admet.model.chemprop.model import ChempropModel
+#
+#   config = OmegaConf.merge(
+#       OmegaConf.structured(ChempropConfig),
+#       OmegaConf.load("config/example_chemprop.yaml")
+#   )
+#   model = ChempropModel.from_config(config)
+#   model.fit()
+
+# Data configuration
+data:
+  # Directory containing train.csv and validation.csv (required)
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
+  # Optional test and blind files
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+
+  # Output directory (null for temp directory)
+  output_dir: null
+
+  # Column configuration
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+  # Per-task loss weights (optional, defaults to 1.0 for each)
+  target_weights:
+    - 1.0
+    - 2.0
+    - 3.0
+    - 3.0
+    - 3.0
+    - 2.0
+    - 2.0
+    - 3.0
+    - 4.0
+
+# Model architecture configuration
+model:
+  # Message passing network
+  depth: 5 # Number of message passing iterations
+  message_hidden_dim: 600 # Hidden dimension for message passing
+
+  # Feed-forward network
+  num_layers: 2 # Number of FFN layers
+  hidden_dim: 600 # FFN hidden dimension
+  dropout: 0.1 # Dropout probability
+  batch_norm: true # Use batch normalization in MPNN
+
+  # FFN type: 'regression', 'mixture_of_experts', 'branched'
+  ffn_type: "regression"
+
+  # Branched FFN settings (used when ffn_type='branched')
+  trunk_n_layers: 2
+  trunk_hidden_dim: 600
+
+  # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
+  n_experts: 4
+
+# Optimization configuration
+optimization:
+  # Loss function: "MAE", "MSE", "RMSE", "BCE", "CrossEntropy", etc.
+  criterion: "MSE"
+
+  # Learning rate schedule (OneCycleLR)
+  init_lr: 1.0e-4 # Initial learning rate
+  max_lr: 1.0e-3 # Peak learning rate
+  final_lr: 1.0e-4 # Final learning rate
+
+  # Training epochs
+  warmup_epochs: 5 # Warmup epochs
+  max_epochs: 150 # Maximum training epochs
+  patience: 15 # Early stopping patience
+
+  # Batch settings
+  batch_size: 32
+  num_workers: 0
+
+  # Reproducibility
+  seed: 12345
+
+  # Display
+  progress_bar: true
+
+# MLflow experiment tracking configuration
+mlflow:
+  tracking: true
+  tracking_uri: "http://127.0.0.1:8080"
+  experiment_name: "example_chemprop"
+  run_name: null # Auto-generated if null

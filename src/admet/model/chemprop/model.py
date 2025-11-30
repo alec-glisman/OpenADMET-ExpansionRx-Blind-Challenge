@@ -39,7 +39,7 @@ import warnings
 from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import mlflow
 import mlflow.data
@@ -47,6 +47,7 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.tracking.fluent import ActiveRun
 import numpy as np
+from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 import torch
 from chemprop import data, featurizers, models, nn
@@ -57,6 +58,13 @@ from lightning.pytorch.loggers import MLFlowLogger
 from matplotlib import pyplot as plt
 
 from admet.data.stats import correlation, distribution
+from admet.model.chemprop.config import (
+    ChempropConfig,
+    DataConfig,
+    MlflowConfig,
+    ModelConfig,
+    OptimizationConfig,
+)
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
@@ -493,6 +501,7 @@ class ChempropModel:
             "train": df_train,
             "validation": df_validation,
             "test": df_test,
+            "blind": None,  # Populated via from_config or directly
         }
         self.dataloaders: Dict[str, Any] = {
             "train": None,
@@ -505,6 +514,175 @@ class ChempropModel:
         self._prepare_dataloaders()
         self._prepare_model()
         self._prepare_trainer()
+
+    @classmethod
+    def from_config(
+        cls,
+        config: Union[ChempropConfig, DictConfig],
+        df_train: Optional[pd.DataFrame] = None,
+        df_validation: Optional[pd.DataFrame] = None,
+        df_test: Optional[pd.DataFrame] = None,
+        df_blind: Optional[pd.DataFrame] = None,
+    ) -> "ChempropModel":
+        """
+        Create a ChempropModel from an OmegaConf configuration.
+
+        This factory method allows creating a model from a YAML configuration
+        file, enabling reproducible and configurable experiments.
+
+        Parameters
+        ----------
+        config : ChempropConfig or DictConfig
+            Configuration object containing data, model, optimization,
+            and MLflow settings. Can be created from a YAML file using
+            ``OmegaConf.load()`` and ``OmegaConf.merge()``.
+        df_train : pandas.DataFrame, optional
+            Pre-loaded training dataframe. If None, will be loaded from
+            ``config.data.train_file``.
+        df_validation : pandas.DataFrame, optional
+            Pre-loaded validation dataframe. If None and
+            ``config.data.validation_file`` is set, will be loaded from file.
+        df_test : pandas.DataFrame, optional
+            Pre-loaded test dataframe. If None and ``config.data.test_file``
+            is set, will be loaded from file.
+        df_blind : pandas.DataFrame, optional
+            Pre-loaded blind test dataframe. Stored as an attribute but not
+            used during training.
+
+        Returns
+        -------
+        ChempropModel
+            Initialized model ready for training.
+
+        Examples
+        --------
+        >>> from omegaconf import OmegaConf
+        >>> config = OmegaConf.merge(
+        ...     OmegaConf.structured(ChempropConfig),
+        ...     OmegaConf.load("experiment.yaml")
+        ... )
+        >>> model = ChempropModel.from_config(config)
+        >>> model.fit()
+        """
+        # Load dataframes if not provided
+        data_dir = Path(config.data.data_dir)
+        if df_train is None:
+            df_train = pd.read_csv(data_dir / "train.csv", low_memory=False)
+
+        if df_validation is None:
+            df_validation = pd.read_csv(data_dir / "validation.csv", low_memory=False)
+
+        if df_test is None and config.data.test_file is not None:
+            df_test = pd.read_csv(config.data.test_file, low_memory=False)
+
+        if df_blind is None and config.data.blind_file is not None:
+            df_blind = pd.read_csv(config.data.blind_file, low_memory=False)
+
+        # Build hyperparams from config
+        hyperparams = ChempropHyperparams(
+            # Optimization
+            init_lr=config.optimization.init_lr,
+            max_lr=config.optimization.max_lr,
+            final_lr=config.optimization.final_lr,
+            warmup_epochs=config.optimization.warmup_epochs,
+            patience=config.optimization.patience,
+            max_epochs=config.optimization.max_epochs,
+            batch_size=config.optimization.batch_size,
+            num_workers=config.optimization.num_workers,
+            seed=config.optimization.seed,
+            criterion=config.optimization.criterion,
+            # Model architecture
+            depth=config.model.depth,
+            message_hidden_dim=config.model.message_hidden_dim,
+            dropout=config.model.dropout,
+            num_layers=config.model.num_layers,
+            hidden_dim=config.model.hidden_dim,
+            batch_norm=config.model.batch_norm,
+            ffn_type=config.model.ffn_type,
+            trunk_n_layers=config.model.trunk_n_layers,
+            trunk_hidden_dim=config.model.trunk_hidden_dim,
+            n_experts=config.model.n_experts,
+        )
+
+        # Determine output directory
+        output_dir = Path(config.data.output_dir) if config.data.output_dir else None
+
+        # Create model instance
+        model = cls(
+            df_train=df_train,
+            df_validation=df_validation,
+            df_test=df_test,
+            smiles_col=config.data.smiles_col,
+            target_cols=list(config.data.target_cols),
+            target_weights=list(config.data.target_weights) if config.data.target_weights else [],
+            output_dir=output_dir,
+            progress_bar=config.optimization.progress_bar,
+            hyperparams=hyperparams,
+            mlflow_tracking=config.mlflow.tracking,
+            mlflow_tracking_uri=config.mlflow.tracking_uri,
+            mlflow_experiment_name=config.mlflow.experiment_name,
+            mlflow_run_name=config.mlflow.run_name,
+        )
+
+        # Store blind dataframe for later prediction
+        model.dataframes["blind"] = df_blind
+
+        return model
+
+    def to_config(self) -> ChempropConfig:
+        """
+        Export current model configuration to a ChempropConfig object.
+
+        Returns
+        -------
+        ChempropConfig
+            Configuration object that can be saved to YAML using OmegaConf.
+
+        Examples
+        --------
+        >>> config = model.to_config()
+        >>> OmegaConf.save(config, "experiment_config.yaml")
+        """
+        return ChempropConfig(
+            data=DataConfig(
+                data_dir="",  # Not available after loading
+                smiles_col=self.smiles_col,
+                target_cols=list(self.target_cols),
+                target_weights=list(self.target_weights),
+                output_dir=str(self.output_dir) if self.output_dir else None,
+            ),
+            model=ModelConfig(
+                depth=self.hyperparams.depth,
+                message_hidden_dim=self.hyperparams.message_hidden_dim,
+                dropout=self.hyperparams.dropout,
+                num_layers=self.hyperparams.num_layers,
+                hidden_dim=self.hyperparams.hidden_dim,
+                batch_norm=self.hyperparams.batch_norm,
+                ffn_type=self.hyperparams.ffn_type,
+                trunk_n_layers=self.hyperparams.trunk_n_layers,
+                trunk_hidden_dim=self.hyperparams.trunk_hidden_dim,
+                n_experts=self.hyperparams.n_experts,
+            ),
+            optimization=OptimizationConfig(
+                criterion=self.hyperparams.criterion,
+                init_lr=self.hyperparams.init_lr,
+                max_lr=self.hyperparams.max_lr,
+                final_lr=self.hyperparams.final_lr,
+                warmup_epochs=self.hyperparams.warmup_epochs,
+                patience=self.hyperparams.patience,
+                max_epochs=self.hyperparams.max_epochs,
+                batch_size=self.hyperparams.batch_size,
+                num_workers=self.hyperparams.num_workers,
+                seed=self.hyperparams.seed,
+                progress_bar=self.progress_bar,
+            ),
+            mlflow=MlflowConfig(
+                tracking=self.mlflow_tracking,
+                tracking_uri=self.mlflow_tracking_uri,
+                experiment_name=self.mlflow_experiment_name,
+                run_name=self.mlflow_run_name,
+            ),
+        )
 
     def _prepare_dataloaders(self) -> None:
         """
@@ -1401,116 +1579,125 @@ class ChempropModel:
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def example_usage():
+def train_from_config(config_path: str, log_level: str = "INFO") -> None:
     """
-    Demonstrate example usage of ChempropModel.
+    Train a ChempropModel from a YAML configuration file.
 
-    Loads train/val/test CSVs, creates a model, trains it,
-    and generates predictions. This function serves as a
-    template for using the ChempropModel class.
+    This function loads the configuration from a YAML file, creates a model,
+    trains it, and generates predictions for test and blind datasets if specified.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the YAML configuration file.
+    log_level : str, default="INFO"
+        Logging level. Options: "DEBUG", "INFO", "WARNING", "ERROR".
+
+    Examples
+    --------
+    >>> train_from_config("configs/example_chemprop.yaml")
+    >>> train_from_config("configs/experiment.yaml", log_level="DEBUG")
     """
-    # Example usage of ChempropModel
-    output_dir = None
-    base_path = (
-        "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
-    )
-    test_file = "assets/dataset/set/local_test.csv"
-    blind_file = "assets/dataset/set/blind_test.csv"
-
-    df_train = pd.read_csv(f"{base_path}/train.csv", low_memory=False)
-    df_validation = pd.read_csv(f"{base_path}/validation.csv", low_memory=False)
-    df_test = pd.read_csv(
-        test_file,
-        low_memory=False,
-    )
-    df_blind = pd.read_csv(
-        blind_file,
-        low_memory=False,
+    # Configure logging
+    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+    logger.setLevel(numeric_level)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    smiles_col = "SMILES"
-    target_cols = [
-        "LogD",
-        "Log KSOL",
-        "Log HLM CLint",
-        "Log MLM CLint",
-        "Log Caco-2 Permeability Papp A>B",
-        "Log Caco-2 Permeability Efflux",
-        "Log MPPB",
-        "Log MBPB",
-        "Log MGMB",
-    ]
-    target_weights = [
-        1.0,
-        1.0,
-        1.0,
-        1.0,
-        1.0,
-        1.0,
-        1.0,
-        1.0,
-        1.0,
-    ]
-    hyperparams = ChempropHyperparams(
-        # Optimization
-        init_lr=1.0e-4,
-        max_lr=1.0e-3,
-        final_lr=1.0e-4,
-        warmup_epochs=5,
-        patience=15,
-        max_epochs=150,
-        batch_size=32,
-        num_workers=0,
-        seed=12345,
-        # Message passing
-        depth=5,
-        message_hidden_dim=600,
-        # Feed forward
-        dropout=0.1,
-        num_layers=2,
-        hidden_dim=600,
-        criterion="MSE",
-        ffn_type="regression",  # options: 'regression', 'mixture_of_experts', 'branched'
-        # Branched FFN
-        trunk_n_layers=2,
-        trunk_hidden_dim=600,
-        # Mixture of Experts FFN
-        n_experts=4,
-        # MPNN
-        batch_norm=True,
+    logger.info("Loading configuration from: %s", config_path)
+
+    # Load configuration from YAML
+    config = OmegaConf.merge(
+        OmegaConf.structured(ChempropConfig),
+        OmegaConf.load(config_path),
     )
 
-    progress_bar = True
-    mlflow_tracking = True
-    mlflow_tracking_uri = "http://127.0.0.1:8080"
-    mlflow_experiment_name = "example_chemprop"
+    # Log the configuration
+    logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
 
-    logger_level = logging.INFO
-    logger.setLevel(logger_level)
-    logger.debug("Logger level set to %s", logging.getLevelName(logger_level))
+    # Create model from config
+    logger.info("Creating model from configuration...")
+    model = ChempropModel.from_config(config)
 
-    model = ChempropModel(
-        df_train=df_train,
-        df_validation=df_validation,
-        df_test=df_test,
-        smiles_col=smiles_col,
-        target_cols=target_cols,
-        target_weights=target_weights,
-        output_dir=output_dir,
-        progress_bar=progress_bar,
-        hyperparams=hyperparams,
-        mlflow_tracking=mlflow_tracking,
-        mlflow_tracking_uri=mlflow_tracking_uri,
-        mlflow_experiment_name=mlflow_experiment_name,
-    )
-
+    # Train the model
+    logger.info("Starting training...")
     model.fit()
-    predictions_labelled = model.predict(df_test, generate_plots=True, split_name="test")
-    predictions_unlabelled = model.predict(df_blind, generate_plots=False, split_name="blind")
+
+    # Generate predictions for test set if available
+    if model.dataframes["test"] is not None:
+        logger.info("Generating predictions for test set...")
+        _ = model.predict(
+            model.dataframes["test"],
+            generate_plots=True,
+            split_name="test",
+        )
+
+    # Generate predictions for blind set if available
+    if model.dataframes["blind"] is not None:
+        logger.info("Generating predictions for blind set...")
+        _ = model.predict(
+            model.dataframes["blind"],
+            generate_plots=False,
+            split_name="blind",
+        )
+
+    # Export config for reproducibility
+    exported_config = model.to_config()
+    logger.info("Exported config:\n%s", OmegaConf.to_yaml(OmegaConf.structured(exported_config)))
 
     # Close the MLflow run when done
     model.close()
+    logger.info("Training complete!")
+
+
+def main() -> None:
+    """
+    CLI entrypoint for training a ChempropModel from a YAML configuration.
+
+    Usage
+    -----
+    python -m admet.model.chemprop.model --config configs/example_chemprop.yaml
+    python -m admet.model.chemprop.model -c configs/experiment.yaml --log-level DEBUG
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Train a Chemprop MPNN model from a YAML configuration file.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m admet.model.chemprop.model --config configs/example_chemprop.yaml
+  python -m admet.model.chemprop.model -c configs/experiment.yaml --log-level DEBUG
+
+Configuration file format:
+  See configs/example_chemprop.yaml for a complete example.
+  The configuration has four sections:
+    - data: File paths and column specifications
+    - model: Neural network architecture settings
+    - optimization: Training hyperparameters
+    - mlflow: Experiment tracking settings
+        """,
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        required=True,
+        help="Path to YAML configuration file",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)",
+    )
+
+    args = parser.parse_args()
+    train_from_config(args.config, args.log_level)
 
 
 if __name__ == "__main__":
-    example_usage()
+    main()
