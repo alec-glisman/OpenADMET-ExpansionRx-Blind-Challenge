@@ -30,7 +30,7 @@ import torch
 
 from chemprop.features.featurization import featurize_smiles
 
-from quality_curriculum_ml.chemprop.model import ChempropLightning
+from admet.model.chemprop.model import ChempropLightning
 
 
 def load_configs(model_type: str):

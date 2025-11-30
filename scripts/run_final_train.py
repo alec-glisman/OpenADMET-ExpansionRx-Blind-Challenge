@@ -10,26 +10,26 @@ from omegaconf import OmegaConf
 import mlflow
 from mlflow import log_metric, log_params, set_tags
 
-from quality_curriculum_ml.classical.data import (
+from admet.model.classical.data import (
     augment_quality as augment_quality_classical,
     get_xyw,
 )
-from quality_curriculum_ml.classical.models import (
+from admet.model.classical.models import (
     build_model,
     fit_model,
     predict_model,
 )
-from quality_curriculum_ml.classical.metrics import (
+from admet.model.classical.metrics import (
     build_metric_dict as build_metric_dict_classical,
 )
 
-from quality_curriculum_ml.chemprop.data import (
+from admet.model.chemprop.data import (
     augment_quality as augment_quality_chem,
     MolDataset,
     collate_mol_batch,
 )
-from quality_curriculum_ml.chemprop.model import ChempropLightning
-from quality_curriculum_ml.chemprop.curriculum import CurriculumState, CurriculumCallback
+from admet.model.chemprop.model import ChempropLightning
+from admet.model.chemprop.curriculum import CurriculumState, CurriculumCallback
 
 import torch
 import pytorch_lightning as pl

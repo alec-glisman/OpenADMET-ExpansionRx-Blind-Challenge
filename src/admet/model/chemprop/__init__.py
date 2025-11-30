@@ -1,3 +1,3 @@
-from . import data, curriculum, ffn, model, tune_trainable
+from . import curriculum, ffn, model
 
-__all__ = ["data", "curriculum", "ffn", "model", "tune_trainable"]
+__all__ = ["curriculum", "ffn", "model"]

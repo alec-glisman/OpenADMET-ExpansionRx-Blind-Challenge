@@ -6,8 +6,8 @@ from ray import tune
 from ray.air import RunConfig
 from ray.tune.schedulers import ASHAScheduler
 
-from quality_curriculum_ml.classical.data import load_data
-from quality_curriculum_ml.classical.tune_trainable import tune_trainable
+from admet.model.classical.data import load_data
+from admet.model.classical.tune_trainable import tune_trainable
 
 
 def main():
