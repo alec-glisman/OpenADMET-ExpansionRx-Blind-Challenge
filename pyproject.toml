@@ -2,8 +2,27 @@
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
-
 [project]
+name = "openadmet-challenge"
+authors = [{ name = "Alec Glisman" }]
+dynamic = ["version"]
+description = "Tools and experiments for the OpenADMET challenge"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Science/Research",
+]
+keywords = [
+    "ADMET",
+    "cheminformatics",
+    "machine learning",
+    "deep learning",
+    "drug discovery",
+]
+requires-python = ">=3.11,<3.12"
 dependencies = [
     # data science
     "numpy>=1.23,<2",
@@ -59,27 +78,8 @@ dependencies = [
     # marimo
     "marimo",
     "altair",
-]name = "openadmet-challenge"
-authors = [{ name = "Alec Glisman" }]
-dynamic = ["version"]
-description = "Tools and experiments for the OpenADMET challenge"
-readme = "README.md"
-classifiers = [
-    "Programming Language :: Python :: 3.11",
-    "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Chemistry",
-    "Topic :: Scientific/Engineering :: Information Analysis",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Intended Audience :: Science/Research",
 ]
-keywords = [
-    "ADMET",
-    "cheminformatics",
-    "machine learning",
-    "deep learning",
-    "drug discovery",
-]
-requires-python = ">=3.11,<3.12"
+
 
 [project.optional-dependencies]
 dev = [

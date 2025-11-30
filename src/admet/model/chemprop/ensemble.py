@@ -720,11 +720,11 @@ class ChempropEnsemble:
         metrics_by_type: Dict[str, Dict[str, List[float]]] = {
             "MAE": {},
             "RMSE": {},
-            "R²": {},
+            r"$R^2$": {},
             "RAE": {},
-            "Spearman ρ": {},
-            "Pearson r": {},
-            "Kendall τ": {},
+            r"Spearman $\rho$": {},
+            r"Pearson $r$": {},
+            r"Kendall $\tau$": {},
         }
 
         for target in target_cols:
@@ -769,11 +769,11 @@ class ChempropEnsemble:
 
                 metrics_by_type["MAE"][target].append(mae)
                 metrics_by_type["RMSE"][target].append(rmse)
-                metrics_by_type["R²"][target].append(r2)
+                metrics_by_type[r"$R^2$"][target].append(r2)
                 metrics_by_type["RAE"][target].append(rae)
-                metrics_by_type["Spearman ρ"][target].append(spearman_rho)
-                metrics_by_type["Pearson r"][target].append(pearson_r)
-                metrics_by_type["Kendall τ"][target].append(kendall_tau)
+                metrics_by_type[r"Spearman $\rho$"][target].append(spearman_rho)
+                metrics_by_type[r"Pearson $r$"][target].append(pearson_r)
+                metrics_by_type[r"Kendall $\tau$"][target].append(kendall_tau)
 
         # Generate a separate plot for each metric type
         for metric_type, target_metrics in metrics_by_type.items():
@@ -820,7 +820,9 @@ class ChempropEnsemble:
             )
 
             # Save plot with metric type in filename (sanitize special characters)
-            safe_metric_name = metric_type.replace("²", "2").replace("ρ", "rho").replace("τ", "tau").replace(" ", "_")
+            safe_metric_name = (
+                metric_type.replace("$", "").replace(" ", "_").replace("^", "").replace("ρ", "rho").replace("τ", "tau")
+            )
             plot_path = plot_dir / f"ensemble_{safe_metric_name.lower()}.png"
             fig.savefig(plot_path, dpi=300, bbox_inches="tight")
             plt.close(fig)
