@@ -1,0 +1,12 @@
+model:
+  type: "xgboost"
+  params:
+    booster: "gbtree"
+    objective: "reg:squarederror"
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    reg_alpha: 0.0

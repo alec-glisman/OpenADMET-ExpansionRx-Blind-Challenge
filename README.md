@@ -38,106 +38,6 @@ You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if 
 - `docs` rebuild hook: ensures Sphinx docs compile cleanly before commits.
 - `Commitizen`: commit message linting to enforce changelog-friendly messages.
 
-### Split the dataset
-
-To create train/validation/test splits of the dataset, run the dataset split pipeline:
-
-```bash
-admet --log-level 'INFO' \
-  split datasets \
-  --input 'assets/dataset/eda/data/set' \
-  --output 'assets/dataset/splits' \
-  --overwrite
-```
-
-### Train XGBoost Model
-
-To train an XGBoost model, you will need to create a YAML configuration file with the desired hyperparameters
-and dataset location. The dataset root lives under `data.root` in the config (override anytime with
-`--data-root`). We have provided multiple template configuration files under the `configs/` directory.
-
-#### Single Model Training
-
-To train a single XGBoost model on a specific fold, run the following command:
-
-```bash
-admet --log-level INFO \
-  train xgb \
-  --config configs/xgb_train_single.yaml
-```
-
-MLflow logging is on by default for training. Set `training.experiment_name`
-and optionally `training.tracking_uri` in your YAML (defaults can also be set
-with `MLFLOW_TRACKING_URI`). The CLI logs:
-
-- all YAML config values and CLI overrides as MLflow parameters for reproducibility
-- metrics and per-split summaries
-- artifacts (trained model, metrics.json, figures, and summary CSV/JSON for ensembles)
-
-#### Ensemble (Multi-Model) Training
-
-To train multiple XGBoost models across all folds, run the following command:
-
-```bash
-admet --log-level INFO \
-  train xgb \
-  --config configs/xgb_train_ensemble.yaml
-```
-
-To override the dataset location without editing the YAML, provide `--data-root path/to/dataset`.
-
-A parent MLflow run is created for ensembles; each fold/model is logged as a
-child run so artifacts and metrics stay grouped.
-
-A Ray cluster can be pre-initialized to accelerate multi-model training.
-If one is not already running, the job will create a local Ray cluster instance if `--ray-address "local"` is specified or will run without Ray if `--ray-address` is not provided.
-
-#### Ensemble Evaluation
-
-To evaluate an ensemble of models produced by `admet train` under a single
-parent directory, use the `ensemble-eval` command with a YAML configuration.
-An example is provided at `configs/xgb_predict.yaml` as a template.
-
-Example command:
-
-```bash
-admet --log-level DEBUG \
-    ensemble-eval \
-  --config configs/xgb_predict_ensemble.yaml
-```
-
-The YAML fields are as follows:
-
-- `models_root`: Parent directory containing many model run subdirectories.
-  Each run should have been created by `admet train` and contain a
-  `run_meta.json` file written by the trainer, or a legacy `config.json` for
-  older XGBoost-only runs.
-- `eval_csv`: Path to the labeled evaluation CSV. Expected columns (header
-  row):
-
-  ```csv
-  Molecule Name,SMILES,Dataset,LogD,KSOL,HLM CLint,MLM CLint,Caco-2 Permeability Papp A>B,Caco-2 Permeability Efflux,MPPB,MBPB,MGMB
-  ```
-
-- `blind_csv`: Path to an unlabeled CSV (or `null` if not used). Expected
-  columns:
-
-  ```csv
-  Molecule Name,SMILES
-  ```
-
-- `train_data_root`: Optional path to the Hugging Face training splits used to
-  fit the ensemble. When provided, the CLI will score the aggregated
-  train/validation/test splits and emit predictions, metrics, and plots under
-  the `train/` output folders.
-
-- `agg_fn`: Aggregation function for ensemble predictions (choices: `mean` or
-  `median`; default `mean`).
-
-The CLI options are:
-
-- `--config / -c`: Path to the YAML configuration file.
-
 ### Documentation Build
 
 Project documentation (Sphinx) lives under `docs/`.
@@ -187,7 +87,8 @@ These targets call `sphinx-build` under the hood and produce output in `docs/_bu
 
 We plan to benchmark the following models:
 
-- XGBoost Baseline
+- XGBoost
+- LightGBM
 - Chemprop Multitask (trained from scratch)
 - Chemprop CheMeleon (finetuned)
 - GROVER (finetuned)
@@ -232,18 +133,6 @@ The challenge will be judged based on the following criteria:
 ### Datasets
 
 We will attempt to augment the provided training dataset with additional publicly available ADMET datasets to improve model performance. Potential sources for augmentation are listed in the Links section below.
-
-## Open Questions
-
-- How to best split the dataset for train/validation/test?
-  - Random split
-  - Scaffold split
-  - Butina clustering split
-  - UMAP clustering split
-  - Time-based split (if timestamps are available)
-- Should we incorprate stereochemistry information or remove it as part of preprocessing?
-- How should we handle salts and counterions in the SMILES strings?
-- How should we handle tautomeric forms of molecules?
 
 ## Links
 

@@ -1,0 +1,13 @@
+model:
+  type: "chemprop"
+  params:
+    atom_fdim: 133
+    bond_fdim: 14
+    depth: 5
+    hidden_size: 600
+    dropout: 0.1
+    max_epochs: 40
+    batch_size: 64
+    curr_patience: 3
+    lr: 1e-3
+    weight_decay: 1e-5

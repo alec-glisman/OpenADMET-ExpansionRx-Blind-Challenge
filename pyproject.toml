@@ -1,8 +1,11 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
 [project]
 name = "openadmet-challenge"
-authors = [
-    { name = "Alec Glisman" },
-]
+authors = [{ name = "Alec Glisman" }]
 dynamic = ["version"]
 description = "Tools and experiments for the OpenADMET challenge"
 readme = "README.md"
@@ -34,6 +37,7 @@ dependencies = [
     # machine learning
     "statsmodels==0.14.5",
     "scikit-learn>=1.1",
+    "iterative-stratification==0.1.9",
     "umap-learn==0.5.9.post2",
     "hdbscan==0.8.40",
     "lightgbm==4.6.0",
@@ -64,6 +68,8 @@ dependencies = [
     # util
     "tqdm>=4.64",
     "requests>=2.28",
+    "omegaconf==2.3.0",
+    "joblib",
     # jupyter
     "jupyter",
     "ipympl",
@@ -108,10 +114,6 @@ docs = [
 # Provide a convenient `admet` CLI entrypoint. Points to the package __main__.py main().
 admet = "admet.cli.__main__:main"
 
-[build-system]
-requires = ["setuptools>=61", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [tool.setuptools]
 package-dir = { "" = "src" }
 
@@ -132,7 +134,16 @@ skip_glob = ["src/bitbirch/**"]
 [tool.flake8]
 max-line-length = 120
 extend-ignore = ['E203', 'W503', 'BLE001']
-exclude = ['.git', '__pycache__', '.venv', 'env', 'build', 'dist', 'src/bitbirch', 'notebooks']
+exclude = [
+    '.git',
+    '__pycache__',
+    '.venv',
+    'env',
+    'build',
+    'dist',
+    'src/bitbirch',
+    'notebooks',
+]
 
 [tool.black]
 line-length = 120
@@ -159,7 +170,22 @@ max-locals = 15
 max-attributes = 10
 min-similarity-lines = 5
 ignore-imports = true
-good-names = ["i", "j", "k", "ex", "Run", "_", "x", "y", "df", "ax", "X", "y", "n", "m"]
+good-names = [
+    "i",
+    "j",
+    "k",
+    "ex",
+    "Run",
+    "_",
+    "x",
+    "y",
+    "df",
+    "ax",
+    "X",
+    "y",
+    "n",
+    "m",
+]
 ignore-paths = ["src/bitbirch", "src/admet/train/_ray_test_stubs.py"]
 
 [tool.pylint.format]
@@ -198,11 +224,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["src/admet"]
-omit = [
-    "*/tests/*",
-    "*/test_*.py",
-    "src/bitbirch/*",
-]
+omit = ["*/tests/*", "*/test_*.py", "src/bitbirch/*"]
 
 [tool.coverage.report]
 exclude_lines = [

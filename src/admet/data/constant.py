@@ -26,7 +26,6 @@ from typing import Any, Callable, Dict, TypedDict
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # EDA constants and lightweight numeric transformations
 # ---------------------------------------------------------------------------
