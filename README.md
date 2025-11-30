@@ -10,6 +10,109 @@ This repository contains code and documentation for participating in the OpenADM
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
 
+### Training Models
+
+#### Single Model Training
+
+Train a single Chemprop model using a YAML configuration file:
+
+```bash
+# Train from command line
+python -m admet.model.chemprop.model --config configs/example_chemprop.yaml
+
+# With debug logging
+python -m admet.model.chemprop.model -c configs/example_chemprop.yaml --log-level DEBUG
+```
+
+Or programmatically in Python:
+
+```python
+from omegaconf import OmegaConf
+from admet.model.chemprop import ChempropConfig, ChempropModel
+
+# Load configuration from YAML
+config = OmegaConf.merge(
+    OmegaConf.structured(ChempropConfig),
+    OmegaConf.load("configs/example_chemprop.yaml")
+)
+
+# Create and train model
+model = ChempropModel.from_config(config)
+model.fit()
+
+# Generate predictions
+predictions = model.predict(test_df, generate_plots=True, split_name="test")
+
+# Clean up MLflow run
+model.close()
+```
+
+#### Ensemble Training
+
+Train an ensemble of models across multiple splits and folds with Ray-based parallelization:
+
+```bash
+# Train ensemble from command line
+python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+
+# Limit parallel models to prevent OOM
+python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
+```
+
+Or programmatically:
+
+```python
+from omegaconf import OmegaConf
+from admet.model.chemprop import EnsembleConfig, ChempropEnsemble
+
+# Load ensemble configuration
+config = OmegaConf.merge(
+    OmegaConf.structured(EnsembleConfig),
+    OmegaConf.load("configs/ensemble_chemprop.yaml")
+)
+
+# Create ensemble trainer
+ensemble = ChempropEnsemble.from_config(config)
+
+# Discover available splits/folds
+splits_folds = ensemble.discover_splits_folds()
+print(f"Found {len(splits_folds)} split/fold combinations")
+
+# Train all models (uses Ray for parallelization)
+ensemble.train_all(max_parallel=2)
+
+# Generate ensemble predictions with uncertainty estimates
+test_predictions = ensemble.predict_ensemble(test_df, split_name="test")
+blind_predictions = ensemble.predict_ensemble(blind_df, split_name="blind")
+
+# Access mean predictions and standard errors
+print(test_predictions[["SMILES", "LogD_mean", "LogD_stderr"]])
+
+# Generate ensemble plots with error bars
+ensemble.generate_ensemble_plots(test_predictions, split_name="test")
+
+# Clean up
+ensemble.close()
+```
+
+The ensemble configuration extends the single-model config with additional options:
+
+```yaml
+# configs/ensemble_chemprop.yaml
+ensemble:
+  # Root directory containing split_*/fold_*/ subdirectories
+  data_dir: "assets/dataset/splits/data"
+  # Optional: filter specific splits/folds (null = use all)
+  splits: null
+  folds: null
+
+# Rest of config same as single model...
+data:
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+  # ...
+```
+
 ### Tech Stack Highlights
 
 - `Python 3.11`: modern baseline with `Typer`/`Rich` powering the CLI.

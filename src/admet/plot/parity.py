@@ -40,6 +40,7 @@ def plot_parity(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     *,
+    yerr: Optional[np.ndarray] = None,
     ax: Optional[Axes] = None,
     title: Optional[str] = None,
     xlabel: str = "True",
@@ -50,6 +51,8 @@ def plot_parity(
     s: int = 20,
     color: Optional[str] = None,
     max_points: int = 10_000,
+    elinewidth: float = 0.5,
+    capsize: float = 2,
 ) -> Tuple[Figure, Axes]:
     """Create a single parity plot with optional statistics overlay.
 
@@ -59,6 +62,9 @@ def plot_parity(
         Ground truth values (1-D array).
     y_pred : numpy.ndarray
         Predicted values (1-D array).
+    yerr : numpy.ndarray, optional
+        Error values for y_pred (e.g., standard error from ensemble).
+        If provided, error bars are drawn instead of scatter points.
     ax : matplotlib.axes.Axes, optional
         Axes to plot on; creates new figure if None.
     title : str, optional
@@ -74,11 +80,15 @@ def plot_parity(
     alpha : float, default=0.6
         Point transparency.
     s : int, default=20
-        Point size.
+        Point size (used for scatter, or markersize=sqrt(s) for errorbar).
     color : str, optional
         Point color (defaults to first palette color).
     max_points : int, default=10_000
         Maximum points to plot (randomly sampled if exceeded).
+    elinewidth : float, default=0.5
+        Error bar line width (only used when yerr is provided).
+    capsize : float, default=2
+        Error bar cap size (only used when yerr is provided).
 
     Returns
     -------
@@ -87,9 +97,14 @@ def plot_parity(
     """
     y_true = np.asarray(y_true).ravel()
     y_pred = np.asarray(y_pred).ravel()
+    if yerr is not None:
+        yerr = np.asarray(yerr).ravel()
 
     # Remove NaN values
     valid = ~np.isnan(y_true) & ~np.isnan(y_pred)
+    if yerr is not None:
+        valid = valid & ~np.isnan(yerr)
+        yerr = yerr[valid]
     y_true = y_true[valid]
     y_pred = y_pred[valid]
 
@@ -118,9 +133,11 @@ def plot_parity(
         idx = np.random.choice(y_true.size, size=max_points, replace=False)
         y_true_plot = y_true[idx]
         y_pred_plot = y_pred[idx]
+        yerr_plot = yerr[idx] if yerr is not None else None
     else:
         y_true_plot = y_true
         y_pred_plot = y_pred
+        yerr_plot = yerr
 
     # Determine axis limits
     combined = np.concatenate([y_true, y_pred])
@@ -131,7 +148,21 @@ def plot_parity(
 
     # Plot
     point_color = color or GLASBEY_PALETTE[0]
-    ax.scatter(y_true_plot, y_pred_plot, alpha=alpha, s=s, color=point_color)
+    if yerr_plot is not None:
+        # Use errorbar for ensemble predictions with uncertainty
+        ax.errorbar(
+            y_true_plot,
+            y_pred_plot,
+            yerr=yerr_plot,
+            fmt="o",
+            alpha=alpha,
+            markersize=np.sqrt(s),
+            color=point_color,
+            elinewidth=elinewidth,
+            capsize=capsize,
+        )
+    else:
+        ax.scatter(y_true_plot, y_pred_plot, alpha=alpha, s=s, color=point_color)
 
     if show_identity:
         ax.plot([lim_min, lim_max], [lim_min, lim_max], "--", color="gray", lw=1.5)
@@ -188,7 +219,7 @@ def plot_parity_by_split(
         Which splits to plot.
     figsize : tuple[float, float], default=(15, 5)
         Figure size.
-    dpi : int, default=150
+    dpi : int, default=300
         Figure DPI.
     save_path : pathlib.Path, optional
         If provided, save the figure to this path.
@@ -256,7 +287,7 @@ def plot_parity_grid(
         Number of columns in the grid.
     figsize_per_cell : tuple[float, float], default=(5, 5)
         Size per subplot.
-    dpi : int, default=150
+    dpi : int, default=300
         Figure DPI.
     title : str, optional
         Figure super-title.
@@ -332,7 +363,7 @@ def save_parity_plots(
         Endpoint names.
     output_dir : pathlib.Path
         Directory to save plots.
-    dpi : int, default=150
+    dpi : int, default=300
         Figure DPI.
     **kwargs
         Additional arguments passed to plot_parity.

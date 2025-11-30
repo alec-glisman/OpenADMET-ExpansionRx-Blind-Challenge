@@ -41,7 +41,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 N_COLS: int = 3
 FIGURE_SIZE_PER_CELL: Tuple[int, int] = (6, 4)
-FIGURE_DPI: int = 600
+FIGURE_DPI: int = 300
 
 
 def plot_cluster_size_histogram(

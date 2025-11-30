@@ -160,12 +160,23 @@ class MlflowConfig:
         MLflow experiment name to log runs under.
     run_name : str, optional
         Optional run name for the MLflow run. If None, MLflow generates one.
+    run_id : str, optional
+        Existing MLflow run ID to attach to. If provided, the model will
+        log to this existing run instead of creating a new one.
+    parent_run_id : str, optional
+        Parent run ID for creating nested runs. Used for ensemble training
+        where individual models are nested under a parent ensemble run.
+    nested : bool, default=False
+        Whether to create a nested run under the parent_run_id.
     """
 
     tracking: bool = True
     tracking_uri: Optional[str] = None
     experiment_name: str = "chemprop"
     run_name: Optional[str] = None
+    run_id: Optional[str] = None
+    parent_run_id: Optional[str] = None
+    nested: bool = False
 
 
 @dataclass
@@ -215,3 +226,92 @@ class ChempropConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+
+
+@dataclass
+class EnsembleDataConfig:
+    """
+    Configuration for ensemble data paths and columns.
+
+    Parameters
+    ----------
+    data_dir : str
+        Root directory containing split_*/fold_*/ subdirectories.
+        Expected structure: {data_dir}/split_*/fold_*/train.csv
+    test_file : str, optional
+        Path to test data CSV file (global for all ensemble members).
+    blind_file : str, optional
+        Path to blind test data CSV file (no labels).
+    smiles_col : str, default="SMILES"
+        Column name containing SMILES strings.
+    target_cols : List[str]
+        List of target column names for multi-task prediction.
+    target_weights : List[float], optional
+        Per-task weights for the loss function. If empty, all tasks
+        are weighted equally (1.0 each).
+    output_dir : str, optional
+        Directory to save ensemble outputs. If None, uses temp directory.
+    splits : List[int], optional
+        Specific split indices to use. If None, uses all found splits.
+    folds : List[int], optional
+        Specific fold indices to use. If None, uses all found folds.
+    """
+
+    data_dir: str = MISSING
+    test_file: Optional[str] = None
+    blind_file: Optional[str] = None
+    smiles_col: str = "SMILES"
+    target_cols: List[str] = field(default_factory=list)
+    target_weights: List[float] = field(default_factory=list)
+    output_dir: Optional[str] = None
+    splits: Optional[List[int]] = None
+    folds: Optional[List[int]] = None
+
+
+@dataclass
+class EnsembleConfig:
+    """
+    Complete configuration for ensemble Chemprop training.
+
+    This configuration extends the single-model config to support
+    training multiple models across splits and folds with Ray-based
+    parallelization.
+
+    Parameters
+    ----------
+    data : EnsembleDataConfig
+        Ensemble data paths and column configuration.
+    model : ModelConfig
+        Model architecture configuration (shared across ensemble).
+    optimization : OptimizationConfig
+        Training optimization configuration (shared across ensemble).
+    mlflow : MlflowConfig
+        MLflow tracking configuration.
+    max_parallel : int, default=1
+        Maximum number of models to train in parallel.
+        Set based on available GPU memory.
+    ray_num_cpus : int, optional
+        Number of CPUs to allocate to Ray. If None, uses all available.
+    ray_num_gpus : int, optional
+        Number of GPUs to allocate to Ray. If None, auto-detects.
+
+    Examples
+    --------
+    >>> from omegaconf import OmegaConf
+    >>> from admet.model.chemprop.config import EnsembleConfig
+    >>>
+    >>> config = OmegaConf.merge(
+    ...     OmegaConf.structured(EnsembleConfig),
+    ...     OmegaConf.load("ensemble_config.yaml")
+    ... )
+    >>> ensemble = ChempropEnsemble.from_config(config)
+    >>> ensemble.train_all()
+    """
+
+    data: EnsembleDataConfig = field(default_factory=EnsembleDataConfig)
+    model: ModelConfig = field(default_factory=ModelConfig)
+    optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
+    mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    max_parallel: int = 1
+    ray_num_cpus: Optional[int] = None
+    ray_num_gpus: Optional[int] = None

@@ -41,7 +41,7 @@ data:
 
   # Per-task loss weights (optional, defaults to 1.0 for each)
   target_weights:
-    - 1.0
+    - 0.5
     - 2.0
     - 3.0
     - 3.0
@@ -102,5 +102,5 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8080"
-  experiment_name: "example_chemprop"
+  experiment_name: "single_chemprop"
   run_name: null # Auto-generated if null

@@ -1,16 +1,20 @@
-from . import config, curriculum, ffn, model
+from . import config, curriculum, ensemble, ffn, model
 from .config import (
     ChempropConfig,
     DataConfig,
+    EnsembleConfig,
+    EnsembleDataConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
 )
+from .ensemble import ChempropEnsemble
 from .model import ChempropHyperparams, ChempropModel
 
 __all__ = [
     "config",
     "curriculum",
+    "ensemble",
     "ffn",
     "model",
     # Config classes
@@ -19,7 +23,11 @@ __all__ = [
     "ModelConfig",
     "OptimizationConfig",
     "MlflowConfig",
+    "EnsembleConfig",
+    "EnsembleDataConfig",
     # Model classes
     "ChempropModel",
     "ChempropHyperparams",
+    # Ensemble classes
+    "ChempropEnsemble",
 ]

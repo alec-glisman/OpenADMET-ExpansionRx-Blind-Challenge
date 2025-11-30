@@ -422,6 +422,9 @@ class ChempropModel:
         mlflow_tracking_uri: Optional[str] = None,
         mlflow_experiment_name: str = "chemprop",
         mlflow_run_name: Optional[str] = None,
+        mlflow_run_id: Optional[str] = None,
+        mlflow_parent_run_id: Optional[str] = None,
+        mlflow_nested: bool = False,
     ) -> None:
         """
         Initialize ChempropModel with data and configuration.
@@ -454,6 +457,13 @@ class ChempropModel:
             MLflow experiment name.
         mlflow_run_name : str or None, optional
             Optional MLflow run name.
+        mlflow_run_id : str or None, optional
+            Existing MLflow run ID to attach to. If provided, the model
+            will log to this existing run instead of creating a new one.
+        mlflow_parent_run_id : str or None, optional
+            Parent run ID for creating nested runs. Used for ensemble training.
+        mlflow_nested : bool, default=False
+            Whether to create a nested run under the parent_run_id.
         """
         self.smiles_col: str = smiles_col
         self.target_cols: List[str] = target_cols
@@ -467,7 +477,9 @@ class ChempropModel:
         self.mlflow_tracking_uri: Optional[str] = mlflow_tracking_uri
         self.mlflow_experiment_name: str = mlflow_experiment_name
         self.mlflow_run_name: Optional[str] = mlflow_run_name
-        self.mlflow_run_id: Optional[str] = None
+        self.mlflow_run_id: Optional[str] = mlflow_run_id  # For attaching to existing run
+        self.mlflow_parent_run_id: Optional[str] = mlflow_parent_run_id  # For nested runs
+        self.mlflow_nested: bool = mlflow_nested
         self._mlflow_logger: Optional[MLFlowLogger] = None
         self._mlflow_client: Optional[MlflowClient] = None
         self._mlflow_run: Optional[ActiveRun] = None  # Active run context
@@ -622,6 +634,9 @@ class ChempropModel:
             mlflow_tracking_uri=config.mlflow.tracking_uri,
             mlflow_experiment_name=config.mlflow.experiment_name,
             mlflow_run_name=config.mlflow.run_name,
+            mlflow_run_id=config.mlflow.run_id,
+            mlflow_parent_run_id=config.mlflow.parent_run_id,
+            mlflow_nested=config.mlflow.nested,
         )
 
         # Store blind dataframe for later prediction
@@ -792,6 +807,11 @@ class ChempropModel:
         Creates the MLflow client and starts an active run that persists
         throughout the model's lifecycle. This allows all logging operations
         to use the same run context without repeatedly opening/closing runs.
+
+        Supports three modes:
+        1. Attach to existing run (mlflow_run_id is set)
+        2. Create nested run under parent (mlflow_nested=True, mlflow_parent_run_id is set)
+        3. Create new standalone run (default)
         """
         if self.mlflow_tracking_uri is not None:
             mlflow.set_tracking_uri(self.mlflow_tracking_uri)
@@ -800,14 +820,32 @@ class ChempropModel:
         # Enable system metrics logging (CPU, memory, GPU, etc.)
         mlflow.enable_system_metrics_logging()
 
-        # Start an active run that will be used throughout the model lifecycle
-        self._mlflow_run = mlflow.start_run(run_name=self.mlflow_run_name)
-        self.mlflow_run_id = self._mlflow_run.info.run_id
+        # Determine which mode to use
+        if self.mlflow_run_id is not None:
+            # Mode 1: Attach to existing run (for ensemble nested runs)
+            self._mlflow_run = mlflow.start_run(run_id=self.mlflow_run_id)
+            logger.debug("MLflow attached to existing run: run_id=%s", self.mlflow_run_id)
+        elif self.mlflow_nested and self.mlflow_parent_run_id is not None:
+            # Mode 2: Create nested run under parent
+            self._mlflow_run = mlflow.start_run(
+                run_name=self.mlflow_run_name,
+                nested=True,
+                parent_run_id=self.mlflow_parent_run_id,
+            )
+            self.mlflow_run_id = self._mlflow_run.info.run_id
+            logger.debug(
+                "MLflow nested run started: run_id=%s, parent_run_id=%s",
+                self.mlflow_run_id,
+                self.mlflow_parent_run_id,
+            )
+        else:
+            # Mode 3: Start a new standalone run
+            self._mlflow_run = mlflow.start_run(run_name=self.mlflow_run_name)
+            self.mlflow_run_id = self._mlflow_run.info.run_id
+            logger.debug("MLflow new run started: run_id=%s", self.mlflow_run_id)
 
         # Create shared MlflowClient for direct API calls
         self._mlflow_client = MlflowClient(tracking_uri=self.mlflow_tracking_uri)
-
-        logger.debug("MLflow run started: run_id=%s", self.mlflow_run_id)
 
     def close(self) -> None:
         """
