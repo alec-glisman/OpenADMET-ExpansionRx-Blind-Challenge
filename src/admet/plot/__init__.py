@@ -35,3 +35,42 @@ except Exception:  # noqa: BLE001 - fallback to seaborn when style not installed
 
 plt.rcParams["axes.prop_cycle"] = cycler(color=GLASBEY_PALETTE)
 sns.set_palette(GLASBEY_PALETTE)
+
+# Public API exports
+from admet.plot.density import plot_endpoint_distributions, plot_property_distributions
+from admet.plot.latex import latex_sanitize, text_correlation, text_distribution
+from admet.plot.metrics import (
+    compute_metrics_by_split,
+    compute_metrics_df,
+    metrics_to_latex_table,
+    plot_all_metrics,
+    plot_all_metrics_by_split,
+    plot_metric_bar,
+    plot_metrics_grouped_by_split,
+)
+from admet.plot.parity import plot_parity, plot_parity_by_split, plot_parity_grid, save_parity_plots
+
+__all__ = [
+    # Constants
+    "GLASBEY_PALETTE",
+    # Density plots
+    "plot_endpoint_distributions",
+    "plot_property_distributions",
+    # LaTeX helpers
+    "latex_sanitize",
+    "text_correlation",
+    "text_distribution",
+    # Parity plots
+    "plot_parity",
+    "plot_parity_by_split",
+    "plot_parity_grid",
+    "save_parity_plots",
+    # Metric bar charts
+    "compute_metrics_df",
+    "compute_metrics_by_split",
+    "plot_metric_bar",
+    "plot_metrics_grouped_by_split",
+    "plot_all_metrics",
+    "plot_all_metrics_by_split",
+    "metrics_to_latex_table",
+]

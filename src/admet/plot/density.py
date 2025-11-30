@@ -182,6 +182,7 @@ def plot_property_distributions(
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_w, fig_h))
     axes = np.atleast_1d(np.array(axes).flatten())
 
+    i = -1
     for i, col in enumerate(cols):
         ax = axes[i]
         series = props_df[col].dropna()

@@ -9,26 +9,41 @@ from admet.data.stats import correlation, distribution
 logger = logging.getLogger(__name__)
 
 
-def latex_sanitize(text: str) -> str:
+def latex_sanitize(text: str, use_math_mode: bool = False) -> str:
     """Sanitize text for LaTeX rendering in plots.
 
     Parameters
     ----------
     text : str
         Input text.
+    use_math_mode : bool, default=False
+        If True, wrap < and > in math mode ($<$, $>$).
+        If False, use Unicode arrows (→, ←) which render cleanly.
 
     Returns
     -------
     str
         Sanitized text.
     """
-    return (
-        text.replace(">", r"$>$")
-        .replace("<", r"$<$")
-        .replace("_", r"\_")
-        .replace("%", r"\%")
-        .replace("10^-6", r"10$^{-6}$")
-    )
+    if use_math_mode:
+        return (
+            text.replace(">", r"$>$")
+            .replace("<", r"$<$")
+            .replace("_", r"\_")
+            .replace("%", r"\%")
+            .replace("10^-6", r"10$^{-6}$")
+        )
+    else:
+        # Use Unicode characters that render cleanly without LaTeX issues
+        return (
+            text.replace("A>B", "A→B")
+            .replace("B>A", "B→A")
+            .replace(">", "›")
+            .replace("<", "‹")
+            .replace("_", " ")
+            .replace("%", "%%")
+            .replace("10^-6", "10⁻⁶")
+        )
 
 
 def text_distribution(array: ndarray) -> str:

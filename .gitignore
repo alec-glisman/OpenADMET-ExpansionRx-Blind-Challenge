@@ -14,6 +14,7 @@ build
 # models
 models
 mlruns
+mlartifacts
 lightning_logs
 ray_results
 

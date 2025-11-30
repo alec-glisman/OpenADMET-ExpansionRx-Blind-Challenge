@@ -33,11 +33,19 @@ Example usage
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+import tempfile
+import warnings
+from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+import mlflow
+import mlflow.data
+import mlflow.pytorch
+from mlflow import MlflowClient
+from mlflow.tracking.fluent import ActiveRun
 import numpy as np
 import pandas as pd
 import torch
@@ -45,14 +53,33 @@ from chemprop import data, featurizers, models, nn
 from chemprop.nn import RegressionFFN
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.loggers import MLFlowLogger
+from matplotlib import pyplot as plt
 
-from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
+from admet.data.stats import correlation, distribution
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
+from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
+from admet.plot.parity import plot_parity
+
+# Module logger
+logger = logging.getLogger("admet.model.chemprop.model")
+
+# Suppress verbose logging from PyTorch Lightning and related libraries
+logging.getLogger("lightning.pytorch").setLevel(logging.WARNING)
+logging.getLogger("lightning.fabric").setLevel(logging.WARNING)
+logging.getLogger("lightning.pytorch.accelerators.cuda").setLevel(logging.WARNING)
+logging.getLogger("mlflow").setLevel(logging.WARNING)
+
+# # Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*srun.*")
+warnings.filterwarnings("ignore", message=".*num_workers.*")
+warnings.filterwarnings("ignore", message=".*Please use `name`.*")
+warnings.filterwarnings("ignore", message=".*Please set `input_example`.*")
+
 
 # TODO: implement sampling-based curriculum in addition to weighting
-# TODO: implement different FFN types (e.g. MixtureOfExpertsRegressionFFN, BranchedFFN)
 # TODO: hyperparameter optimize ChempropHyperparams
-# TODO: think about incorporating task weights: _tasks = [1.018, 1.000, 1.364, 1.134, 2.377, 2.373, 3.939, 5.259, 23.099]
+# TODO: think about task weights: _tasks = [1.018, 1.000, 1.364, 1.134, 2.377, 2.373]
 
 
 class CriterionName(str, Enum):
@@ -87,6 +114,134 @@ def _criterion_from_enum(criterion: CriterionName) -> Any:
         except TypeError as exc:
             raise TypeError(f"Unable to instantiate criterion '{criterion.value}'") from exc
     return attr
+
+
+def _sanitize_mlflow_metric_name(name: str) -> str:
+    """
+    Sanitize a metric name for MLflow compatibility.
+
+    MLflow only allows '_', '/', '.' and ' ' special characters in metric names.
+    This function replaces disallowed characters with safe alternatives.
+
+    Parameters
+    ----------
+    name : str
+        The metric name to sanitize.
+
+    Returns
+    -------
+    str
+        The sanitized metric name.
+    """
+    # Replace common problematic characters
+    replacements = {
+        ">": "",
+        "<": "",
+        ":": "_",
+        ";": "_",
+        "|": "_",
+        "\\": "_",
+        "?": "",
+        "*": "",
+        '"': "",
+        "'": "",
+        "[": "_",
+        "]": "_",
+        "(": "_",
+        ")": "_",
+        "{": "_",
+        "}": "_",
+        "#": "_",
+        "%": "pct",
+        "&": "and",
+        "@": "at",
+        "!": "",
+        "+": "plus",
+        "=": "eq",
+        "^": "",
+        "~": "",
+        "`": "",
+    }
+    for char, replacement in replacements.items():
+        name = name.replace(char, replacement)
+    return name
+
+
+class MLflowModelCheckpoint(ModelCheckpoint):
+    """
+    Model checkpoint callback that registers best models with MLflow.
+
+    Extends PyTorch Lightning's ModelCheckpoint to automatically log
+    the best model checkpoint to MLflow when a new best model is saved.
+
+    Parameters
+    ----------
+    mlflow_client : MlflowClient
+        The MLflow client instance for logging artifacts.
+    run_id : str
+        The MLflow run ID.
+    **kwargs
+        Additional arguments passed to ModelCheckpoint.
+
+    Attributes
+    ----------
+    mlflow_client : MlflowClient
+        The MLflow client instance.
+    run_id : str
+        The MLflow run ID.
+    """
+
+    def __init__(
+        self,
+        mlflow_client: MlflowClient,
+        run_id: str,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._mlflow_client = mlflow_client
+        self._run_id = run_id
+
+    def on_save_checkpoint(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+        checkpoint: Dict[str, Any],
+    ) -> None:
+        """
+        Called when a checkpoint is saved.
+
+        Logs the checkpoint as an MLflow artifact when a new best model
+        is saved.
+
+        Parameters
+        ----------
+        trainer : pl.Trainer
+            The PyTorch Lightning trainer.
+        pl_module : pl.LightningModule
+            The Lightning module being trained.
+        checkpoint : Dict[str, Any]
+            The checkpoint dictionary.
+        """
+        super().on_save_checkpoint(trainer, pl_module, checkpoint)
+
+        # Log best model checkpoint to MLflow when it's updated
+        if self.best_model_path and Path(self.best_model_path).exists():
+            try:
+                # Log the best checkpoint as an artifact
+                self._mlflow_client.log_artifact(
+                    self._run_id,
+                    self.best_model_path,
+                    artifact_path="checkpoints/best",
+                )
+                # Log best model score
+                if self.best_model_score is not None:
+                    self._mlflow_client.log_metric(
+                        self._run_id,
+                        "best_val_loss",
+                        float(self.best_model_score),
+                    )
+            except Exception as e:
+                logger.warning("Failed to log checkpoint to MLflow: %s", e)
 
 
 @dataclass
@@ -145,33 +300,35 @@ class ChempropHyperparams:
     """
 
     # Optimization
-    init_lr: float = 0.0001
-    max_lr: float = 0.001
-    final_lr: float = 0.0001
-    warmup_epochs: int = 3
+    init_lr: float = 1.0e-4
+    max_lr: float = 1.0e-3
+    final_lr: float = 1.0e-4
+    warmup_epochs: int = 5
     patience: int = 15
-    max_epochs: int = 80
-    batch_size: int = 16
+    max_epochs: int = 150
+    batch_size: int = 32
     num_workers: int = 0
     seed: int = 12345
 
     # Message passing
-    depth: int = 3
-    message_hidden_dim: int = 300
+    depth: int = 5
+    message_hidden_dim: int = 600
 
     # Feed forward
+    dropout: float = 0.1
     num_layers: int = 2
-    hidden_dim: int = 300
-    dropout: float = 0.0
-    criterion: str = "MSE"  # options: 'MSE', 'SID', 'BCE', 'CrossEntropy', 'Dirichlet', 'Evidential', 'MVE', 'Quantile'
+    hidden_dim: int = 600
+    criterion: str = (
+        "MAE"  # options: "MAE", "MSE", "RMSE", "SID", "BCE", "CrossEntropy", "Dirichlet", "Evidential", "MVE", "Quantile"
+    )
     ffn_type: str = "regression"  # options: 'regression', 'mixture_of_experts', 'branched'
 
     # Branched FFN
-    trunk_n_layers: int = 1
-    trunk_hidden_dim: int = 300
+    trunk_n_layers: int = 2
+    trunk_hidden_dim: int = 600
 
     # Mixture of Experts FFN
-    n_experts: int = 3
+    n_experts: int = 4
 
     # MPNN
     batch_norm: bool = True
@@ -206,6 +363,12 @@ class ChempropModel:
         Whether to show training progress bar.
     hyperparams : ChempropHyperparams or None, optional
         Model hyperparameters. If None, defaults are used.
+    mlflow_tracking : bool, default=True
+        Whether to enable MLflow tracking for params, metrics, and artifacts.
+    mlflow_experiment_name : str, default='chemprop'
+        MLflow experiment name to log runs under.
+    mlflow_run_name : str or None, optional
+        Optional run name for the MLflow run.
 
     Attributes
     ----------
@@ -219,6 +382,8 @@ class ChempropModel:
         Target normalization scaler fitted on training data.
     metrics : list
         Evaluation metrics (RMSE, MAE, R2).
+    mlflow_run_id : str or None
+        The MLflow run ID if tracking is enabled.
 
     Examples
     --------
@@ -227,12 +392,12 @@ class ChempropModel:
     ...     df_validation=val_df,
     ...     smiles_col="smiles",
     ...     target_cols=["logD", "solubility"],
+    ...     mlflow_tracking=True,
+    ...     mlflow_experiment_name="admet_chemprop",
     ... )
     >>> model.fit()
     >>> predictions = model.predict(test_df)
     """
-
-    metrics = [nn.metrics.MAE(), nn.metrics.RMSE(), nn.metrics.R2Score()]
 
     def __init__(
         self,
@@ -245,6 +410,10 @@ class ChempropModel:
         output_dir: Path | None = None,
         progress_bar: bool = False,
         hyperparams: ChempropHyperparams | None = None,
+        mlflow_tracking: bool = True,
+        mlflow_tracking_uri: Optional[str] = None,
+        mlflow_experiment_name: str = "chemprop",
+        mlflow_run_name: Optional[str] = None,
     ) -> None:
         """
         Initialize ChempropModel with data and configuration.
@@ -269,6 +438,14 @@ class ChempropModel:
             Whether to display progress bar during training.
         hyperparams : ChempropHyperparams or None, optional
             Model hyperparameters.
+        mlflow_tracking : bool, default=True
+            Whether to enable MLflow tracking.
+        mlflow_tracking_uri : str or None, optional
+            MLflow tracking server URI. If None, uses default.
+        mlflow_experiment_name : str, default='chemprop'
+            MLflow experiment name.
+        mlflow_run_name : str or None, optional
+            Optional MLflow run name.
         """
         self.smiles_col: str = smiles_col
         self.target_cols: List[str] = target_cols
@@ -277,8 +454,29 @@ class ChempropModel:
         self.progress_bar: bool = progress_bar
         self.hyperparams: ChempropHyperparams = hyperparams or ChempropHyperparams()
 
+        # MLflow configuration
+        self.mlflow_tracking: bool = mlflow_tracking
+        self.mlflow_tracking_uri: Optional[str] = mlflow_tracking_uri
+        self.mlflow_experiment_name: str = mlflow_experiment_name
+        self.mlflow_run_name: Optional[str] = mlflow_run_name
+        self.mlflow_run_id: Optional[str] = None
+        self._mlflow_logger: Optional[MLFlowLogger] = None
+        self._mlflow_client: Optional[MlflowClient] = None
+        self._mlflow_run: Optional[ActiveRun] = None  # Active run context
+        self._checkpoint_temp_dir: Optional[Path] = None
+
+        # Initialize MLflow run at init to keep active context throughout lifecycle
+        if self.mlflow_tracking:
+            self._init_mlflow()
+
         if self.target_weights == []:
             self.target_weights = [1.0] * len(self.target_cols)
+        self.metrics = [
+            nn.metrics.MAE(self.target_weights),
+            nn.metrics.MSE(self.target_weights),
+            nn.metrics.RMSE(self.target_weights),
+            nn.metrics.R2Score(self.target_weights),
+        ]
 
         self.featurizer = featurizers.SimpleMoleculeMolGraphFeaturizer()
         self.agg = nn.NormAggregation()
@@ -409,36 +607,134 @@ class ChempropModel:
             final_lr=self.hyperparams.final_lr,
         )
 
+    def _init_mlflow(self) -> None:
+        """
+        Initialize MLflow tracking with an active run context.
+
+        Creates the MLflow client and starts an active run that persists
+        throughout the model's lifecycle. This allows all logging operations
+        to use the same run context without repeatedly opening/closing runs.
+        """
+        if self.mlflow_tracking_uri is not None:
+            mlflow.set_tracking_uri(self.mlflow_tracking_uri)
+        mlflow.set_experiment(self.mlflow_experiment_name)
+
+        # Enable system metrics logging (CPU, memory, GPU, etc.)
+        mlflow.enable_system_metrics_logging()
+
+        # Start an active run that will be used throughout the model lifecycle
+        self._mlflow_run = mlflow.start_run(run_name=self.mlflow_run_name)
+        self.mlflow_run_id = self._mlflow_run.info.run_id
+
+        # Create shared MlflowClient for direct API calls
+        self._mlflow_client = MlflowClient(tracking_uri=self.mlflow_tracking_uri)
+
+        logger.debug("MLflow run started: run_id=%s", self.mlflow_run_id)
+
+    def close(self) -> None:
+        """
+        Close the MLflow run and clean up resources.
+
+        This should be called when you're done with the model to properly
+        end the MLflow run. If not called explicitly, the run will remain
+        active until the process exits.
+        """
+        # Clean up temp checkpoint directory if it was created
+        if self._checkpoint_temp_dir is not None and self._checkpoint_temp_dir.exists():
+            import shutil
+
+            shutil.rmtree(self._checkpoint_temp_dir, ignore_errors=True)
+            self._checkpoint_temp_dir = None
+
+        # End the MLflow run
+        if self._mlflow_run is not None:
+            mlflow.end_run()
+            logger.debug("MLflow run ended: run_id=%s", self.mlflow_run_id)
+            self._mlflow_run = None
+
+    def __del__(self) -> None:
+        """Destructor to ensure MLflow run is closed."""
+        try:
+            self.close()
+        except Exception:
+            pass  # Ignore errors during cleanup
+
     def _prepare_trainer(self) -> None:
         """
         Configure PyTorch Lightning trainer with callbacks.
 
         Sets up model checkpointing (saves best and last checkpoints)
-        and early stopping based on validation loss.
+        and early stopping based on validation loss. When MLflow tracking
+        is enabled, uses MLflowModelCheckpoint to register models.
         """
         torch.set_float32_matmul_precision("medium")
 
-        checkpointing = ModelCheckpoint(
-            dirpath=self.output_dir,
-            filename="best-{epoch}-{val_loss:.2f}",
-            monitor="val_loss",
-            mode="min",
-            save_last=True,
-        )
         earlystopping = EarlyStopping(
             monitor="val_loss",
             patience=self.hyperparams.patience,
             mode="min",
         )
 
+        # Configure logger and checkpointing based on mlflow_tracking setting
+        pl_logger: MLFlowLogger | bool
+        callbacks_list: List[Any] = [earlystopping]
+
+        if self.mlflow_tracking and self.mlflow_run_id is not None:
+            # Use existing MLflow run started in _init_mlflow()
+            # MLFlowLogger with run_id will attach to the existing run
+            self._mlflow_logger = MLFlowLogger(
+                experiment_name=self.mlflow_experiment_name,
+                run_id=self.mlflow_run_id,  # Attach to existing run
+                tracking_uri=self.mlflow_tracking_uri,
+                log_model=False,  # We handle model logging manually
+                save_dir=None,  # Don't create local artifact directory
+            )
+            pl_logger = self._mlflow_logger
+
+            # Use MLflow-enabled checkpointing with shared client
+            # Use output_dir if provided, otherwise use a temp directory for checkpoints
+            checkpoint_dir = self.output_dir
+            if checkpoint_dir is None:
+                # Create a temp directory that will be cleaned up
+                self._checkpoint_temp_dir = Path(tempfile.mkdtemp(prefix="chemprop_ckpt_"))
+                checkpoint_dir = self._checkpoint_temp_dir
+            else:
+                self._checkpoint_temp_dir = None
+
+            checkpointing = MLflowModelCheckpoint(
+                mlflow_client=self._mlflow_client,
+                run_id=self.mlflow_run_id,
+                dirpath=checkpoint_dir,
+                filename="best-{epoch:04}-{val_loss:.2f}",
+                monitor="val_loss",
+                mode="min",
+                save_last=True,
+            )
+            callbacks_list.append(checkpointing)
+
+            # NOTE: EpochMetricsCallback removed - calling trainer.predict() inside
+            # callbacks corrupts Lightning's internal state. Detailed metrics are
+            # computed at training end via _log_evaluation_metrics() instead.
+        else:
+            pl_logger = True
+            # Standard checkpointing without MLflow
+            checkpointing = ModelCheckpoint(
+                dirpath=self.output_dir,
+                filename="best-{epoch:04}-{val_loss:.2f}",
+                monitor="val_loss",
+                mode="min",
+                save_last=True,
+            )
+            callbacks_list.append(checkpointing)
+
         self.trainer = pl.Trainer(
-            logger=True,
+            logger=pl_logger,
             enable_checkpointing=True,
             enable_progress_bar=self.progress_bar,
             accelerator="auto",
             devices=1,
             max_epochs=self.hyperparams.max_epochs,
-            callbacks=[checkpointing, earlystopping],
+            callbacks=callbacks_list,
         )
 
     def fit(self) -> bool:
@@ -450,24 +746,288 @@ class ChempropModel:
         interrupts gracefully, allowing the model to be used for
         prediction even if training is interrupted.
 
+        When MLflow tracking is enabled, logs hyperparameters at the
+        start of training, and logs metrics, artifacts, and registers
+        the model upon completion.
+
         Returns
         -------
         bool
             True if training completed normally, False if interrupted.
         """
+        # Log hyperparameters and dataset info at start of training
+        if self.mlflow_tracking and self._mlflow_logger is not None:
+            logger.debug(
+                "MLflow tracking enabled: client=%s, run_id=%s",
+                self._mlflow_client is not None,
+                self.mlflow_run_id,
+            )
+            self._log_hyperparams()
+            self._log_dataset_info()
+        else:
+            logger.debug("MLflow tracking skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
+
         try:
+            logger.info("Starting training...")
             self.trainer.fit(
                 self.mpnn,
                 train_dataloaders=self.dataloaders["train"],
                 val_dataloaders=self.dataloaders["validation"],
             )
-            return True
+            logger.info("trainer.fit() returned successfully")
+            completed = True
         except KeyboardInterrupt:
-            print("\n⚠️  Training interrupted by user. Model state preserved.")
-            print("   You can still use model.predict() with the current weights.")
-            return False
+            logger.warning("Training interrupted by user. Model state preserved.")
+            logger.info("You can still use model.predict() with the current weights.")
+            completed = False
 
-    def predict(self, df: pd.DataFrame) -> pd.DataFrame:
+        logger.info("Training finished: completed=%s", completed)
+
+        # Log evaluation metrics and final artifacts
+        if self.mlflow_tracking and self._mlflow_logger is not None:
+            logger.debug("Post-training: logging evaluation metrics and artifacts")
+            self._log_evaluation_metrics()
+            self._log_training_artifacts(completed)
+        else:
+            logger.debug("Post-training skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
+
+        # Generate evaluation plots for train and validation sets
+        self._generate_training_plots()
+
+        return completed
+
+    def _generate_training_plots(self) -> None:
+        """
+        Generate evaluation plots for training and validation sets.
+
+        Creates parity plots comparing true vs predicted values for each
+        target column on both training and validation datasets. Plots are
+        logged to MLflow if active, saved to output_dir if specified.
+        """
+        # Check if we should generate plots
+        should_save = self.mlflow_tracking or self.output_dir is not None
+        if not should_save:
+            return
+
+        # Generate plots for training set
+        df_train = self.dataframes.get("train")
+        if df_train is not None:
+            try:
+                train_preds = self.predict(df_train)
+                self._generate_evaluation_plots(df_train, train_preds, split="train")
+            except Exception as e:
+                logger.warning("Failed to generate training plots: %s", e)
+
+        # Generate plots for validation set
+        df_validation = self.dataframes.get("validation")
+        if df_validation is not None:
+            try:
+                val_preds = self.predict(df_validation)
+                self._generate_evaluation_plots(df_validation, val_preds, split="validation")
+            except Exception as e:
+                logger.warning("Failed to generate validation plots: %s", e)
+
+    def _log_hyperparams(self) -> None:
+        """
+        Log model hyperparameters to MLflow.
+
+        Logs all hyperparameters from the ChempropHyperparams dataclass,
+        as well as additional model configuration parameters like
+        smiles_col and target_cols.
+        """
+        if self._mlflow_logger is None:
+            return
+
+        # Log hyperparams from dataclass
+        params = asdict(self.hyperparams)
+
+        # Add additional configuration
+        params["smiles_col"] = self.smiles_col
+        params["target_cols"] = str(self.target_cols)
+        params["n_targets"] = len(self.target_cols)
+
+        self._mlflow_logger.log_hyperparams(params)
+
+    def _log_dataset_info(self) -> None:
+        """
+        Log dataset information to MLflow.
+
+        Logs dataset sizes as parameters and saves dataset statistics
+        as CSV artifacts for reproducibility.
+        """
+        if self._mlflow_client is None or self.mlflow_run_id is None:
+            logger.debug("_log_dataset_info skipped: mlflow_client or run_id is None")
+            return
+
+        logger.debug("Logging dataset info to MLflow run %s", self.mlflow_run_id)
+
+        # Log dataset sizes
+        df_train = self.dataframes.get("train")
+        df_validation = self.dataframes.get("validation")
+        df_test = self.dataframes.get("test")
+
+        if df_train is not None:
+            self._mlflow_client.log_param(self.mlflow_run_id, "train_size", len(df_train))
+        if df_validation is not None:
+            self._mlflow_client.log_param(self.mlflow_run_id, "validation_size", len(df_validation))
+        if df_test is not None:
+            self._mlflow_client.log_param(self.mlflow_run_id, "test_size", len(df_test))
+
+        # Register datasets with MLflow (run is already active from _init_mlflow)
+        if df_train is not None:
+            train_dataset = mlflow.data.from_pandas(df_train, name="train")
+            mlflow.log_input(train_dataset, context="training")
+            logger.debug("Registered training dataset with MLflow")
+        if df_validation is not None:
+            val_dataset = mlflow.data.from_pandas(df_validation, name="validation")
+            mlflow.log_input(val_dataset, context="validation")
+            logger.debug("Registered validation dataset with MLflow")
+
+        # Log dataset statistics as CSV artifact
+        if df_train is not None:
+            stats_rows = []
+            for target in self.target_cols:
+                if target in df_train.columns:
+                    train_mean = df_train[target].mean()
+                    train_std = df_train[target].std()
+                    stats_rows.append({"split": "train", "target": target, "metric": "mean", "value": train_mean})
+                    stats_rows.append({"split": "train", "target": target, "metric": "std", "value": train_std})
+            if stats_rows:
+                df_stats = pd.DataFrame(stats_rows)
+                temp_dir = Path(tempfile.mkdtemp())
+                csv_path = temp_dir / "train_dataset_stats.csv"
+                df_stats.to_csv(csv_path, index=False)
+                logger.debug("Logging dataset stats artifact: %s", csv_path)
+                self._mlflow_client.log_artifact(self.mlflow_run_id, str(csv_path), artifact_path="metrics")
+                csv_path.unlink(missing_ok=True)
+                temp_dir.rmdir()
+
+    def _log_evaluation_metrics(self) -> None:
+        """
+        Compute and log correlation metrics on validation set.
+
+        Generates predictions on the validation set and computes
+        correlation metrics (MAE, RMSE, R2, Pearson, Spearman, Kendall)
+        for each target column using the stats.correlation function.
+        """
+        if self._mlflow_client is None or self.mlflow_run_id is None:
+            return
+
+        df_validation = self.dataframes.get("validation")
+        if df_validation is None:
+            return
+
+        # Generate predictions on validation set
+        try:
+            preds_df = self.predict(df_validation)
+        except Exception as e:
+            logger.warning("Failed to generate validation predictions: %s", e)
+            return
+
+        # Compute correlation metrics for each target
+        df_out = pd.DataFrame()
+        for target in self.target_cols:
+            if target not in df_validation.columns:
+                continue
+
+            y_true = np.asarray(df_validation[target].values)
+            y_pred = np.asarray(preds_df[target].values)
+
+            # Compute correlation metrics using stats module
+            metrics = correlation(y_true, y_pred)
+
+            # Add metrics to output dataframe
+            for metric_name, metric_value in metrics.items():
+                row = pd.DataFrame(
+                    {"split": ["validation"], "target": [target], "metric": [metric_name], "value": [metric_value]}
+                )
+                df_out = pd.concat([df_out, row], ignore_index=True)
+
+        # Log metrics as CSV artifact
+        if not df_out.empty:
+            df_out.reset_index(drop=True, inplace=True)
+            temp_dir = Path(tempfile.mkdtemp())
+            csv_path = temp_dir / "validation_metrics.csv"
+            df_out.to_csv(csv_path, index=False)
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(csv_path), artifact_path="metrics")
+            csv_path.unlink(missing_ok=True)
+            temp_dir.rmdir()
+
+    def _log_training_artifacts(self, completed: bool) -> None:
+        """
+        Log training artifacts to MLflow.
+
+        Saves model checkpoint and training configuration.
+
+        Parameters
+        ----------
+        completed : bool
+            Whether training completed normally (True) or was
+            interrupted (False).
+        """
+        if self._mlflow_client is None or self.mlflow_run_id is None:
+            logger.debug("_log_training_artifacts skipped: mlflow_client or run_id is None")
+            return
+
+        logger.debug("Logging training artifacts to MLflow run %s", self.mlflow_run_id)
+
+        # Log training completion status
+        self._mlflow_client.log_param(self.mlflow_run_id, "training_completed", completed)
+
+        # Determine checkpoint directory (could be output_dir or temp dir)
+        checkpoint_dir = self.output_dir if self.output_dir is not None else self._checkpoint_temp_dir
+
+        # Log model checkpoints as artifacts
+        if checkpoint_dir is not None and checkpoint_dir.exists():
+            # Debug: List contents of checkpoint directory
+            all_files = list(checkpoint_dir.iterdir())
+            logger.debug("Checkpoint dir (%s): %s", checkpoint_dir, [f.name for f in all_files])
+
+            # Log best checkpoint(s)
+            best_checkpoints = list(checkpoint_dir.glob("best-*.ckpt"))
+            logger.debug("Found %d best checkpoints", len(best_checkpoints))
+            for ckpt in best_checkpoints:
+                logger.debug("Logging checkpoint: %s", ckpt.name)
+                self._mlflow_client.log_artifact(self.mlflow_run_id, str(ckpt), artifact_path="checkpoints")
+
+            # Log last checkpoint if exists
+            last_checkpoint = checkpoint_dir / "last.ckpt"
+            if last_checkpoint.exists():
+                self._mlflow_client.log_artifact(self.mlflow_run_id, str(last_checkpoint), artifact_path="checkpoints")
+
+            # Log best checkpoint path as param
+            if completed and best_checkpoints:
+                self._mlflow_client.log_param(self.mlflow_run_id, "best_checkpoint_path", str(best_checkpoints[0]))
+
+        # Save hyperparameters as YAML artifact
+        import yaml
+
+        temp_dir = Path(tempfile.mkdtemp())
+        yaml_path = temp_dir / "hyperparameters.yaml"
+        params = asdict(self.hyperparams)
+        params["smiles_col"] = self.smiles_col
+        params["target_cols"] = self.target_cols
+        with open(yaml_path, "w") as f:
+            yaml.dump(params, f, default_flow_style=False)
+        self._mlflow_client.log_artifact(self.mlflow_run_id, str(yaml_path), artifact_path="config")
+        yaml_path.unlink(missing_ok=True)
+        temp_dir.rmdir()
+
+        # Register the model with MLflow (run is already active from _init_mlflow)
+        if completed and self.mpnn is not None:
+            mlflow.pytorch.log_model(
+                self.mpnn,
+                artifact_path="model",
+                registered_model_name=None,  # Don't auto-register to model registry
+            )
+            logger.debug("Registered PyTorch model with MLflow")
+
+    def predict(
+        self,
+        df: pd.DataFrame,
+        generate_plots: bool = False,
+        split_name: str = "test",
+    ) -> pd.DataFrame:
         """
         Generate predictions for a dataframe.
 
@@ -476,6 +1036,11 @@ class ChempropModel:
         df : pandas.DataFrame
             Input dataframe containing SMILES column. Target columns
             are optional (used if present for dataset creation).
+        generate_plots : bool, default=False
+            Whether to generate parity plots for predictions when
+            ground truth is available.
+        split_name : str, default='test'
+            Split name for labeling plots when generate_plots is True.
 
         Returns
         -------
@@ -488,8 +1053,11 @@ class ChempropModel:
         try:
             ys = df.loc[:, self.target_cols].values
             datapoints = [data.MoleculeDatapoint.from_smi(smi, y) for smi, y in zip(smis, ys)]
+            logger.info("Split '%s': Generating predictions for %d labelled molecules", split_name, len(datapoints))
         except KeyError:
+            ys = None
             datapoints = [data.MoleculeDatapoint.from_smi(smi) for smi in smis]
+            logger.info("Split '%s': Generating predictions for %d unlabelled molecules", split_name, len(datapoints))
 
         dataset = data.MoleculeDataset(datapoints, self.featurizer)
         dataloader = data.build_dataloader(
@@ -515,24 +1083,322 @@ class ChempropModel:
 
         all_preds = np.vstack(all_preds)
         pred_df = pd.DataFrame(all_preds, columns=[f"{t}" for t in self.target_cols])
+
+        # Log prediction metrics if ground truth is available and MLflow tracking is enabled
+        if self.mlflow_tracking and self._mlflow_logger is not None:
+            self._log_prediction_metrics(df, pred_df, split=split_name)
+
+        # Generate plots if requested and ground truth is available
+        if generate_plots and ys is not None:
+            self._generate_evaluation_plots(df, pred_df, split=split_name)
+
+        # Log predictions CSV and submissions CSV with transformed values
+        self._log_prediction_artifacts(df, pred_df, split=split_name)
+
         return pred_df
 
-    def run(self, df_test: pd.DataFrame) -> pd.DataFrame:
+    def _log_prediction_artifacts(
+        self,
+        df: pd.DataFrame,
+        pred_df: pd.DataFrame,
+        split: str = "test",
+    ) -> None:
         """
-        Convenience method to generate predictions on test data.
+        Log prediction artifacts including submissions CSV and distribution stats.
+
+        Creates and logs:
+        1. Raw predictions CSV
+        2. Submissions CSV with Log columns transformed by 10^x
+        3. Distribution statistics CSV for both raw and transformed predictions
 
         Parameters
         ----------
-        df_test : pandas.DataFrame
-            Test dataframe containing SMILES column.
-
-        Returns
-        -------
-        pandas.DataFrame
-            Predictions with columns named after target columns.
+        df : pd.DataFrame
+            Input dataframe containing SMILES column.
+        pred_df : pd.DataFrame
+            Predictions dataframe.
+        split : str, default='test'
+            Split name for labeling artifacts.
         """
-        preds = self.predict(df_test)
-        return preds
+        # Determine where to save artifacts
+        should_save = self.mlflow_tracking or self.output_dir is not None
+        if not should_save:
+            return
+
+        # Create temp directory for artifacts if using MLflow
+        temp_dir: Optional[Path] = None
+        if self.mlflow_tracking and self._mlflow_client is not None:
+            temp_dir = Path(tempfile.mkdtemp())
+            artifact_dir = temp_dir
+        elif self.output_dir is not None:
+            artifact_dir = self.output_dir / "predictions"
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            return
+
+        # Create predictions dataframe with SMILES
+        predictions_csv = pd.DataFrame()
+        if self.smiles_col in df.columns:
+            predictions_csv[self.smiles_col] = df[self.smiles_col].values
+
+        # Add raw predictions
+        for target in self.target_cols:
+            if target in pred_df.columns:
+                predictions_csv[target] = pred_df[target].values
+
+        # Save raw predictions
+        raw_path = artifact_dir / f"{split}_predictions.csv"
+        predictions_csv.to_csv(raw_path, index=False)
+        logger.debug("Saved raw predictions to %s", raw_path)
+
+        # Create submissions CSV with transformed values (10^x for Log columns)
+        submissions_csv = pd.DataFrame()
+        if self.smiles_col in df.columns:
+            submissions_csv[self.smiles_col] = df[self.smiles_col].values
+
+        for target in self.target_cols:
+            if target in pred_df.columns:
+                values = np.asarray(pred_df[target].values)
+                if target.startswith("Log "):
+                    # Transform Log columns: 10^x
+                    transformed_name = target.replace("Log ", "")
+                    submissions_csv[transformed_name] = np.power(10.0, values)
+                else:
+                    submissions_csv[target] = values
+
+        submissions_path = artifact_dir / f"{split}_submissions.csv"
+        submissions_csv.to_csv(submissions_path, index=False)
+        logger.debug("Saved submissions to %s", submissions_path)
+
+        # Compute and save distribution statistics
+        stats_rows = []
+        stats_path: Optional[Path] = None
+        for target in self.target_cols:
+            if target not in pred_df.columns:
+                continue
+
+            raw_values = np.asarray(pred_df[target].values)
+            raw_stats = distribution(raw_values)
+
+            # Add raw stats
+            for stat_name, stat_value in raw_stats.items():
+                stats_rows.append(
+                    {
+                        "split": split,
+                        "target": target,
+                        "transform": "raw",
+                        "statistic": stat_name,
+                        "value": stat_value,
+                    }
+                )
+
+            # Add transformed stats for Log columns
+            if target.startswith("Log "):
+                transformed_name = target.replace("Log ", "")
+                transformed_values = np.power(10.0, raw_values)
+                transformed_stats = distribution(transformed_values)
+
+                for stat_name, stat_value in transformed_stats.items():
+                    stats_rows.append(
+                        {
+                            "split": split,
+                            "target": transformed_name,
+                            "transform": "10^x",
+                            "statistic": stat_name,
+                            "value": stat_value,
+                        }
+                    )
+
+        if stats_rows:
+            stats_df = pd.DataFrame(stats_rows)
+            stats_path = artifact_dir / f"{split}_distribution_stats.csv"
+            stats_df.to_csv(stats_path, index=False)
+            logger.debug("Saved distribution stats to %s", stats_path)
+
+        # Log artifacts to MLflow
+        if self._mlflow_client is not None and self.mlflow_run_id is not None and temp_dir is not None:
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(raw_path), artifact_path="predictions")
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(submissions_path), artifact_path="predictions")
+            if stats_rows:
+                self._mlflow_client.log_artifact(self.mlflow_run_id, str(stats_path), artifact_path="predictions")
+
+            # Clean up temp directory
+            import shutil
+
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def _log_prediction_metrics(self, df: pd.DataFrame, pred_df: pd.DataFrame, split: str = "predict") -> None:
+        """
+        Log correlation metrics for predictions if ground truth is available.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataframe that may contain ground truth target columns.
+        pred_df : pd.DataFrame
+            Predictions dataframe.
+        split : str, default='predict'
+            Split name prefix for metric logging.
+        """
+        if self._mlflow_client is None or self.mlflow_run_id is None:
+            return
+
+        # Check if any target columns have ground truth
+        has_targets = any(t in df.columns for t in self.target_cols)
+        if not has_targets:
+            return
+
+        df_out = pd.DataFrame()
+        for target in self.target_cols:
+            if target not in df.columns:
+                continue
+
+            y_true = np.asarray(df[target].values)
+            y_pred = np.asarray(pred_df[target].values)
+
+            # Compute correlation metrics using stats module
+            metrics = correlation(y_true, y_pred)
+
+            # Prefix metrics with split name and target
+            for metric_name, metric_value in metrics.items():
+                row = pd.DataFrame(
+                    {"split": [split], "target": [target], "metric": [metric_name], "value": [metric_value]}
+                )
+                df_out = pd.concat([df_out, row], ignore_index=True)
+
+        if not df_out.empty:
+            df_out.reset_index(drop=True, inplace=True)
+            temp_dir = Path(tempfile.mkdtemp())
+            csv_path = temp_dir / f"{split}_prediction_metrics.csv"
+            df_out.to_csv(csv_path, index=False)
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(csv_path), artifact_path="metrics")
+            csv_path.unlink(missing_ok=True)
+            temp_dir.rmdir()
+
+    def _generate_evaluation_plots(
+        self,
+        df_true: pd.DataFrame,
+        pred_df: pd.DataFrame,
+        split: str = "validation",
+    ) -> None:
+        """
+        Generate parity plots for model evaluation.
+
+        Creates parity plots comparing true vs predicted values for each
+        target column. Plots are logged to MLflow if active, saved to
+        output_dir if specified, or skipped otherwise.
+
+        Parameters
+        ----------
+        df_true : pd.DataFrame
+            Ground truth dataframe with target columns.
+        pred_df : pd.DataFrame
+            Predictions dataframe.
+        split : str, default='validation'
+            Split name for labeling plots.
+        """
+        # Check if any target columns have ground truth
+        has_targets = any(t in df_true.columns for t in self.target_cols)
+        if not has_targets:
+            return
+
+        # Determine if we should save plots
+        should_save = self.mlflow_tracking or self.output_dir is not None
+        if not should_save:
+            return
+
+        # Create temp directory for plots if using MLflow
+        temp_dir: Optional[Path] = None
+        if self.mlflow_tracking and self._mlflow_logger is not None:
+            temp_dir = Path(tempfile.mkdtemp())
+            plot_dir = temp_dir / "plots" / split
+        elif self.output_dir is not None:
+            plot_dir = self.output_dir / "plots" / split
+        else:
+            return
+
+        plot_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate parity plots for each target
+        for i, target in enumerate(self.target_cols):
+            if target not in df_true.columns:
+                continue
+
+            y_true = np.asarray(df_true[target].values)
+            y_pred = np.asarray(pred_df[target].values)
+
+            from admet.plot import GLASBEY_PALETTE
+            from admet.plot.latex import latex_sanitize
+
+            fig, ax = plot_parity(
+                y_true,
+                y_pred,
+                title=f"{latex_sanitize(target)} ({split})",
+                color=GLASBEY_PALETTE[i % len(GLASBEY_PALETTE)],
+            )
+
+            # Create safe filename
+            safe_name = target.replace(" ", "_").replace("/", "_").replace("<", "lt").replace(">", "gt")
+            plot_path = plot_dir / f"parity_{safe_name}.png"
+            fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+            plt.close(fig)
+
+        # Generate metric bar charts
+        metrics_df = compute_metrics_df(df_true, pred_df, self.target_cols)
+        if not metrics_df.empty:
+            from admet.plot.latex import latex_sanitize as sanitize_label
+
+            for metric_name in METRIC_NAMES:
+                if metric_name not in metrics_df.columns:
+                    continue
+
+                values = np.asarray(metrics_df[metric_name].values)
+                labels = [sanitize_label(ep) for ep in metrics_df.index]
+
+                fig, _ = plot_metric_bar(
+                    values,
+                    labels,
+                    metric_name,
+                    title=f"{metric_name} ({split})",
+                )
+
+                safe_metric = metric_name.replace(" ", "_").replace("/", "_")
+                plot_path = plot_dir / f"metric_{safe_metric}.png"
+                fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+                plt.close(fig)
+
+        # Save predictions as CSV artifact
+        predictions_dir = plot_dir.parent.parent / "predictions"
+        predictions_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create combined dataframe with SMILES, ground truth, and predictions
+        predictions_csv = pd.DataFrame()
+        if self.smiles_col in df_true.columns:
+            predictions_csv[self.smiles_col] = df_true[self.smiles_col].values
+
+        for target in self.target_cols:
+            if target in df_true.columns:
+                predictions_csv[f"{target}_true"] = df_true[target].values
+            if target in pred_df.columns:
+                predictions_csv[f"{target}_pred"] = pred_df[target].values
+
+        predictions_path = predictions_dir / f"{split}_predictions.csv"
+        predictions_csv.to_csv(predictions_path, index=False)
+
+        # Log plots and predictions to MLflow
+        if self._mlflow_client is not None and self.mlflow_run_id is not None:
+            # Log all files in the plot directory
+            for plot_file in plot_dir.iterdir():
+                if plot_file.is_file():
+                    self._mlflow_client.log_artifact(self.mlflow_run_id, str(plot_file), artifact_path=f"plots/{split}")
+            # Log predictions CSV
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(predictions_path), artifact_path="predictions")
+
+            # Clean up temp directory (only exists when using MLflow)
+            if temp_dir is not None:
+                import shutil
+
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def example_usage():
@@ -544,16 +1410,21 @@ def example_usage():
     template for using the ChempropModel class.
     """
     # Example usage of ChempropModel
-    df_train = pd.read_csv(
-        "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv",
-        low_memory=False,
+    output_dir = None
+    base_path = (
+        "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
     )
-    df_validation = pd.read_csv(
-        "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv",
-        low_memory=False,
-    )
+    test_file = "assets/dataset/set/local_test.csv"
+    blind_file = "assets/dataset/set/blind_test.csv"
+
+    df_train = pd.read_csv(f"{base_path}/train.csv", low_memory=False)
+    df_validation = pd.read_csv(f"{base_path}/validation.csv", low_memory=False)
     df_test = pd.read_csv(
-        "assets/dataset/set/local_test.csv",
+        test_file,
+        low_memory=False,
+    )
+    df_blind = pd.read_csv(
+        blind_file,
         low_memory=False,
     )
 
@@ -569,8 +1440,54 @@ def example_usage():
         "Log MBPB",
         "Log MGMB",
     ]
-    output_dir = Path("./temp")
-    hyperparams = ChempropHyperparams()
+    target_weights = [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    ]
+    hyperparams = ChempropHyperparams(
+        # Optimization
+        init_lr=1.0e-4,
+        max_lr=1.0e-3,
+        final_lr=1.0e-4,
+        warmup_epochs=1,  # FIXME: originally 5
+        patience=1,  # FIXME originally 15
+        max_epochs=2,  # FIXME: originally 100
+        batch_size=32,
+        num_workers=0,
+        seed=12345,
+        # Message passing
+        depth=3,
+        message_hidden_dim=300,
+        # Feed forward
+        num_layers=2,
+        hidden_dim=300,
+        dropout=0.0,
+        criterion="MAE",
+        ffn_type="regression",
+        # Branched FFN
+        trunk_n_layers=1,
+        trunk_hidden_dim=300,
+        # Mixture of Experts FFN
+        n_experts=3,
+        # MPNN
+        batch_norm=True,
+    )
+
+    progress_bar = True
+    mlflow_tracking = True
+    mlflow_tracking_uri = "http://127.0.0.1:8080"
+    mlflow_experiment_name = "example_chemprop"
+
+    logger_level = logging.INFO
+    logger.setLevel(logger_level)
+    logger.debug("Logger level set to %s", logging.getLevelName(logger_level))
 
     model = ChempropModel(
         df_train=df_train,
@@ -578,14 +1495,21 @@ def example_usage():
         df_test=df_test,
         smiles_col=smiles_col,
         target_cols=target_cols,
+        target_weights=target_weights,
         output_dir=output_dir,
-        progress_bar=True,
+        progress_bar=progress_bar,
         hyperparams=hyperparams,
+        mlflow_tracking=mlflow_tracking,
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        mlflow_experiment_name=mlflow_experiment_name,
     )
 
     model.fit()
-    predictions = model.predict(df_test)
-    print(predictions)
+    predictions_labelled = model.predict(df_test, generate_plots=True, split_name="test")
+    predictions_unlabelled = model.predict(df_blind, generate_plots=False, split_name="blind")
+
+    # Close the MLflow run when done
+    model.close()
 
 
 if __name__ == "__main__":
