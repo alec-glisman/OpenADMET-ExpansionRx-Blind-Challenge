@@ -1,3 +1,52 @@
+"""
+Cluster-based data splitting utilities
+=====================================
+
+This module implements clustering and cluster-aware cross-validation for
+ADMET datasets. It provides:
+
+Design notes
+------------
+- For regression endpoints, stratification uses presence/coverage indicators (non-NaN counts), not target values.
+- Clusters are never split across folds; assignments are performed at the cluster level then mapped to molecules.
+- Diagnostics optionally include Matplotlib figures but are decoupled from splitting logic.
+
+Stratification descriptors
+--------------------------
+The splitting methods rely on cluster-level descriptors derived from molecule-level data:
+
+- Task presence (coverage): For each endpoint in ``task_cols``, a binary flag per cluster indicating
+    whether the cluster contains at least ``coverage_threshold`` non-NaN observations for that endpoint.
+- Quality one-hot (optional): If ``quality_col`` is provided, one binary column per unique quality category
+    indicating whether any molecule in the cluster has that quality level.
+- Cluster size bins (optional): If ``add_cluster_size=True``, one-hot bins representing the cluster size
+    (quantile-based). These provide an additional label dimension to balance fold sizes.
+
+Usage in splitters
+------------------
+- ``MultilabelStratifiedKFold``: Uses the full multi-label matrix constructed from the descriptors above
+    (task presence + optional quality + optional size bins). Each column is treated as an independent label
+    and the splitter balances the marginal label distributions across folds.
+- ``StratifiedKFold``: Requires a single label per sample. We bit-pack the multi-label row into an integer
+    code using weights ``2**i`` for column ``i``. This preserves the joint label combination per cluster, allowing
+    ``StratifiedKFold`` to balance those combinations across folds.
+- ``GroupKFold``: Does not use stratification; clusters are simply assigned to folds to balance fold sizes.
+
+Clustering methods
+-----------------
+- BitBirch (default): scalable hierarchical clustering using RDKit fingerprints.
+- Other methods (random, scaffold, kmeans, umap, butina) are available via useful_rdkit_utils.
+
+Splitting methods
+-----------------
+- GroupKFold: splits by clusters without stratification.
+- StratifiedKFold: stratifies on single-label cluster presence vectors.
+- MultilabelStratifiedKFold: stratifies on multi-label cluster presence vectors.
+"""
+
+# pylint: disable=no-member
+
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,10 +83,30 @@ from admet.plot.split import (
 LOGGER = logging.getLogger(__name__)
 
 
-def diameter_prune_tolerance_reassign(fps, tol=0.05, branching_factor=50, threshold=0.65):
+def diameter_prune_tolerance_reassign(
+    fps: np.ndarray,
+    tol: float = 0.05,
+    branching_factor: int = 50,
+    threshold: float = 0.65,
+) -> bb.BitBirch:
     """
-    Diameter + Prune + Tolerance + Reassign
-    SOURCE: https://github.com/mqcomplab/bitbirch/blob/main/examples/refinement/refine_tutorial.ipynb
+    Diameter + Prune + Tolerance + Reassign refinement procedure for BitBirch.
+
+    Parameters
+    ----------
+    fps : numpy.ndarray
+        Binary fingerprint matrix of shape ``(n_molecules, n_bits)`` with dtype ``int64``.
+    tol : float, default=0.05
+        Tolerance parameter used during the tolerance merge phase.
+    branching_factor : int, default=50
+        BitBirch branching factor controlling tree growth.
+    threshold : float, default=0.65
+        Similarity threshold used by BitBirch.
+
+    Returns
+    -------
+    bb.BitBirch
+        Configured and refined BitBirch instance after prune and reassign.
     """
     bb.set_merge("diameter")
     brc = bb.BitBirch(branching_factor=branching_factor, threshold=threshold)
@@ -48,20 +117,32 @@ def diameter_prune_tolerance_reassign(fps, tol=0.05, branching_factor=50, thresh
     return brc
 
 
-def get_bitbirch_clusters(smiles_list):
+def get_bitbirch_clusters(smiles_list: Sequence[str]) -> List[int]:
+    """
+    Cluster SMILES using BitBirch on RDKit fingerprints.
+
+    Parameters
+    ----------
+    smiles_list : Sequence[str]
+        List or sequence of SMILES strings to cluster.
+
+    Returns
+    -------
+    List[int]
+        Cluster label per input molecule index (length equals ``len(smiles_list)``).
+
+    Raises
+    ------
+    RuntimeError
+        If RDKit is not available in the environment.
+    ValueError
+        If fingerprints are not binary or not dtype ``int64``.
+    """
     LOGGER.debug("get_bitbirch_clusters: starting clustering for %d SMILES", len(smiles_list))
 
     # Data preparation
-    mols = [
-        Chem.MolFromSmiles(smiles)  # type: ignore
-        for smiles in tqdm(smiles_list, desc="Parsing SMILES", dynamic_ncols=True)
-    ]
-    fps = np.array(
-        [
-            Chem.RDKFingerprint(mol)  # type: ignore
-            for mol in tqdm(mols, desc="Computing fingerprints", dynamic_ncols=True)
-        ]
-    )
+    mols = [Chem.MolFromSmiles(smiles) for smiles in tqdm(smiles_list, desc="Parsing SMILES", dynamic_ncols=True)]  # type: ignore
+    fps = np.array([Chem.RDKFingerprint(mol) for mol in tqdm(mols, desc="Computing fingerprints", dynamic_ncols=True)])  # type: ignore
 
     # Input type checking
     is_binary = np.all(np.isin(fps, [0, 1]))
@@ -213,9 +294,27 @@ def cluster_data(
     df: DataFrame,
     smiles_col: str = "SMILES",
     cluster_method: str = "bitbirch",
-    cluster_params: Dict[str, Any] | None = None,
-) -> Dict[int, Any]:
-    """Cluster data using specified method."""
+    cluster_params: Optional[Dict[str, Any]] = None,
+) -> Dict[int, List[int]]:
+    """
+    Cluster data using the specified method and return cluster→molecule index mapping.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe containing a SMILES column.
+    smiles_col : str, default="SMILES"
+        Column with SMILES strings.
+    cluster_method : str, default="bitbirch"
+        One of ``DEFAULT_CLUSTER_METHODS``: random, scaffold, kmeans, umap, butina, bitbirch.
+    cluster_params : dict or None, optional
+        Extra keyword arguments passed to the clustering function.
+
+    Returns
+    -------
+    Dict[int, List[int]]
+        Mapping from cluster id to list of molecule indices belonging to that cluster.
+    """
     if cluster_params is None:
         cluster_params = {}
 
@@ -364,7 +463,8 @@ def build_cluster_label_matrix(
         # Build presence/absence of each quality category per cluster
         quality_counts = df.groupby(cluster_col)[quality_col].value_counts().unstack(fill_value=0).reindex(cluster_ids)
         if quality_counts.columns is not None:
-            quality_counts = quality_counts.reindex(columns=sorted(quality_counts.columns.astype(str)))
+            sorted_cols = pd.Index(sorted(quality_counts.columns.astype(str)))
+            quality_counts = quality_counts.reindex(columns=sorted_cols)
         # Convert to binary presence flags
         quality_presence = (quality_counts.to_numpy(dtype=int) >= 1).astype(int)
         # Append quality presence columns after the task_cols before cluster size bins
@@ -570,7 +670,19 @@ def cluster_multilabel_stratified_kfold(
 
 
 def _encode_cluster_labels_for_stratification(cluster_labels: np.ndarray) -> np.ndarray:
-    """Pack multi-label rows into a single integer for use with StratifiedKFold."""
+    """
+    Pack multi-label rows into a single integer for use with ``StratifiedKFold``.
+
+    Parameters
+    ----------
+    cluster_labels : numpy.ndarray
+        1-D or 2-D integer label matrix per cluster. For 2-D, each column is a label.
+
+    Returns
+    -------
+    numpy.ndarray
+        1-D integer array where each element encodes the multi-label row using bit weights.
+    """
     if cluster_labels.ndim == 1:
         return cluster_labels
 
@@ -624,23 +736,7 @@ def cluster_stratified_kfold(
     mol_clusters = df[cluster_col].to_numpy()
 
     folds: List[ClusterCVFold] = []
-    try:
-        split_iter = splitter.split(cluster_ids, encoded_labels)
-    except ValueError as exc:
-        LOGGER.warning(
-            "cluster_stratified_kfold: stratification failed (falling back to GroupKFold): %s",
-            exc,
-        )
-        return cluster_group_kfold(
-            df,
-            cluster_col=cluster_col,
-            task_cols=task_cols,
-            _quality_col=quality_col,
-            n_folds=n_folds,
-            random_state=random_state,
-            diagnostics=diagnostics,
-            make_plots=make_plots,
-        )
+    split_iter = splitter.split(cluster_ids, encoded_labels)
 
     for fold_id, (train_cluster_idx, val_cluster_idx) in enumerate(split_iter):
         train_clusters = cluster_ids[train_cluster_idx]
@@ -879,7 +975,38 @@ def pipeline(
     n_folds: int = 5,
     fig_dir: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Example pipeline function that adds cluster assignments to the dataframe."""
+    """
+    High-level pipeline to cluster molecules, perform repeated cluster-aware splits,
+    and attach per-fold train/validation assignments to the dataframe.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe containing SMILES and target columns.
+    smiles_col : str, default="SMILES"
+        Column name containing SMILES strings.
+    quality_col : str, default="Quality"
+        Column name containing quality categories; used for additional stratification.
+    target_cols : list[str] or None, optional
+        Target (endpoint) column names used to compute presence labels for stratification.
+        If None, defaults to a predefined list of endpoints.
+    cluster_method : str, default="bitbirch"
+        Clustering method to use; see ``DEFAULT_CLUSTER_METHODS``.
+    split_method : str, default="multilabel_stratified_kfold"
+        Splitting method; one of group_kfold, stratified_kfold, multilabel_stratified_kfold.
+    n_splits : int, default=5
+        Number of repeated splits to generate.
+    n_folds : int, default=5
+        Number of folds per split.
+    fig_dir : str or None, optional
+        Directory path to save diagnostic figures if provided.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input dataframe augmented with per-split, per-fold assignment columns
+        where values are "train" or "validation".
+    """
     LOGGER.info(
         "pipeline: starting pipeline; cluster_method=%s split_method=%s n_splits=%d n_folds=%d",
         cluster_method,
@@ -997,6 +1124,7 @@ def pipeline(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments"""
     parser = argparse.ArgumentParser(description="Run example data splitting pipeline")
     parser.add_argument(
         "-i",
@@ -1017,6 +1145,14 @@ def parse_args() -> argparse.Namespace:
         help="Column name containing the quality bucket for stratification",
         type=str,
         default="Quality",
+    )
+    parser.add_argument(
+        "-q",
+        "--quality-values",
+        help="Acceptable quality values to include (space separated). Rows with other values are filtered out.",
+        nargs="+",
+        type=str,
+        default=["high", "medium", "low"],
     )
     parser.add_argument(
         "--smiles-col",
@@ -1064,6 +1200,7 @@ def example_default_pipeline(
     cluster_method: str = "bitbirch",
     split_method: str = "multilabel_stratified_kfold",
     quality_col: str = "Quality",
+    quality_values: Optional[List[str]] = None,
     smiles_col: str = "SMILES",
     target_cols: Optional[List[str]] = None,
 ):
@@ -1075,6 +1212,15 @@ def example_default_pipeline(
         Path to input CSV file containing sample data.
     output_dir : Path
         Directory to save output clustered splits CSV.
+    quality_col : str, default="Quality"
+        Column name containing quality values.
+    quality_values : list[str] or None, optional
+        Acceptable quality values to include. Rows with other values are filtered out.
+        If None, defaults to ["high", "medium", "low"].
+    smiles_col : str, default="SMILES"
+        Column name containing SMILES strings.
+    target_cols : list[str] or None, optional
+        Target columns for stratification.
     """
     output_dir = Path(output_dir) / cluster_method / split_method
     fig_dir = output_dir / "figures"
@@ -1085,6 +1231,26 @@ def example_default_pipeline(
 
     LOGGER.info("example_default_pipeline: reading sample data from %s", input_file)
     df = pd.read_csv(input_file, low_memory=False)
+
+    # Filter by acceptable quality values
+    if quality_values is None:
+        quality_values = ["high", "medium", "low"]
+    if quality_col in df.columns:
+        original_len = len(df)
+        df = df[df[quality_col].astype(str).str.lower().isin([v.lower() for v in quality_values])]
+        df = df.reset_index(drop=True)
+        LOGGER.info(
+            "example_default_pipeline: filtered by quality_values=%s; kept %d / %d rows",
+            quality_values,
+            len(df),
+            original_len,
+        )
+    else:
+        LOGGER.warning(
+            "example_default_pipeline: quality_col '%s' not found in data; skipping quality filter",
+            quality_col,
+        )
+
     df_assigned = pipeline(
         df,
         fig_dir=str(fig_dir),
@@ -1105,7 +1271,15 @@ def example_default_pipeline(
         for fold_id in range(5):
             fold_col = f"split_{split_id}_fold_{fold_id}"
             df_train = df[df_assigned[fold_col] == "train"]
-            df_val = df[df_assigned[fold_col] == "val"]
+            df_val = df[df_assigned[fold_col] == "validation"]
+
+            LOGGER.info(
+                "example_default_pipeline: writing split %d fold %d with %d train and %d val samples",
+                split_id,
+                fold_id,
+                len(df_train),
+                len(df_val),
+            )
 
             output_dir_split = data_dir / f"split_{split_id}/fold_{fold_id}"
             output_dir_split.mkdir(parents=True, exist_ok=True)
@@ -1125,4 +1299,7 @@ if __name__ == "__main__":
         args.cluster_method,
         args.split_method,
         quality_col=args.quality_col,
+        quality_values=args.quality_values,
+        smiles_col=args.smiles_col,
+        target_cols=args.target_cols,
     )

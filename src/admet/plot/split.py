@@ -1,3 +1,24 @@
+"""
+Plotting utilities for ADMET cluster CV diagnostics
+==================================================
+
+This module provides helper functions for visualizing cluster-based
+cross-validation diagnostics, including:
+
+- Global cluster size distribution (histogram/bar plot)
+- Training cluster size distributions across folds (boxplots)
+- Training vs. validation dataset sizes per fold (bar plots)
+- Finite value counts per endpoint for train/validation splits
+
+Design notes
+------------
+- Functions return a tuple of the created matplotlib `Figure` and `Axes` to
+    allow downstream saving or further customization.
+- Matplotlib logger level is set to WARNING to avoid noisy INFO/DEBUG logs
+    when the application uses more verbose logging.
+
+"""
+
 from __future__ import annotations
 
 import logging
@@ -6,6 +27,7 @@ from typing import Tuple, Dict, List
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MultipleLocator
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from pandas import DataFrame
@@ -26,7 +48,23 @@ def plot_cluster_size_histogram(
     cluster_sizes: np.ndarray,
     title: str = "Cluster size distribution",
 ) -> Tuple[Figure, Axes]:
-    """Create a line plot of sorted cluster sizes."""
+    """
+    Create a bar plot of the largest cluster sizes after sorting.
+
+    Parameters
+    ----------
+    cluster_sizes : numpy.ndarray
+        Array of cluster sizes (one value per cluster).
+    title : str, optional
+        Title for the figure.
+
+    Returns
+    -------
+    Figure
+        Matplotlib figure for the plot.
+    Axes
+        Matplotlib axes for the plot.
+    """
     fig, ax = plt.subplots(figsize=FIGURE_SIZE_PER_CELL, dpi=FIGURE_DPI, constrained_layout=True)
 
     # sort cluster sizes descending
@@ -50,8 +88,8 @@ def plot_cluster_size_histogram(
         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="black", alpha=0.85),
     )
 
-    ax.xaxis.set_major_locator(plt.MultipleLocator(10))
-    ax.xaxis.set_minor_locator(plt.MultipleLocator(5))
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(MultipleLocator(5))
     ax.set_xticklabels(ax.get_xticks(), rotation=45)
 
     ax.set_xlabel("Cluster rank (sorted)")
@@ -69,7 +107,23 @@ def plot_train_cluster_size_boxplots(
     fold_train_cluster_sizes: Dict[int, np.ndarray],
     title: str = "Training cluster size distribution across folds",
 ) -> Tuple[Figure, Axes]:
-    """Create boxplots of training cluster sizes across folds."""
+    """
+    Create boxplots of training cluster sizes across folds.
+
+    Parameters
+    ----------
+    fold_train_cluster_sizes : Dict[int, numpy.ndarray]
+        Mapping from fold id to array of cluster sizes for the training set.
+    title : str, optional
+        Title for the figure.
+
+    Returns
+    -------
+    Figure
+        Matplotlib figure for the plot.
+    Axes
+        Matplotlib axes for the plot.
+    """
     fig, ax = plt.subplots(figsize=FIGURE_SIZE_PER_CELL, dpi=FIGURE_DPI, constrained_layout=True)
 
     # Sort by fold id for deterministic order
@@ -92,7 +146,25 @@ def plot_train_val_dataset_sizes(
     fold_val_sizes: List[int],
     title: str = "Training and Validation Set Sizes Across Folds",
 ) -> Tuple[Figure, Axes]:
-    """Create bar plots of training and validation set sizes across folds."""
+    """
+    Create bar plots of training and validation set sizes across folds.
+
+    Parameters
+    ----------
+    fold_train_sizes : List[int]
+        Number of molecules in the training set per fold.
+    fold_val_sizes : List[int]
+        Number of molecules in the validation set per fold.
+    title : str, optional
+        Title for the figure.
+
+    Returns
+    -------
+    Figure
+        Matplotlib figure for the plot.
+    Axes
+        Matplotlib axes for the plot.
+    """
     fig, ax = plt.subplots(figsize=FIGURE_SIZE_PER_CELL, dpi=FIGURE_DPI)
 
     # Input is expected as a list of sizes where the index corresponds to the fold id
@@ -131,7 +203,27 @@ def plot_endpoint_finite_value_counts(
     target_cols: List[str],
     title: str = "Finite Value Counts per Endpoint",
 ) -> Tuple[Figure, Axes]:
-    """Create a bar plot showing counts of finite values per endpoint."""
+    """
+    Create a bar plot showing counts of finite (non-NaN) values per endpoint.
+
+    Parameters
+    ----------
+    df_train : pandas.DataFrame
+        Training split dataframe.
+    df_test : pandas.DataFrame
+        Validation split dataframe.
+    target_cols : List[str]
+        Endpoint column names to evaluate.
+    title : str, optional
+        Title for the figure.
+
+    Returns
+    -------
+    Figure
+        Matplotlib figure for the plot.
+    Axes
+        Matplotlib axes for the plot.
+    """
     fig, axes = plt.subplots(figsize=(9, 6), dpi=FIGURE_DPI)
 
     x = np.arange(len(target_cols))
@@ -182,7 +274,7 @@ def plot_endpoint_finite_value_counts(
             axes.text(
                 x[i] + width / 1.1,
                 val_counts[i] * 3,
-                f"{percent_test:.0f}\%",
+                f"{percent_test:.0f}" + r"\%",
                 ha="center",
                 va="bottom",
                 fontsize=10,
