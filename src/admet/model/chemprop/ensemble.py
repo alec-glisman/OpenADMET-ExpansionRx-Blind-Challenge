@@ -688,9 +688,9 @@ class ChempropEnsemble:
     def _generate_metrics_bar_plot(self, plot_dir: Path, split_name: str, predictions: pd.DataFrame) -> None:
         """Generate bar plots of metrics computed from individual model predictions.
 
-        Creates separate bar plots for each metric type (MAE, RMSE, R²), showing
-        the mean value across all fold/split models with error bars representing
-        the standard error.
+        Creates separate bar plots for each metric type (MAE, RMSE, R², RAE,
+        Spearman ρ, Pearson r, Kendall τ), showing the mean value across all
+        fold/split models with error bars representing the standard error.
 
         Parameters
         ----------
@@ -701,6 +701,7 @@ class ChempropEnsemble:
         predictions : pd.DataFrame
             Aggregated ensemble predictions (used for target column names).
         """
+        from scipy.stats import kendalltau, pearsonr, spearmanr
         from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
         # Get individual model predictions for computing per-model metrics
@@ -720,6 +721,10 @@ class ChempropEnsemble:
             "MAE": {},
             "RMSE": {},
             "R²": {},
+            "RAE": {},
+            "Spearman ρ": {},
+            "Pearson r": {},
+            "Kendall τ": {},
         }
 
         for target in target_cols:
@@ -745,14 +750,30 @@ class ChempropEnsemble:
                 actual_clean = actual[mask]
                 pred_clean = pred[mask]
 
-                # Compute metrics for this model
+                # Compute error metrics for this model
                 mae = mean_absolute_error(actual_clean, pred_clean)
                 rmse = np.sqrt(mean_squared_error(actual_clean, pred_clean))
                 r2 = r2_score(actual_clean, pred_clean)
 
+                # Relative Absolute Error (RAE): sum(|pred - actual|) / sum(|actual - mean(actual)|)
+                baseline_error = np.sum(np.abs(actual_clean - np.mean(actual_clean)))
+                if baseline_error > 0:
+                    rae = np.sum(np.abs(pred_clean - actual_clean)) / baseline_error
+                else:
+                    rae = np.nan
+
+                # Correlation metrics
+                spearman_rho, _ = spearmanr(actual_clean, pred_clean)
+                pearson_r, _ = pearsonr(actual_clean, pred_clean)
+                kendall_tau, _ = kendalltau(actual_clean, pred_clean)
+
                 metrics_by_type["MAE"][target].append(mae)
                 metrics_by_type["RMSE"][target].append(rmse)
                 metrics_by_type["R²"][target].append(r2)
+                metrics_by_type["RAE"][target].append(rae)
+                metrics_by_type["Spearman ρ"][target].append(spearman_rho)
+                metrics_by_type["Pearson r"][target].append(pearson_r)
+                metrics_by_type["Kendall τ"][target].append(kendall_tau)
 
         # Generate a separate plot for each metric type
         for metric_type, target_metrics in metrics_by_type.items():
@@ -766,6 +787,11 @@ class ChempropEnsemble:
                     continue
 
                 values = target_metrics[target]
+                # Filter out NaN values (e.g., RAE when baseline is zero)
+                values = [v for v in values if not np.isnan(v)]
+                if not values:
+                    continue
+
                 # Use clean target name (remove "Log " prefix for display)
                 clean_target = target.replace("Log ", "")
 
@@ -793,8 +819,8 @@ class ChempropEnsemble:
                 show_mean=False,
             )
 
-            # Save plot with metric type in filename
-            safe_metric_name = metric_type.replace("²", "2")
+            # Save plot with metric type in filename (sanitize special characters)
+            safe_metric_name = metric_type.replace("²", "2").replace("ρ", "rho").replace("τ", "tau").replace(" ", "_")
             plot_path = plot_dir / f"ensemble_{safe_metric_name.lower()}.png"
             fig.savefig(plot_path, dpi=300, bbox_inches="tight")
             plt.close(fig)
