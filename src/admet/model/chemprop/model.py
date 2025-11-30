@@ -1456,26 +1456,26 @@ def example_usage():
         init_lr=1.0e-4,
         max_lr=1.0e-3,
         final_lr=1.0e-4,
-        warmup_epochs=1,  # FIXME: originally 5
-        patience=1,  # FIXME originally 15
-        max_epochs=2,  # FIXME: originally 100
+        warmup_epochs=5,
+        patience=15,
+        max_epochs=150,
         batch_size=32,
         num_workers=0,
         seed=12345,
         # Message passing
-        depth=3,
-        message_hidden_dim=300,
+        depth=5,
+        message_hidden_dim=600,
         # Feed forward
+        dropout=0.1,
         num_layers=2,
-        hidden_dim=300,
-        dropout=0.0,
-        criterion="MAE",
-        ffn_type="regression",
+        hidden_dim=600,
+        criterion="MSE",
+        ffn_type="regression",  # options: 'regression', 'mixture_of_experts', 'branched'
         # Branched FFN
-        trunk_n_layers=1,
-        trunk_hidden_dim=300,
+        trunk_n_layers=2,
+        trunk_hidden_dim=600,
         # Mixture of Experts FFN
-        n_experts=3,
+        n_experts=4,
         # MPNN
         batch_norm=True,
     )
