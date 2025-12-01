@@ -35,32 +35,32 @@ MAX_FOLDS=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --log-level)
-            LOG_LEVEL="$2"
-            shift 2
-            ;;
-        --splits)
-            MAX_SPLITS="$2"
-            shift 2
-            ;;
-        --folds)
-            MAX_FOLDS="$2"
-            shift 2
-            ;;
-        -h|--help)
-            echo "Usage: $0 [--dry-run] [--log-level LEVEL] [--splits N] [--folds N]"
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1
-            ;;
-    esac
+  case $1 in
+  --dry-run)
+    DRY_RUN=true
+    shift
+    ;;
+  --log-level)
+    LOG_LEVEL="$2"
+    shift 2
+    ;;
+  --splits)
+    MAX_SPLITS="$2"
+    shift 2
+    ;;
+  --folds)
+    MAX_FOLDS="$2"
+    shift 2
+    ;;
+  -h | --help)
+    echo "Usage: $0 [--dry-run] [--log-level LEVEL] [--splits N] [--folds N]"
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1"
+    exit 1
+    ;;
+  esac
 done
 
 # Change to project root
@@ -84,65 +84,65 @@ SKIPPED=0
 
 # Iterate through each base data directory
 for base_dir in "${BASE_DATA_DIRS[@]}"; do
-    print_header "Processing base directory: $base_dir"
+  print_header "Processing base directory: $base_dir"
 
-    # Check if directory exists
-    if ! check_dir_exists "$base_dir"; then
-        log_warn "Directory not found, skipping: $base_dir"
+  # Check if directory exists
+  if ! check_dir_exists "$base_dir"; then
+    log_warn "Directory not found, skipping: $base_dir"
+    continue
+  fi
+
+  # Find all split directories
+  mapfile -t split_dirs < <(find_split_dirs "$base_dir" "$MAX_SPLITS")
+
+  log_info "Found ${#split_dirs[@]} splits"
+
+  # Iterate through splits
+  for split_dir in "${split_dirs[@]}"; do
+    split_name=$(basename "$split_dir")
+
+    # Find all fold directories
+    mapfile -t fold_dirs < <(find_fold_dirs "$split_dir" "$MAX_FOLDS")
+
+    log_info "  $split_name: ${#fold_dirs[@]} folds"
+
+    # Iterate through folds
+    for fold_dir in "${fold_dirs[@]}"; do
+      fold_name=$(basename "$fold_dir")
+      ((TOTAL++))
+
+      echo ""
+      log_info "Training: $split_name/$fold_name"
+      log_info "  Data dir: $fold_dir"
+
+      # Check for required files
+      if ! check_training_files "$fold_dir"; then
+        log_warn "Missing train.csv or validation.csv, skipping"
+        ((SKIPPED++))
         continue
-    fi
+      fi
 
-    # Find all split directories
-    mapfile -t split_dirs < <(find_split_dirs "$base_dir" "$MAX_SPLITS")
+      # Create temporary config with updated data_dir
+      TEMP_CONFIG=$(create_temp_config "$CONFIG_FILE" "$fold_dir")
 
-    log_info "Found ${#split_dirs[@]} splits"
+      # Build command
+      CMD="python -m admet.model.chemprop.model --config $TEMP_CONFIG --log-level $LOG_LEVEL"
 
-    # Iterate through splits
-    for split_dir in "${split_dirs[@]}"; do
-        split_name=$(basename "$split_dir")
+      # Execute command
+      if execute_command "$CMD" "$DRY_RUN" "$split_name/$fold_name"; then
+        if [[ "$DRY_RUN" != "true" ]]; then
+          log_success "Completed: $split_name/$fold_name"
+          ((SUCCESS++))
+        fi
+      else
+        log_error "Failed: $split_name/$fold_name"
+        ((FAILED++))
+      fi
 
-        # Find all fold directories
-        mapfile -t fold_dirs < <(find_fold_dirs "$split_dir" "$MAX_FOLDS")
-
-        log_info "  $split_name: ${#fold_dirs[@]} folds"
-
-        # Iterate through folds
-        for fold_dir in "${fold_dirs[@]}"; do
-            fold_name=$(basename "$fold_dir")
-            ((TOTAL++))
-
-            echo ""
-            log_info "Training: $split_name/$fold_name"
-            log_info "  Data dir: $fold_dir"
-
-            # Check for required files
-            if ! check_training_files "$fold_dir"; then
-                log_warn "Missing train.csv or validation.csv, skipping"
-                ((SKIPPED++))
-                continue
-            fi
-
-            # Create temporary config with updated data_dir
-            TEMP_CONFIG=$(create_temp_config "$CONFIG_FILE" "$fold_dir")
-
-            # Build command
-            CMD="python -m admet.model.chemprop.model --config $TEMP_CONFIG --log-level $LOG_LEVEL"
-
-            # Execute command
-            if execute_command "$CMD" "$DRY_RUN" "$split_name/$fold_name"; then
-                if [[ "$DRY_RUN" != "true" ]]; then
-                    log_success "Completed: $split_name/$fold_name"
-                    ((SUCCESS++))
-                fi
-            else
-                log_error "Failed: $split_name/$fold_name"
-                ((FAILED++))
-            fi
-
-            # Clean up temp config
-            cleanup_temp_config "$TEMP_CONFIG"
-        done
+      # Clean up temp config
+      cleanup_temp_config "$TEMP_CONFIG"
     done
+  done
 done
 
 # Print summary and exit with appropriate code

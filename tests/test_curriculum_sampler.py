@@ -6,7 +6,6 @@ Tests the weighted sampling functionality for curriculum learning.
 
 import warnings
 
-import numpy as np
 import pytest
 
 from admet.model.chemprop.curriculum import CurriculumState
@@ -82,7 +81,7 @@ class TestBuildCurriculumSampler:
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            sampler = build_curriculum_sampler(quality_labels, state, seed=42)
+            build_curriculum_sampler(quality_labels, state, seed=42)
             # Should warn about unknown quality
             assert len(w) >= 1
             assert "unknown_quality" in str(w[0].message)
@@ -95,13 +94,13 @@ class TestBuildCurriculumSampler:
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            sampler = build_curriculum_sampler(quality_labels, state, seed=42)
+            _sampler2 = build_curriculum_sampler(quality_labels, state, seed=42)
             # Should warn about zero weights AND unknown qualities
             assert len(w) >= 1
 
         # Sampler should still work (uniform fallback)
-        assert sampler is not None
-        assert len(sampler) == 3
+        assert _sampler2 is not None
+        assert len(_sampler2) == 3
 
     def test_reproducibility_with_seed(self) -> None:
         """Test that same seed produces same sampling order."""

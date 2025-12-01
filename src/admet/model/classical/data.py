@@ -1,8 +1,8 @@
 from typing import Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
-
 
 QUALITY_MAP = {
     "high": 1.0,
@@ -19,7 +19,7 @@ def load_data(path: str) -> pd.DataFrame:
 def augment_quality(
     df: pd.DataFrame,
     quality_col: str = "quality",
-    quality_weights: Dict[str, float] = None,
+    quality_weights: Dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """Attach quality_bucket and sample_weight to df."""
     if quality_weights is None:

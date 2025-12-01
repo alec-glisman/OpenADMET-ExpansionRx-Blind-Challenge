@@ -4,14 +4,9 @@ Unit tests for ensemble discovery and utilities.
 Tests `discover_splits_folds` and `_flatten_dict` in `ChempropEnsemble`.
 """
 
-import os
-import textwrap
-from pathlib import Path
-
-import pytest
 from omegaconf import OmegaConf
 
-from admet.model.chemprop.config import EnsembleConfig, EnsembleDataConfig, MlflowConfig
+from admet.model.chemprop.config import EnsembleConfig
 from admet.model.chemprop.ensemble import ChempropEnsemble, SplitFoldInfo
 
 

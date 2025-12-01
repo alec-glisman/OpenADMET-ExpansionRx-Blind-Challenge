@@ -22,14 +22,14 @@ Design notes
 from __future__ import annotations
 
 import logging
-from typing import Tuple, Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
-from matplotlib.ticker import MultipleLocator
-from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.ticker import MultipleLocator
 from pandas import DataFrame
 
 from admet.plot.latex import latex_sanitize

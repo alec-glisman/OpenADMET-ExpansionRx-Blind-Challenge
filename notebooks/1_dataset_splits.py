@@ -161,7 +161,7 @@ split_dict = {
 }
 
 # %%
-split_datasets = {}
+split_datasets: dict[str, dict] = {}
 
 n_iter = len(datasets) * len(split_dict) * n_splits
 logger.info(f"Total iterations for dataset splits: {n_iter}")
@@ -233,9 +233,9 @@ for dset_name, data in datasets.items():  # iterate over different datasets
                         f"Fold {j} not found in split {i} for dataset {dset_name} and split method {split_name}"
                     )
 
-                combined_train_indices = []
-                combined_val_indices = []
-                combined_test_indices = []
+                combined_train_indices: list = []
+                combined_val_indices: list = []
+                combined_test_indices: list = []
 
                 for group in data[stratify_column].unique():
                     group_split = split_datasets[dset_name][split_name][f"split_{i}"][f"fold_{j}"][group]
@@ -243,15 +243,15 @@ for dset_name, data in datasets.items():  # iterate over different datasets
                     combined_val_indices.extend(group_split["validation"])
                     combined_test_indices.extend(group_split["test"])
 
-                combined_train_indices = np.array(combined_train_indices)
-                combined_val_indices = np.array(combined_val_indices)
-                combined_test_indices = np.array(combined_test_indices)
+                combined_train_arr = np.array(combined_train_indices)
+                combined_val_arr = np.array(combined_val_indices)
+                combined_test_arr = np.array(combined_test_indices)
 
                 # save combined train/test sets
                 split_datasets[dset_name][split_name][f"split_{i}"][f"fold_{j}"]["total"] = {
-                    "train": combined_train_indices,
-                    "validation": combined_val_indices,
-                    "test": combined_test_indices,
+                    "train": combined_train_arr,
+                    "validation": combined_val_arr,
+                    "test": combined_test_arr,
                 }
 
                 # final assertions
@@ -357,7 +357,7 @@ for dset_name, splits in split_datasets.items():
     ax.set_title(f"Distribution of Test Set Sizes for Different Split Methods\nDataset: {dset_name}")
     ax.set_ylabel("Number of Test Samples")
     ax.set_xlabel("Split Method")
-    ax.yaxis.get_major_locator().set_params(integer=True)
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
     ax.tick_params(axis="x", rotation=45)
     ax.grid(True, axis="y", linestyle="--", alpha=0.7)
 

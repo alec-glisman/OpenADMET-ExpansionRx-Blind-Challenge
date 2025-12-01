@@ -1,6 +1,4 @@
-from types import SimpleNamespace
-
-from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
+from admet.model.chemprop.curriculum import CurriculumState
 
 
 def _weights_equal(w1, w2, tol: float = 1e-6):

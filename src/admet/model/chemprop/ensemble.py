@@ -169,7 +169,7 @@ class ChempropEnsemble:
 
         # Log ensemble configuration
         config_dict = OmegaConf.to_container(self.config, resolve=True)
-        mlflow.log_params(self._flatten_dict(config_dict, max_depth=2))
+        mlflow.log_params(self._flatten_dict(config_dict, max_depth=2))  # type: ignore[arg-type]
 
         # Parse and log data_dir parameters
 
@@ -421,7 +421,7 @@ class ChempropEnsemble:
             config.mlflow.nested = parent_run_id is not None
 
             # Create and train model (MLflow enabled, creating nested run)
-            model = ChempropModel.from_config(config)
+            model = ChempropModel.from_config(config)  # type: ignore[arg-type]
             model.fit()
 
             # Get metrics from trainer
@@ -481,7 +481,7 @@ class ChempropEnsemble:
             config_dict = OmegaConf.to_container(config_omega, resolve=True)
 
             task = train_single_model.remote(
-                config_dict,
+                config_dict,  # type: ignore[arg-type]
                 info.split_idx,
                 info.fold_idx,
                 self.parent_run_id,
@@ -899,7 +899,7 @@ class ChempropEnsemble:
             return
 
         # Calculate ensemble statistics for each metric
-        metric_names = set()
+        metric_names: set[str] = set()
         for metrics in self._all_metrics.values():
             metric_names.update(metrics.keys())
 
@@ -911,7 +911,7 @@ class ChempropEnsemble:
                 ensemble_metrics[f"ensemble_{metric_name}_std"] = np.std(values, ddof=1)
                 ensemble_metrics[f"ensemble_{metric_name}_stderr"] = np.std(values, ddof=1) / np.sqrt(len(values))
 
-        mlflow.log_metrics(ensemble_metrics)
+        mlflow.log_metrics({k: float(v) for k, v in ensemble_metrics.items()})
         logger.info("Logged ensemble metrics to MLflow")
 
     def predict_ensemble(
@@ -995,7 +995,7 @@ def train_ensemble_from_config(config_path: str, log_level: str = "INFO") -> Non
     logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create and train ensemble
-    ensemble = ChempropEnsemble.from_config(config)
+    ensemble = ChempropEnsemble.from_config(config)  # type: ignore[arg-type]
     ensemble.train_all()
     ensemble.close()
 
@@ -1071,7 +1071,7 @@ Configuration file should have the structure:
     logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create and train ensemble
-    ensemble = ChempropEnsemble.from_config(config)
+    ensemble = ChempropEnsemble.from_config(config)  # type: ignore[arg-type]
     ensemble.train_all()
     ensemble.close()
 

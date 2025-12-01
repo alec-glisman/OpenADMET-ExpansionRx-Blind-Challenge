@@ -4,9 +4,7 @@ Extended tests for curriculum sampler: reproducibility, unknown labels, fallback
 
 import warnings
 
-import numpy as np
 import pytest
-import torch
 
 from admet.model.chemprop.curriculum import CurriculumState
 from admet.model.chemprop.curriculum_sampler import (

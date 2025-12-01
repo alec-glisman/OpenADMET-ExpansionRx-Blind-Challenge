@@ -2,11 +2,11 @@
 
 ## Model Overview
 
-**Model Name:** OpenADMET Multi-Endpoint ADMET Predictor  
-**Version:** 1.0  
-**Task:** Multi-output regression for 9 ADMET endpoints  
-**Architecture:** Chemprop Message-Passing Neural Network (MPNN) ensemble  
-**Training Framework:** PyTorch Lightning + Ray (parallel training)  
+**Model Name:** OpenADMET Multi-Endpoint ADMET Predictor
+**Version:** 1.0
+**Task:** Multi-output regression for 9 ADMET endpoints
+**Architecture:** Chemprop Message-Passing Neural Network (MPNN) ensemble
+**Training Framework:** PyTorch Lightning + Ray (parallel training)
 **Experiment Tracking:** MLflow
 
 ## Intended Use
@@ -450,5 +450,5 @@ Predictions saved in two formats:
 
 ## Contact
 
-**Repository:** [OpenADMET-ExpansionRx-Blind-Challenge](https://github.com/alec-glisman/OpenADMET-ExpansionRx-Blind-Challenge)  
+**Repository:** [OpenADMET-ExpansionRx-Blind-Challenge](https://github.com/alec-glisman/OpenADMET-ExpansionRx-Blind-Challenge)
 **Author:** Alec Glisman

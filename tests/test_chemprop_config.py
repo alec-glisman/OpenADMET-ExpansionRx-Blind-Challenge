@@ -5,7 +5,6 @@ Tests configuration dataclasses including CurriculumConfig, ChempropConfig,
 EnsembleConfig, and their integration with OmegaConf.
 """
 
-import pytest
 from omegaconf import OmegaConf
 
 from admet.model.chemprop.config import (

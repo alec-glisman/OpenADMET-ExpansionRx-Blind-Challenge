@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 from numpy import ndarray
 from pandas import DataFrame
 
-from admet.plot.latex import latex_sanitize, text_correlation, text_distribution
+from admet.plot.latex import latex_sanitize, text_distribution
 
 LOGGER = logging.getLogger(__name__)
 N_COLS: int = 3

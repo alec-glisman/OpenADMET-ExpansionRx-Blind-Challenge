@@ -22,7 +22,7 @@ All dynamically retrieved names are converted to lowercase for uniform CLI
 and API usage.
 """
 
-from typing import Any, Callable, Dict, TypedDict
+from typing import Any, Callable, Dict
 
 import numpy as np
 

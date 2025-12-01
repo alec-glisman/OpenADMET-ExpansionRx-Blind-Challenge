@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import logging
 import tempfile
-import warnings
 from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
@@ -319,9 +318,8 @@ class ChempropHyperparams:
     dropout: float = 0.1
     num_layers: int = 2
     hidden_dim: int = 600
-    criterion: str = (
-        "MAE"  # options: "MAE", "MSE", "RMSE", "SID", "BCE", "CrossEntropy", "Dirichlet", "Evidential", "MVE", "Quantile"
-    )
+    # options: "MAE", "MSE", "RMSE", "SID", "BCE", "CrossEntropy", "Dirichlet", "Evidential", "MVE", "Quantile"
+    criterion: str = "MAE"
     ffn_type: str = "regression"  # options: 'regression', 'mixture_of_experts', 'branched'
 
     # Branched FFN
@@ -842,7 +840,7 @@ class ChempropModel:
                 n_layers=self.hyperparams.num_layers,
                 dropout=self.hyperparams.dropout,
                 criterion=criterion,
-                task_weights=self.target_weights,
+                task_weights=torch.tensor(self.target_weights) if self.target_weights else None,
                 output_transform=self.transform,
             )
         elif self.hyperparams.ffn_type == "branched":
@@ -855,7 +853,7 @@ class ChempropModel:
                 trunk_hidden_dim=self.hyperparams.trunk_hidden_dim,
                 trunk_dropout=self.hyperparams.dropout,
                 criterion=criterion,
-                task_weights=self.target_weights,
+                task_weights=torch.tensor(self.target_weights) if self.target_weights else None,
                 output_transform=self.transform,
             )
         elif self.hyperparams.ffn_type == "regression":
@@ -1002,7 +1000,7 @@ class ChempropModel:
                 self._checkpoint_temp_dir = None
 
             checkpointing = MLflowModelCheckpoint(
-                mlflow_client=self._mlflow_client,
+                mlflow_client=self._mlflow_client,  # type: ignore[arg-type]
                 run_id=self.mlflow_run_id,
                 dirpath=checkpoint_dir,
                 filename="best-{epoch:04}-{val_loss:.2f}",
@@ -1018,7 +1016,7 @@ class ChempropModel:
         else:
             pl_logger = True
             # Standard checkpointing without MLflow
-            checkpointing = ModelCheckpoint(
+            checkpointing = ModelCheckpoint(  # type: ignore[no-redef,assignment]
                 dirpath=self.output_dir,
                 filename="best-{epoch:04}-{val_loss:.2f}",
                 monitor="val_loss",
@@ -1194,11 +1192,11 @@ class ChempropModel:
 
         # Register datasets with MLflow (run is already active from _init_mlflow)
         if df_train is not None:
-            train_dataset = mlflow.data.from_pandas(df_train, name="train")
+            train_dataset = mlflow.data.from_pandas(df_train, name="train")  # type: ignore[attr-defined]
             mlflow.log_input(train_dataset, context="training")
             logger.debug("Registered training dataset with MLflow")
         if df_validation is not None:
-            val_dataset = mlflow.data.from_pandas(df_validation, name="validation")
+            val_dataset = mlflow.data.from_pandas(df_validation, name="validation")  # type: ignore[attr-defined]
             mlflow.log_input(val_dataset, context="validation")
             logger.debug("Registered validation dataset with MLflow")
 
@@ -1318,7 +1316,9 @@ class ChempropModel:
                         # Also log quality-specific metrics directly to MLflow
                         mlflow_metric_name = _sanitize_mlflow_metric_name(f"val_{quality}_{target}_{metric_name}")
                         try:
-                            self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_metric_name, float(metric_value))
+                            self._mlflow_client.log_metric(
+                                self.mlflow_run_id, mlflow_metric_name, float(metric_value)  # type: ignore[arg-type]
+                            )
                         except Exception:
                             pass  # Silently ignore metric logging failures
 
@@ -1465,8 +1465,8 @@ class ChempropModel:
                 preds = batch_preds
             all_preds.append(preds)
 
-        all_preds = np.vstack(all_preds)
-        pred_df = pd.DataFrame(all_preds, columns=[f"{t}" for t in self.target_cols])
+        all_preds_arr = np.vstack(all_preds)
+        pred_df = pd.DataFrame(all_preds_arr, columns=[f"{t}" for t in self.target_cols])
 
         # Log prediction metrics if ground truth is available and MLflow tracking is enabled
         if self.mlflow_tracking and self._mlflow_logger is not None:
@@ -1651,15 +1651,18 @@ class ChempropModel:
                 safe_target = _sanitize_mlflow_metric_name(target)
                 mlflow_key = f"{split}/{safe_target}_{metric_name}"
                 try:
-                    self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_key, float(metric_value))
+                    self._mlflow_client.log_metric(
+                        self.mlflow_run_id, mlflow_key, float(metric_value)  # type: ignore[arg-type]
+                    )
                 except Exception:
                     pass  # Silently ignore metric logging failures
 
                 # Collect for averaging
                 if metric_name not in all_metrics:
                     all_metrics[metric_name] = []
-                if not np.isnan(metric_value):
-                    all_metrics[metric_name].append(float(metric_value))
+                metric_val_float = float(metric_value)  # type: ignore[arg-type]
+                if not np.isnan(metric_val_float):
+                    all_metrics[metric_name].append(metric_val_float)
 
                 # Save to dataframe for artifact
                 row = pd.DataFrame(
@@ -1670,7 +1673,7 @@ class ChempropModel:
         # Log mean metrics across all targets
         for metric_name, values in all_metrics.items():
             if values:
-                mean_value = np.mean(values)
+                mean_value = float(np.mean(values))
                 mlflow_key = f"{split}/mean_{metric_name}"
                 try:
                     self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_key, mean_value)
@@ -1852,7 +1855,7 @@ def train_from_config(config_path: str, log_level: str = "INFO") -> None:
 
     # Create model from config
     logger.info("Creating model from configuration...")
-    model = ChempropModel.from_config(config)
+    model = ChempropModel.from_config(config)  # type: ignore[arg-type]
 
     # Train the model
     logger.info("Starting training...")

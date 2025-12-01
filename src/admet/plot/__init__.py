@@ -37,9 +37,9 @@ plt.rcParams["axes.prop_cycle"] = cycler(color=GLASBEY_PALETTE)
 sns.set_palette(GLASBEY_PALETTE)
 
 # Public API exports
-from admet.plot.density import plot_endpoint_distributions, plot_property_distributions
-from admet.plot.latex import latex_sanitize, text_correlation, text_distribution
-from admet.plot.metrics import (
+from admet.plot.density import plot_endpoint_distributions, plot_property_distributions  # noqa: E402
+from admet.plot.latex import latex_sanitize, text_correlation, text_distribution  # noqa: E402
+from admet.plot.metrics import (  # noqa: E402
     compute_metrics_by_split,
     compute_metrics_df,
     metrics_to_latex_table,
@@ -48,7 +48,7 @@ from admet.plot.metrics import (
     plot_metric_bar,
     plot_metrics_grouped_by_split,
 )
-from admet.plot.parity import plot_parity, plot_parity_by_split, plot_parity_grid, save_parity_plots
+from admet.plot.parity import plot_parity, plot_parity_by_split, plot_parity_grid, save_parity_plots  # noqa: E402
 
 __all__ = [
     # Constants

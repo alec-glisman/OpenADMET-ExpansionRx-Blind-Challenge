@@ -49,32 +49,30 @@ Splitting methods
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Dict, Sequence, Optional, Tuple, Union, Any, Callable
 import argparse
 import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from matplotlib.figure import Figure
-from pandas import DataFrame
+import mlflow
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupKFold, StratifiedKFold
-from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-import mlflow
-from tqdm import tqdm
-
 import useful_rdkit_utils as uru
+from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+from matplotlib.figure import Figure
+from pandas import DataFrame
 from rdkit import Chem  # type: ignore[import-not-found]
-
-from bitbirch.bitbirch import bitbirch as bb
+from sklearn.model_selection import GroupKFold, StratifiedKFold
+from tqdm import tqdm
 
 from admet.plot.split import (
     plot_cluster_size_histogram,
+    plot_endpoint_finite_value_counts,
     plot_train_cluster_size_boxplots,
     plot_train_val_dataset_sizes,
-    plot_endpoint_finite_value_counts,
 )
+from bitbirch.bitbirch import bitbirch as bb
 
 # -------------------------------------------------------------------
 # Constants
@@ -141,8 +139,16 @@ def get_bitbirch_clusters(smiles_list: Sequence[str]) -> List[int]:
     LOGGER.debug("get_bitbirch_clusters: starting clustering for %d SMILES", len(smiles_list))
 
     # Data preparation
-    mols = [Chem.MolFromSmiles(smiles) for smiles in tqdm(smiles_list, desc="Parsing SMILES", dynamic_ncols=True)]  # type: ignore
-    fps = np.array([Chem.RDKFingerprint(mol) for mol in tqdm(mols, desc="Computing fingerprints", dynamic_ncols=True)])  # type: ignore
+    mols = [
+        Chem.MolFromSmiles(smiles)
+        for smiles in tqdm(smiles_list, desc="Parsing SMILES", dynamic_ncols=True)  # type: ignore
+    ]
+    fps = np.array(
+        [
+            Chem.RDKFingerprint(mol)
+            for mol in tqdm(mols, desc="Computing fingerprints", dynamic_ncols=True)  # type: ignore
+        ]
+    )
 
     # Input type checking
     is_binary = np.all(np.isin(fps, [0, 1]))

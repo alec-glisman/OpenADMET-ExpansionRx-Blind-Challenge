@@ -91,7 +91,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: pytest -q -m "not slow"
+        entry: pytest -n auto -q -m "not no_mlflow_runs"
         language: system
         pass_filenames: false
 

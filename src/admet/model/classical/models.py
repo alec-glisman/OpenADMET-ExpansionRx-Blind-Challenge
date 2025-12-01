@@ -1,9 +1,9 @@
 from typing import Any, Dict
-import numpy as np
 
+import numpy as np
+from lightgbm import LGBMRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
 
 
 def build_model(model_type: str, params: Dict[str, Any]):

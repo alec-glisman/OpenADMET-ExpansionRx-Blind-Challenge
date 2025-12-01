@@ -11,7 +11,7 @@
 
 # Prevent multiple sourcing
 if [[ -n "${_COMMON_SH_LOADED:-}" ]]; then
-    return 0
+  return 0
 fi
 _COMMON_SH_LOADED=1
 
@@ -21,8 +21,8 @@ _COMMON_SH_LOADED=1
 
 # Get the project root directory
 get_project_root() {
-    local script_dir="$1"
-    dirname "$script_dir"
+  local script_dir="$1"
+  dirname "$script_dir"
 }
 
 # =============================================================================
@@ -32,23 +32,23 @@ get_project_root() {
 # Base data directories containing split_*/fold_*/ subdirectories
 # These are used by both ensemble and single model training scripts
 get_data_dirs() {
-    local dirs=(
-        # High quality data
-        "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
-        "assets/dataset/split_train_val/v3/quality_high/bitbirch/stratified_kfold/data"
-        "assets/dataset/split_train_val/v3/quality_high/bitbirch/group_kfold/data"
+  local dirs=(
+    # High quality data
+    "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+    "assets/dataset/split_train_val/v3/quality_high/bitbirch/stratified_kfold/data"
+    "assets/dataset/split_train_val/v3/quality_high/bitbirch/group_kfold/data"
 
-        # High + Medium quality data
-        "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/multilabel_stratified_kfold/data"
-        "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/stratified_kfold/data"
-        "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/group_kfold/data"
+    # High + Medium quality data
+    "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/multilabel_stratified_kfold/data"
+    "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/stratified_kfold/data"
+    "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/group_kfold/data"
 
-        # High + Medium + Low quality data
-        "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data"
-        "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/stratified_kfold/data"
-        "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/group_kfold/data"
-    )
-    printf '%s\n' "${dirs[@]}"
+    # High + Medium + Low quality data
+    "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data"
+    "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/stratified_kfold/data"
+    "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/group_kfold/data"
+  )
+  printf '%s\n' "${dirs[@]}"
 }
 
 # =============================================================================
@@ -70,47 +70,47 @@ NC='\033[0m' # No Color
 # =============================================================================
 
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+  echo -e "${GREEN}[INFO]${NC} $1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+  echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+  echo -e "${RED}[ERROR]${NC} $1"
 }
 
 log_cmd() {
-    echo -e "${BLUE}[CMD]${NC} $1"
+  echo -e "${BLUE}[CMD]${NC} $1"
 }
 
 log_section() {
-    echo -e "${CYAN}$1${NC}"
+  echo -e "${CYAN}$1${NC}"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+  echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
 log_debug() {
-    if [[ "${DEBUG:-false}" == "true" ]]; then
-        echo -e "${MAGENTA}[DEBUG]${NC} $1"
-    fi
+  if [[ "${DEBUG:-false}" == "true" ]]; then
+    echo -e "${MAGENTA}[DEBUG]${NC} $1"
+  fi
 }
 
 # Print a horizontal separator
 print_separator() {
-    echo "=========================================="
+  echo "=========================================="
 }
 
 # Print a section header
 print_header() {
-    local title="$1"
-    echo ""
-    log_section "=========================================="
-    log_section "$title"
-    log_section "=========================================="
+  local title="$1"
+  echo ""
+  log_section "=========================================="
+  log_section "$title"
+  log_section "=========================================="
 }
 
 # =============================================================================
@@ -124,21 +124,21 @@ print_header() {
 # Returns:
 #   Path to temporary config file (caller must clean up)
 create_temp_config() {
-    local base_config="$1"
-    local data_dir="$2"
-    local temp_config
+  local base_config="$1"
+  local data_dir="$2"
+  local temp_config
 
-    temp_config=$(mktemp /tmp/training_config_XXXXXX.yaml)
-    sed "s|data_dir:.*|data_dir: \"$data_dir\"|" "$base_config" > "$temp_config"
-    echo "$temp_config"
+  temp_config=$(mktemp /tmp/training_config_XXXXXX.yaml)
+  sed "s|data_dir:.*|data_dir: \"$data_dir\"|" "$base_config" >"$temp_config"
+  echo "$temp_config"
 }
 
 # Clean up temporary config file
 cleanup_temp_config() {
-    local temp_config="$1"
-    if [[ -f "$temp_config" ]]; then
-        rm -f "$temp_config"
-    fi
+  local temp_config="$1"
+  if [[ -f "$temp_config" ]]; then
+    rm -f "$temp_config"
+  fi
 }
 
 # =============================================================================
@@ -151,12 +151,12 @@ cleanup_temp_config() {
 # Returns:
 #   0 if exists, 1 otherwise
 check_config_exists() {
-    local config_file="$1"
-    if [[ ! -f "$config_file" ]]; then
-        log_error "Config file not found: $config_file"
-        return 1
-    fi
-    return 0
+  local config_file="$1"
+  if [[ ! -f "$config_file" ]]; then
+    log_error "Config file not found: $config_file"
+    return 1
+  fi
+  return 0
 }
 
 # Check if a directory exists
@@ -165,11 +165,11 @@ check_config_exists() {
 # Returns:
 #   0 if exists, 1 otherwise
 check_dir_exists() {
-    local dir="$1"
-    if [[ ! -d "$dir" ]]; then
-        return 1
-    fi
-    return 0
+  local dir="$1"
+  if [[ ! -d "$dir" ]]; then
+    return 1
+  fi
+  return 0
 }
 
 # Check if required training files exist in a fold directory
@@ -178,11 +178,11 @@ check_dir_exists() {
 # Returns:
 #   0 if both train.csv and validation.csv exist, 1 otherwise
 check_training_files() {
-    local fold_dir="$1"
-    if [[ ! -f "$fold_dir/train.csv" ]] || [[ ! -f "$fold_dir/validation.csv" ]]; then
-        return 1
-    fi
-    return 0
+  local fold_dir="$1"
+  if [[ ! -f "$fold_dir/train.csv" ]] || [[ ! -f "$fold_dir/validation.csv" ]]; then
+    return 1
+  fi
+  return 0
 }
 
 # =============================================================================
@@ -196,25 +196,26 @@ check_training_files() {
 # Outputs:
 #   Sorted list of split directory paths (one per line)
 find_split_dirs() {
-    local base_dir="$1"
-    local max_splits="${2:-}"
-    local split_dirs=()
+  local base_dir="$1"
+  local max_splits="${2:-}"
+  local split_dirs=()
 
-    for split_dir in "$base_dir"/split_*; do
-        if [[ -d "$split_dir" ]]; then
-            split_dirs+=("$split_dir")
-        fi
-    done
-
-    # Sort directories
-    IFS=$'\n' split_dirs=($(sort <<<"${split_dirs[*]}")); unset IFS
-
-    # Limit if specified
-    if [[ -n "$max_splits" ]] && [[ ${#split_dirs[@]} -gt 0 ]]; then
-        split_dirs=("${split_dirs[@]:0:$max_splits}")
+  for split_dir in "$base_dir"/split_*; do
+    if [[ -d "$split_dir" ]]; then
+      split_dirs+=("$split_dir")
     fi
+  done
 
-    printf '%s\n' "${split_dirs[@]}"
+  # Sort directories
+  IFS=$'\n' split_dirs=($(sort <<<"${split_dirs[*]}"))
+  unset IFS
+
+  # Limit if specified
+  if [[ -n "$max_splits" ]] && [[ ${#split_dirs[@]} -gt 0 ]]; then
+    split_dirs=("${split_dirs[@]:0:$max_splits}")
+  fi
+
+  printf '%s\n' "${split_dirs[@]}"
 }
 
 # Find all fold directories in a split directory
@@ -224,25 +225,26 @@ find_split_dirs() {
 # Outputs:
 #   Sorted list of fold directory paths (one per line)
 find_fold_dirs() {
-    local split_dir="$1"
-    local max_folds="${2:-}"
-    local fold_dirs=()
+  local split_dir="$1"
+  local max_folds="${2:-}"
+  local fold_dirs=()
 
-    for fold_dir in "$split_dir"/fold_*; do
-        if [[ -d "$fold_dir" ]]; then
-            fold_dirs+=("$fold_dir")
-        fi
-    done
-
-    # Sort directories
-    IFS=$'\n' fold_dirs=($(sort <<<"${fold_dirs[*]}")); unset IFS
-
-    # Limit if specified
-    if [[ -n "$max_folds" ]] && [[ ${#fold_dirs[@]} -gt 0 ]]; then
-        fold_dirs=("${fold_dirs[@]:0:$max_folds}")
+  for fold_dir in "$split_dir"/fold_*; do
+    if [[ -d "$fold_dir" ]]; then
+      fold_dirs+=("$fold_dir")
     fi
+  done
 
-    printf '%s\n' "${fold_dirs[@]}"
+  # Sort directories
+  IFS=$'\n' fold_dirs=($(sort <<<"${fold_dirs[*]}"))
+  unset IFS
+
+  # Limit if specified
+  if [[ -n "$max_folds" ]] && [[ ${#fold_dirs[@]} -gt 0 ]]; then
+    fold_dirs=("${fold_dirs[@]:0:$max_folds}")
+  fi
+
+  printf '%s\n' "${fold_dirs[@]}"
 }
 
 # =============================================================================
@@ -256,24 +258,24 @@ find_fold_dirs() {
 #   $3 - Failed count
 #   $4 - Skipped count
 print_summary() {
-    local total="$1"
-    local success="$2"
-    local failed="$3"
-    local skipped="$4"
+  local total="$1"
+  local success="$2"
+  local failed="$3"
+  local skipped="$4"
 
-    echo ""
-    log_section "=========================================="
-    log_section "Training Summary"
-    log_section "=========================================="
-    log_info "Total: $total"
-    log_info "Success: $success"
-    log_info "Failed: $failed"
-    log_info "Skipped: $skipped"
+  echo ""
+  log_section "=========================================="
+  log_section "Training Summary"
+  log_section "=========================================="
+  log_info "Total: $total"
+  log_info "Success: $success"
+  log_info "Failed: $failed"
+  log_info "Skipped: $skipped"
 
-    if [[ $failed -gt 0 ]]; then
-        return 1
-    fi
-    return 0
+  if [[ $failed -gt 0 ]]; then
+    return 1
+  fi
+  return 0
 }
 
 # =============================================================================
@@ -288,51 +290,51 @@ print_summary() {
 # Returns:
 #   Command exit code, or 0 for dry run
 execute_command() {
-    local cmd="$1"
-    local dry_run="${2:-false}"
-    local description="${3:-command}"
-    local custom_log_file="${4:-}"
+  local cmd="$1"
+  local dry_run="${2:-false}"
+  local description="${3:-command}"
+  local custom_log_file="${4:-}"
 
-    # Determine log file:
-    # Priority: custom argument > LOG_FILE env var > default to assets/logs/{datetime}_chemprop_ensemble.log
-    local log_file
-    if [[ -n "$custom_log_file" ]]; then
-        log_file="$custom_log_file"
-    elif [[ -n "${LOG_FILE:-}" ]]; then
-        log_file="${LOG_FILE}"
-    else
-        local logs_dir="assets/logs"
-        mkdir -p "$logs_dir"
-        local ts
-        ts=$(date +%Y%m%d_%H%M%S)
-        log_file="${logs_dir}/${ts}_chemprop_ensemble.log"
-    fi
+  # Determine log file:
+  # Priority: custom argument > LOG_FILE env var > default to assets/logs/{datetime}_chemprop_ensemble.log
+  local log_file
+  if [[ -n "$custom_log_file" ]]; then
+    log_file="$custom_log_file"
+  elif [[ -n "${LOG_FILE:-}" ]]; then
+    log_file="${LOG_FILE}"
+  else
+    local logs_dir="assets/logs"
+    mkdir -p "$logs_dir"
+    local ts
+    ts=$(date +%Y%m%d_%H%M%S)
+    log_file="${logs_dir}/${ts}_chemprop_ensemble.log"
+  fi
 
-    log_cmd "$cmd"
-    log_info "Logging to: $log_file"
+  log_cmd "$cmd"
+  log_info "Logging to: $log_file"
 
-    # Ensure we can write to the log file
-    if ! touch "$log_file" 2>/dev/null; then
-        log_error "Cannot write to log file: $log_file"
-        return 1
-    fi
+  # Ensure we can write to the log file
+  if ! touch "$log_file" 2>/dev/null; then
+    log_error "Cannot write to log file: $log_file"
+    return 1
+  fi
 
-    if [[ "$dry_run" == "true" ]]; then
-        log_info "[DRY RUN] Would execute: $description"
-        printf '[%s] [DRY RUN] Would execute: %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" | tee -a "$log_file" >/dev/null
-        return 0
-    fi
+  if [[ "$dry_run" == "true" ]]; then
+    log_info "[DRY RUN] Would execute: $description"
+    printf '[%s] [DRY RUN] Would execute: %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" | tee -a "$log_file" >/dev/null
+    return 0
+  fi
 
-    # Header for command execution
-    printf '[%s] === START: %s ===\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" | tee -a "$log_file"
+  # Header for command execution
+  printf '[%s] === START: %s ===\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" | tee -a "$log_file"
 
-    # Execute the command and pipe both stdout and stderr to the log file while still showing it on console.
-    # Capture the exit code of the evaluated command via PIPESTATUS.
-    eval "$cmd" 2>&1 | tee -a "$log_file"
-    local rc="${PIPESTATUS[0]}"
+  # Execute the command and pipe both stdout and stderr to the log file while still showing it on console.
+  # Capture the exit code of the evaluated command via PIPESTATUS.
+  eval "$cmd" 2>&1 | tee -a "$log_file"
+  local rc="${PIPESTATUS[0]}"
 
-    # Footer with exit code
-    printf '[%s] === END: %s (exit %d) ===\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" "$rc" | tee -a "$log_file"
+  # Footer with exit code
+  printf '[%s] === END: %s (exit %d) ===\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$description" "$rc" | tee -a "$log_file"
 
-    return "$rc"
+  return "$rc"
 }

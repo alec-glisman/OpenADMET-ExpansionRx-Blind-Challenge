@@ -4,8 +4,6 @@ import torch
 import torch.nn.functional as F
 from chemprop.conf import DEFAULT_HIDDEN_DIM
 from chemprop.nn import Predictor, PredictorRegistry
-from chemprop.nn.ffn import MLP
-from chemprop.nn.hparams import HasHParams
 from chemprop.nn.metrics import MSE, ChempropMetric
 from chemprop.nn.predictors import MLP
 from chemprop.nn.transforms import UnscaleTransform
@@ -65,7 +63,8 @@ class MixtureOfExpertsRegressionFFN(Predictor, HyperparametersMixin):
             criterion (ChempropMetric | None, optional): Criterion for training. Defaults to None.
             task_weights (Tensor | None, optional): Weights for each individual task. Defaults to None.
             threshold (float | None, optional): Passed to criterion. Defaults to None.
-            output_transform (UnscaleTransform | None, optional): Output transform to be applied after forward. Defaults to None.
+            output_transform (UnscaleTransform | None, optional): Output transform
+                to be applied after forward. Defaults to None.
         """
         super().__init__()
         ignore_list = ["criterion", "output_transform", "activation"]
@@ -113,11 +112,11 @@ class MixtureOfExpertsRegressionFFN(Predictor, HyperparametersMixin):
 
     @property
     def input_dim(self) -> int:
-        return self.experts[0].input_dim
+        return self.experts[0].input_dim  # type: ignore[return-value]
 
     @property
     def output_dim(self) -> int:
-        return self.experts[0].output_dim
+        return self.experts[0].output_dim  # type: ignore[return-value]
 
     @property
     def n_tasks(self) -> int:
@@ -134,7 +133,7 @@ class MixtureOfExpertsRegressionFFN(Predictor, HyperparametersMixin):
     train_step = forward
 
     def encode(self, Z: Tensor, i: int) -> Tensor:
-        return self.experts[0][:i](Z)
+        return self.experts[0][:i](Z)  # type: ignore[index]
 
 
 @PredictorRegistry.register("regression-branched")
@@ -309,9 +308,9 @@ class BranchedFFN(Predictor, HyperparametersMixin):
             return Z  # zero-layer encoding (no-op) to match Predictor.encode semantics
 
         if self.trunk_layers > 0 and i <= self.trunk_layers:
-            return self.trunk[:i](Z)
+            return self.trunk[:i](Z)  # type: ignore[index]
 
         Zb = self._forward_trunk(Z)
         j = i - self.trunk_layers  # remaining depth to slice from branches
-        reps = [branch[:j](Zb) for branch in self.branches]
+        reps = [branch[:j](Zb) for branch in self.branches]  # type: ignore[index]
         return torch.cat(reps, dim=1)
