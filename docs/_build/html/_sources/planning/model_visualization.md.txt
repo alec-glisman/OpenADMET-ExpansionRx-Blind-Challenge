@@ -11,9 +11,6 @@ ai_note: "true"
 summary: "Add default post-training visualizations: per-endpoint parity plots with train/val/test subplots, and bar charts for R² and Spearman ρ² across splits on log/linear scales."
 post_date: "2025-11-19"
 ---
-
-# XGBoost Post-Training Visualization Plan
-
 ## Overview
 
 - Goal: After every XGBoost training run, automatically generate:

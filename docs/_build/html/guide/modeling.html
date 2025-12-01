@@ -11,7 +11,7 @@
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
 <meta name="description" content="This guide describes the model implementations and how to train models for ADMET property prediction using the admet package. Chemprop Models: The primary modeling approach uses Chemprop message-pa..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Hyperparameter Optimization Guide" href="hpo.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
@@ -230,6 +230,7 @@
 <li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 </ul>
 
 </div>
@@ -337,18 +338,21 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 <section id="hyperparameter-optimization">
 <h3>Hyperparameter Optimization<a class="headerlink" href="#hyperparameter-optimization" title="Link to this heading">¶</a></h3>
 <p>Use Ray Tune with ASHA scheduler for HPO:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropHPO</span><span class="p">,</span> <span class="n">HPOConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropHPO</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load HPO configuration</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/hpo_chemprop.yaml&quot;</span><span class="p">)</span>
-<span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">HPOConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
 
 <span class="c1"># Run hyperparameter search</span>
-<span class="n">hpo</span> <span class="o">=</span> <span class="n">ChempropHPO</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
-<span class="n">best_config</span> <span class="o">=</span> <span class="n">hpo</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">hpo</span> <span class="o">=</span> <span class="n">ChempropHPO</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">best_config</span><span class="p">,</span> <span class="n">results</span> <span class="o">=</span> <span class="n">hpo</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best validation MAE: </span><span class="si">{</span><span class="n">results</span><span class="o">.</span><span class="n">best_result</span><span class="p">[</span><span class="s1">&#39;val_mae&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>For comprehensive HPO documentation including search space configuration,
+ASHA scheduler tuning, and best practices, see <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a>.</p>
 </section>
 </section>
 <section id="curriculum-learning">
@@ -424,6 +428,7 @@ quality tiers:</p>
 <section id="cross-references">
 <h2>Cross-References<a class="headerlink" href="#cross-references" title="Link to this heading">¶</a></h2>
 <ul class="simple">
+<li><p>See <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> for hyperparameter optimization guide</p></li>
 <li><p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for detailed configuration options</p></li>
 <li><p>See <a class="reference internal" href="splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> for dataset partitioning methodology</p></li>
 </ul>
@@ -435,7 +440,15 @@ quality tiers:</p>
       <footer>
         
         <div class="related-pages">
-          
+          <a class="next-page" href="hpo.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Hyperparameter Optimization Guide</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
           <a class="prev-page" href="configuration.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">

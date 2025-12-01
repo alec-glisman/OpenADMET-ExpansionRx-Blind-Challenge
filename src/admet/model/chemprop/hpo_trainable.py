@@ -14,6 +14,7 @@ import pandas as pd
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
 from ray import train
+from ray.train import Checkpoint
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
 
@@ -25,20 +26,39 @@ class RayTuneReportCallback(Callback):
 
     This callback integrates with Ray Tune's reporting mechanism to enable
     early stopping via the ASHA scheduler. It reports validation metrics
-    after each epoch.
+    after each epoch including comprehensive correlation metrics.
+
+    It also saves checkpoints for trial recovery if a trial crashes.
 
     Attributes:
-        metric: Name of the metric to report (default: "val_mae")
+        metric: Name of the primary metric for ASHA scheduling (default: "val_mae")
+        checkpoint_dir: Directory to save checkpoints for recovery
     """
 
-    def __init__(self, metric: str = "val_mae") -> None:
+    # All metrics to report to Ray Tune for tracking
+    METRICS_TO_REPORT = (
+        "val_mae",
+        "val_loss",
+        "val_rmse",
+        "val_R2",
+        "val_pearson_r",
+        "val_spearman_rho",
+        "val_kendall_tau",
+        "train_loss",
+        "train_mae",
+        "lr",  # Current learning rate
+    )
+
+    def __init__(self, metric: str = "val_mae", checkpoint_dir: Path | None = None) -> None:
         """Initialize the callback.
 
         Args:
-            metric: Name of the validation metric to report to Ray Tune.
+            metric: Name of the primary validation metric for ASHA scheduling.
+            checkpoint_dir: Directory for saving checkpoints. If None, no checkpoints saved.
         """
         super().__init__()
         self.metric = metric
+        self.checkpoint_dir = checkpoint_dir
 
     def on_validation_end(
         self,
@@ -46,6 +66,9 @@ class RayTuneReportCallback(Callback):
         pl_module: pl.LightningModule,
     ) -> None:
         """Report metrics to Ray Tune after validation.
+
+        Reports all available metrics from METRICS_TO_REPORT plus the primary
+        metric used for ASHA scheduling. Also saves checkpoint for recovery.
 
         Args:
             trainer: PyTorch Lightning trainer instance.
@@ -55,34 +78,47 @@ class RayTuneReportCallback(Callback):
         if not trainer.callback_metrics:
             return
 
-        # Extract metrics to report
+        # Extract all available metrics
         metrics: dict[str, float] = {}
 
-        # Map common metric names
-        metric_mapping = {
-            "val_mae": ["val_mae", "val_loss"],
-            "val_loss": ["val_loss"],
-            "val_rmse": ["val_rmse"],
-        }
+        # Always report epoch
+        metrics["epoch"] = float(trainer.current_epoch)
 
-        # Get the primary metric
-        for key in metric_mapping.get(self.metric, [self.metric]):
-            if key in trainer.callback_metrics:
-                value = trainer.callback_metrics[key]
-                metrics[self.metric] = float(value.item() if hasattr(value, "item") else value)
-                break
+        # Report all tracked metrics that are available
+        for metric_name in self.METRICS_TO_REPORT:
+            if metric_name in trainer.callback_metrics:
+                value = trainer.callback_metrics[metric_name]
+                metrics[metric_name] = float(value.item() if hasattr(value, "item") else value)
 
-        # Also report epoch and other useful metrics
-        metrics["epoch"] = trainer.current_epoch
+        # Try to get current learning rate from optimizer
+        if "lr" not in metrics and trainer.optimizers:
+            try:
+                opt = trainer.optimizers[0]
+                if hasattr(opt, "param_groups") and opt.param_groups:
+                    metrics["lr"] = float(opt.param_groups[0]["lr"])
+            except (IndexError, KeyError):
+                pass
 
-        # Report train metrics if available
-        if "train_loss" in trainer.callback_metrics:
-            value = trainer.callback_metrics["train_loss"]
-            metrics["train_loss"] = float(value.item() if hasattr(value, "item") else value)
+        # Ensure primary metric is present (map val_loss to val_mae if needed)
+        if self.metric not in metrics:
+            # Fallback mapping for primary metric
+            fallback_mapping = {
+                "val_mae": ["val_loss"],
+                "val_loss": ["val_mae"],
+            }
+            for fallback_key in fallback_mapping.get(self.metric, []):
+                if fallback_key in trainer.callback_metrics:
+                    value = trainer.callback_metrics[fallback_key]
+                    metrics[self.metric] = float(value.item() if hasattr(value, "item") else value)
+                    break
 
-        # Report to Ray Tune
-        if metrics and self.metric in metrics:
-            train.report(metrics)
+        # Report to Ray Tune only if primary metric is available
+        if self.metric in metrics:
+            # Save checkpoint for trial recovery
+            checkpoint = None
+            if self.checkpoint_dir is not None and self.checkpoint_dir.exists():
+                checkpoint = Checkpoint.from_directory(str(self.checkpoint_dir))
+            train.report(metrics, checkpoint=checkpoint)
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:
@@ -141,8 +177,8 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         mlflow_tracking=False,  # Disable MLflow in individual trials
     )
 
-    # Add Ray Tune callback
-    ray_callback = RayTuneReportCallback(metric=metric)
+    # Add Ray Tune callback with checkpoint directory for trial recovery
+    ray_callback = RayTuneReportCallback(metric=metric, checkpoint_dir=output_dir)
     model.trainer.callbacks.append(ray_callback)
 
     # Train the model
@@ -201,18 +237,18 @@ def _build_hyperparams(
     }
 
     # Map sampled hyperparameters
-    # Learning rate (use as max_lr, derive init/final)
+    # Learning rate schedule (max_lr with configurable warmup/final ratios)
     if "learning_rate" in config and config["learning_rate"] is not None:
         lr = config["learning_rate"]
         params["max_lr"] = lr
-        params["init_lr"] = lr / 10  # Standard warmup ratio
-        params["final_lr"] = lr / 10
 
-    # Regularization
-    if "weight_decay" in config and config["weight_decay"] is not None:
-        # Note: Chemprop uses AdamW which has built-in weight decay
-        # We could extend ChempropHyperparams to support this
-        pass
+        # Get warmup ratio (init_lr = max_lr * warmup_ratio, typically 0.01-0.1)
+        warmup_ratio = config.get("lr_warmup_ratio", 0.1)
+        params["init_lr"] = lr * warmup_ratio
+
+        # Get final ratio (final_lr = max_lr * final_ratio, typically 0.01-0.1)
+        final_ratio = config.get("lr_final_ratio", 0.1)
+        params["final_lr"] = lr * final_ratio
 
     if "dropout" in config and config["dropout"] is not None:
         params["dropout"] = config["dropout"]
@@ -221,16 +257,22 @@ def _build_hyperparams(
     if "depth" in config and config["depth"] is not None:
         params["depth"] = int(config["depth"])
 
-    if "hidden_dim" in config and config["hidden_dim"] is not None:
+    # Message hidden dim (MPNN layer width)
+    if "message_hidden_dim" in config and config["message_hidden_dim"] is not None:
+        params["message_hidden_dim"] = int(config["message_hidden_dim"])
+    elif "hidden_dim" in config and config["hidden_dim"] is not None:
+        # Fallback: use hidden_dim for message_hidden_dim if not specified separately
         params["message_hidden_dim"] = int(config["hidden_dim"])
-        params["hidden_dim"] = int(config["hidden_dim"])
 
     # FFN architecture
     if "ffn_num_layers" in config and config["ffn_num_layers"] is not None:
         params["num_layers"] = int(config["ffn_num_layers"])
 
+    # FFN hidden dim (can be different from message_hidden_dim)
     if "ffn_hidden_dim" in config and config["ffn_hidden_dim"] is not None:
         params["hidden_dim"] = int(config["ffn_hidden_dim"])
+    elif "hidden_dim" in config and config["hidden_dim"] is not None:
+        params["hidden_dim"] = int(config["hidden_dim"])
 
     if "batch_size" in config and config["batch_size"] is not None:
         params["batch_size"] = int(config["batch_size"])

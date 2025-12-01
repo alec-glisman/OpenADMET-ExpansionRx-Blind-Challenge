@@ -41,11 +41,14 @@ class SearchSpaceConfig:
     All parameters are optional - only specified parameters will be tuned.
 
     Attributes:
-        learning_rate: Learning rate search space
-        weight_decay: Weight decay search space
+        learning_rate: Max learning rate search space
+        lr_warmup_ratio: Ratio of init_lr to max_lr (init_lr = max_lr * ratio)
+        lr_final_ratio: Ratio of final_lr to max_lr (final_lr = max_lr * ratio)
+        warmup_epochs: Number of warmup epochs search space
+        patience: Early stopping patience search space
         dropout: Dropout rate search space
         depth: Message passing depth search space
-        hidden_dim: Hidden dimension search space
+        message_hidden_dim: Message passing hidden dimension (MPNN) search space
         ffn_num_layers: FFN layers search space
         ffn_hidden_dim: FFN hidden dimension search space
         batch_size: Batch size search space
@@ -58,11 +61,21 @@ class SearchSpaceConfig:
         target_weights: Per-endpoint loss weights search space (applied to each target)
     """
 
+    # Learning rate schedule
     learning_rate: ParameterSpace | None = None
-    weight_decay: ParameterSpace | None = None
+    lr_warmup_ratio: ParameterSpace | None = None  # init_lr = max_lr * ratio
+    lr_final_ratio: ParameterSpace | None = None  # final_lr = max_lr * ratio
+    warmup_epochs: ParameterSpace | None = None
+    patience: ParameterSpace | None = None
+
+    # Regularization
     dropout: ParameterSpace | None = None
+
+    # Message passing architecture
     depth: ParameterSpace | None = None
-    hidden_dim: ParameterSpace | None = None
+    message_hidden_dim: ParameterSpace | None = None  # MPNN hidden dim (separate from FFN)
+
+    # FFN architecture
     ffn_num_layers: ParameterSpace | None = None
     ffn_hidden_dim: ParameterSpace | None = None
     batch_size: ParameterSpace | None = None
@@ -70,9 +83,17 @@ class SearchSpaceConfig:
     n_experts: ParameterSpace | None = None
     trunk_depth: ParameterSpace | None = None
     trunk_hidden_dim: ParameterSpace | None = None
+
+    # Aggregation
     aggregation: ParameterSpace | None = None
     aggregation_norm: ParameterSpace | None = None
+
+    # Task weighting
     target_weights: ParameterSpace | None = None
+
+    # Deprecated - kept for backward compatibility
+    weight_decay: ParameterSpace | None = None
+    hidden_dim: ParameterSpace | None = None  # Use message_hidden_dim + ffn_hidden_dim instead
 
 
 @dataclass
@@ -90,8 +111,8 @@ class ASHAConfig:
 
     metric: str = "val_mae"
     mode: str = "min"
-    max_t: int = 150
-    grace_period: int = 10
+    max_t: int = 100
+    grace_period: int = 15
     reduction_factor: int = 3
     brackets: int = 1
 
@@ -107,8 +128,8 @@ class ResourceConfig:
         max_concurrent_trials: Maximum concurrent trials (None = auto)
     """
 
-    num_samples: int = 50
-    cpus_per_trial: int = 2
+    num_samples: int = 500
+    cpus_per_trial: int = 4
     gpus_per_trial: float = 0.25
     max_concurrent_trials: int | None = None
 

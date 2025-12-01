@@ -79,16 +79,20 @@ Use Ray Tune with ASHA scheduler for HPO:
 
 .. code-block:: python
 
-   from admet.model.chemprop import ChempropHPO, HPOConfig
+   from admet.model.chemprop.hpo import ChempropHPO
    from omegaconf import OmegaConf
 
    # Load HPO configuration
    config = OmegaConf.load("configs/hpo_chemprop.yaml")
-   cfg = OmegaConf.structured(HPOConfig(**config))
 
    # Run hyperparameter search
-   hpo = ChempropHPO.from_config(cfg)
-   best_config = hpo.run()
+   hpo = ChempropHPO(config)
+   best_config, results = hpo.run()
+
+   print(f"Best validation MAE: {results.best_result['val_mae']:.4f}")
+
+For comprehensive HPO documentation including search space configuration,
+ASHA scheduler tuning, and best practices, see :doc:`hpo`.
 
 Curriculum Learning
 -------------------
@@ -171,5 +175,6 @@ Models are saved as PyTorch Lightning checkpoints:
 Cross-References
 ----------------
 
+- See :doc:`hpo` for hyperparameter optimization guide
 - See :doc:`configuration` for detailed configuration options
 - See :doc:`splitting` for dataset partitioning methodology

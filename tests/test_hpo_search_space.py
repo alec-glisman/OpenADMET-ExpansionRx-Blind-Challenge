@@ -162,9 +162,12 @@ class TestGetDefaultSearchSpace:
         assert config.learning_rate is not None
         assert config.dropout is not None
         assert config.depth is not None
-        assert config.hidden_dim is not None
+        assert config.message_hidden_dim is not None  # Replaced hidden_dim
         assert config.ffn_type is not None
         assert config.batch_size is not None
+        # New LR schedule parameters
+        assert config.lr_warmup_ratio is not None
+        assert config.lr_final_ratio is not None
 
     def test_n_experts_is_conditional(self) -> None:
         """Test that n_experts is conditional on ffn_type."""

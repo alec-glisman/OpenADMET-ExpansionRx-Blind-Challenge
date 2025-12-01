@@ -221,6 +221,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 </ul>
 
 </div>
@@ -297,11 +298,14 @@
 <span class="sd">    All parameters are optional - only specified parameters will be tuned.</span>
 
 <span class="sd">    Attributes:</span>
-<span class="sd">        learning_rate: Learning rate search space</span>
-<span class="sd">        weight_decay: Weight decay search space</span>
+<span class="sd">        learning_rate: Max learning rate search space</span>
+<span class="sd">        lr_warmup_ratio: Ratio of init_lr to max_lr (init_lr = max_lr * ratio)</span>
+<span class="sd">        lr_final_ratio: Ratio of final_lr to max_lr (final_lr = max_lr * ratio)</span>
+<span class="sd">        warmup_epochs: Number of warmup epochs search space</span>
+<span class="sd">        patience: Early stopping patience search space</span>
 <span class="sd">        dropout: Dropout rate search space</span>
 <span class="sd">        depth: Message passing depth search space</span>
-<span class="sd">        hidden_dim: Hidden dimension search space</span>
+<span class="sd">        message_hidden_dim: Message passing hidden dimension (MPNN) search space</span>
 <span class="sd">        ffn_num_layers: FFN layers search space</span>
 <span class="sd">        ffn_hidden_dim: FFN hidden dimension search space</span>
 <span class="sd">        batch_size: Batch size search space</span>
@@ -314,11 +318,21 @@
 <span class="sd">        target_weights: Per-endpoint loss weights search space (applied to each target)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># Learning rate schedule</span>
     <span class="n">learning_rate</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">weight_decay</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">lr_warmup_ratio</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># init_lr = max_lr * ratio</span>
+    <span class="n">lr_final_ratio</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># final_lr = max_lr * ratio</span>
+    <span class="n">warmup_epochs</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">patience</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Regularization</span>
     <span class="n">dropout</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Message passing architecture</span>
     <span class="n">depth</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">hidden_dim</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">message_hidden_dim</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># MPNN hidden dim (separate from FFN)</span>
+
+    <span class="c1"># FFN architecture</span>
     <span class="n">ffn_num_layers</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ffn_hidden_dim</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">batch_size</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -326,9 +340,17 @@
     <span class="n">n_experts</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">trunk_depth</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">trunk_hidden_dim</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Aggregation</span>
     <span class="n">aggregation</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">aggregation_norm</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Task weighting</span>
     <span class="n">target_weights</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Deprecated - kept for backward compatibility</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">hidden_dim</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Use message_hidden_dim + ffn_hidden_dim instead</span>
 
 
 <span class="nd">@dataclass</span>
@@ -346,8 +368,8 @@
 
     <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;val_mae&quot;</span>
     <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;min&quot;</span>
-    <span class="n">max_t</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
-    <span class="n">grace_period</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">max_t</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">grace_period</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span>
     <span class="n">reduction_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
     <span class="n">brackets</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
 
@@ -363,8 +385,8 @@
 <span class="sd">        max_concurrent_trials: Maximum concurrent trials (None = auto)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
-    <span class="n">cpus_per_trial</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span>
+    <span class="n">cpus_per_trial</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
     <span class="n">gpus_per_trial</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
     <span class="n">max_concurrent_trials</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 

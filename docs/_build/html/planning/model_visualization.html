@@ -3,19 +3,19 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta property="og:title" content="XGBoost Post-Training Visualization Plan" />
+<meta property="og:title" content="Overview" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/planning/model_visualization.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="Overview: Goal: After every XGBoost training run, automatically generate:- Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test., Bar charts for per-endpoint ..." />
+<meta property="og:description" content="Goal: After every XGBoost training run, automatically generate:- Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test., Bar charts for per-endpoint R² and Spe..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="Overview: Goal: After every XGBoost training run, automatically generate:- Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test., Bar charts for per-endpoint ..." />
+<meta name="description" content="Goal: After every XGBoost training run, automatically generate:- Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test., Bar charts for per-endpoint R² and Spe..." />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
-        <title>XGBoost Post-Training Visualization Plan - OpenADMET Challenge</title>
+        <title>Overview - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -190,7 +190,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
         <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
       </label>
     </div>
@@ -230,6 +230,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 </ul>
 
 </div>
@@ -263,15 +264,13 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
             <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="xgboost-post-training-visualization-plan">
-<h1>XGBoost Post-Training Visualization Plan<a class="headerlink" href="#xgboost-post-training-visualization-plan" title="Link to this heading">¶</a></h1>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+          <section id="overview">
+<h1>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Goal: After every XGBoost training run, automatically generate:</p>
 <ul>
@@ -284,7 +283,7 @@
 </ul>
 </section>
 <section id="scope-requirements">
-<h2>Scope &amp; Requirements<a class="headerlink" href="#scope-requirements" title="Link to this heading">¶</a></h2>
+<h1>Scope &amp; Requirements<a class="headerlink" href="#scope-requirements" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Always-on visualization after training completes successfully.</p></li>
 <li><p>Parity plots:</p>
@@ -321,7 +320,7 @@
 </ul>
 </section>
 <section id="data-transforms">
-<h2>Data &amp; Transforms<a class="headerlink" href="#data-transforms" title="Link to this heading">¶</a></h2>
+<h1>Data &amp; Transforms<a class="headerlink" href="#data-transforms" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Data sources in trainer (<code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code>):</p>
 <ul>
@@ -346,7 +345,7 @@
 </ul>
 </section>
 <section id="integration-points">
-<h2>Integration Points<a class="headerlink" href="#integration-points" title="Link to this heading">¶</a></h2>
+<h1>Integration Points<a class="headerlink" href="#integration-points" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Hook in xgb_train.py:</p>
 <ul>
@@ -363,9 +362,9 @@
 </ul>
 </section>
 <section id="plot-designs">
-<h2>Plot Designs<a class="headerlink" href="#plot-designs" title="Link to this heading">¶</a></h2>
+<h1>Plot Designs<a class="headerlink" href="#plot-designs" title="Link to this heading">¶</a></h1>
 <section id="parity-plots-per-endpoint">
-<h3>Parity Plots (Per Endpoint)<a class="headerlink" href="#parity-plots-per-endpoint" title="Link to this heading">¶</a></h3>
+<h2>Parity Plots (Per Endpoint)<a class="headerlink" href="#parity-plots-per-endpoint" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Layout: 1 figure per endpoint, 3 subplots: train (left), validation (center), test (right).</p></li>
 <li><p>Elements:</p>
@@ -386,7 +385,7 @@
 </ul>
 </section>
 <section id="bar-charts-r2-and-spearman-2">
-<h3>Bar Charts (R² and Spearman ρ²)<a class="headerlink" href="#bar-charts-r2-and-spearman-2" title="Link to this heading">¶</a></h3>
+<h2>Bar Charts (R² and Spearman ρ²)<a class="headerlink" href="#bar-charts-r2-and-spearman-2" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Two figures per scale:</p>
 <ul>
@@ -417,9 +416,9 @@
 </section>
 </section>
 <section id="implementation-outline">
-<h2>Implementation Outline<a class="headerlink" href="#implementation-outline" title="Link to this heading">¶</a></h2>
+<h1>Implementation Outline<a class="headerlink" href="#implementation-outline" title="Link to this heading">¶</a></h1>
 <section id="new-module">
-<h3>New Module<a class="headerlink" href="#new-module" title="Link to this heading">¶</a></h3>
+<h2>New Module<a class="headerlink" href="#new-module" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">src/admet/visualize/model_performance.py</span></code></p>
 <ul>
@@ -443,7 +442,7 @@
 </ul>
 </section>
 <section id="trainer-hook">
-<h3>Trainer Hook<a class="headerlink" href="#trainer-hook" title="Link to this heading">¶</a></h3>
+<h2>Trainer Hook<a class="headerlink" href="#trainer-hook" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>In <code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code> (post-prediction, pre-return):</p>
 <ul>
@@ -470,7 +469,7 @@
 </section>
 </section>
 <section id="computation-details">
-<h2>Computation Details<a class="headerlink" href="#computation-details" title="Link to this heading">¶</a></h2>
+<h1>Computation Details<a class="headerlink" href="#computation-details" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>R²: <code class="docutils literal notranslate"><span class="pre">sklearn.metrics.r2_score</span></code> or manual variance-based computation on masked vectors.</p></li>
 <li><p>Spearman ρ: <code class="docutils literal notranslate"><span class="pre">scipy.stats.spearmanr(y_true_ep,</span> <span class="pre">y_pred_ep).correlation</span></code>; square for ρ²; handle NaN when fewer than 2 points.</p></li>
@@ -484,7 +483,7 @@
 </ul>
 </section>
 <section id="file-layout-naming">
-<h2>File Layout &amp; Naming<a class="headerlink" href="#file-layout-naming" title="Link to this heading">¶</a></h2>
+<h1>File Layout &amp; Naming<a class="headerlink" href="#file-layout-naming" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Output directories:</p>
 <ul>
@@ -502,7 +501,7 @@
 </ul>
 </section>
 <section id="styling-conventions">
-<h2>Styling &amp; Conventions<a class="headerlink" href="#styling-conventions" title="Link to this heading">¶</a></h2>
+<h1>Styling &amp; Conventions<a class="headerlink" href="#styling-conventions" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Use seaborn defaults; grids styled as <code class="docutils literal notranslate"><span class="pre">--</span></code> with alpha ~0.7.</p></li>
 <li><p>Font sizes consistent with existing plots (labels ~12–14; ticks ~10–12).</p></li>
@@ -511,7 +510,7 @@
 </ul>
 </section>
 <section id="validation">
-<h2>Validation<a class="headerlink" href="#validation" title="Link to this heading">¶</a></h2>
+<h1>Validation<a class="headerlink" href="#validation" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Unit-check: ensure figures are generated when <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> is provided.</p></li>
 <li><p>Quick run sanity:</p>
@@ -524,7 +523,7 @@
 </ul>
 </section>
 <section id="risks-mitigations">
-<h2>Risks &amp; Mitigations<a class="headerlink" href="#risks-mitigations" title="Link to this heading">¶</a></h2>
+<h1>Risks &amp; Mitigations<a class="headerlink" href="#risks-mitigations" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Sparse endpoints:</p>
 <ul>
@@ -544,7 +543,7 @@
 </ul>
 </section>
 <section id="assumptions">
-<h2>Assumptions<a class="headerlink" href="#assumptions" title="Link to this heading">¶</a></h2>
+<h1>Assumptions<a class="headerlink" href="#assumptions" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Dataset Integrity: All <code class="docutils literal notranslate"><span class="pre">Y_*</span></code> arrays align column-wise with <code class="docutils literal notranslate"><span class="pre">endpoints</span></code> and contain log10-transformed values where applicable (training operates in log space).</p></li>
 <li><p>Endpoint Exception: <code class="docutils literal notranslate"><span class="pre">LogD</span></code> is already linear; exclude it from 10** back-transform in linear space derivations.</p></li>
@@ -556,7 +555,7 @@
 </ul>
 </section>
 <section id="transform-map">
-<h2>Transform Map<a class="headerlink" href="#transform-map" title="Link to this heading">¶</a></h2>
+<h1>Transform Map<a class="headerlink" href="#transform-map" title="Link to this heading">¶</a></h1>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -587,7 +586,7 @@
 </div>
 </section>
 <section id="api-examples">
-<h2>API Examples<a class="headerlink" href="#api-examples" title="Link to this heading">¶</a></h2>
+<h1>API Examples<a class="headerlink" href="#api-examples" title="Link to this heading">¶</a></h1>
 <p>Example usage in <code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code> (post-prediction):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.visualize.model_performance</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">plot_parity_grid</span><span class="p">,</span>
@@ -615,7 +614,7 @@
 </ul>
 </section>
 <section id="todo-checklist">
-<h2>TODO Checklist<a class="headerlink" href="#todo-checklist" title="Link to this heading">¶</a></h2>
+<h1>TODO Checklist<a class="headerlink" href="#todo-checklist" title="Link to this heading">¶</a></h1>
 <ol class="arabic simple">
 <li><p>Create module <code class="docutils literal notranslate"><span class="pre">src/admet/visualize/model_performance.py</span></code>.</p></li>
 <li><p>Implement shared helpers: masking, axis limit calculation, transform handling.</p></li>
@@ -630,7 +629,7 @@
 </ol>
 </section>
 <section id="unit-testing-strategy">
-<h2>Unit Testing Strategy<a class="headerlink" href="#unit-testing-strategy" title="Link to this heading">¶</a></h2>
+<h1>Unit Testing Strategy<a class="headerlink" href="#unit-testing-strategy" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Granular Helper Tests:</p>
 <ul>
@@ -674,7 +673,7 @@
 </ul>
 </section>
 <section id="error-overwrite-policy">
-<h2>Error &amp; Overwrite Policy<a class="headerlink" href="#error-overwrite-policy" title="Link to this heading">¶</a></h2>
+<h1>Error &amp; Overwrite Policy<a class="headerlink" href="#error-overwrite-policy" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Overwrite Strategy: Existing figure files are overwritten unconditionally to reflect latest model state.</p></li>
 <li><p>Missing Directory: Auto-create with <code class="docutils literal notranslate"><span class="pre">mkdir(parents=True,</span> <span class="pre">exist_ok=True)</span></code>.</p></li>
@@ -695,7 +694,7 @@
 </ul>
 </section>
 <section id="spearman-clarification">
-<h2>Spearman Clarification<a class="headerlink" href="#spearman-clarification" title="Link to this heading">¶</a></h2>
+<h1>Spearman Clarification<a class="headerlink" href="#spearman-clarification" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Reported Metrics:</p>
 <ul>
@@ -712,7 +711,7 @@
 </ul>
 </section>
 <section id="extension-hooks-future">
-<h2>Extension Hooks (Future)<a class="headerlink" href="#extension-hooks-future" title="Link to this heading">¶</a></h2>
+<h1>Extension Hooks (Future)<a class="headerlink" href="#extension-hooks-future" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>Optional CLI flag <code class="docutils literal notranslate"><span class="pre">--skip-plots</span></code> for environments without display libs.</p></li>
 <li><p>Alternate output formats: <code class="docutils literal notranslate"><span class="pre">parity_{endpoint}.svg</span></code> for vector graphics.</p></li>
@@ -720,14 +719,13 @@
 </ul>
 </section>
 <section id="success-criteria">
-<h2>Success Criteria<a class="headerlink" href="#success-criteria" title="Link to this heading">¶</a></h2>
+<h1>Success Criteria<a class="headerlink" href="#success-criteria" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>All endpoints produce parity plots in both scales (unless masked out entirely).</p></li>
 <li><p>R² and Spearman ρ² bar charts include every endpoint and split.</p></li>
 <li><p>No exceptions thrown during typical training runs.</p></li>
 <li><p>Unit test suite passes with added visualization tests on CI.</p></li>
 </ul>
-</section>
 </section>
 
         </article>
@@ -755,54 +753,8 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer">
+    <aside class="toc-drawer no-toc">
       
-      
-      <div class="toc-sticky toc-scroll">
-        <div class="toc-title-container">
-          <span class="toc-title">
-            On this page
-          </span>
-        </div>
-        <div class="toc-tree-container">
-          <div class="toc-tree">
-            <ul>
-<li><a class="reference internal" href="#">XGBoost Post-Training Visualization Plan</a><ul>
-<li><a class="reference internal" href="#overview">Overview</a></li>
-<li><a class="reference internal" href="#scope-requirements">Scope &amp; Requirements</a></li>
-<li><a class="reference internal" href="#data-transforms">Data &amp; Transforms</a></li>
-<li><a class="reference internal" href="#integration-points">Integration Points</a></li>
-<li><a class="reference internal" href="#plot-designs">Plot Designs</a><ul>
-<li><a class="reference internal" href="#parity-plots-per-endpoint">Parity Plots (Per Endpoint)</a></li>
-<li><a class="reference internal" href="#bar-charts-r2-and-spearman-2">Bar Charts (R² and Spearman ρ²)</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#implementation-outline">Implementation Outline</a><ul>
-<li><a class="reference internal" href="#new-module">New Module</a></li>
-<li><a class="reference internal" href="#trainer-hook">Trainer Hook</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#computation-details">Computation Details</a></li>
-<li><a class="reference internal" href="#file-layout-naming">File Layout &amp; Naming</a></li>
-<li><a class="reference internal" href="#styling-conventions">Styling &amp; Conventions</a></li>
-<li><a class="reference internal" href="#validation">Validation</a></li>
-<li><a class="reference internal" href="#risks-mitigations">Risks &amp; Mitigations</a></li>
-<li><a class="reference internal" href="#assumptions">Assumptions</a></li>
-<li><a class="reference internal" href="#transform-map">Transform Map</a></li>
-<li><a class="reference internal" href="#api-examples">API Examples</a></li>
-<li><a class="reference internal" href="#todo-checklist">TODO Checklist</a></li>
-<li><a class="reference internal" href="#unit-testing-strategy">Unit Testing Strategy</a></li>
-<li><a class="reference internal" href="#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
-<li><a class="reference internal" href="#spearman-clarification">Spearman Clarification</a></li>
-<li><a class="reference internal" href="#extension-hooks-future">Extension Hooks (Future)</a></li>
-<li><a class="reference internal" href="#success-criteria">Success Criteria</a></li>
-</ul>
-</li>
-</ul>
-
-          </div>
-        </div>
-      </div>
       
       
     </aside>

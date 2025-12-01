@@ -32,6 +32,7 @@ from typing import Any, cast
 import mlflow
 from omegaconf import OmegaConf
 from ray import tune
+from ray.air.integrations.mlflow import MLflowLoggerCallback
 from ray.tune.schedulers import ASHAScheduler
 
 from admet.model.chemprop.hpo_config import HPOConfig
@@ -115,6 +116,14 @@ class ChempropHPO:
             self.config.asha.mode,
         )
 
+        # Setup MLflow callback for per-trial logging
+        mlflow_callback = MLflowLoggerCallback(
+            tracking_uri=mlflow.get_tracking_uri(),
+            experiment_name=self.config.experiment_name,
+            save_artifact=True,
+            tags={"parent_run_id": self._mlflow_run_id or ""},
+        )
+
         tuner = tune.Tuner(
             trainable,
             param_space=search_space,
@@ -123,6 +132,7 @@ class ChempropHPO:
                 name=self.config.experiment_name,
                 storage_path=storage_path,
                 verbose=1,
+                callbacks=[mlflow_callback],
             ),
         )
 

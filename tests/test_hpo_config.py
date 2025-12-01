@@ -79,8 +79,8 @@ class TestASHAConfig:
         config = ASHAConfig()
         assert config.metric == "val_mae"
         assert config.mode == "min"
-        assert config.max_t == 150
-        assert config.grace_period == 10
+        assert config.max_t == 100
+        assert config.grace_period == 15
         assert config.reduction_factor == 3
         assert config.brackets == 1
 
@@ -104,8 +104,8 @@ class TestResourceConfig:
     def test_default_values(self) -> None:
         """Test default resource configuration."""
         config = ResourceConfig()
-        assert config.num_samples == 50
-        assert config.cpus_per_trial == 2
+        assert config.num_samples == 500
+        assert config.cpus_per_trial == 4
         assert config.gpus_per_trial == 0.25
         assert config.max_concurrent_trials is None
 

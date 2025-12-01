@@ -85,12 +85,17 @@ def build_search_space(
     space: dict[str, Any] = {}
 
     # Simple parameters (no conditions)
+    # Note: weight_decay is not included as it's not currently applied in ChempropHyperparams
     simple_params = [
         "learning_rate",
-        "weight_decay",
+        "lr_warmup_ratio",
+        "lr_final_ratio",
+        "warmup_epochs",
+        "patience",
         "dropout",
         "depth",
-        "hidden_dim",
+        "message_hidden_dim",
+        "hidden_dim",  # Deprecated: use message_hidden_dim + ffn_hidden_dim
         "ffn_num_layers",
         "ffn_hidden_dim",
         "batch_size",
@@ -181,17 +186,27 @@ def get_default_search_space() -> SearchSpaceConfig:
     This provides reasonable default ranges for common hyperparameters
     based on empirical observations and Chemprop documentation.
 
+    Note: weight_decay is not included as it requires extending
+    ChempropHyperparams to support AdamW weight decay configuration.
+
     Returns:
         SearchSpaceConfig with default parameter ranges.
     """
     return SearchSpaceConfig(
+        # Learning rate schedule
         learning_rate=ParameterSpace(type="loguniform", low=1e-5, high=1e-2),
-        weight_decay=ParameterSpace(type="loguniform", low=1e-7, high=1e-3),
+        lr_warmup_ratio=ParameterSpace(type="uniform", low=0.01, high=0.2),
+        lr_final_ratio=ParameterSpace(type="uniform", low=0.01, high=0.2),
+        warmup_epochs=ParameterSpace(type="choice", values=[2, 3, 5, 8]),
+        patience=ParameterSpace(type="choice", values=[10, 15, 20, 25]),
+        # Regularization
         dropout=ParameterSpace(type="uniform", low=0.0, high=0.4),
+        # Message passing (MPNN)
         depth=ParameterSpace(type="choice", values=[2, 3, 4, 5, 6]),
-        hidden_dim=ParameterSpace(type="choice", values=[128, 256, 512, 768, 1024]),
+        message_hidden_dim=ParameterSpace(type="choice", values=[256, 512, 768, 1024]),
+        # FFN architecture
         ffn_num_layers=ParameterSpace(type="choice", values=[1, 2, 3]),
-        ffn_hidden_dim=ParameterSpace(type="choice", values=[128, 256, 512, 768, 1024]),
+        ffn_hidden_dim=ParameterSpace(type="choice", values=[256, 512, 768, 1024]),
         batch_size=ParameterSpace(type="choice", values=[32, 64, 128, 256]),
         ffn_type=ParameterSpace(type="choice", values=["mlp", "moe", "branched"]),
         n_experts=ParameterSpace(
@@ -200,6 +215,8 @@ def get_default_search_space() -> SearchSpaceConfig:
             conditional_on="ffn_type",
             conditional_values=["moe"],
         ),
+        # Aggregation
         aggregation=ParameterSpace(type="choice", values=["mean", "sum", "norm"]),
+        # Task weighting
         target_weights=ParameterSpace(type="uniform", low=0.05, high=50.0),
     )
