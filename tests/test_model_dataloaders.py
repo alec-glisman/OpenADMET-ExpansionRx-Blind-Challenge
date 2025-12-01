@@ -22,13 +22,23 @@ def test_prepare_dataloaders_uses_sampler(monkeypatch, train_val_dataframes, ena
         seed=42,
     )
 
-    # Avoid heavy dataloader by patching chemprop.data.build_dataloader and build_curriculum_sampler
+    # Avoid heavy dataloader by patching chemprop.data.build_dataloader and DynamicCurriculumSampler
     fake_dataloader = object()
-    fake_sampler = object()
+
+    # Create a fake sampler class that returns a fake sampler instance
+    class FakeSampler:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __iter__(self):
+            return iter([])
+
+        def __len__(self):
+            return 0
 
     monkeypatch.setattr(
-        "admet.model.chemprop.model.build_curriculum_sampler",
-        lambda *args, **kwargs: fake_sampler,
+        "admet.model.chemprop.model.DynamicCurriculumSampler",
+        FakeSampler,
     )
     monkeypatch.setattr(
         "admet.model.chemprop.model.data.build_dataloader",

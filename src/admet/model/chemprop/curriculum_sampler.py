@@ -1,19 +1,28 @@
 """
 Curriculum-aware sampling for quality-weighted training data.
 
-This module provides a weighted sampler that adjusts sampling probabilities
-based on the current curriculum phase. The sampler implements sampling-based
+This module provides weighted samplers that adjust sampling probabilities
+based on the current curriculum phase. The samplers implement sampling-based
 curriculum learning rather than loss weighting.
+
+Two sampler types are available:
+
+1. **DynamicCurriculumSampler**: Recalculates weights on each iteration,
+   responding to phase changes during training. This is the recommended sampler.
+
+2. **build_curriculum_sampler**: Creates a static WeightedRandomSampler with
+   fixed weights from the curriculum state at construction time. Useful for
+   debugging or when phase changes are not expected.
 
 Examples
 --------
->>> from admet.model.chemprop.curriculum_sampler import build_curriculum_sampler
+>>> from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler
 >>> from admet.model.chemprop.curriculum import CurriculumState
 >>>
->>> # Build sampler for training data
+>>> # Build dynamic sampler that responds to phase changes
 >>> quality_labels = df["Quality"].tolist()
 >>> state = CurriculumState(qualities=["high", "medium", "low"])
->>> sampler = build_curriculum_sampler(quality_labels, state, seed=42)
+>>> sampler = DynamicCurriculumSampler(quality_labels, state, seed=42)
 >>>
 >>> # Use with DataLoader
 >>> loader = DataLoader(dataset, sampler=sampler, batch_size=32)
@@ -21,13 +30,141 @@ Examples
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+import logging
+from typing import TYPE_CHECKING, Iterator, Sequence
 
 import numpy as np
-from torch.utils.data import WeightedRandomSampler
+from torch.utils.data import Sampler, WeightedRandomSampler
 
 if TYPE_CHECKING:
     from admet.model.chemprop.curriculum import CurriculumState
+
+logger = logging.getLogger("admet.model.chemprop.curriculum_sampler")
+
+
+class DynamicCurriculumSampler(Sampler[int]):
+    """
+    Dynamic sampler that recalculates weights based on curriculum phase.
+
+    Unlike WeightedRandomSampler which uses fixed weights, this sampler
+    reads from the CurriculumState on each iteration, allowing weights
+    to update when phases change during training.
+
+    Parameters
+    ----------
+    quality_labels : Sequence[str]
+        Quality label for each sample in the dataset.
+    curriculum_state : CurriculumState
+        Curriculum state object (weights are read dynamically).
+    num_samples : int, optional
+        Number of samples per epoch. If None, uses len(quality_labels).
+    seed : int, optional
+        Random seed for reproducibility.
+
+    Attributes
+    ----------
+    _last_phase : str
+        Last observed phase, used to log phase changes.
+
+    Examples
+    --------
+    >>> state = CurriculumState(qualities=["high", "medium", "low"])
+    >>> sampler = DynamicCurriculumSampler(quality_labels, state)
+    >>> # Sampler will automatically use updated weights when state.phase changes
+    """
+
+    def __init__(
+        self,
+        quality_labels: Sequence[str],
+        curriculum_state: "CurriculumState",
+        num_samples: int | None = None,
+        seed: int | None = None,
+    ) -> None:
+        super().__init__()
+        if not quality_labels:
+            raise ValueError("quality_labels cannot be empty")
+
+        self.quality_labels = list(quality_labels)
+        self.curriculum_state = curriculum_state
+        self._num_samples = num_samples or len(quality_labels)
+        self.seed = seed
+
+        # Track phase for logging changes
+        self._last_phase: str | None = None
+
+        # Pre-compute label-to-index mapping for efficiency
+        self._label_indices: dict[str, list[int]] = {}
+        for i, label in enumerate(self.quality_labels):
+            if label not in self._label_indices:
+                self._label_indices[label] = []
+            self._label_indices[label].append(i)
+
+        # Warn about unknown quality labels
+        present = set(self.quality_labels)
+        defined = set(curriculum_state.qualities)
+        unknown = present - defined
+        if unknown:
+            import warnings
+
+            warnings.warn(
+                f"Quality labels {unknown} not in curriculum qualities "
+                f"{curriculum_state.qualities}. These samples will never be sampled.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    def _compute_weights(self) -> np.ndarray:
+        """Compute sample weights from current curriculum state."""
+        probs = self.curriculum_state.sampling_probs()
+        weights = np.zeros(len(self.quality_labels), dtype=np.float64)
+
+        for i, label in enumerate(self.quality_labels):
+            weights[i] = probs.get(label, 0.0)
+
+        # Handle all-zero weights
+        if weights.sum() == 0:
+            logger.warning("All sample weights are zero. Using uniform sampling.")
+            weights = np.ones(len(self.quality_labels), dtype=np.float64)
+
+        # Normalize
+        weights = weights / weights.sum()
+        return weights
+
+    def __iter__(self) -> Iterator[int]:
+        """Generate sample indices based on current curriculum weights."""
+        # Log phase changes
+        current_phase = self.curriculum_state.phase
+        if self._last_phase is not None and current_phase != self._last_phase:
+            logger.info(
+                "DynamicCurriculumSampler: phase changed %s -> %s, weights=%s",
+                self._last_phase,
+                current_phase,
+                self.curriculum_state.weights,
+            )
+        self._last_phase = current_phase
+
+        # Compute weights based on current phase
+        weights = self._compute_weights()
+
+        # Create generator with optional seed
+        if self.seed is not None:
+            rng = np.random.default_rng(self.seed)
+        else:
+            rng = np.random.default_rng()
+
+        # Sample indices according to weights
+        indices = rng.choice(
+            len(self.quality_labels),
+            size=self._num_samples,
+            replace=True,
+            p=weights,
+        )
+
+        return iter(indices.tolist())
+
+    def __len__(self) -> int:
+        """Return number of samples per epoch."""
+        return self._num_samples
 
 
 def build_curriculum_sampler(

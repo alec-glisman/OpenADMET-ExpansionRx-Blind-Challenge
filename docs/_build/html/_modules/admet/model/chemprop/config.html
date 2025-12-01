@@ -222,6 +222,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 </ul>
 
 </div>
@@ -476,6 +477,17 @@
 <span class="sd">        before advancing to the next curriculum phase.</span>
 <span class="sd">    seed : int, default=42</span>
 <span class="sd">        Random seed for reproducible curriculum sampling.</span>
+<span class="sd">    strategy : str, default=&quot;sampled&quot;</span>
+<span class="sd">        Curriculum strategy: &quot;sampled&quot; uses weighted random sampling to</span>
+<span class="sd">        control which data points appear in each batch; &quot;weighted&quot; applies</span>
+<span class="sd">        quality-based loss weights (not yet implemented).</span>
+<span class="sd">    reset_early_stopping_on_phase_change : bool, default=False</span>
+<span class="sd">        Whether to reset early stopping patience when advancing to a new</span>
+<span class="sd">        curriculum phase. This allows the model more time to adapt to</span>
+<span class="sd">        the new data distribution.</span>
+<span class="sd">    log_per_quality_metrics : bool, default=True</span>
+<span class="sd">        Whether to log per-quality validation metrics (e.g., val_loss_high,</span>
+<span class="sd">        val_loss_medium) in addition to overall metrics.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -483,6 +495,9 @@
     <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">])</span>
     <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sampled&quot;</span>
+    <span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">log_per_quality_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
 
 <div class="viewcode-block" id="ChempropConfig">

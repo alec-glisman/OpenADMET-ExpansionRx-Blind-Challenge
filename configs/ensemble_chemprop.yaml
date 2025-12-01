@@ -111,6 +111,7 @@ ray_num_gpus: null
 # =================================
 # Quality-aware curriculum learning is disabled by default.
 # Enable it when training on mixed-quality datasets.
+# For a full curriculum learning ensemble config, see ensemble_curriculum.yaml.
 curriculum:
   enabled: false
   quality_col: "Quality"
@@ -120,3 +121,9 @@ curriculum:
     - "low"
   patience: 5
   seed: 42
+  # Curriculum strategy: "sampled" (weighted random sampling) or "weighted" (loss weights)
+  strategy: "sampled"
+  # Reset early stopping when advancing curriculum phases
+  reset_early_stopping_on_phase_change: false
+  # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
+  log_per_quality_metrics: true

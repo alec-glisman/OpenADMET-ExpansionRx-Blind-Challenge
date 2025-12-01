@@ -1,7 +1,10 @@
-# Curriculum Learning Configuration for ChempropModel
-# ====================================================
+# Curriculum Learning Configuration for ChempropModel (Single Model)
+# ====================================================================
 # This YAML file demonstrates curriculum learning configuration for quality-aware
-# training. Curriculum learning progressively adjusts sampling from high-quality
+# training of a single model. For ensemble training with curriculum learning,
+# see configs/ensemble_curriculum.yaml.
+#
+# Curriculum learning progressively adjusts sampling from high-quality
 # to lower-quality data based on validation loss improvements.
 #
 # Curriculum Phases:
@@ -14,6 +17,9 @@
 # `patience` epochs.
 #
 # Usage:
+#   python -m admet.model.chemprop.model --config configs/chemprop_curriculum.yaml
+#
+# Or programmatically:
 #   from omegaconf import OmegaConf
 #   from admet.model.chemprop.config import ChempropConfig
 #   from admet.model.chemprop.model import ChempropModel
@@ -124,3 +130,17 @@ curriculum:
 
   # Random seed for reproducible curriculum sampling
   seed: 42
+
+  # Curriculum strategy:
+  #   - "sampled": Use weighted random sampling (recommended)
+  #   - "weighted": Apply quality-based loss weights (not yet implemented)
+  strategy: "sampled"
+
+  # Whether to reset early stopping patience when advancing to a new
+  # curriculum phase. This allows the model more time to adapt to
+  # the new data distribution after phase transitions.
+  reset_early_stopping_on_phase_change: false
+
+  # Whether to log per-quality validation metrics (e.g., val_loss_high,
+  # val_loss_medium) in addition to overall metrics.
+  log_per_quality_metrics: true

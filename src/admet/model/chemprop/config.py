@@ -207,6 +207,17 @@ class CurriculumConfig:
         before advancing to the next curriculum phase.
     seed : int, default=42
         Random seed for reproducible curriculum sampling.
+    strategy : str, default="sampled"
+        Curriculum strategy: "sampled" uses weighted random sampling to
+        control which data points appear in each batch; "weighted" applies
+        quality-based loss weights (not yet implemented).
+    reset_early_stopping_on_phase_change : bool, default=False
+        Whether to reset early stopping patience when advancing to a new
+        curriculum phase. This allows the model more time to adapt to
+        the new data distribution.
+    log_per_quality_metrics : bool, default=True
+        Whether to log per-quality validation metrics (e.g., val_loss_high,
+        val_loss_medium) in addition to overall metrics.
     """
 
     enabled: bool = False
@@ -214,6 +225,9 @@ class CurriculumConfig:
     qualities: List[str] = field(default_factory=lambda: ["high", "medium", "low"])
     patience: int = 5
     seed: int = 42
+    strategy: str = "sampled"
+    reset_early_stopping_on_phase_change: bool = False
+    log_per_quality_metrics: bool = True
 
 
 @dataclass

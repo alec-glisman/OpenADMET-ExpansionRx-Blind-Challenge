@@ -1,8 +1,9 @@
 import math
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # torch not required directly here; trainer metrics may include torch tensors
 from lightning import pytorch as pl
+from lightning.pytorch.callbacks import EarlyStopping
 
 
 class CurriculumState:
@@ -143,15 +144,90 @@ class CurriculumCallback(pl.Callback):
 
     Phase transitions are logged with epoch number and step for tracking
     curriculum progression during training.
+
+    Parameters
+    ----------
+    curr_state : CurriculumState
+        The curriculum state object to update.
+    monitor_metric : str, optional
+        Metric key to monitor for phase transitions. Defaults to 'val_loss'.
+    reset_early_stopping_on_phase_change : bool, default=False
+        Whether to reset early stopping patience when advancing phases.
+    log_per_quality_metrics : bool, default=True
+        Whether to log per-quality validation metrics.
+    quality_labels : List[str], optional
+        Quality labels for validation samples. Required for per-quality metrics.
     """
 
-    def __init__(self, curr_state: CurriculumState, monitor_metric: Optional[str] = None):
+    def __init__(
+        self,
+        curr_state: CurriculumState,
+        monitor_metric: Optional[str] = None,
+        reset_early_stopping_on_phase_change: bool = False,
+        log_per_quality_metrics: bool = True,
+        quality_labels: Optional[List[str]] = None,
+    ):
         super().__init__()
         self.curr_state = curr_state
         self.monitor_metric = monitor_metric
         self._previous_phase = curr_state.phase
+        self.reset_early_stopping_on_phase_change = reset_early_stopping_on_phase_change
+        self.log_per_quality_metrics = log_per_quality_metrics
+        self.quality_labels = quality_labels
 
-    def on_validation_epoch_end(self, trainer, pl_module):
+        # Cache quality indices for efficient per-quality metric computation
+        self._quality_indices: Optional[Dict[str, List[int]]] = None
+        if quality_labels is not None:
+            self._quality_indices = {}
+            for i, label in enumerate(quality_labels):
+                if label not in self._quality_indices:
+                    self._quality_indices[label] = []
+                self._quality_indices[label].append(i)
+
+    def _reset_early_stopping(self, trainer: pl.Trainer) -> None:
+        """Reset early stopping callback's wait counter and best score."""
+        callbacks = getattr(trainer, "callbacks", [])
+        for callback in callbacks:
+            if isinstance(callback, EarlyStopping):
+                callback.wait_count = 0
+                # Optionally reset best score to allow model to re-establish baseline
+                # callback.best_score = callback.mode_dict[callback.mode](torch.tensor(float('inf')))
+                import logging
+
+                logger = logging.getLogger("admet.model.chemprop.curriculum")
+                logger.info("Reset early stopping patience after curriculum phase change")
+                break
+
+    def _log_per_quality_metrics(
+        self,
+        trainer: pl.Trainer,  # noqa: ARG002
+        pl_module: pl.LightningModule,
+        metrics: Dict[str, Any],
+    ) -> None:
+        """Log per-quality validation metrics if available."""
+        if not self.log_per_quality_metrics:
+            return
+
+        # Look for per-quality metrics that may have been computed by the model
+        for quality in self.curr_state.qualities:
+            # Check for metrics like val_mae_high, val_rmse_medium, etc.
+            for base_metric in ["val_mae", "val_rmse", "val_loss"]:
+                quality_metric_key = f"{base_metric}_{quality}"
+                if quality_metric_key in metrics:
+                    val = metrics[quality_metric_key]
+                    try:
+                        v = val.item() if hasattr(val, "item") else float(val)
+                        pl_module.log(
+                            quality_metric_key,
+                            v,
+                            on_step=False,
+                            on_epoch=True,
+                        )
+                    except Exception:
+                        pass
+
+    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        """Handle validation epoch end: update state, check phase, log metrics."""
         metrics = trainer.callback_metrics
         metric_key = self.monitor_metric or self.curr_state.target_metric_key()
         val_top = metrics.get(metric_key)
@@ -164,10 +240,14 @@ class CurriculumCallback(pl.Callback):
             return
         if math.isnan(v):
             return
+
         epoch = trainer.current_epoch
         global_step = trainer.global_step
         self.curr_state.update_from_val_top(epoch, float(v))
         self.curr_state.maybe_advance_phase(epoch)
+
+        # Log per-quality metrics
+        self._log_per_quality_metrics(trainer, pl_module, metrics)
 
         # Log phase transitions
         if self.curr_state.phase != self._previous_phase:
@@ -188,5 +268,18 @@ class CurriculumCallback(pl.Callback):
             phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
             pl_module.log("curriculum_phase", float(phase_idx), on_step=False, on_epoch=True)
             pl_module.log("curriculum_phase_epoch", float(epoch), on_step=False, on_epoch=True)
+
+            # Log current weights for each quality
+            for quality, weight in self.curr_state.weights.items():
+                pl_module.log(
+                    f"curriculum_weight_{quality}",
+                    float(weight),
+                    on_step=False,
+                    on_epoch=True,
+                )
+
+            # Reset early stopping if configured
+            if self.reset_early_stopping_on_phase_change:
+                self._reset_early_stopping(trainer)
 
             self._previous_phase = self.curr_state.phase

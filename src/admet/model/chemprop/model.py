@@ -68,7 +68,7 @@ from admet.model.chemprop.config import (
 )
 from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
 from admet.model.chemprop.curriculum_sampler import (
-    build_curriculum_sampler,
+    DynamicCurriculumSampler,
     get_quality_indices,
 )
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
@@ -782,13 +782,13 @@ class ChempropModel:
 
             # Build dataloader with curriculum sampling for training if enabled
             if split == "train" and self.curriculum_state is not None and self._quality_labels["train"] is not None:
-                # Use curriculum-aware sampling
+                # Use dynamic curriculum-aware sampling that updates with phase changes
                 seed = (
                     self.curriculum_config.seed
                     if self.curriculum_config and self.curriculum_config.seed
                     else self.hyperparams.seed
                 )
-                sampler = build_curriculum_sampler(
+                sampler = DynamicCurriculumSampler(
                     quality_labels=self._quality_labels["train"],
                     curriculum_state=self.curriculum_state,
                     num_samples=len(datasets[split]),
@@ -802,7 +802,7 @@ class ChempropModel:
                     sampler=sampler,
                 )
                 logger.info(
-                    "Curriculum sampling enabled for training: phase=%s, qualities=%s",
+                    "Dynamic curriculum sampling enabled for training: phase=%s, qualities=%s",
                     self.curriculum_state.phase,
                     self.curriculum_state.qualities,
                 )
@@ -1027,13 +1027,24 @@ class ChempropModel:
 
         # Add curriculum callback if curriculum learning is enabled
         if self.curriculum_state is not None:
-            # Monitor overall val_loss for phase transitions
+            # Get configuration options for curriculum callback
+            reset_es = self.curriculum_config.reset_early_stopping_on_phase_change if self.curriculum_config else False
+            log_per_quality = self.curriculum_config.log_per_quality_metrics if self.curriculum_config else True
+            val_quality_labels = self._quality_labels.get("validation") if hasattr(self, "_quality_labels") else None
+
             curriculum_callback = CurriculumCallback(
                 curr_state=self.curriculum_state,
                 monitor_metric="val_loss",  # Use overall validation loss
+                reset_early_stopping_on_phase_change=reset_es,
+                log_per_quality_metrics=log_per_quality,
+                quality_labels=val_quality_labels,
             )
             callbacks_list.append(curriculum_callback)
-            logger.info("Curriculum callback added: monitoring 'val_loss' for phase transitions")
+            logger.info(
+                "Curriculum callback added: monitoring 'val_loss', " "reset_early_stopping=%s, log_per_quality=%s",
+                reset_es,
+                log_per_quality,
+            )
 
         self.trainer = pl.Trainer(
             logger=pl_logger,

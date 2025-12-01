@@ -89,6 +89,7 @@ Documentation sections
    guide/configuration
    guide/modeling
    guide/hpo
+   guide/curriculum
 
 
 To build the docs locally, follow one of these methods:

@@ -265,8 +265,10 @@ class TestCurriculumCallback:
         )
         callback.on_validation_epoch_end(trainer1, pl_module)
 
-        # Should have logged curriculum_phase and curriculum_phase_epoch
-        assert pl_module.log.call_count == 2
+        # Should have logged curriculum_phase, curriculum_phase_epoch, and per-quality weights
+        # With log_per_quality_metrics=True (default), we log: curriculum_phase,
+        # curriculum_phase_epoch, curriculum_weight_high, curriculum_weight_medium, etc.
+        assert pl_module.log.call_count >= 2
         logged_metrics = {call[0][0] for call in pl_module.log.call_args_list}
         assert "curriculum_phase" in logged_metrics
         assert "curriculum_phase_epoch" in logged_metrics

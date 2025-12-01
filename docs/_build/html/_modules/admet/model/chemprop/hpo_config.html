@@ -222,6 +222,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 </ul>
 
 </div>
@@ -321,7 +322,7 @@
     <span class="c1"># Learning rate schedule</span>
     <span class="n">learning_rate</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">lr_warmup_ratio</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># init_lr = max_lr * ratio</span>
-    <span class="n">lr_final_ratio</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># final_lr = max_lr * ratio</span>
+    <span class="n">lr_final_ratio</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># final_lr = max_lr * ratio</span>
     <span class="n">warmup_epochs</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">patience</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
