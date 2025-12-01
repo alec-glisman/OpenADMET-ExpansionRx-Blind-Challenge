@@ -1,0 +1,126 @@
+# Curriculum Learning Configuration for ChempropModel
+# ====================================================
+# This YAML file demonstrates curriculum learning configuration for quality-aware
+# training. Curriculum learning progressively adjusts sampling from high-quality
+# to lower-quality data based on validation loss improvements.
+#
+# Curriculum Phases:
+#   1. warmup: Focus on high-quality data (e.g., 90% high, 10% medium, 0% low)
+#   2. expand: Gradually include medium-quality data (e.g., 60% high, 35% medium, 5% low)
+#   3. robust: Include low-quality data for robustness (e.g., 40% high, 40% medium, 20% low)
+#   4. polish: Return focus to high-quality data (e.g., 100% high)
+#
+# Phase transitions occur when overall validation loss stops improving for
+# `patience` epochs.
+#
+# Usage:
+#   from omegaconf import OmegaConf
+#   from admet.model.chemprop.config import ChempropConfig
+#   from admet.model.chemprop.model import ChempropModel
+#
+#   config = OmegaConf.merge(
+#       OmegaConf.structured(ChempropConfig),
+#       OmegaConf.load("configs/chemprop_curriculum.yaml")
+#   )
+#   model = ChempropModel.from_config(config)
+#   model.fit()
+
+# Data configuration
+data:
+  # Directory containing train.csv and validation.csv with Quality column
+  data_dir: "assets/dataset/split_train_val/v3/all_quality/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
+
+  # Optional test and blind files
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+
+  # Output directory (null for temp directory)
+  output_dir: null
+
+  # Column configuration
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+  # Per-task loss weights (optional, defaults to 1.0 for each)
+  target_weights:
+    - 0.5
+    - 2.0
+    - 3.0
+    - 3.0
+    - 5.0
+    - 5.0
+    - 2.0
+    - 3.0
+    - 3.5
+
+# Model architecture configuration
+model:
+  depth: 5
+  message_hidden_dim: 600
+  num_layers: 2
+  hidden_dim: 600
+  dropout: 0.1
+  batch_norm: true
+  ffn_type: "regression"
+  trunk_n_layers: 2
+  trunk_hidden_dim: 600
+  n_experts: 4
+
+# Optimization configuration
+optimization:
+  criterion: "MSE"
+  init_lr: 1.0e-4
+  max_lr: 1.0e-3
+  final_lr: 1.0e-4
+  warmup_epochs: 5
+  max_epochs: 150
+  patience: 15
+  batch_size: 32
+  num_workers: 0
+  seed: 12345
+  progress_bar: true
+
+# MLflow experiment tracking configuration
+mlflow:
+  tracking: true
+  tracking_uri: "http://127.0.0.1:8080"
+  experiment_name: "chemprop_curriculum"
+  run_name: null
+
+# Curriculum learning configuration
+# =================================
+# Enable quality-aware curriculum learning to progressively train on
+# data from high to low quality levels.
+curriculum:
+  # Enable/disable curriculum learning
+  enabled: true
+
+  # Column in train/validation CSV containing quality labels
+  # Values should match the qualities list below
+  quality_col: "Quality"
+
+  # Quality levels ordered from highest to lowest quality
+  # The curriculum adapts to the number of qualities provided:
+  #   - 1 quality: warmup → polish
+  #   - 2 qualities: warmup → expand → polish
+  #   - 3+ qualities: warmup → expand → robust → polish
+  qualities:
+    - "high"
+    - "medium"
+    - "low"
+
+  # Number of epochs without improvement in overall validation loss
+  # before advancing to the next curriculum phase
+  patience: 5
+
+  # Random seed for reproducible curriculum sampling
+  seed: 42

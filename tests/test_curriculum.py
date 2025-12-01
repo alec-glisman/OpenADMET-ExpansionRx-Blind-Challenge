@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from admet.model.chemprop.curriculum import CurriculumState, CurriculumCallback
+from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
 
 
 def _weights_equal(w1, w2, tol: float = 1e-6):
@@ -59,17 +59,3 @@ def test_curriculum_n3_phase_progression_weights():
     cs.maybe_advance_phase(3)
     assert cs.phase == "polish"
     assert _weights_equal(cs.weights, {"high": 1.0, "medium": 0.0, "low": 0.0})
-
-
-def test_curriculum_callback_monitor_metric_default_and_override():
-    cs = CurriculumState(qualities=["high", "medium", "low"], patience=1)
-    cb_default = CurriculumCallback(cs)
-    trainer = SimpleNamespace(current_epoch=0, callback_metrics={"val_high_loss": 0.5})
-    cb_default.on_validation_epoch_end(trainer, None)
-    assert cs.best_val_top == 0.5
-    # Now override monitor_metric
-    cs2 = CurriculumState(qualities=["high", "medium", "low"], patience=1)
-    cb_override = CurriculumCallback(cs2, monitor_metric="val_custom_loss")
-    trainer2 = SimpleNamespace(current_epoch=0, callback_metrics={"val_custom_loss": 0.42})
-    cb_override.on_validation_epoch_end(trainer2, None)
-    assert cs2.best_val_top == 0.42

@@ -44,10 +44,7 @@ from typing import Any, Dict, List, Optional, Union
 import mlflow
 import mlflow.data
 import mlflow.pytorch
-from mlflow import MlflowClient
-from mlflow.tracking.fluent import ActiveRun
 import numpy as np
-from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 import torch
 from chemprop import data, featurizers, models, nn
@@ -56,14 +53,24 @@ from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
 from matplotlib import pyplot as plt
+from mlflow import MlflowClient
+from mlflow.tracking.fluent import ActiveRun
+from omegaconf import DictConfig, OmegaConf
 
+from admet.data.smiles import parallel_canonicalize_smiles
 from admet.data.stats import correlation, distribution
 from admet.model.chemprop.config import (
     ChempropConfig,
+    CurriculumConfig,
     DataConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
+)
+from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
+from admet.model.chemprop.curriculum_sampler import (
+    build_curriculum_sampler,
+    get_quality_indices,
 )
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
@@ -72,21 +79,7 @@ from admet.plot.parity import plot_parity
 # Module logger
 logger = logging.getLogger("admet.model.chemprop.model")
 
-# Suppress verbose logging from PyTorch Lightning and related libraries
-logging.getLogger("lightning.pytorch").setLevel(logging.WARNING)
-logging.getLogger("lightning.fabric").setLevel(logging.WARNING)
-logging.getLogger("lightning.pytorch.accelerators.cuda").setLevel(logging.WARNING)
-logging.getLogger("mlflow").setLevel(logging.WARNING)
 
-# # Suppress specific warnings
-warnings.filterwarnings("ignore", message=".*srun.*")
-warnings.filterwarnings("ignore", message=".*num_workers.*")
-warnings.filterwarnings("ignore", message=".*Please use `name`.*")
-warnings.filterwarnings("ignore", message=".*Please set `input_example`.*")
-
-
-# TODO: implement sampling-based curriculum in addition to weighting
-# TODO: hyperparameter optimize ChempropHyperparams
 # TODO: think about task weights: _tasks = [1.018, 1.000, 1.364, 1.134, 2.377, 2.373]
 
 
@@ -425,6 +418,9 @@ class ChempropModel:
         mlflow_run_id: Optional[str] = None,
         mlflow_parent_run_id: Optional[str] = None,
         mlflow_nested: bool = False,
+        curriculum_config: CurriculumConfig | None = None,
+        curriculum_state: CurriculumState | None = None,
+        data_dir: Optional[str] = None,
     ) -> None:
         """
         Initialize ChempropModel with data and configuration.
@@ -464,6 +460,16 @@ class ChempropModel:
             Parent run ID for creating nested runs. Used for ensemble training.
         mlflow_nested : bool, default=False
             Whether to create a nested run under the parent_run_id.
+        curriculum_config : CurriculumConfig or None, optional
+            Curriculum learning configuration. If None, curriculum learning
+            is disabled.
+        curriculum_state : CurriculumState or None, optional
+            Shared curriculum state for ensemble training. If None and
+            curriculum_config is enabled, a new state is created.
+        data_dir : str or None, optional
+            Path to the data directory. Used to parse and log structured
+            parameters like split_type, version, quality, cluster_method,
+            split_method, split, and fold.
         """
         self.smiles_col: str = smiles_col
         self.target_cols: List[str] = target_cols
@@ -471,6 +477,23 @@ class ChempropModel:
         self.output_dir: Path | None = output_dir
         self.progress_bar: bool = progress_bar
         self.hyperparams: ChempropHyperparams = hyperparams or ChempropHyperparams()
+        self.data_dir: Optional[str] = data_dir
+
+        # Curriculum learning configuration
+        self.curriculum_config: CurriculumConfig | None = curriculum_config
+        self.curriculum_state: CurriculumState | None = curriculum_state
+
+        # Initialize curriculum state if config is enabled but state not provided
+        if self.curriculum_config is not None and self.curriculum_config.enabled:
+            if self.curriculum_state is None:
+                self.curriculum_state = CurriculumState(
+                    qualities=list(self.curriculum_config.qualities),
+                    patience=self.curriculum_config.patience,
+                )
+            # Store quality column for later use
+            self.quality_col: str | None = self.curriculum_config.quality_col
+        else:
+            self.quality_col = None
 
         # MLflow configuration
         self.mlflow_tracking: bool = mlflow_tracking
@@ -590,6 +613,17 @@ class ChempropModel:
         if df_blind is None and config.data.blind_file is not None:
             df_blind = pd.read_csv(config.data.blind_file, low_memory=False)
 
+        # Canonicalize SMILES
+        df_train[config.data.smiles_col] = parallel_canonicalize_smiles(df_train[config.data.smiles_col].tolist())
+        if df_validation is not None:
+            df_validation[config.data.smiles_col] = parallel_canonicalize_smiles(
+                df_validation[config.data.smiles_col].tolist()
+            )
+        if df_test is not None:
+            df_test[config.data.smiles_col] = parallel_canonicalize_smiles(df_test[config.data.smiles_col].tolist())
+        if df_blind is not None:
+            df_blind[config.data.smiles_col] = parallel_canonicalize_smiles(df_blind[config.data.smiles_col].tolist())
+
         # Build hyperparams from config
         hyperparams = ChempropHyperparams(
             # Optimization
@@ -637,6 +671,8 @@ class ChempropModel:
             mlflow_run_id=config.mlflow.run_id,
             mlflow_parent_run_id=config.mlflow.parent_run_id,
             mlflow_nested=config.mlflow.nested,
+            curriculum_config=config.curriculum,
+            data_dir=config.data.data_dir,
         )
 
         # Store blind dataframe for later prediction
@@ -697,6 +733,7 @@ class ChempropModel:
                 experiment_name=self.mlflow_experiment_name,
                 run_name=self.mlflow_run_name,
             ),
+            curriculum=self.curriculum_config or CurriculumConfig(),
         )
 
     def _prepare_dataloaders(self) -> None:
@@ -706,15 +743,34 @@ class ChempropModel:
         This method converts dataframes to Chemprop MoleculeDatasets,
         fits a target scaler on training data, and creates dataloaders
         for each split.
+
+        If curriculum learning is enabled, the training dataloader uses a
+        WeightedRandomSampler based on the curriculum phase instead of
+        uniform shuffling.
         """
         datapoints = {}
         datasets = {}
+
+        # Store quality labels for curriculum sampling
+        self._quality_labels: Dict[str, List[str] | None] = {
+            "train": None,
+            "validation": None,
+            "test": None,
+        }
+
         for split in ["train", "validation", "test"]:
             df = self.dataframes[split]
             if df is None:
                 continue
             smis = df.loc[:, self.smiles_col].values
             ys = df.loc[:, self.target_cols].values
+
+            # Canonicalize SMILES
+            smis = parallel_canonicalize_smiles(smis.tolist())
+
+            # Extract quality labels if curriculum is enabled
+            if self.quality_col is not None and self.quality_col in df.columns:
+                self._quality_labels[split] = df[self.quality_col].tolist()
 
             datapoints[split] = [data.MoleculeDatapoint.from_smi(smi, y) for smi, y in zip(smis, ys)]
             datasets[split] = data.MoleculeDataset(datapoints[split], self.featurizer)
@@ -726,13 +782,41 @@ class ChempropModel:
             elif split == "validation":
                 datasets[split].normalize_targets(self.scaler)
 
-            self.dataloaders[split] = data.build_dataloader(
-                datasets[split],
-                batch_size=self.hyperparams.batch_size,
-                num_workers=self.hyperparams.num_workers,
-                shuffle=(split == "train"),
-                seed=self.hyperparams.seed,
-            )
+            # Build dataloader with curriculum sampling for training if enabled
+            if split == "train" and self.curriculum_state is not None and self._quality_labels["train"] is not None:
+                # Use curriculum-aware sampling
+                seed = (
+                    self.curriculum_config.seed
+                    if self.curriculum_config and self.curriculum_config.seed
+                    else self.hyperparams.seed
+                )
+                sampler = build_curriculum_sampler(
+                    quality_labels=self._quality_labels["train"],
+                    curriculum_state=self.curriculum_state,
+                    num_samples=len(datasets[split]),
+                    seed=seed,
+                )
+                self.dataloaders[split] = data.build_dataloader(
+                    datasets[split],
+                    batch_size=self.hyperparams.batch_size,
+                    num_workers=self.hyperparams.num_workers,
+                    shuffle=False,  # Sampler handles this
+                    sampler=sampler,
+                )
+                logger.info(
+                    "Curriculum sampling enabled for training: phase=%s, qualities=%s",
+                    self.curriculum_state.phase,
+                    self.curriculum_state.qualities,
+                )
+            else:
+                # Standard dataloader (shuffle for train, no shuffle for val/test)
+                self.dataloaders[split] = data.build_dataloader(
+                    datasets[split],
+                    batch_size=self.hyperparams.batch_size,
+                    num_workers=self.hyperparams.num_workers,
+                    shuffle=(split == "train"),
+                    seed=self.hyperparams.seed,
+                )
 
     def _prepare_model(self) -> None:
         """
@@ -943,6 +1027,16 @@ class ChempropModel:
             )
             callbacks_list.append(checkpointing)
 
+        # Add curriculum callback if curriculum learning is enabled
+        if self.curriculum_state is not None:
+            # Monitor overall val_loss for phase transitions
+            curriculum_callback = CurriculumCallback(
+                curr_state=self.curriculum_state,
+                monitor_metric="val_loss",  # Use overall validation loss
+            )
+            callbacks_list.append(curriculum_callback)
+            logger.info("Curriculum callback added: monitoring 'val_loss' for phase transitions")
+
         self.trainer = pl.Trainer(
             logger=pl_logger,
             enable_checkpointing=True,
@@ -1049,7 +1143,7 @@ class ChempropModel:
 
         Logs all hyperparameters from the ChempropHyperparams dataclass,
         as well as additional model configuration parameters like
-        smiles_col and target_cols.
+        smiles_col, target_cols, and parsed data_dir parameters.
         """
         if self._mlflow_logger is None:
             return
@@ -1061,6 +1155,15 @@ class ChempropModel:
         params["smiles_col"] = self.smiles_col
         params["target_cols"] = str(self.target_cols)
         params["n_targets"] = len(self.target_cols)
+
+        # Parse and log data_dir parameters if available
+        if self.data_dir is not None:
+            from admet.util.utils import parse_data_dir_params
+
+            data_params = parse_data_dir_params(self.data_dir)
+            for key, value in data_params.items():
+                if value is not None:
+                    params[f"data.{key}"] = value
 
         self._mlflow_logger.log_hyperparams(params)
 
@@ -1125,6 +1228,9 @@ class ChempropModel:
         Generates predictions on the validation set and computes
         correlation metrics (MAE, RMSE, R2, Pearson, Spearman, Kendall)
         for each target column using the stats.correlation function.
+
+        When curriculum learning is enabled, also computes per-quality
+        metrics for each quality level present in the validation data.
         """
         if self._mlflow_client is None or self.mlflow_run_id is None:
             return
@@ -1140,7 +1246,7 @@ class ChempropModel:
             logger.warning("Failed to generate validation predictions: %s", e)
             return
 
-        # Compute correlation metrics for each target
+        # Compute correlation metrics for each target (overall)
         df_out = pd.DataFrame()
         for target in self.target_cols:
             if target not in df_validation.columns:
@@ -1155,9 +1261,70 @@ class ChempropModel:
             # Add metrics to output dataframe
             for metric_name, metric_value in metrics.items():
                 row = pd.DataFrame(
-                    {"split": ["validation"], "target": [target], "metric": [metric_name], "value": [metric_value]}
+                    {
+                        "split": ["validation"],
+                        "target": [target],
+                        "quality": ["overall"],
+                        "metric": [metric_name],
+                        "value": [metric_value],
+                    }
                 )
                 df_out = pd.concat([df_out, row], ignore_index=True)
+
+        # Compute per-quality metrics if curriculum learning is enabled
+        if (
+            self.quality_col is not None
+            and self.quality_col in df_validation.columns
+            and self.curriculum_state is not None
+        ):
+            quality_labels = df_validation[self.quality_col].tolist()
+            quality_indices = get_quality_indices(quality_labels, self.curriculum_state.qualities)
+
+            for quality, indices in quality_indices.items():
+                if not indices:
+                    continue
+
+                # Subset the validation data for this quality
+                df_quality = df_validation.iloc[indices]
+                preds_quality = preds_df.iloc[indices]
+
+                for target in self.target_cols:
+                    if target not in df_quality.columns:
+                        continue
+
+                    y_true = np.asarray(df_quality[target].values)
+                    y_pred = np.asarray(preds_quality[target].values)
+
+                    # Skip if not enough samples for meaningful metrics
+                    if len(y_true) < 2:
+                        continue
+
+                    # Compute correlation metrics
+                    metrics = correlation(y_true, y_pred)
+
+                    # Add metrics to output dataframe
+                    for metric_name, metric_value in metrics.items():
+                        row = pd.DataFrame(
+                            {
+                                "split": ["validation"],
+                                "target": [target],
+                                "quality": [quality],
+                                "metric": [metric_name],
+                                "value": [metric_value],
+                            }
+                        )
+                        df_out = pd.concat([df_out, row], ignore_index=True)
+
+                        # Also log quality-specific metrics directly to MLflow
+                        mlflow_metric_name = _sanitize_mlflow_metric_name(f"val_{quality}_{target}_{metric_name}")
+                        try:
+                            self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_metric_name, float(metric_value))
+                        except Exception:
+                            pass  # Silently ignore metric logging failures
+
+            # Log quality distribution in validation set
+            quality_counts = {q: len(indices) for q, indices in quality_indices.items() if indices}
+            logger.info("Validation quality distribution: %s", quality_counts)
 
         # Log metrics as CSV artifact
         if not df_out.empty:
@@ -1264,6 +1431,7 @@ class ChempropModel:
             Predictions with columns named after target columns.
         """
         smis = df.loc[:, self.smiles_col].values
+        smis = parallel_canonicalize_smiles(smis.tolist())
 
         # gracefully handle labelled/unlabelled data
         try:
@@ -1465,6 +1633,8 @@ class ChempropModel:
             return
 
         df_out = pd.DataFrame()
+        all_metrics: dict[str, list[float]] = {}  # Collect metrics for averaging
+
         for target in self.target_cols:
             if target not in df.columns:
                 continue
@@ -1475,12 +1645,37 @@ class ChempropModel:
             # Compute correlation metrics using stats module
             metrics = correlation(y_true, y_pred)
 
-            # Prefix metrics with split name and target
+            # Log each metric to MLflow directly with test/ prefix
             for metric_name, metric_value in metrics.items():
+                # Create sanitized metric key: test/<target>_<metric>
+                safe_target = _sanitize_mlflow_metric_name(target)
+                mlflow_key = f"{split}/{safe_target}_{metric_name}"
+                try:
+                    self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_key, float(metric_value))
+                except Exception:
+                    pass  # Silently ignore metric logging failures
+
+                # Collect for averaging
+                if metric_name not in all_metrics:
+                    all_metrics[metric_name] = []
+                if not np.isnan(metric_value):
+                    all_metrics[metric_name].append(float(metric_value))
+
+                # Save to dataframe for artifact
                 row = pd.DataFrame(
                     {"split": [split], "target": [target], "metric": [metric_name], "value": [metric_value]}
                 )
                 df_out = pd.concat([df_out, row], ignore_index=True)
+
+        # Log mean metrics across all targets
+        for metric_name, values in all_metrics.items():
+            if values:
+                mean_value = np.mean(values)
+                mlflow_key = f"{split}/mean_{metric_name}"
+                try:
+                    self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_key, mean_value)
+                except Exception:
+                    pass
 
         if not df_out.empty:
             df_out.reset_index(drop=True, inplace=True)

@@ -216,11 +216,12 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --strict-markers --tb=short"
+addopts = "-v --strict-markers --tb=short -m 'not no_mlflow_runs'"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "no_mlflow_runs: marks tests that require MLflow runs and should not be run by default",
 ]
 
 [tool.coverage.run]

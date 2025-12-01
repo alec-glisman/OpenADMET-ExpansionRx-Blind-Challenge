@@ -15,8 +15,6 @@
 #
 # =============================================================================
 
-set -euo pipefail
-
 # Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
@@ -32,28 +30,28 @@ LOG_LEVEL="INFO"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --max-parallel)
-            MAX_PARALLEL="$2"
-            shift 2
-            ;;
-        --log-level)
-            LOG_LEVEL="$2"
-            shift 2
-            ;;
-        -h|--help)
-            echo "Usage: $0 [--dry-run] [--max-parallel N] [--log-level LEVEL]"
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1
-            ;;
-    esac
+  case $1 in
+  --dry-run)
+    DRY_RUN=true
+    shift
+    ;;
+  --max-parallel)
+    MAX_PARALLEL="$2"
+    shift 2
+    ;;
+  --log-level)
+    LOG_LEVEL="$2"
+    shift 2
+    ;;
+  -h | --help)
+    echo "Usage: $0 [--dry-run] [--max-parallel N] [--log-level LEVEL]"
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1"
+    exit 1
+    ;;
+  esac
 done
 
 # Change to project root
@@ -72,7 +70,7 @@ log_info "Data directories: ${#DATA_DIRS[@]}"
 # Build command options
 CMD_OPTS="--log-level $LOG_LEVEL"
 if [[ -n "$MAX_PARALLEL" ]]; then
-    CMD_OPTS="$CMD_OPTS --max-parallel $MAX_PARALLEL"
+  CMD_OPTS="$CMD_OPTS --max-parallel $MAX_PARALLEL"
 fi
 
 # Track results
@@ -83,34 +81,34 @@ SKIPPED=0
 
 # Train ensemble for each data directory
 for data_dir in "${DATA_DIRS[@]}"; do
-    print_header "Processing: $data_dir"
+  print_header "Processing: $data_dir"
 
-    # Check if directory exists
-    if ! check_dir_exists "$data_dir"; then
-        log_warn "Directory not found, skipping: $data_dir"
-        ((SKIPPED++))
-        continue
+  # Check if directory exists
+  if ! check_dir_exists "$data_dir"; then
+    log_warn "Directory not found, skipping: $data_dir"
+    ((SKIPPED++))
+    continue
+  fi
+
+  # Create temporary config with updated data_dir
+  TEMP_CONFIG=$(create_temp_config "$CONFIG_FILE" "$data_dir")
+
+  # Build command
+  CMD="python -m admet.model.chemprop.ensemble --config $TEMP_CONFIG $CMD_OPTS"
+
+  # Execute command
+  if execute_command "$CMD" "$DRY_RUN" "ensemble training for $data_dir"; then
+    if [[ "$DRY_RUN" != "true" ]]; then
+      log_success "Completed: $data_dir"
+      ((SUCCESS++))
     fi
+  else
+    log_error "Failed: $data_dir"
+    ((FAILED++))
+  fi
 
-    # Create temporary config with updated data_dir
-    TEMP_CONFIG=$(create_temp_config "$CONFIG_FILE" "$data_dir")
-
-    # Build command
-    CMD="python -m admet.model.chemprop.ensemble --config $TEMP_CONFIG $CMD_OPTS"
-
-    # Execute command
-    if execute_command "$CMD" "$DRY_RUN" "ensemble training for $data_dir"; then
-        if [[ "$DRY_RUN" != "true" ]]; then
-            log_success "Completed: $data_dir"
-            ((SUCCESS++))
-        fi
-    else
-        log_error "Failed: $data_dir"
-        ((FAILED++))
-    fi
-
-    # Clean up temp config
-    cleanup_temp_config "$TEMP_CONFIG"
+  # Clean up temp config
+  cleanup_temp_config "$TEMP_CONFIG"
 done
 
 # Print summary and exit with appropriate code

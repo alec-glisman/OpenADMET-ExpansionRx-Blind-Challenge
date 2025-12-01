@@ -104,3 +104,17 @@ mlflow:
   tracking_uri: "http://127.0.0.1:8080"
   experiment_name: "single_chemprop"
   run_name: null # Auto-generated if null
+
+# Curriculum learning configuration
+# =================================
+# Quality-aware curriculum learning is disabled by default.
+# Enable it when training on mixed-quality datasets with a Quality column.
+curriculum:
+  enabled: false
+  quality_col: "Quality"
+  qualities:
+    - "high"
+    - "medium"
+    - "low"
+  patience: 5
+  seed: 42

@@ -41,8 +41,12 @@ class CurriculumState:
         self.patience = patience
 
     def target_metric_key(self) -> str:
-        """Return the metric key monitored by the curriculum (val_{top}_loss)."""
-        return f"val_{self.qualities[0]}_loss"
+        """Return the metric key monitored by the curriculum (val_loss).
+
+        Uses overall validation loss (not per-quality loss) for phase transitions
+        to ensure the model improves across all quality levels.
+        """
+        return "val_loss"
 
     def update_from_val_top(self, epoch: int, top_loss: float):
         if top_loss < self.best_val_top - 1e-4:
@@ -132,17 +136,20 @@ class CurriculumState:
 
 
 class CurriculumCallback(pl.Callback):
-    """Update curriculum state based on the top-quality validation loss metric.
+    """Update curriculum state based on validation loss metric.
 
-    The metric key monitored defaults to 'val_{top}_loss' where 'top' is the
-    first entry in `curr_state.qualities` but can be overridden by setting
-    `curr_state.qualities[0]` to the desired label.
+    The metric key monitored defaults to 'val_loss' (overall validation loss)
+    but can be overridden via the monitor_metric parameter.
+
+    Phase transitions are logged with epoch number and step for tracking
+    curriculum progression during training.
     """
 
     def __init__(self, curr_state: CurriculumState, monitor_metric: Optional[str] = None):
         super().__init__()
         self.curr_state = curr_state
         self.monitor_metric = monitor_metric
+        self._previous_phase = curr_state.phase
 
     def on_validation_epoch_end(self, trainer, pl_module):
         metrics = trainer.callback_metrics
@@ -158,5 +165,28 @@ class CurriculumCallback(pl.Callback):
         if math.isnan(v):
             return
         epoch = trainer.current_epoch
+        global_step = trainer.global_step
         self.curr_state.update_from_val_top(epoch, float(v))
         self.curr_state.maybe_advance_phase(epoch)
+
+        # Log phase transitions
+        if self.curr_state.phase != self._previous_phase:
+            import logging
+
+            logger = logging.getLogger("admet.model.chemprop.curriculum")
+            logger.info(
+                "Curriculum phase transition: %s -> %s at epoch %d (step %d), " "val_loss=%.4f, weights=%s",
+                self._previous_phase,
+                self.curr_state.phase,
+                epoch,
+                global_step,
+                v,
+                self.curr_state.weights,
+            )
+
+            # Log phase transition to trainer's logger (goes to MLflow if enabled)
+            phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
+            pl_module.log("curriculum_phase", float(phase_idx), on_step=False, on_epoch=True)
+            pl_module.log("curriculum_phase_epoch", float(epoch), on_step=False, on_epoch=True)
+
+            self._previous_phase = self.curr_state.phase

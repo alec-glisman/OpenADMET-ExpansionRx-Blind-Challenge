@@ -113,6 +113,127 @@ data:
   # ...
 ```
 
+#### Hyperparameter Optimization
+
+Run hyperparameter optimization (HPO) for Chemprop models using Ray Tune with ASHA scheduler:
+
+```bash
+# Run HPO from command line
+python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml --num-samples 50
+
+# With custom resource allocation
+python -m admet.model.chemprop.hpo -c configs/hpo_chemprop.yaml \
+    --gpus-per-trial 0.5 --cpus-per-trial 4 --output-dir hpo_results/
+```
+
+Or use the convenience bash script:
+
+```bash
+# Run HPO with default settings
+./scripts/run_chemprop_hpo.sh --config configs/hpo_chemprop.yaml --num-samples 50
+```
+
+Or programmatically in Python:
+
+```python
+from omegaconf import OmegaConf
+from admet.model.chemprop import ChempropHPO, HPOConfig
+
+# Load HPO configuration
+config = OmegaConf.merge(
+    OmegaConf.structured(HPOConfig),
+    OmegaConf.load("configs/hpo_chemprop.yaml")
+)
+
+# Create HPO runner
+hpo = ChempropHPO(config)
+
+# Run optimization (returns Ray Tune ResultGrid)
+result = hpo.run()
+
+# Get top-k configurations as list of dicts
+top_configs = hpo.get_top_k_configs(result, k=5)
+
+# Results are also saved to:
+# - hpo_results/top_k_configs.json (best hyperparameters)
+# - hpo_results/ray_results/ (full Ray Tune artifacts)
+```
+
+Key HPO features:
+
+- **ASHA Scheduler**: Early stopping of underperforming trials using Asynchronous Successive Halving
+- **Conditional Search Spaces**: Automatic handling of architecture-dependent parameters (MoE experts, branched network trunk settings)
+- **Transfer Learning**: Optional warm-start from pretrained CheMeleon checkpoints
+- **MLflow Integration**: All trials logged as nested runs under a parent HPO experiment
+- **Resource Management**: Fine-grained GPU/CPU allocation per trial for efficient parallelization
+
+### Model Card
+
+Comprehensive model documentation following ML transparency best practices is available in [`docs/model_card.md`](./docs/model_card.md). The model card includes:
+
+- Intended use cases and limitations
+- Training data descriptions and preprocessing
+- Evaluation metrics and benchmark results
+- Ethical considerations and bias analysis
+
+### Ensemble Metrics
+
+The ensemble training module reports comprehensive performance metrics:
+
+- **MAE** (Mean Absolute Error): Primary regression metric
+- **RMSE** (Root Mean Square Error): Penalizes large errors
+- **RAE** (Relative Absolute Error): Scale-independent error relative to baseline
+- **$R^2$**: Coefficient of determination
+- **Pearson $r^2$**: Squared linear correlation coefficient
+- **Spearman $\rho^2$**: Squared rank correlation (robust to outliers)
+- **Kendall $\tau$**: Ordinal association measure
+
+These metrics are computed per-target and aggregated with uncertainty estimates (mean ± stderr) across ensemble members.
+
+### Data Splitting
+
+Generate train/validation splits using cluster-based cross-validation with multiple stratification strategies:
+
+```bash
+# Run data splitting from command line
+python -m admet.data.split --input data.csv --output outputs/ \
+    --cluster-method bitbirch --split-method multilabel_stratified_kfold
+
+# Or use the batch script for all configurations
+./scripts/run_data_splits.sh --input data.csv --output-dir assets/dataset/splits/
+```
+
+Or programmatically in Python:
+
+```python
+from admet.data.split import pipeline
+import pandas as pd
+
+df = pd.read_csv("data.csv")
+
+# Run clustering and cross-validation splitting
+df_with_assignments = pipeline(
+    df,
+    cluster_method="bitbirch",      # Options: random, scaffold, kmeans, umap, butina, bitbirch
+    split_method="multilabel_stratified_kfold",  # Options: group_kfold, stratified_kfold, multilabel_stratified_kfold
+    n_splits=5,
+    n_folds=5,
+    smiles_col="SMILES",
+    quality_col="Quality",
+    fig_dir="outputs/figures",
+)
+
+# Access fold assignments
+print(df_with_assignments[["SMILES", "cluster", "split_0_fold_0"]])
+```
+
+Key splitting features:
+
+- **BitBirch Clustering**: Scalable hierarchical clustering using RDKit fingerprints (recommended)
+- **Stratification Options**: Balance endpoint coverage and quality distributions across folds
+- **Multi-label Support**: Handle sparse multi-task datasets with `MultilabelStratifiedKFold`
+- **Diagnostic Plots**: Automatic visualization of cluster distributions and fold statistics
+
 ### Tech Stack Highlights
 
 - `Python 3.11`: modern baseline with `Typer`/`Rich` powering the CLI.
@@ -121,7 +242,7 @@ data:
 - `Transformers` (`ChemBERTa`): SMILES sequence modeling and transfer learning.
 - `XGBoost` + `LightGBM`: strong tabular baselines for speed and interpretability.
 - `PyTorch` + `TorchMetrics`: deep learning backbone with consistent metric logging.
-- `Ray Tune`: distributed hyperparameter search and parallel training orchestration.
+- `Ray Tune`: distributed hyperparameter search (ASHA scheduler) and parallel training orchestration.
 - `MLflow`: experiment tracking, artifacts, and configuration capture.
 - `Matplotlib`/`Seaborn`: visualization stack for EDA and reporting.
 - `Polaris`/`TDC`/`Hugging Face Datasets`: curated ADMET data access and augmentation.
@@ -205,6 +326,8 @@ Each of the models will be trained as ensemble models with 5-fold cross-validati
 We will explore various hyperparameter optimization strategies, including grid search, random search, and Bayesian optimization, to identify the best model configurations for each architecture.
 
 We will also explore super-ensembling techniques to combine the embeddings and/or predictions from multiple models to further enhance predictive performance.
+
+To begin, we will not use KERMT and ChemBERTa-3 due to local hardware constraints, but we plan to include them in future iterations.
 
 ### Endpoints
 

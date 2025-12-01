@@ -39,14 +39,15 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import mlflow
 import numpy as np
-from mlflow import MlflowClient
-from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 import ray
 from matplotlib import pyplot as plt
+from mlflow import MlflowClient
+from omegaconf import DictConfig, OmegaConf
 
 from admet.model.chemprop.config import (
     ChempropConfig,
+    CurriculumConfig,
     DataConfig,
     EnsembleConfig,
     MlflowConfig,
@@ -57,6 +58,7 @@ from admet.model.chemprop.model import ChempropModel
 from admet.plot.latex import latex_sanitize
 from admet.plot.metrics import plot_metric_bar
 from admet.plot.parity import plot_parity
+from admet.util.utils import parse_data_dir_params
 
 # Configure module-level logger
 logger = logging.getLogger("admet.model.chemprop.ensemble")
@@ -168,6 +170,13 @@ class ChempropEnsemble:
         # Log ensemble configuration
         config_dict = OmegaConf.to_container(self.config, resolve=True)
         mlflow.log_params(self._flatten_dict(config_dict, max_depth=2))
+
+        # Parse and log data_dir parameters
+
+        data_params = parse_data_dir_params(self.config.data.data_dir)
+        for key, value in data_params.items():
+            if value is not None:
+                mlflow.log_param(f"data.{key}", value)
 
         logger.info("Started MLflow parent run: %s", self.parent_run_id)
 
@@ -331,6 +340,13 @@ class ChempropEnsemble:
                 run_id=None,  # Model will create its own nested run
                 parent_run_id=None,  # Will be set by caller for ensemble runs
                 nested=False,  # Will be set by caller for ensemble runs
+            ),
+            curriculum=CurriculumConfig(
+                enabled=self.config.curriculum.enabled,
+                quality_col=self.config.curriculum.quality_col,
+                qualities=list(self.config.curriculum.qualities),
+                patience=self.config.curriculum.patience,
+                seed=self.config.curriculum.seed,
             ),
         )
 
@@ -727,6 +743,17 @@ class ChempropEnsemble:
             r"Kendall $\tau$": {},
         }
 
+        # Mapping from display names to sanitized MLflow names
+        metric_name_map = {
+            "MAE": "MAE",
+            "RMSE": "RMSE",
+            r"$R^2$": "R2",
+            "RAE": "RAE",
+            r"Spearman $\rho$": "spearman_rho",
+            r"Pearson $r$": "pearson_r",
+            r"Kendall $\tau$": "kendall_tau",
+        }
+
         for target in target_cols:
             actual_col = f"{target}_actual"
 
@@ -775,7 +802,7 @@ class ChempropEnsemble:
                 metrics_by_type[r"Pearson $r$"][target].append(pearson_r)
                 metrics_by_type[r"Kendall $\tau$"][target].append(kendall_tau)
 
-        # Generate a separate plot for each metric type
+        # Generate a separate plot for each metric type and log metrics to MLflow
         for metric_type, target_metrics in metrics_by_type.items():
             labels = []
             means = []
@@ -796,9 +823,29 @@ class ChempropEnsemble:
                 clean_target = target.replace("Log ", "")
 
                 labels.append(clean_target)
-                means.append(np.mean(values))
-                errors.append(np.std(values, ddof=1) / np.sqrt(len(values)))
+                mean_val = np.mean(values)
+                stderr_val = np.std(values, ddof=1) / np.sqrt(len(values))
+                means.append(mean_val)
+                errors.append(stderr_val)
                 all_values_for_mean.extend(values)
+
+                # Log individual target metrics to MLflow under test/ prefix
+                if self._mlflow_client and self.parent_run_id:
+                    safe_metric = metric_name_map.get(metric_type, metric_type)
+                    safe_target = clean_target.replace(" ", "_").replace(">", "gt").replace("<", "lt").replace("-", "_")
+                    try:
+                        self._mlflow_client.log_metric(
+                            self.parent_run_id,
+                            f"{split_name}/{safe_target}_{safe_metric}",
+                            float(mean_val),
+                        )
+                        self._mlflow_client.log_metric(
+                            self.parent_run_id,
+                            f"{split_name}/{safe_target}_{safe_metric}_stderr",
+                            float(stderr_val),
+                        )
+                    except Exception:
+                        pass  # Silently ignore metric logging failures
 
             if not labels:
                 continue
@@ -806,8 +853,27 @@ class ChempropEnsemble:
             # Add "Mean" bar with overall mean and stderr across all endpoints and models
             if all_values_for_mean:
                 labels.append("Mean")
-                means.append(np.mean(all_values_for_mean))
-                errors.append(np.std(all_values_for_mean, ddof=1) / np.sqrt(len(all_values_for_mean)))
+                overall_mean = np.mean(all_values_for_mean)
+                overall_stderr = np.std(all_values_for_mean, ddof=1) / np.sqrt(len(all_values_for_mean))
+                means.append(overall_mean)
+                errors.append(overall_stderr)
+
+                # Log overall mean metrics to MLflow under test/ prefix
+                if self._mlflow_client and self.parent_run_id:
+                    safe_metric = metric_name_map.get(metric_type, metric_type)
+                    try:
+                        self._mlflow_client.log_metric(
+                            self.parent_run_id,
+                            f"{split_name}/mean_{safe_metric}",
+                            float(overall_mean),
+                        )
+                        self._mlflow_client.log_metric(
+                            self.parent_run_id,
+                            f"{split_name}/mean_{safe_metric}_stderr",
+                            float(overall_stderr),
+                        )
+                    except Exception:
+                        pass  # Silently ignore metric logging failures
 
             # Use shared plot_metric_bar function with error bars
             fig, _ = plot_metric_bar(

@@ -21,7 +21,7 @@ data:
   #         ...
   #     split_1/
   #       ...
-  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+  data_dir: "assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
 
   # Global test and blind files (same for all ensemble members)
   test_file: "assets/dataset/set/local_test.csv"
@@ -45,12 +45,12 @@ data:
 
   # Per-task loss weights (optional, defaults to 1.0 for each)
   target_weights:
-    - 1.0
+    - 0.5
     - 2.0
     - 3.0
     - 3.0
-    - 3.0
-    - 2.0
+    - 5.0
+    - 5.0
     - 2.0
     - 3.0
     - 3.5
@@ -92,7 +92,7 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8080"
-  experiment_name: "ensemble_chemprop"
+  experiment_name: "ensemble_chemprop_production"
   run_name: null # Auto-generated parent run name
   nested: true
 

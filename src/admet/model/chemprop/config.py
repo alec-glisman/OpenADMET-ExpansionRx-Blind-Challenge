@@ -180,6 +180,43 @@ class MlflowConfig:
 
 
 @dataclass
+class CurriculumConfig:
+    """
+    Configuration for quality-aware curriculum learning.
+
+    Curriculum learning progressively adjusts the sampling of training data
+    based on quality labels. The curriculum proceeds through phases:
+    - warmup: Focus on high-quality data
+    - expand: Gradually include medium-quality data
+    - robust: Include low-quality data for robustness
+    - polish: Return focus to high-quality data
+
+    Parameters
+    ----------
+    enabled : bool, default=False
+        Whether to enable curriculum learning. When disabled, all samples
+        are weighted equally regardless of quality.
+    quality_col : str, default="Quality"
+        Column name in the data containing quality labels (e.g., "high",
+        "medium", "low").
+    qualities : List[str], default=["high", "medium", "low"]
+        Ordered list of quality levels from highest to lowest quality.
+        The curriculum adapts to the number of qualities provided.
+    patience : int, default=5
+        Number of epochs without improvement in overall validation loss
+        before advancing to the next curriculum phase.
+    seed : int, default=42
+        Random seed for reproducible curriculum sampling.
+    """
+
+    enabled: bool = False
+    quality_col: str = "Quality"
+    qualities: List[str] = field(default_factory=lambda: ["high", "medium", "low"])
+    patience: int = 5
+    seed: int = 42
+
+
+@dataclass
 class ChempropConfig:
     """
     Complete configuration for a Chemprop training run.
@@ -198,6 +235,8 @@ class ChempropConfig:
         Training optimization configuration.
     mlflow : MlflowConfig
         MLflow tracking configuration.
+    curriculum : CurriculumConfig
+        Curriculum learning configuration for quality-aware sampling.
 
     Examples
     --------
@@ -219,6 +258,7 @@ class ChempropConfig:
     ...     model=ModelConfig(depth=4, hidden_dim=512),
     ...     optimization=OptimizationConfig(max_epochs=100),
     ...     mlflow=MlflowConfig(experiment_name="my_experiment"),
+    ...     curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
     ... )
     """
 
@@ -226,6 +266,7 @@ class ChempropConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
 
 
 @dataclass
@@ -287,6 +328,10 @@ class EnsembleConfig:
         Training optimization configuration (shared across ensemble).
     mlflow : MlflowConfig
         MLflow tracking configuration.
+    curriculum : CurriculumConfig
+        Curriculum learning configuration. When enabled, all ensemble
+        members share the same curriculum schedule for consistent
+        quality-aware sampling.
     max_parallel : int, default=1
         Maximum number of models to train in parallel.
         Set based on available GPU memory.
@@ -312,6 +357,7 @@ class EnsembleConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     max_parallel: int = 1
     ray_num_cpus: Optional[int] = None
     ray_num_gpus: Optional[int] = None
