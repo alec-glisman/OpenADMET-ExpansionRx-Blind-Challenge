@@ -1,0 +1,1079 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="Planned Model Training Steps" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/planning/model_training.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="High Level Overview: Load pre-split datasets: Load the datasets that have been split using various clustering methods (random, scaffold-based, k-means, Butina).- Input: Pre-split datasets from prev..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="High Level Overview: Load pre-split datasets: Load the datasets that have been split using various clustering methods (random, scaffold-based, k-means, Butina).- Input: Pre-split datasets from prev..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>Planned Model Training Steps - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/planning/model_training.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="planned-model-training-steps">
+<h1>Planned Model Training Steps<a class="headerlink" href="#planned-model-training-steps" title="Link to this heading">¶</a></h1>
+<section id="high-level-overview">
+<h2>High Level Overview<a class="headerlink" href="#high-level-overview" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Load pre-split datasets</strong>: Load the datasets that have been split using various clustering methods (random, scaffold-based, k-means, Butina).</p>
+<ul class="simple">
+<li><p>Input: Pre-split datasets from previous steps. Datasets are stored in a structured directory tree: <code class="docutils literal notranslate"><span class="pre">assets/dataset/splits/v2/{quality}_quality/{split_method}/</span></code>. Non-temporal splits also include N-split and K-fold information with subdirectories <code class="docutils literal notranslate"><span class="pre">split_{n}/fold_{k}/</span></code>. All datasets are in Hugging Face <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> format.</p></li>
+<li><p>Blinded Test Data: Blinded test data can be found at <code class="docutils literal notranslate"><span class="pre">assets/dataset/test/expansion_data_test_blinded.csv</span></code>.</p></li>
+<li><p>User should specify through Typer CLI:</p>
+<ul>
+<li><p>Quality level of the dataset (e.g., high, medium, low).</p></li>
+<li><p>Splitting method used (e.g., random_cluster, scaffold_cluster, kmeans_cluster, butina_cluster, temporal_split).</p></li>
+</ul>
+</li>
+<li></li>
+</ul>
+</li>
+<li><p><strong>Feature Extraction</strong>: Extract metadata, SMILES, endpoints (predictors), and fingerprints from the datasets.</p>
+<ul class="simple">
+<li><p>Metadata: <code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name,Dataset</span></code></p></li>
+<li><p>SMILES: <code class="docutils literal notranslate"><span class="pre">SMILES</span></code></p></li>
+<li><p>Endpoints: <code class="docutils literal notranslate"><span class="pre">LogD,KSOL,HLM</span> <span class="pre">CLint,MLM</span> <span class="pre">CLint,Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux,MPPB,Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B,MBPB,MGMB</span></code></p></li>
+<li><p>Fingerprints: <code class="docutils literal notranslate"><span class="pre">Morgan_FP_[0-2047]</span></code></p></li>
+<li><p>Note that the blinded test data only contains <code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name,SMILES</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>Model Training</strong>: Train machine learning models using the extracted features.</p>
+<ul class="simple">
+<li><p>Model options:</p>
+<ul>
+<li><p>Classical ML models: Support Vector Machine, k-Nearest Neighbors, Random Forest</p></li>
+<li><p>Gradient Boosting models: XGBoost, LightGBM</p></li>
+<li><p>MPNN models: Chemprop</p></li>
+<li><p>Pre-trained MPNN models: CheMeleon</p></li>
+<li><p>Pre-trained Transformer models: ChemBERTA</p></li>
+</ul>
+</li>
+<li><p>Multi-output regression: All models should support multi-output regression to predict multiple endpoints simultaneously. If a model does not natively support multi-output regression, train separate models for each endpoint and aggregate the results. Notify the user with a warning message if this is the case.</p></li>
+<li><p>API: Models should inherit from a base model class to ensure consistency. Classical ML models, gradient boosting models have the fingerprints input format, while MPNN models and transformer models use SMILES input format.</p></li>
+<li><p>Ensemble training: They should run N-split, K-fold cross-validation as per the dataset splits. Each model should also have a random seed and can be trained in parallel. Hyperparameter configuration should be supported for all models. Expose all default hyperparameters for each model and allow user overrides via Typer CLI.</p></li>
+<li><p>Weighted loss: Allow for weighted loss functions to handle class (<code class="docutils literal notranslate"><span class="pre">Dataset</span></code> metadata) imbalance if needed. This should be an optional parameter that dictates the weighting scheme for each class in the loss function. Unspecified classes should default to a weight of 1.</p></li>
+<li><p>Early stopping: Implement early stopping based on validation loss to prevent overfitting. Allow user to specify patience and minimum delta for early stopping via Typer CLI.</p></li>
+<li><p>Archive trained models: Save trained models in a structured directory tree similar to the input datasets for easy retrieval and comparison.</p></li>
+<li><p>Ensemble policy: Final reported predictions for any dataset (including the blinded test set) are produced as ensembles of models trained across the specified splits and folds, with endpoint-wise means and standard errors aggregated across models.</p></li>
+</ul>
+</li>
+<li><p><strong>Model Evaluation</strong>: Evaluate the trained models on the test sets and record performance metrics.</p>
+<ul class="simple">
+<li><p>Metrics to compute:</p>
+<ul>
+<li><p>For each endpoint, compute RMSE, MAE, R², and others as needed. MAE is the primary metric for ranking models and should be used for training models.</p></li>
+<li><p>To aggregate multi-output regression metrics, compute the macro-average (unweighted mean) of the metrics across all endpoints.</p></li>
+</ul>
+</li>
+<li><p>Store evaluation results in a structured format for easy comparison across models and splits. This should be dumped to a CSV file and plotted using visualizations (e.g., box plots, bar charts).</p></li>
+<li><p>Models should predict all quantities on the train/val/test dataset. They should be saved in 2 forms as CSV files:</p>
+<ul>
+<li><ol class="arabic simple">
+<li><p>Direct outputs</p></li>
+</ol>
+</li>
+<li><ol class="arabic simple" start="2">
+<li><p>Transformed outputs. For all non <code class="docutils literal notranslate"><span class="pre">LogD</span></code> columns transform by <code class="docutils literal notranslate"><span class="pre">10^x</span></code> for easier comparison with experimental values.</p></li>
+</ol>
+</li>
+<li><p>On both predictions, plot the histograms (Seaborn with KDE) of the predicted values for each endpoint on a single figure with subplots. Each dataset (train, validation, test) should have its own figure.</p></li>
+<li><p>For each endpoint, plot predicted vs experimental values with a parity line for each dataset (train, validation, test). Each dataset should have its own figure with subplots for each endpoint.</p></li>
+<li><p>Plot the correlation heatmap (Seaborn) of predicted vs experimental values for each endpoint on the datasets.</p></li>
+<li><p>Plot the correlation heatmap (Seaborn) of predicted values between each endpoint on the datasets.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="scope">
+<h2>Scope<a class="headerlink" href="#scope" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>No hyperparameter optimization or tuning is included in this plan; models will be trained with default or user-specified hyperparameters.</p></li>
+<li><p>No uncertainty quantification or conformal prediction is included in this plan.</p></li>
+</ul>
+</section>
+<section id="detailed-implementation-plan">
+<h2>Detailed Implementation Plan<a class="headerlink" href="#detailed-implementation-plan" title="Link to this heading">¶</a></h2>
+<section id="dataset-contract-and-split-api">
+<h3>Dataset contract and split API<a class="headerlink" href="#dataset-contract-and-split-api" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Use Hugging Face <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> objects with a consistent schema for all pre-split datasets.</p></li>
+<li><p>Required columns for all train/val/test datasets:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code> (string)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SMILES</span></code> (string)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Dataset</span></code> (string or categorical, used for sample weights)</p></li>
+<li><p>Endpoints (float): <code class="docutils literal notranslate"><span class="pre">LogD</span></code>, <code class="docutils literal notranslate"><span class="pre">KSOL</span></code>, <code class="docutils literal notranslate"><span class="pre">HLM</span> <span class="pre">CLint</span></code>, <code class="docutils literal notranslate"><span class="pre">MLM</span> <span class="pre">CLint</span></code>, <code class="docutils literal notranslate"><span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux</span></code>, <code class="docutils literal notranslate"><span class="pre">MPPB</span></code>, <code class="docutils literal notranslate"><span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B</span></code>, <code class="docutils literal notranslate"><span class="pre">MBPB</span></code>, <code class="docutils literal notranslate"><span class="pre">MGMB</span></code></p></li>
+<li><p>Fingerprints (float or int): <code class="docutils literal notranslate"><span class="pre">Morgan_FP_0</span></code> .. <code class="docutils literal notranslate"><span class="pre">Morgan_FP_2047</span></code></p></li>
+</ul>
+</li>
+<li><p>Targets are in log10 space for all endpoints except <code class="docutils literal notranslate"><span class="pre">LogD</span></code>, which is in linear space. Assume all variables are normalized appropriately at dataset creation time; do not apply further preprocessing in the training library.</p></li>
+<li><p>Missing endpoints for a given molecule are represented as <code class="docutils literal notranslate"><span class="pre">NaN</span></code> and are handled with masking in the loss function.</p></li>
+<li><p>Blinded test dataset:</p>
+<ul>
+<li><p>Separate loader pointing to <code class="docutils literal notranslate"><span class="pre">assets/dataset/test/expansion_data_test_blinded.csv</span></code>.</p></li>
+<li><p>Required columns: <code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code>, <code class="docutils literal notranslate"><span class="pre">SMILES</span></code>.</p></li>
+<li><p>No endpoints or fingerprints are stored; fingerprints are regenerated from SMILES using the same RDKit/Morgan parameters as during training.</p></li>
+</ul>
+</li>
+</ul>
+<p>Define a small dataset API in the library code (for example in <code class="docutils literal notranslate"><span class="pre">admet.data</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">load_dataset(quality,</span> <span class="pre">split_method,</span> <span class="pre">subset=None,</span> <span class="pre">split_level=None,</span> <span class="pre">split_id=None,</span> <span class="pre">fold_id=None)</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">quality</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;high&quot;</span> <span class="pre">|</span> <span class="pre">&quot;medium&quot;</span> <span class="pre">|</span> <span class="pre">&quot;low&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_method</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;random_cluster&quot;</span> <span class="pre">|</span> <span class="pre">&quot;scaffold_cluster&quot;</span> <span class="pre">|</span> <span class="pre">&quot;kmeans_cluster&quot;</span> <span class="pre">|</span> <span class="pre">&quot;butina_cluster&quot;</span> <span class="pre">|</span> <span class="pre">&quot;temporal_split&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">subset</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span> <span class="pre">|</span> <span class="pre">&quot;val&quot;</span> <span class="pre">|</span> <span class="pre">&quot;test&quot;</span> <span class="pre">|</span> <span class="pre">None</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_level</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;nsplit&quot;</span> <span class="pre">|</span> <span class="pre">&quot;kfold&quot;</span> <span class="pre">|</span> <span class="pre">&quot;temporal&quot;</span> <span class="pre">|</span> <span class="pre">None</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_id</span></code>: integer index for N-split (optional for temporal).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fold_id</span></code>: integer index for K-fold (optional; only used when <code class="docutils literal notranslate"><span class="pre">split_level=&quot;kfold&quot;</span></code>).</p></li>
+<li><p>Returns <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> if <code class="docutils literal notranslate"><span class="pre">subset</span></code> is specified, or <code class="docutils literal notranslate"><span class="pre">DatasetDict</span></code> with <code class="docutils literal notranslate"><span class="pre">{&quot;train&quot;,</span> <span class="pre">&quot;val&quot;,</span> <span class="pre">&quot;test&quot;}</span></code> if <code class="docutils literal notranslate"><span class="pre">subset=None</span></code>.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_blinded_dataset()</span></code></p>
+<ul>
+<li><p>Returns a <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> with <code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code> and <code class="docutils literal notranslate"><span class="pre">SMILES</span></code> columns for the blinded test set.</p></li>
+</ul>
+</li>
+</ul>
+<p>Split directory conventions:</p>
+<ul class="simple">
+<li><p>Non-temporal splits live under <code class="docutils literal notranslate"><span class="pre">assets/dataset/splits/v2/{quality}_quality/{split_method}/split_{split_id}/fold_{fold_id}/</span></code>.</p></li>
+<li><p>Temporal splits can omit <code class="docutils literal notranslate"><span class="pre">split_{n}/fold_{k}/</span></code> and use a temporal naming scheme. <code class="docutils literal notranslate"><span class="pre">split_level=&quot;temporal&quot;</span></code> indicates this convention.</p></li>
+</ul>
+<p>Data schema validation on loading (<code class="docutils literal notranslate"><span class="pre">validate_dataset_schema</span></code> helper):</p>
+<ul class="simple">
+<li><p>Check that all required columns are present with expected dtypes.</p></li>
+<li><p>Verify that fingerprint columns cover the full range <code class="docutils literal notranslate"><span class="pre">Morgan_FP_0</span></code> .. <code class="docutils literal notranslate"><span class="pre">Morgan_FP_2047</span></code>.</p></li>
+<li><p>Verify that endpoint columns are float-like and within reasonable numeric ranges for log10 and linear scales.</p></li>
+<li><p>Log warnings if extra unexpected columns exist but do not fail.</p></li>
+<li><p>Fail fast with a clear error message if any required columns are missing or dtypes are incompatible.</p></li>
+</ul>
+<p>Provide a helper to iterate splits:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">iter_splits(quality,</span> <span class="pre">split_method,</span> <span class="pre">split_level,</span> <span class="pre">split_ids,</span> <span class="pre">fold_ids=None)</span></code></p>
+<ul>
+<li><p>Yields <code class="docutils literal notranslate"><span class="pre">(split_id,</span> <span class="pre">fold_id)</span></code> pairs used to drive cross-validation and ensembling.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="model-training-multi-output-behavior-and-serialization">
+<h3>Model training, multi-output behavior, and serialization<a class="headerlink" href="#model-training-multi-output-behavior-and-serialization" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Base model interface (for example in <code class="docutils literal notranslate"><span class="pre">admet.model.base</span></code>):</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">fit(X_train,</span> <span class="pre">y_train,</span> <span class="pre">X_val=None,</span> <span class="pre">y_val=None,</span> <span class="pre">sample_weight=None,</span> <span class="pre">target_mask=None)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">predict(X)</span></code> → predictions for all endpoints in a fixed order.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save(path)</span></code> and <code class="docutils literal notranslate"><span class="pre">&#64;classmethod</span> <span class="pre">load(path)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_config()</span></code> → model and training hyperparameters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_metadata()</span></code> → endpoints, dataset metadata, seeds, and training timestamps.</p></li>
+<li><p>Attributes:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_type</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;fingerprint&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;smiles&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">endpoints</span></code>: ordered list of endpoint names.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Multi-output regression and missing endpoints:</p>
+<ul>
+<li><p>Train on log10 targets for all endpoints except <code class="docutils literal notranslate"><span class="pre">LogD</span></code>, which is in linear space.</p></li>
+<li><p>Use a target mask <code class="docutils literal notranslate"><span class="pre">M</span></code> with shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">D)</span></code> where <code class="docutils literal notranslate"><span class="pre">M[i,</span> <span class="pre">d]</span> <span class="pre">=</span> <span class="pre">1</span></code> if endpoint <code class="docutils literal notranslate"><span class="pre">d</span></code> is present for molecule <code class="docutils literal notranslate"><span class="pre">i</span></code>, else <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+<li><p>For native multi-output models, compute the loss per-sample and per-endpoint only where <code class="docutils literal notranslate"><span class="pre">M[i,</span> <span class="pre">d]</span> <span class="pre">=</span> <span class="pre">1</span></code> and normalize by the sum of mask entries.</p></li>
+<li><p>Always predict all endpoints in a fixed order, even if some endpoints are sparse in the training data.</p></li>
+<li><p>If a model does not support native multi-output regression, train separate models per endpoint and aggregate them in a wrapper that exposes the same multi-output interface.</p></li>
+</ul>
+</li>
+<li><p>Sample weights:</p>
+<ul>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">Weighted</span> <span class="pre">loss</span></code> is enabled, compute a per-row <code class="docutils literal notranslate"><span class="pre">sample_weight</span></code> from the <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> column using a user-specified mapping (for example via YAML config):</p>
+<ul>
+<li><p>For each row, look up <code class="docutils literal notranslate"><span class="pre">weights[row[&quot;Dataset&quot;]]</span></code> with a <code class="docutils literal notranslate"><span class="pre">default</span></code> fallback of <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></li>
+</ul>
+</li>
+<li><p>For models that support <code class="docutils literal notranslate"><span class="pre">sample_weight</span></code> (Random Forest, XGBoost, LightGBM, some neural network trainers), pass the computed weights into <code class="docutils literal notranslate"><span class="pre">fit</span></code>.</p></li>
+<li><p>For models that do not support sample weights, log a warning and proceed without weighting.</p></li>
+</ul>
+</li>
+<li><p>Serialization layout:</p>
+<ul>
+<li><p>For each <code class="docutils literal notranslate"><span class="pre">(quality,</span> <span class="pre">split_method,</span> <span class="pre">split_id,</span> <span class="pre">fold_id,</span> <span class="pre">model_family,</span> <span class="pre">model_name)</span></code> combination, store model artifacts under:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">assets/models/{quality}/{split_method}/split_{split_id}/fold_{fold_id}/{model_family}/{model_name}/</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Within each model directory, store:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model.bin</span></code> (serialized model state, e.g. PyTorch checkpoint or pickle).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (full experiment configuration, including model, training, and data settings).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metrics.json</span></code> (per-endpoint and aggregated metrics on train/val/test, both in log10 and linear space).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">preprocessor.pkl</span></code> (if any runtime preprocessing is needed).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train_predictions_log.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">val_predictions_log.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">test_predictions_log.csv</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train_predictions_linear.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">val_predictions_linear.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">test_predictions_linear.csv</span></code> (with <code class="docutils literal notranslate"><span class="pre">10^x</span></code> transform for non-<code class="docutils literal notranslate"><span class="pre">LogD</span></code> endpoints).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_info.json</span></code> (seeds, git hash, library versions, device, runtime, and CLI args).</p></li>
+</ul>
+</li>
+<li><p>For per-endpoint models, nest each endpoint under an <code class="docutils literal notranslate"><span class="pre">endpoints/</span></code> directory but still expose a multi-output wrapper that follows the base model interface.</p></li>
+<li><p>Implement a helper <code class="docutils literal notranslate"><span class="pre">load_model(model_dir:</span> <span class="pre">str)</span> <span class="pre">-&gt;</span> <span class="pre">BaseModel</span></code> that reads <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> to instantiate the correct subclass and loads <code class="docutils literal notranslate"><span class="pre">model.bin</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="hyperparameter-configuration-single-yaml-file">
+<h3>Hyperparameter configuration (single YAML file)<a class="headerlink" href="#hyperparameter-configuration-single-yaml-file" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Use a single YAML configuration file to control data, model, training, and ensemble behavior.</p></li>
+<li><p>Example structure:</p></li>
+</ul>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;openadmet_baseline_v1&quot;</span>
+
+<span class="nt">seed</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">python</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">  </span><span class="nt">numpy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">  </span><span class="nt">torch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">  </span><span class="nt">xgboost</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">  </span><span class="nt">lightgbm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">quality</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;high&quot;</span>
+<span class="w">  </span><span class="nt">split_method</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;random_cluster&quot;</span>
+<span class="w">  </span><span class="nt">split_level</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;kfold&quot;</span><span class="w">   </span><span class="c1"># &quot;nsplit&quot; | &quot;kfold&quot; | &quot;temporal&quot;</span>
+<span class="w">  </span><span class="nt">split_ids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">fold_ids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">endpoints</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LogD</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KSOL</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HLM CLint</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MLM CLint</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Caco-2 Permeability Efflux</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MPPB</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Caco-2 Permeability Papp A&gt;B</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MBPB</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MGMB</span>
+
+<span class="nt">training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ensemble</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mean&quot;</span><span class="w">    </span><span class="c1"># mean | median | custom</span>
+<span class="w">    </span><span class="nt">include</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># Optional explicit list of (split_id, fold_id) pairs used in ensembles</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> split_id</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> fold_id</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> split_id</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> fold_id</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> split_id</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> fold_id</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">parallel</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ray&quot;</span><span class="w">         </span><span class="c1"># ray | joblib | multiprocessing</span>
+<span class="w">    </span><span class="nt">max_parallel_jobs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+
+<span class="w">  </span><span class="nt">sample_weights</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">dataset_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Dataset&quot;</span>
+<span class="w">    </span><span class="nt">weights</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">dataset_a</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">      </span><span class="nt">dataset_b</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
+<span class="w">      </span><span class="nt">default</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+
+<span class="w">  </span><span class="nt">early_stopping</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">    </span><span class="nt">min_delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+
+<span class="w">  </span><span class="nt">device</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">preferred</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cuda&quot;</span><span class="w">       </span><span class="c1"># cpu | cuda | auto</span>
+<span class="w">    </span><span class="nt">gpu_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+
+<span class="nt">models</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">random_forest</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">input_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;fingerprint&quot;</span>
+<span class="w">    </span><span class="nt">model_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;RandomForestRegressor&quot;</span>
+<span class="w">    </span><span class="nt">model_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">n_estimators</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">      </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">      </span><span class="nt">max_features</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sqrt&quot;</span>
+<span class="w">      </span><span class="nt">min_samples_split</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">      </span><span class="nt">min_samples_leaf</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">      </span><span class="nt">n_jobs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-1</span>
+<span class="w">      </span><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">random_state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">    </span><span class="nt">training_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">use_multi_output_wrapper</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="nt">xgboost</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">input_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;fingerprint&quot;</span>
+<span class="w">    </span><span class="nt">model_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;XGBRegressor&quot;</span>
+<span class="w">    </span><span class="nt">model_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">n_estimators</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">      </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
+<span class="w">      </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">      </span><span class="nt">subsample</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span>
+<span class="w">      </span><span class="nt">colsample_bytree</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span>
+<span class="w">      </span><span class="nt">reg_alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">      </span><span class="nt">reg_lambda</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">      </span><span class="nt">tree_method</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;hist&quot;</span>
+<span class="w">      </span><span class="nt">n_jobs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">      </span><span class="nt">random_state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">    </span><span class="nt">training_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">early_stopping_rounds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">      </span><span class="nt">eval_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mae&quot;</span>
+
+<span class="w">  </span><span class="nt">lightgbm</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">input_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;fingerprint&quot;</span>
+<span class="w">    </span><span class="nt">model_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;LGBMRegressor&quot;</span>
+<span class="w">    </span><span class="nt">model_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">n_estimators</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2000</span>
+<span class="w">      </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.02</span>
+<span class="w">      </span><span class="nt">num_leaves</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">31</span>
+<span class="w">      </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-1</span>
+<span class="w">      </span><span class="nt">subsample</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span>
+<span class="w">      </span><span class="nt">colsample_bytree</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span>
+<span class="w">      </span><span class="nt">reg_alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">      </span><span class="nt">reg_lambda</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">      </span><span class="nt">random_state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">123</span>
+<span class="w">      </span><span class="nt">n_jobs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">    </span><span class="nt">training_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">early_stopping_rounds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">      </span><span class="nt">eval_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mae&quot;</span>
+
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">input_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;smiles&quot;</span>
+<span class="w">    </span><span class="nt">model_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ChempropMPNN&quot;</span>
+<span class="w">    </span><span class="nt">model_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">      </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">      </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">      </span><span class="nt">aggregation</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mean&quot;</span>
+<span class="w">    </span><span class="nt">training_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">      </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">      </span><span class="nt">optimizer</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;adam&quot;</span>
+<span class="w">      </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">      </span><span class="nt">weight_decay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">      </span><span class="nt">early_stopping_patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">      </span><span class="nt">early_stopping_delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+
+<span class="w">  </span><span class="nt">chemeleon</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">input_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;smiles&quot;</span>
+<span class="w">    </span><span class="nt">model_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;CheMeleonMPNN&quot;</span>
+<span class="w">    </span><span class="nt">model_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">pretrained_checkpoint</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;path/to/chemeleon.pt&quot;</span>
+<span class="w">      </span><span class="nt">freeze_backbone</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">      </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">    </span><span class="nt">training_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">      </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">      </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0005</span>
+<span class="w">      </span><span class="nt">early_stopping_patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">      </span><span class="nt">early_stopping_delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+
+<span class="w">  </span><span class="nt">chemberta</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">input_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;smiles&quot;</span>
+<span class="w">    </span><span class="nt">model_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ChemBERTAModel&quot;</span>
+<span class="w">    </span><span class="nt">model_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">pretrained_model_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;seyonec/PubChem10M_SMILES_BPE_450k&quot;</span>
+<span class="w">      </span><span class="nt">freeze_encoder_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">      </span><span class="nt">max_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="w">    </span><span class="nt">training_params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">      </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">      </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3e-5</span>
+<span class="w">      </span><span class="nt">warmup_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">      </span><span class="nt">weight_decay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span>
+<span class="w">      </span><span class="nt">early_stopping_patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">      </span><span class="nt">early_stopping_delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0005</span>
+</pre></div>
+</div>
+</section>
+<section id="parallelization-with-ray-and-ensemble-predictions">
+<h3>Parallelization with Ray and ensemble predictions<a class="headerlink" href="#parallelization-with-ray-and-ensemble-predictions" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Use Ray as the primary parallelization backend (add <code class="docutils literal notranslate"><span class="pre">ray</span></code> as a required dependency in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>).</p></li>
+<li><p>Parallelize over <code class="docutils literal notranslate"><span class="pre">(split_id,</span> <span class="pre">fold_id,</span> <span class="pre">model_name)</span></code> tasks:</p>
+<ul>
+<li><p>For each tuple, launch a Ray remote function that:</p>
+<ul>
+<li><p>Loads the appropriate train/val/test splits.</p></li>
+<li><p>Builds features (SMILES or fingerprints).</p></li>
+<li><p>Computes sample weights if enabled.</p></li>
+<li><p>Trains the model with early stopping and masked loss.</p></li>
+<li><p>Saves artifacts and predictions to the model directory.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Control concurrency with a global <code class="docutils literal notranslate"><span class="pre">max_parallel_jobs</span></code> parameter:</p>
+<ul>
+<li><p>Expose <code class="docutils literal notranslate"><span class="pre">--max-parallel-jobs</span></code> in the CLI to override the YAML setting.</p></li>
+<li><p>Use Ray resources (e.g. <code class="docutils literal notranslate"><span class="pre">num_cpus</span></code>, <code class="docutils literal notranslate"><span class="pre">num_gpus</span></code>) based on the model and <code class="docutils literal notranslate"><span class="pre">device</span></code> configuration.</p></li>
+</ul>
+</li>
+</ul>
+<p>Final predictions and ensembles:</p>
+<ul class="simple">
+<li><p>For any dataset (train, val, test, or blinded), ensemble predictions across all selected models:</p>
+<ul>
+<li><p>For each model in the ensemble set, compute <code class="docutils literal notranslate"><span class="pre">Y_pred^(j)</span></code> with shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">D)</span></code>.</p></li>
+<li><p>Aggregate with the mean across models for each molecule and endpoint:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Y_mean</span> <span class="pre">=</span> <span class="pre">mean_j</span> <span class="pre">Y_pred^(j)</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Compute the standard deviation across models:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Y_std</span> <span class="pre">=</span> <span class="pre">std_j</span> <span class="pre">Y_pred^(j)</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Compute standard error across models:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Y_se</span> <span class="pre">=</span> <span class="pre">Y_std</span> <span class="pre">/</span> <span class="pre">sqrt(J)</span></code>, where <code class="docutils literal notranslate"><span class="pre">J</span></code> is the number of models.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Store ensemble predictions in separate CSV files:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ensemble_predictions_log.csv</span></code> with columns:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code>, <code class="docutils literal notranslate"><span class="pre">SMILES</span></code>, and for each endpoint:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_mean_log</span></code>, <code class="docutils literal notranslate"><span class="pre">{endpoint}_std_log</span></code>, <code class="docutils literal notranslate"><span class="pre">{endpoint}_se_log</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ensemble_predictions_linear.csv</span></code> with the same structure but endpoints converted to linear space:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_mean_linear</span></code>, <code class="docutils literal notranslate"><span class="pre">{endpoint}_std_linear</span></code>, <code class="docutils literal notranslate"><span class="pre">{endpoint}_se_linear</span></code>, where non-<code class="docutils literal notranslate"><span class="pre">LogD</span></code> values are back-transformed with <code class="docutils literal notranslate"><span class="pre">10^x</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Blinded test handling:</p>
+<ul>
+<li><p>Treat the blinded test as an independent dataset loaded via <code class="docutils literal notranslate"><span class="pre">load_blinded_dataset()</span></code>.</p></li>
+<li><p>Generate fingerprints and any SMILES-based features.</p></li>
+<li><p>Run inference through all trained models in the ensemble set.</p></li>
+<li><p>Save ensemble predictions in <code class="docutils literal notranslate"><span class="pre">ensemble_predictions_log.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">ensemble_predictions_linear.csv</span></code> for the blinded dataset.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="evaluation-metrics-and-visualization">
+<h3>Evaluation metrics and visualization<a class="headerlink" href="#evaluation-metrics-and-visualization" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>For each trained model and for the ensemble:</p>
+<ul>
+<li><p>Compute metrics separately for train, val, and test splits.</p></li>
+<li><p>For each endpoint and split:</p>
+<ul>
+<li><p>In log space (dataset space): RMSE_log, MAE_log, R²_log.</p></li>
+<li><p>In linear space: convert predictions and targets to linear units (identity for <code class="docutils literal notranslate"><span class="pre">LogD</span></code>, <code class="docutils literal notranslate"><span class="pre">10^x</span></code> for other endpoints) and compute RMSE_linear, MAE_linear, R²_linear.</p></li>
+</ul>
+</li>
+<li><p>Compute macro-average metrics across endpoints with valid data (non-empty masks):</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">macro_log</span></code> and <code class="docutils literal notranslate"><span class="pre">macro_linear</span></code> for each metric and split.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Visualizations:</p>
+<ul>
+<li><p>Save plots under <code class="docutils literal notranslate"><span class="pre">assets/figures/model_eval/{quality}/{split_method}/split_{split_id}/fold_{fold_id}/{model_family}/{model_name}/</span></code>.</p></li>
+<li><p>For each split (train, val, test) and space (log, linear):</p>
+<ul>
+<li><p>Histograms with KDE of predicted values per endpoint (one figure per dataset with subplots).</p></li>
+<li><p>Parity plots (predicted vs experimental) per endpoint with a parity line (one figure per dataset with subplots).</p></li>
+<li><p>Correlation heatmap of predicted vs experimental values across endpoints.</p></li>
+<li><p>Correlation heatmap of predicted values between endpoints.</p></li>
+</ul>
+</li>
+<li><p>For ensemble evaluation, produce analogous plots at the ensemble level.</p></li>
+<li><p>Include metadata (model name, split id, fold id, endpoints, log/linear) in figure titles and optionally annotate macro MAE.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="cli-entrypoints-and-workflows">
+<h3>CLI entrypoints and workflows<a class="headerlink" href="#cli-entrypoints-and-workflows" title="Link to this heading">¶</a></h3>
+<p>Implement Typer-based CLI commands in <code class="docutils literal notranslate"><span class="pre">admet.cli</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">train</span></code>:</p>
+<ul>
+<li><p>Arguments:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">PATH</span></code> (required): YAML configuration file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--model-name</span> <span class="pre">TEXT</span></code> (optional): train only the specified model key from <code class="docutils literal notranslate"><span class="pre">models</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--max-parallel-jobs</span> <span class="pre">INT</span></code> (optional): override config.training.parallel.max_parallel_jobs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">TEXT</span></code> (optional): override config.training.device.preferred (<code class="docutils literal notranslate"><span class="pre">cpu</span></code>, <code class="docutils literal notranslate"><span class="pre">cuda</span></code>, <code class="docutils literal notranslate"><span class="pre">auto</span></code>, <code class="docutils literal notranslate"><span class="pre">cuda:0</span></code>, etc.).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--seed</span> <span class="pre">INT</span></code> (optional): override the seed values in the config.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">TEXT</span></code> (optional): <code class="docutils literal notranslate"><span class="pre">INFO</span></code>, <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code>, etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--dry-run</span></code> (flag): validate config, dataset loading, and shapes without training.</p></li>
+</ul>
+</li>
+<li><p>Workflow:</p>
+<ul>
+<li><p>Load and validate the YAML config.</p></li>
+<li><p>Apply CLI overrides (CLI values take precedence over YAML).</p></li>
+<li><p>Seed all libraries (Python, NumPy, PyTorch, XGBoost, LightGBM, Ray).</p></li>
+<li><p>Resolve device (CPU or GPU) based on config and CLI input.</p></li>
+<li><p>Build the list of <code class="docutils literal notranslate"><span class="pre">(split_id,</span> <span class="pre">fold_id,</span> <span class="pre">model_name)</span></code> tasks from <code class="docutils literal notranslate"><span class="pre">data.split_ids</span></code>, <code class="docutils literal notranslate"><span class="pre">data.fold_ids</span></code>, and enabled models.</p></li>
+<li><p>Launch training tasks in parallel with Ray respecting <code class="docutils literal notranslate"><span class="pre">max_parallel_jobs</span></code>.</p></li>
+<li><p>Save all artifacts, predictions, and metrics to their respective directories.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">evaluate</span></code>:</p>
+<ul>
+<li><p>Arguments:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--model-root</span> <span class="pre">PATH</span></code> (required): root directory containing one or more model runs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">PATH</span></code> (optional): YAML to resolve data and endpoints when re-loading datasets.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--dataset-split</span> <span class="pre">[train|val|test|all]</span></code> (default: <code class="docutils literal notranslate"><span class="pre">all</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ensemble</span></code> (flag): compute ensemble-level metrics and plots across models under <code class="docutils literal notranslate"><span class="pre">model-root</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">TEXT</span></code> (optional).</p></li>
+</ul>
+</li>
+<li><p>Workflow:</p>
+<ul>
+<li><p>Discover model directories under <code class="docutils literal notranslate"><span class="pre">model-root</span></code>.</p></li>
+<li><p>For each model, load predictions if available or recompute them from the saved model and dataset loader.</p></li>
+<li><p>Compute metrics in log and linear space for the requested splits.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">--ensemble</span></code> is set, form ensembles as specified in the config and compute ensemble metrics and plots.</p></li>
+<li><p>Write/overwrite <code class="docutils literal notranslate"><span class="pre">metrics.json</span></code> and save updated figures.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">predict</span></code>:</p>
+<ul>
+<li><p>Arguments:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--model-root</span> <span class="pre">PATH</span></code> (required): root directory containing trained models to include in the ensemble.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--input</span> <span class="pre">PATH</span></code> (optional): custom CSV or dataset path for inference; if omitted, use the blinded test dataset loader.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">PATH</span></code> (required): directory where prediction CSVs will be written.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ensemble-strategy</span> <span class="pre">[mean|median]</span></code> (optional): override config.training.ensemble.strategy.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">TEXT</span></code> (optional).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">TEXT</span></code> (optional).</p></li>
+</ul>
+</li>
+<li><p>Workflow:</p>
+<ul>
+<li><p>Load the target dataset (custom or blinded).</p></li>
+<li><p>Generate fingerprints and SMILES-based features as needed.</p></li>
+<li><p>Discover models under <code class="docutils literal notranslate"><span class="pre">model-root</span></code> that match the current data configuration.</p></li>
+<li><p>Run inference through each model, collect predictions, and aggregate with the chosen ensemble strategy.</p></li>
+<li><p>Save <code class="docutils literal notranslate"><span class="pre">ensemble_predictions_log.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">ensemble_predictions_linear.csv</span></code> with mean, std, and std err for each endpoint.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">list-models</span></code> (optional helper):</p>
+<ul>
+<li><p>Arguments:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--root</span> <span class="pre">PATH</span></code> (required): root of the model directory tree.</p></li>
+<li><p>Filter options: <code class="docutils literal notranslate"><span class="pre">--quality</span></code>, <code class="docutils literal notranslate"><span class="pre">--split-method</span></code>, <code class="docutils literal notranslate"><span class="pre">--split-id</span></code>, <code class="docutils literal notranslate"><span class="pre">--fold-id</span></code>, <code class="docutils literal notranslate"><span class="pre">--model-family</span></code>, <code class="docutils literal notranslate"><span class="pre">--model-name</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Output:</p>
+<ul>
+<li><p>A table of available models with their paths, key config fields, macro metrics, seeds, and device information.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="logging-seeding-and-device-management">
+<h3>Logging, seeding, and device management<a class="headerlink" href="#logging-seeding-and-device-management" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Configure a shared <code class="docutils literal notranslate"><span class="pre">logging</span></code> logger (for example <code class="docutils literal notranslate"><span class="pre">admet</span></code>) used throughout the library and CLI.</p></li>
+<li><p>CLI options set the global log level and optional log file location.</p></li>
+<li><p>Each run writes <code class="docutils literal notranslate"><span class="pre">run.log</span></code> in the corresponding model directory capturing:</p>
+<ul>
+<li><p>CLI arguments.</p></li>
+<li><p>Resolved config.</p></li>
+<li><p>Seeds and device.</p></li>
+<li><p>Dataset sizes and endpoint coverage.</p></li>
+<li><p>Start/end times for training per model.</p></li>
+<li><p>Key metric summaries.</p></li>
+</ul>
+</li>
+<li><p>Seeding policy:</p>
+<ul>
+<li><p>Accept seed values from the YAML config and allow CLI override.</p></li>
+<li><p>Seed Python <code class="docutils literal notranslate"><span class="pre">random</span></code>, NumPy, PyTorch (CPU and CUDA), and any model-specific RNGs (XGBoost, LightGBM).</p></li>
+<li><p>Log the effective seeds to <code class="docutils literal notranslate"><span class="pre">run_info.json</span></code> and to <code class="docutils literal notranslate"><span class="pre">run.log</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Device management:</p>
+<ul>
+<li><p>Implement a <code class="docutils literal notranslate"><span class="pre">resolve_device(preferred,</span> <span class="pre">gpu_id)</span></code> helper:</p>
+<ul>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">preferred</span></code> is <code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> and a GPU is available, use <code class="docutils literal notranslate"><span class="pre">cuda:{gpu_id}</span></code>.</p></li>
+<li><p>Otherwise fall back to CPU with a logged warning.</p></li>
+</ul>
+</li>
+<li><p>Pass the device to Chemprop, CheMeleon, and ChemBERTA models for both training and inference.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="key-milestones">
+<h3>Key milestones<a class="headerlink" href="#key-milestones" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Implement dataset loading and validation:</p>
+<ul class="simple">
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code>, <code class="docutils literal notranslate"><span class="pre">load_blinded_dataset</span></code>, <code class="docutils literal notranslate"><span class="pre">iter_splits</span></code>, and <code class="docutils literal notranslate"><span class="pre">validate_dataset_schema</span></code>.</p></li>
+<li><p>Confirm that datasets load correctly for a sample <code class="docutils literal notranslate"><span class="pre">(quality,</span> <span class="pre">split_method,</span> <span class="pre">split_id,</span> <span class="pre">fold_id)</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Implement the base model interface and a first baseline model:</p>
+<ul class="simple">
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">BaseModel</span></code> and a fingerprint-based baseline (Random Forest or LightGBM).</p></li>
+<li><p>Support multi-output regression and masking for missing endpoints.</p></li>
+</ul>
+</li>
+<li><p>Implement training orchestration with Ray:</p>
+<ul class="simple">
+<li><p>Implement the <code class="docutils literal notranslate"><span class="pre">train_single_model</span></code> and <code class="docutils literal notranslate"><span class="pre">train_all_models</span></code> orchestrators.</p></li>
+<li><p>Integrate Ray for parallel training across folds and splits, honoring <code class="docutils literal notranslate"><span class="pre">max_parallel_jobs</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Implement evaluation and plotting utilities:</p>
+<ul class="simple">
+<li><p>Implement metric computation in log and linear space.</p></li>
+<li><p>Implement plotting utilities and save outputs to the defined directory structure.</p></li>
+</ul>
+</li>
+<li><p>Implement ensemble prediction and blinded inference:</p>
+<ul class="simple">
+<li><p>Implement ensemble aggregation (mean, std, std err) across models.</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">predict</span></code> CLI command for arbitrary inputs and the blinded test dataset.</p></li>
+</ul>
+</li>
+<li><p>Integrate CLI commands with Typer:</p>
+<ul class="simple">
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">train</span></code>, <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">evaluate</span></code>, <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">predict</span></code>, and optionally <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">list-models</span></code>.</p></li>
+<li><p>Test CLI workflows end-to-end on a small subset of data.</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="pytest-unit-tests-to-write">
+<h3>Pytest unit tests to write<a class="headerlink" href="#pytest-unit-tests-to-write" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Dataset and schema tests:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_load_dataset_schema_valid</span></code>:</p>
+<ul>
+<li><p>Load a sample dataset with <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code>.</p></li>
+<li><p>Assert that all required columns exist and have expected dtypes.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_validate_dataset_schema_missing_column</span></code>:</p>
+<ul>
+<li><p>Create a toy <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> missing an endpoint column and assert that <code class="docutils literal notranslate"><span class="pre">validate_dataset_schema</span></code> raises a clear error.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Masking and multi-output tests:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_target_mask_drops_missing_endpoints</span></code>:</p>
+<ul>
+<li><p>Construct a small toy dataset with some missing endpoints.</p></li>
+<li><p>Verify that the loss only accumulates over non-missing entries.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_multi_output_prediction_shape</span></code>:</p>
+<ul>
+<li><p>Fit a baseline multi-output model and assert that predictions have shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">D)</span></code> for all endpoints.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Serialization tests:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_model_save_load_equivalence</span></code>:</p>
+<ul>
+<li><p>Train a small model, save it, reload it, and assert that predictions on a fixed input match within a tolerance.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Ensemble tests:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_ensemble_mean_and_std_err</span></code>:</p>
+<ul>
+<li><p>Simulate predictions from three models on a small dataset.</p></li>
+<li><p>Compute ensemble mean and std err, and assert they match manually computed values.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Evaluation tests:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_metrics_log_and_linear_space</span></code>:</p>
+<ul>
+<li><p>For a toy dataset with known values, compute metrics in log and linear space and assert expected values.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>CLI and workflow tests (using <code class="docutils literal notranslate"><span class="pre">pytest</span></code> and <code class="docutils literal notranslate"><span class="pre">typer.testing</span></code>):</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_admet_train_dry_run</span></code>:</p>
+<ul>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">train</span> <span class="pre">--config</span> <span class="pre">config_example.yaml</span> <span class="pre">--dry-run</span></code> on a minimal config and assert successful exit and basic log output.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_admet_predict_blinded</span></code>:</p>
+<ul>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">predict</span></code> on a toy blinded dataset using a small baseline model and assert that output CSVs contain the expected columns and shapes.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>This planning section serves as a detailed implementation roadmap for the training, evaluation, and inference library and CLI framework.</p>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Planned Model Training Steps</a><ul>
+<li><a class="reference internal" href="#high-level-overview">High Level Overview</a></li>
+<li><a class="reference internal" href="#scope">Scope</a></li>
+<li><a class="reference internal" href="#detailed-implementation-plan">Detailed Implementation Plan</a><ul>
+<li><a class="reference internal" href="#dataset-contract-and-split-api">Dataset contract and split API</a></li>
+<li><a class="reference internal" href="#model-training-multi-output-behavior-and-serialization">Model training, multi-output behavior, and serialization</a></li>
+<li><a class="reference internal" href="#hyperparameter-configuration-single-yaml-file">Hyperparameter configuration (single YAML file)</a></li>
+<li><a class="reference internal" href="#parallelization-with-ray-and-ensemble-predictions">Parallelization with Ray and ensemble predictions</a></li>
+<li><a class="reference internal" href="#evaluation-metrics-and-visualization">Evaluation metrics and visualization</a></li>
+<li><a class="reference internal" href="#cli-entrypoints-and-workflows">CLI entrypoints and workflows</a></li>
+<li><a class="reference internal" href="#logging-seeding-and-device-management">Logging, seeding, and device management</a></li>
+<li><a class="reference internal" href="#key-milestones">Key milestones</a></li>
+<li><a class="reference internal" href="#pytest-unit-tests-to-write">Pytest unit tests to write</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>

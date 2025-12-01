@@ -44,6 +44,8 @@ napoleon_use_rtype = True
 
 # MyST parser options
 myst_enable_extensions = ["deflist", "fieldlist", "colon_fence"]
+# Suppress heading level warnings for planning docs (draft content)
+suppress_warnings = ["myst.header"]
 
 # Type hints
 autodoc_typehints = "description"

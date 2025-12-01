@@ -1,97 +1,141 @@
 Dataset Splitting Methodology
 =============================
 
-This guide describes how datasets are partitioned into training, validation,
-test sets and how quality tiers interact with splits.
+This guide describes how datasets are partitioned into training and validation
+sets using cluster-aware cross-validation with quality stratification.
 
 Goals
 -----
 
-- Maintain representative distributions across splits.
-- Avoid data leakage (e.g. identical molecules appearing in both train and test).
-- Respect quality tiers (e.g. high quality prioritized for training robustness).
-- Ensure reproducibility via deterministic seeds.
+- Maintain representative distributions across splits
+- Avoid data leakage via cluster-based grouping (similar molecules stay together)
+- Respect quality tiers for training robustness
+- Ensure reproducibility via deterministic seeds
 
-Core Components
----------------
+Core Module
+-----------
 
-- `admet.data.dataset_split_pipeline`: Orchestrates end‑to‑end splitting.
-- `admet.data.splitter`: Implements splitting strategies and helper utilities.
+The ``admet.data.split`` module provides the splitting functionality:
 
-Typical Workflow
-----------------
+- ``pipeline()``: High-level function for end-to-end splitting
+- ``get_bitbirch_clusters()``: Cluster SMILES using BitBirch fingerprints
+- ``cluster_data()``: Cluster molecules using various methods
+- ``cluster_multilabel_stratified_kfold()``: Multi-label stratified k-fold splitting
 
-.. code-block:: text
+Clustering Methods
+------------------
 
-   load curated dataset --> annotate quality --> group / stratify --> perform split
-                         --> write split artifacts --> downstream training
+The module supports multiple clustering approaches:
 
-Stratification Logic (Conceptual)
----------------------------------
+- **BitBirch** (default): Fast hierarchical clustering on molecular fingerprints
+- **Random**: Random cluster assignment
+- **Scaffold**: Murcko scaffold-based grouping
+- **K-Means**: K-means clustering on fingerprints
+- **UMAP**: UMAP dimensionality reduction + clustering
+- **Butina**: Taylor-Butina clustering
 
-(Placeholder) Strategies may include:
+Splitting Strategies
+--------------------
 
-- Random Stratified: Maintain label distribution across train/valid/test.
-- Scaffold or Cluster Based: Group molecules to reduce structural leakage.
-- Quality-Aware: Allocate high quality examples proportionally or with oversampling.
+Three k-fold cross-validation strategies are available:
 
-Determinism & Seeds
--------------------
+- **MultilabelStratifiedKFold**: Stratifies by task presence and quality tier (recommended)
+- **StratifiedKFold**: Stratifies by quality tier only
+- **GroupKFold**: Ensures cluster integrity (no cluster split across folds)
 
-Pass a fixed seed to splitting functions for reproducibility:
+Pipeline Usage
+--------------
+
+The high-level ``pipeline()`` function handles clustering and splitting:
 
 .. code-block:: python
 
-   from admet.data.splitter import create_splits
+   from admet.data.split import pipeline
 
-   train_df, valid_df, test_df = create_splits(df, seed=42)
+   # Create 5 splits × 5 folds with BitBirch clustering
+   df_with_splits = pipeline(
+       df=dataset,
+       smiles_col="SMILES",
+       quality_col="Quality",
+       target_cols=["LogD", "Log KSOL", "Log HLM CLint"],
+       cluster_method="bitbirch",
+       split_method="multilabel_stratified_kfold",
+       n_splits=5,
+       n_folds=5,
+       fig_dir="outputs/split_diagnostics",
+   )
 
-Leakage Avoidance
------------------
+   # Result contains columns: split_0_fold_0, split_0_fold_1, etc.
+   # Values are "train" or "validation"
 
-Common safeguards:
-
-- Deduplicate identical canonical SMILES before splitting.
-- (Optional) Remove highly similar molecules or group by scaffold.
-- Audit cross‑split overlap after splitting (report count, %).
-
-Output Artifacts
-----------------
-
-Split outputs are stored under directories such as:
-
-- `assets/raw/splits/high_quality/`
-- `assets/raw/splits/medium_quality/`
-- Combined or ensemble split variants in `temp/xgb_artifacts/` (for model training).
-
-Validation & QA
+Lower-Level API
 ---------------
 
-Recommended post‑split checks:
+For more control, use the individual functions:
 
-1. Label distribution parity across splits.
-2. Overlap count of unique SMILES between splits (expect 0 ideally).
-3. Summary statistics (mean, std of key numeric fields) per split.
-4. Size ratio (e.g. 70/15/15) adherence.
+.. code-block:: python
 
-Extensibility
--------------
+   from admet.data.split import (
+       get_bitbirch_clusters,
+       cluster_data,
+       cluster_multilabel_stratified_kfold,
+   )
 
-To add a new strategy:
+   # Get cluster labels
+   cluster_labels = get_bitbirch_clusters(smiles_list)
 
-1. Implement a function/class in `splitter.py` encapsulating logic.
-2. Add a selector/factory to route CLI argument to new implementation.
-3. Document constraints (e.g. minimum dataset size) here and in CLI help.
+   # Or use cluster_data for any method
+   cluster_mapping = cluster_data(
+       df,
+       smiles_col="SMILES",
+       cluster_method="bitbirch",
+   )
 
-Future Enhancements
--------------------
+   # Perform stratified splitting
+   fold_assignments = cluster_multilabel_stratified_kfold(
+       df=df,
+       cluster_labels=cluster_labels,
+       target_cols=target_cols,
+       quality_col="Quality",
+       n_folds=5,
+       seed=42,
+   )
 
-- Incorporate scaffold splitting for chemical diversity.
-- Add automatic leakage audit reports to build artifacts.
-- Support k‑fold cross validation mode.
+Output Structure
+----------------
+
+Split outputs follow this directory structure:
+
+.. code-block:: text
+
+   assets/dataset/split_train_val/
+   └── v3/
+       └── quality_high/
+           └── bitbirch/
+               └── multilabel_stratified_kfold/
+                   └── data/
+                       ├── split_0/
+                       │   ├── fold_0/
+                       │   │   ├── train.csv
+                       │   │   └── validation.csv
+                       │   ├── fold_1/
+                       │   └── ...
+                       └── split_1/
+                           └── ...
+
+Diagnostic Figures
+------------------
+
+When ``fig_dir`` is provided, the pipeline generates:
+
+- Cluster size histograms
+- Per-endpoint value distributions by split
+- Train/validation set size comparisons
+- Quality tier distributions
 
 Cross-References
 ----------------
 
-- See :doc:`data_sources` for upstream curated dataset provenance.
-- See :doc:`architecture` for the overall pipeline placement.
+- See :doc:`data_sources` for upstream curated dataset provenance
+- See :doc:`architecture` for the overall pipeline placement
+- See :doc:`modeling` for how splits are used in training

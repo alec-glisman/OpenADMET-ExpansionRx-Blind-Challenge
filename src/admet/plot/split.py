@@ -1,6 +1,6 @@
 """
 Plotting utilities for ADMET cluster CV diagnostics
-==================================================
+====================================================
 
 This module provides helper functions for visualizing cluster-based
 cross-validation diagnostics, including:

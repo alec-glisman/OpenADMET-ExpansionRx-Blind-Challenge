@@ -1,6 +1,6 @@
 """
 Cluster-based data splitting utilities
-=====================================
+========================================
 
 This module implements clustering and cluster-aware cross-validation for
 ADMET datasets. It provides:
@@ -33,7 +33,7 @@ Usage in splitters
 - ``GroupKFold``: Does not use stratification; clusters are simply assigned to folds to balance fold sizes.
 
 Clustering methods
------------------
+------------------
 - BitBirch (default): scalable hierarchical clustering using RDKit fingerprints.
 - Other methods (random, scaffold, kmeans, umap, butina) are available via useful_rdkit_utils.
 

@@ -12,7 +12,7 @@
 # =============================================================================
 
 # Experiment identification
-experiment_name: chemprop_hpo_example
+experiment_name: chemprop_hpo
 
 # Data configuration
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv

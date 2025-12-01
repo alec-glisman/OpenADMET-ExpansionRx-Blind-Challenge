@@ -7,10 +7,10 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/api/admet.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="Top-level API index for the admet package. Individual subpackages are documented on their own pages (linked below). Data Pipeline ( admet.data), Model Wrappers ( admet.model), Training Orchestratio..." />
+<meta property="og:description" content="Top-level API index for the admet package. This package provides tools for training and evaluating machine learning models for ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) prop..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="Top-level API index for the admet package. Individual subpackages are documented on their own pages (linked below). Data Pipeline ( admet.data), Model Wrappers ( admet.model), Training Orchestratio..." />
+<meta name="description" content="Top-level API index for the admet package. This package provides tools for training and evaluating machine learning models for ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) prop..." />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Data Pipeline (admet.data)" href="admet.data.html"><link rel="prev" title="OpenADMET Challenge Docs" href="../index.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
@@ -190,7 +190,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
       </label>
     </div>
@@ -213,14 +213,10 @@
   <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
 <li class="toctree-l1 current has-children current-page"><a class="current reference internal" href="#">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
@@ -267,27 +263,38 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
           </label>
         </div>
         <article role="main" id="furo-main-content">
           <section id="admet-package-api">
 <h1>ADMET Package API<a class="headerlink" href="#admet-package-api" title="Link to this heading">¶</a></h1>
-<p>Top-level API index for the <cite>admet</cite> package. Individual subpackages are
-documented on their own pages (linked below).</p>
+<p>Top-level API index for the <code class="docutils literal notranslate"><span class="pre">admet</span></code> package. This package provides tools for
+training and evaluating machine learning models for ADMET (Absorption,
+Distribution, Metabolism, Excretion, Toxicity) property prediction.</p>
+<p>The package is organized into the following subpackages:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="admet.data.html"><span class="doc">Data Pipeline (admet.data)</span></a> - Data loading, chemistry utilities, and dataset splitting</p></li>
+<li><p><a class="reference internal" href="admet.model.html"><span class="doc">Model Package (admet.model)</span></a> - Model implementations (Chemprop, Classical ML)</p></li>
+<li><p><a class="reference internal" href="admet.plot.html"><span class="doc">Visualization Tools (admet.plot)</span></a> - Visualization utilities for plots and figures</p></li>
+<li><p><a class="reference internal" href="admet.util.html"><span class="doc">Utilities (admet.util)</span></a> - Utility functions and logging configuration</p></li>
+</ul>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </div>
+<section id="package-version">
+<h2>Package Version<a class="headerlink" href="#package-version" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">admet</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">admet</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>  <span class="c1"># &quot;0.0.1&quot;</span>
+</pre></div>
+</div>
+</section>
 </section>
 
         </article>
@@ -300,7 +307,7 @@ documented on their own pages (linked below).</p>
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Data Pipeline (<cite>admet.data</cite>)</div>
+                <div class="title">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -333,8 +340,27 @@ documented on their own pages (linked below).</p>
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ADMET Package API</a><ul>
+<li><a class="reference internal" href="#package-version">Package Version</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

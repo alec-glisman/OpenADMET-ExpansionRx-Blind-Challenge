@@ -1,85 +1,175 @@
 Modeling Guide
 ==============
 
-This page describes model wrappers and how they integrate with training and
-configuration components.
+This guide describes the model implementations and how to train models for
+ADMET property prediction using the ``admet`` package.
 
-Wrapper Abstraction
--------------------
+Chemprop Models
+---------------
 
-Wrappers in `admet.model` standardize interactions with underlying libraries
-(e.g. XGBoost, LightGBM) and expose a consistent interface for:
+The primary modeling approach uses Chemprop message-passing neural networks
+via the ``admet.model.chemprop`` subpackage. Key classes include:
 
-- Initialization with hyperparameters
-- Fitting on training data
-- Predicting probabilities or continuous values
-- Persisting / loading artifacts
+- **ChempropModel**: Single model training with configurable FFN architectures
+- **ChempropEnsemble**: Ensemble training across multiple splits/folds
+- **ChempropHPO**: Hyperparameter optimization with Ray Tune
 
-Example Flow
-------------
+Single Model Training
+^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   from admet.model.xgb_wrapper import XGBoostWrapper
+   from admet.model.chemprop import ChempropModel, ChempropConfig
+   from omegaconf import OmegaConf
 
-   model = XGBoostWrapper(params={"max_depth": 6, "learning_rate": 0.05})
-   model.fit(X_train, y_train, eval_set=[(X_valid, y_valid)])
-   preds = model.predict_proba(X_test)
+   # Load configuration from YAML
+   config = OmegaConf.load("configs/single_chemprop.yaml")
+   cfg = OmegaConf.structured(ChempropConfig(**config))
 
-Trainer Interaction
+   # Create and train model
+   model = ChempropModel.from_config(cfg)
+   model.fit(train_df, val_df)
+
+   # Make predictions
+   predictions = model.predict(test_df)
+
+Ensemble Training
+^^^^^^^^^^^^^^^^^
+
+For production use, train multiple models across different data splits:
+
+.. code-block:: python
+
+   from admet.model.chemprop import ChempropEnsemble, EnsembleConfig
+   from omegaconf import OmegaConf
+
+   # Load ensemble configuration
+   config = OmegaConf.load("configs/ensemble_chemprop.yaml")
+   cfg = OmegaConf.structured(EnsembleConfig(**config))
+
+   # Train ensemble (parallelized with Ray)
+   ensemble = ChempropEnsemble.from_config(cfg)
+   ensemble.train_all()
+
+   # Make ensemble predictions with uncertainty
+   predictions = ensemble.predict_ensemble(test_df)
+
+FFN Architecture Options
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``ffn_type`` parameter controls the prediction head:
+
+- ``regression``: Standard multi-layer perceptron (default)
+- ``mixture_of_experts``: Mixture of experts for heterogeneous data
+- ``branched``: Branched architecture with shared and task-specific layers
+
+Configuration example:
+
+.. code-block:: yaml
+
+   model:
+     ffn_type: mixture_of_experts
+     ffn_hidden_dim: 300
+     ffn_num_layers: 3
+
+Hyperparameter Optimization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use Ray Tune with ASHA scheduler for HPO:
+
+.. code-block:: python
+
+   from admet.model.chemprop import ChempropHPO, HPOConfig
+   from omegaconf import OmegaConf
+
+   # Load HPO configuration
+   config = OmegaConf.load("configs/hpo_chemprop.yaml")
+   cfg = OmegaConf.structured(HPOConfig(**config))
+
+   # Run hyperparameter search
+   hpo = ChempropHPO.from_config(cfg)
+   best_config = hpo.run()
+
+Curriculum Learning
 -------------------
 
-Training modules in `admet.train` coordinate:
+Quality-aware curriculum learning progressively incorporates data based on
+quality tiers:
 
-1. Dataset assembly and splitting
-2. Model wrapper instantiation
-3. Metric evaluation callbacks
-4. Artifact persistence (e.g. best iteration parameters)
+.. code-block:: python
 
-Artifact Layout
----------------
+   from admet.model.chemprop import CurriculumState, CurriculumCallback
 
-Trained models and related metadata may be stored under directories like:
+   # Configure curriculum phases
+   curriculum = CurriculumState(
+       warmup_epochs=5,      # Use only high-quality data
+       expand_epochs=10,     # Gradually add medium-quality data
+       robust_epochs=15,     # Include all data
+       polish_epochs=5,      # Fine-tune on high-quality data
+   )
 
-- `temp/xgb_artifacts/`
-- `temp/xgb_artifacts/ensemble/high_quality/`
+   # Add callback to model training
+   callback = CurriculumCallback(curriculum_state=curriculum)
 
-Common Wrapper Features (Conceptual)
-------------------------------------
+Curriculum phases:
 
-- Parameter Validation: Ensures provided hyperparameters are acceptable.
-- Fit/Predict API: Align naming across implementations.
-- Probability Output: For classification tasks, `predict_proba` returns class probabilities.
-- Early Stopping Support: Pass validation sets to underlying library for early stopping.
-- Serialization: Save booster/model object plus config JSON/YAML.
+1. **Warmup**: Train only on highest-quality data
+2. **Expand**: Gradually incorporate lower-quality data
+3. **Robust**: Use all available data with quality-based weighting
+4. **Polish**: Fine-tune on high-quality data
 
-Extending with a New Model
---------------------------
+MLflow Integration
+------------------
 
-To add a model type:
+All training runs log to MLflow automatically:
 
-1. Create a new file `my_model_wrapper.py` in `admet/model`.
-2. Implement a class exposing `fit`, `predict`, and optional `predict_proba`.
-3. Handle parameter ingestion (store `self.params`).
-4. Add serialization helpers (`save`, `load`).
-5. Update CLI/train orchestration to recognize new `--model-type`.
+.. code-block:: python
 
-Evaluation Hooks
-----------------
+   # Configuration specifies MLflow settings
+   mlflow:
+     tracking_uri: "mlruns"
+     experiment_name: "chemprop_admet"
+     log_model: true
+     log_predictions: true
 
-After training, metrics from `admet.evaluate.metrics` are applied to predictions
-on validation/test sets. Store results alongside artifacts for reproducibility.
+Logged artifacts include:
 
-XGBoost Hyperparameter Considerations
---------------------------------------
+- Model checkpoints
+- Training metrics (per epoch)
+- Validation predictions
+- Configuration YAML
+- Learning curves
 
-- Depth / Complexity: Increase cautiously to avoid overfitting.
-- Learning Rate: Lower rates often improve generalization (paired with higher rounds).
-- Regularization: Leverage `reg_lambda`, `reg_alpha` to stabilize models.
-- Sampling: `subsample` and `colsample_bytree` for diversity.
+Classical ML Models
+-------------------
 
+For baseline comparisons, classical models are available in
+``admet.model.classical``:
+
+.. code-block:: python
+
+   from admet.model.classical import XGBoostModel
+
+   # Train XGBoost baseline
+   model = XGBoostModel(params={"max_depth": 6, "learning_rate": 0.05})
+   model.fit(X_train, y_train)
+   preds = model.predict(X_test)
+
+Model Persistence
+-----------------
+
+Models are saved as PyTorch Lightning checkpoints:
+
+.. code-block:: python
+
+   # Save model
+   model.save("models/chemprop_logd.ckpt")
+
+   # Load model
+   model = ChempropModel.load("models/chemprop_logd.ckpt")
 
 Cross-References
 ----------------
 
-- See :doc:`configuration` for passing hyperparameters.
+- See :doc:`configuration` for detailed configuration options
+- See :doc:`splitting` for dataset partitioning methodology

@@ -1,100 +1,164 @@
 Configuration Guide
 ===================
 
-This page explains how run settings, hyperparameters, and model options are
-declared and overridden.
+This page explains how model hyperparameters, training options, and experiment
+settings are configured using OmegaConf dataclasses and YAML files.
 
-Primary Config File
--------------------
+Configuration System
+--------------------
 
-The repository includes YAML configuration(s) under `configs/` (e.g. `configs/xgb_train.yaml`).
-They capture default hyperparameters for model training.
+The package uses OmegaConf-based dataclasses for type-safe configuration.
+YAML files under ``configs/`` define settings that are loaded and merged
+with structured defaults.
 
-Example (Illustrative)
-----------------------
+Available Configurations
+------------------------
+
+- ``ChempropConfig``: Single model training
+- ``EnsembleConfig``: Ensemble training across splits/folds
+- ``HPOConfig``: Hyperparameter optimization settings
+
+Single Model Configuration
+--------------------------
+
+Example ``configs/single_chemprop.yaml``:
 
 .. code-block:: yaml
 
-  # Example XGBoost config for per-endpoint training
-  models:
-    xgboost:
-      # Docs: https://xgboost.readthedocs.io/en/stable/parameter.html
-      objective: "mae" # {"mae", "rmse"}
-      early_stopping_rounds: 50
-      model_params:
-        device: "cuda"
-        n_estimators: 500
-        learning_rate: 0.3
-        min_split_loss: 0
-        max_depth: 6
-        subsample: 1
-        colsample_bytree: 1
-        reg_lambda: 1.0
-        reg_alpha: 0.0
+   # Data configuration
+   data:
+     data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
+     test_file: "assets/dataset/set/local_test.csv"
+     blind_file: "assets/dataset/set/blind_test.csv"
+     smiles_col: "SMILES"
+     target_cols:
+       - "LogD"
+       - "Log KSOL"
+       - "Log HLM CLint"
+       - "Log MLM CLint"
+       - "Log Caco-2 Permeability Papp A>B"
+       - "Log Caco-2 Permeability Efflux"
+       - "Log MPPB"
+       - "Log MBPB"
+       - "Log MGMB"
+     target_weights:
+       - 0.5
+       - 2.0
+       - 3.0
+       - 3.0
+       - 3.0
+       - 2.0
+       - 2.0
+       - 3.0
+       - 4.0
 
-  training:
-    experiment_name: "xgb"   # MLflow experiment (required for logging)
-    tracking_uri: null       # optional; fallback to MLFLOW_TRACKING_URI env var
-    sample_weights:
-      enabled: false
-      weights:
-        default: 1.0
+   # Model architecture
+   model:
+     depth: 5                  # Message passing iterations
+     message_hidden_dim: 600   # MPNN hidden dimension
+     num_layers: 2             # FFN layers
+     hidden_dim: 600           # FFN hidden dimension
+     dropout: 0.1
+     batch_norm: true
+     ffn_type: "regression"    # or "mixture_of_experts", "branched"
 
-  ray:
-    address: "local" # connect to existing cluster (overridden by --ray-address)
-    # num_cpus: 8    # limit local Ray runtime to N CPUs (defaults to all)
+   # Optimization settings
+   optimization:
+     criterion: "MSE"
+     init_lr: 1.0e-4
+     max_lr: 1.0e-3
+     final_lr: 1.0e-4
+     warmup_epochs: 5
+     max_epochs: 150
+     patience: 15
+     batch_size: 32
+     seed: 12345
 
-  data:
-    endpoints:
-      - "LogD"
-      - "KSOL"
-      - "HLM CLint"
-      - "MLM CLint"
-      - "Caco-2 Permeability Papp A>B"
-      - "Caco-2 Permeability Efflux"
-      - "MPPB"
-      - "MBPB"
-      - "MGMB"
+   # MLflow tracking
+   mlflow:
+     tracking: true
+     tracking_uri: "http://127.0.0.1:8080"
+     experiment_name: "chemprop_single"
 
+Ensemble Configuration
+----------------------
 
-Overriding Parameters
----------------------
+Example ``configs/ensemble_chemprop.yaml``:
 
-You can override parameters via:
+.. code-block:: yaml
 
-1. CLI flags (if implemented): `--learning-rate 0.1` etc.
-2. Environment variables (future extension), e.g. `ADMET_LEARNING_RATE=0.1`.
-3. A custom YAML passed with a CLI argument (e.g. `--config configs/custom.yaml`).
+   # Data root containing split_*/fold_*/ subdirectories
+   data:
+     data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+     test_file: "assets/dataset/set/local_test.csv"
+     blind_file: "assets/dataset/set/blind_test.csv"
+     splits: null    # null = use all, or [0, 1, 2]
+     folds: null     # null = use all, or [0, 1, 2, 3, 4]
 
-MLflow Logging
---------------
+   # Model and optimization same as single config...
 
-Training runs automatically log to MLflow with the following inputs:
+   mlflow:
+     tracking: true
+     experiment_name: "ensemble_chemprop"
+     nested: true    # Log each fold as child run
 
-- `training.experiment_name` (required) and optional `training.tracking_uri`
-  (or `MLFLOW_TRACKING_URI` environment variable).
-- All YAML configuration values and CLI overrides recorded as MLflow parameters
-  for reproducibility.
-- Metrics and artifacts for single runs; ensembles create a parent run and
-  child runs per discovered dataset/fold, plus aggregated summary artifacts.
+   # Ensemble-specific
+   max_parallel: 4   # Models trained concurrently
 
 Programmatic Loading
 --------------------
 
 .. code-block:: python
 
-   import yaml, pathlib
+   from omegaconf import OmegaConf
+   from admet.model.chemprop import ChempropConfig, ChempropModel
 
-   config_path = pathlib.Path("configs/xgb_train.yaml")
-   config = yaml.safe_load(config_path.read_text())
-   params = config["model"]["params"]
+   # Load and merge configuration
+   config = OmegaConf.merge(
+       OmegaConf.structured(ChempropConfig),
+       OmegaConf.load("configs/single_chemprop.yaml")
+   )
 
-   # Pass into trainer or model wrapper
+   # Access nested settings
+   print(config.model.ffn_type)      # "regression"
+   print(config.optimization.max_lr)  # 0.001
+
+   # Create model from config
+   model = ChempropModel.from_config(config)
+
+Configuration Classes
+---------------------
+
+The dataclass hierarchy:
+
+- ``DataConfig``: Data paths and column names
+- ``ModelConfig``: Model architecture parameters
+- ``OptimizationConfig``: Training hyperparameters
+- ``MlflowConfig``: Experiment tracking settings
+- ``ChempropConfig``: Combines all above for single model
+- ``EnsembleDataConfig``: Extends DataConfig for ensemble
+- ``EnsembleConfig``: Combines all for ensemble training
+
+MLflow Integration
+------------------
+
+Training runs automatically log to MLflow:
+
+- All configuration values as parameters
+- Training metrics per epoch
+- Model checkpoints as artifacts
+- Ensemble runs use nested child runs
+
+Start the MLflow server:
+
+.. code-block:: bash
+
+   mlflow server --host 127.0.0.1 --port 8080
 
 Best Practices
 --------------
 
-- Keep model‑specific parameters grouped.
-- Include a seed for reproducibility.
-- Log the final resolved configuration in training output/artifacts.
-- Avoid hard‑coding hyperparameters in Python modules.
+- Keep model-specific parameters grouped by section
+- Use ``seed`` for reproducibility
+- Set ``target_weights`` to emphasize important endpoints
+- Use ``nested: true`` for ensemble runs to group folds

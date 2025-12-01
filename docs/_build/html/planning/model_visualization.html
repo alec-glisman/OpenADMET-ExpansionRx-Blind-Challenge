@@ -1,0 +1,817 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="XGBoost Post-Training Visualization Plan" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/planning/model_visualization.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="Overview: Goal: After every XGBoost training run, automatically generate:- Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test., Bar charts for per-endpoint ..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="Overview: Goal: After every XGBoost training run, automatically generate:- Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test., Bar charts for per-endpoint ..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>XGBoost Post-Training Visualization Plan - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/planning/model_visualization.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="xgboost-post-training-visualization-plan">
+<h1>XGBoost Post-Training Visualization Plan<a class="headerlink" href="#xgboost-post-training-visualization-plan" title="Link to this heading">¶</a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Goal: After every XGBoost training run, automatically generate:</p>
+<ul>
+<li><p>Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test.</p></li>
+<li><p>Bar charts for per-endpoint R² and Spearman ρ² across splits (train/val/test).</p></li>
+</ul>
+</li>
+<li><p>Scales: Produce both log and linear scale plots (consistent with current metric computation).</p></li>
+<li><p>Defaults: No new CLI flags; visualizations run by default post-training and save under <code class="docutils literal notranslate"><span class="pre">output_dir/figures</span></code>.</p></li>
+</ul>
+</section>
+<section id="scope-requirements">
+<h2>Scope &amp; Requirements<a class="headerlink" href="#scope-requirements" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Always-on visualization after training completes successfully.</p></li>
+<li><p>Parity plots:</p>
+<ul>
+<li><p>One figure per endpoint containing 3 subplots (train/val/test).</p></li>
+<li><p>Include 45° identity line, equal aspect ratio, and annotated statistics (MAE, RMSE, R², Spearman ρ).</p></li>
+</ul>
+</li>
+<li><p>Metric bar charts:</p>
+<ul>
+<li><p>Two separate figures per scale: one for R² and one for Spearman ρ².</p></li>
+<li><p>Grouped by endpoint with three bars per endpoint (train, val, test).</p></li>
+</ul>
+</li>
+<li><p>Scales:</p>
+<ul>
+<li><p>Log-space plots and metrics (as trained/evaluated).</p></li>
+<li><p>Linear-space plots and metrics (apply 10^x to all endpoints except <code class="docutils literal notranslate"><span class="pre">LogD</span></code>).</p></li>
+</ul>
+</li>
+<li><p>Output:</p>
+<ul>
+<li><p>Save to <code class="docutils literal notranslate"><span class="pre">output_dir/figures/log/</span></code> and <code class="docutils literal notranslate"><span class="pre">output_dir/figures/linear/</span></code>.</p></li>
+<li><p>Filenames:</p>
+<ul>
+<li><p>Parity plots: <code class="docutils literal notranslate"><span class="pre">parity_{endpoint}.png</span></code></p></li>
+<li><p>R² bars: <code class="docutils literal notranslate"><span class="pre">metrics_r2.png</span></code></p></li>
+<li><p>Spearman ρ² bars: <code class="docutils literal notranslate"><span class="pre">metrics_spearman_r2.png</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>No CLI changes required.</p></li>
+</ul>
+</section>
+<section id="data-transforms">
+<h2>Data &amp; Transforms<a class="headerlink" href="#data-transforms" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Data sources in trainer (<code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code>):</p>
+<ul>
+<li><p>Features: <code class="docutils literal notranslate"><span class="pre">X_train</span></code>, <code class="docutils literal notranslate"><span class="pre">X_val</span></code>, <code class="docutils literal notranslate"><span class="pre">X_test</span></code></p></li>
+<li><p>Targets: <code class="docutils literal notranslate"><span class="pre">Y_train</span></code>, <code class="docutils literal notranslate"><span class="pre">Y_val</span></code>, <code class="docutils literal notranslate"><span class="pre">Y_test</span></code></p></li>
+<li><p>Masks: <code class="docutils literal notranslate"><span class="pre">mask_train</span></code>, <code class="docutils literal notranslate"><span class="pre">mask_val</span></code>, <code class="docutils literal notranslate"><span class="pre">mask_test</span></code> where 1 indicates non-NaN labels.</p></li>
+<li><p>Predictions: <code class="docutils literal notranslate"><span class="pre">pred_train</span></code>, <code class="docutils literal notranslate"><span class="pre">pred_val</span></code>, <code class="docutils literal notranslate"><span class="pre">pred_test</span></code></p></li>
+<li><p>Endpoints: <code class="docutils literal notranslate"><span class="pre">dataset.endpoints</span></code> (aligned to target/pred columns by index).</p></li>
+</ul>
+</li>
+<li><p>Transform rules (consistent with <code class="docutils literal notranslate"><span class="pre">compute_metrics_log_and_linear</span></code>):</p>
+<ul>
+<li><p>Log space: use <code class="docutils literal notranslate"><span class="pre">Y_*</span></code> and <code class="docutils literal notranslate"><span class="pre">pred_*</span></code> as-is.</p></li>
+<li><p>Linear space: apply <code class="docutils literal notranslate"><span class="pre">10**x</span></code> to <code class="docutils literal notranslate"><span class="pre">Y_*</span></code> and <code class="docutils literal notranslate"><span class="pre">pred_*</span></code> for all endpoints except <code class="docutils literal notranslate"><span class="pre">LogD</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Masking:</p>
+<ul>
+<li><p>For endpoint j, use rows where <code class="docutils literal notranslate"><span class="pre">mask_*[:,</span> <span class="pre">j]</span> <span class="pre">==</span> <span class="pre">1</span></code> for plotting and metric computation.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="integration-points">
+<h2>Integration Points<a class="headerlink" href="#integration-points" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Hook in xgb_train.py:</p>
+<ul>
+<li><p>After computing <code class="docutils literal notranslate"><span class="pre">pred_*</span></code> and <code class="docutils literal notranslate"><span class="pre">metrics</span></code>, call visualization utilities.</p></li>
+<li><p>Use in-scope arrays (<code class="docutils literal notranslate"><span class="pre">Y_*</span></code>, <code class="docutils literal notranslate"><span class="pre">pred_*</span></code>, <code class="docutils literal notranslate"><span class="pre">mask_*</span></code>, <code class="docutils literal notranslate"><span class="pre">endpoints</span></code>) to avoid recomputation/reload.</p></li>
+</ul>
+</li>
+<li><p>Artifact placement:</p>
+<ul>
+<li><p>Ensure <code class="docutils literal notranslate"><span class="pre">output_dir/figures/{space}</span></code> exists; save figures there.</p></li>
+<li><p>Keep existing artifacts (<code class="docutils literal notranslate"><span class="pre">model/</span></code> and <code class="docutils literal notranslate"><span class="pre">metrics.json</span></code>) unchanged.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="plot-designs">
+<h2>Plot Designs<a class="headerlink" href="#plot-designs" title="Link to this heading">¶</a></h2>
+<section id="parity-plots-per-endpoint">
+<h3>Parity Plots (Per Endpoint)<a class="headerlink" href="#parity-plots-per-endpoint" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Layout: 1 figure per endpoint, 3 subplots: train (left), validation (center), test (right).</p></li>
+<li><p>Elements:</p>
+<ul>
+<li><p>Scatter of predicted vs true.</p></li>
+<li><p>45° identity line.</p></li>
+<li><p>Equal aspect ratio and matched x/y limits (auto-expand by small margin).</p></li>
+<li><p>Axis labels: <code class="docutils literal notranslate"><span class="pre">True</span></code> vs <code class="docutils literal notranslate"><span class="pre">Predicted</span></code> with unit/scale notation (e.g., “(log10)” or “(linear)”).</p></li>
+<li><p>Stats box: MAE, RMSE, R², Spearman ρ (rounded, consistent formatting).</p></li>
+</ul>
+</li>
+<li><p>Styles:</p>
+<ul>
+<li><p>Seaborn default style, gridlines (y and x), alpha ~0.7 for points, small point size for dense data.</p></li>
+<li><p>DPI 600 for publication-ready figures.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="bar-charts-r2-and-spearman-2">
+<h3>Bar Charts (R² and Spearman ρ²)<a class="headerlink" href="#bar-charts-r2-and-spearman-2" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Two figures per scale:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">metrics_r2.png</span></code>: grouped bars per endpoint showing R² for train, val, test.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metrics_spearman_r2.png</span></code>: grouped bars per endpoint showing ρ² for train, val, test.</p></li>
+</ul>
+</li>
+<li><p>Bars:</p>
+<ul>
+<li><p>X-axis: endpoints (ordered as in <code class="docutils literal notranslate"><span class="pre">dataset.endpoints</span></code>).</p></li>
+<li><p>Three bars per endpoint (train, val, test); legend denotes split.</p></li>
+<li><p>Y-axis: [0, 1] where applicable; clamp negative R² to display but do not truncate data.</p></li>
+</ul>
+</li>
+<li><p>Labels:</p>
+<ul>
+<li><p>Title indicates scale and metric (e.g., “R² by Endpoint (log)”), legend for splits.</p></li>
+<li><p>Rotate endpoint labels for readability (e.g., 30–45°).</p></li>
+</ul>
+</li>
+<li><p>Styles:</p>
+<ul>
+<li><p>Seaborn color palette with consistent split colors across figures.</p></li>
+<li><p>Gridlines on y-axis, DPI 600.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="implementation-outline">
+<h2>Implementation Outline<a class="headerlink" href="#implementation-outline" title="Link to this heading">¶</a></h2>
+<section id="new-module">
+<h3>New Module<a class="headerlink" href="#new-module" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">src/admet/visualize/model_performance.py</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">plot_parity_grid(y_true_dict,</span> <span class="pre">y_pred_dict,</span> <span class="pre">mask_dict,</span> <span class="pre">endpoints,</span> <span class="pre">*,</span> <span class="pre">space:</span> <span class="pre">str,</span> <span class="pre">save_dir:</span> <span class="pre">Path,</span> <span class="pre">dpi:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">600)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">y_*_dict</span></code>: dict with keys <code class="docutils literal notranslate"><span class="pre">train</span></code>, <code class="docutils literal notranslate"><span class="pre">val</span></code>, <code class="docutils literal notranslate"><span class="pre">test</span></code> → arrays shaped <code class="docutils literal notranslate"><span class="pre">(n_samples,</span> <span class="pre">n_endpoints)</span></code>.</p></li>
+<li><p>Applies endpoint-wise masking.</p></li>
+<li><p>Applies scale transform for <code class="docutils literal notranslate"><span class="pre">space</span> <span class="pre">in</span> <span class="pre">{&quot;log&quot;,&quot;linear&quot;}</span></code>.</p></li>
+<li><p>Generates one figure per endpoint with 3 subplots and saves PNGs.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">plot_metric_bars(y_true_dict,</span> <span class="pre">y_pred_dict,</span> <span class="pre">mask_dict,</span> <span class="pre">endpoints,</span> <span class="pre">*,</span> <span class="pre">space:</span> <span class="pre">str,</span> <span class="pre">save_path_r2:</span> <span class="pre">Path,</span> <span class="pre">save_path_spr2:</span> <span class="pre">Path,</span> <span class="pre">dpi:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">600)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code></p>
+<ul>
+<li><p>Computes per-endpoint R² and Spearman ρ; squares ρ for ρ².</p></li>
+<li><p>Builds grouped bar charts across endpoints for each split (train/val/test).</p></li>
+<li><p>Saves two figures.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="trainer-hook">
+<h3>Trainer Hook<a class="headerlink" href="#trainer-hook" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>In <code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code> (post-prediction, pre-return):</p>
+<ul>
+<li><p>Compose dictionaries:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">y_true</span> <span class="pre">=</span> <span class="pre">{&quot;train&quot;:</span> <span class="pre">Y_train,</span> <span class="pre">&quot;val&quot;:</span> <span class="pre">Y_val,</span> <span class="pre">&quot;test&quot;:</span> <span class="pre">Y_test}</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">y_pred</span> <span class="pre">=</span> <span class="pre">{&quot;train&quot;:</span> <span class="pre">pred_train,</span> <span class="pre">&quot;val&quot;:</span> <span class="pre">pred_val,</span> <span class="pre">&quot;test&quot;:</span> <span class="pre">pred_test}</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">y_mask</span> <span class="pre">=</span> <span class="pre">{&quot;train&quot;:</span> <span class="pre">mask_train,</span> <span class="pre">&quot;val&quot;:</span> <span class="pre">mask_val,</span> <span class="pre">&quot;test&quot;:</span> <span class="pre">mask_test}</span></code></p></li>
+</ul>
+</li>
+<li><p>For each <code class="docutils literal notranslate"><span class="pre">space</span> <span class="pre">in</span> <span class="pre">[&quot;log&quot;,&quot;linear&quot;]</span></code>:</p>
+<ul>
+<li><p>Create <code class="docutils literal notranslate"><span class="pre">fig_dir</span> <span class="pre">=</span> <span class="pre">output_dir</span> <span class="pre">/</span> <span class="pre">&quot;figures&quot;</span> <span class="pre">/</span> <span class="pre">space</span></code> and save:</p>
+<ul>
+<li><p>Parity plots: <code class="docutils literal notranslate"><span class="pre">parity_{endpoint}.png</span></code></p></li>
+<li><p>Metric bars: <code class="docutils literal notranslate"><span class="pre">metrics_r2.png</span></code>, <code class="docutils literal notranslate"><span class="pre">metrics_spearman_r2.png</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="computation-details">
+<h2>Computation Details<a class="headerlink" href="#computation-details" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>R²: <code class="docutils literal notranslate"><span class="pre">sklearn.metrics.r2_score</span></code> or manual variance-based computation on masked vectors.</p></li>
+<li><p>Spearman ρ: <code class="docutils literal notranslate"><span class="pre">scipy.stats.spearmanr(y_true_ep,</span> <span class="pre">y_pred_ep).correlation</span></code>; square for ρ²; handle NaN when fewer than 2 points.</p></li>
+<li><p>Mask enforcement: always filter by <code class="docutils literal notranslate"><span class="pre">mask_split[:,</span> <span class="pre">j]</span> <span class="pre">==</span> <span class="pre">1</span></code> before any computation or plotting.</p></li>
+<li><p>Axis limits:</p>
+<ul>
+<li><p>Compute min/max from pooled true and predicted values; pad by ~5–10%.</p></li>
+<li><p>For linear space with heavy tails, cap at robust percentiles (e.g., 1st–99th) with an option to extend if too aggressive.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="file-layout-naming">
+<h2>File Layout &amp; Naming<a class="headerlink" href="#file-layout-naming" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Output directories:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_dir/figures/log/</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_dir/figures/linear/</span></code></p></li>
+</ul>
+</li>
+<li><p>Filenames:</p>
+<ul>
+<li><p>Parity per endpoint: <code class="docutils literal notranslate"><span class="pre">parity_{endpoint}.png</span></code></p></li>
+<li><p>R² bars: <code class="docutils literal notranslate"><span class="pre">metrics_r2.png</span></code></p></li>
+<li><p>Spearman ρ² bars: <code class="docutils literal notranslate"><span class="pre">metrics_spearman_r2.png</span></code></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="styling-conventions">
+<h2>Styling &amp; Conventions<a class="headerlink" href="#styling-conventions" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Use seaborn defaults; grids styled as <code class="docutils literal notranslate"><span class="pre">--</span></code> with alpha ~0.7.</p></li>
+<li><p>Font sizes consistent with existing plots (labels ~12–14; ticks ~10–12).</p></li>
+<li><p>DPI 600 to match <code class="docutils literal notranslate"><span class="pre">dataset_viz</span></code> figure quality.</p></li>
+<li><p>Logging: <code class="docutils literal notranslate"><span class="pre">logger.info</span></code> path of saved figures; <code class="docutils literal notranslate"><span class="pre">logger.debug</span></code> with basic counts.</p></li>
+</ul>
+</section>
+<section id="validation">
+<h2>Validation<a class="headerlink" href="#validation" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Unit-check: ensure figures are generated when <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> is provided.</p></li>
+<li><p>Quick run sanity:</p>
+<ul>
+<li><p>Verify counts of generated files match number of endpoints and scales.</p></li>
+<li><p>Spot-check that parity axes are equal and identity line is drawn.</p></li>
+<li><p>Confirm bar charts include all endpoints and splits.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="risks-mitigations">
+<h2>Risks &amp; Mitigations<a class="headerlink" href="#risks-mitigations" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Sparse endpoints:</p>
+<ul>
+<li><p>If an endpoint has too few points (mask sum &lt; 2), skip Spearman computation and annotate “n/a”.</p></li>
+</ul>
+</li>
+<li><p>Linear scale outliers:</p>
+<ul>
+<li><p>Use robust axis limits to keep plots readable; note in docstring.</p></li>
+</ul>
+</li>
+<li><p>Performance:</p>
+<ul>
+<li><p>Figures scale linearly with endpoints; acceptable for typical ADMET endpoint counts.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="assumptions">
+<h2>Assumptions<a class="headerlink" href="#assumptions" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Dataset Integrity: All <code class="docutils literal notranslate"><span class="pre">Y_*</span></code> arrays align column-wise with <code class="docutils literal notranslate"><span class="pre">endpoints</span></code> and contain log10-transformed values where applicable (training operates in log space).</p></li>
+<li><p>Endpoint Exception: <code class="docutils literal notranslate"><span class="pre">LogD</span></code> is already linear; exclude it from 10** back-transform in linear space derivations.</p></li>
+<li><p>Mask Semantics: <code class="docutils literal notranslate"><span class="pre">mask_split[i,</span> <span class="pre">j]</span> <span class="pre">==</span> <span class="pre">1</span></code> implies a valid label for sample i, endpoint j; zeros imply exclusion from plotting and metrics.</p></li>
+<li><p>Consistent Ordering: Endpoints appear in identical order across arrays, masks, metrics, and output figures.</p></li>
+<li><p>Prediction Completeness: Each trained endpoint produces predictions for all samples (mask filters validity).</p></li>
+<li><p>Logger Availability: A configured <code class="docutils literal notranslate"><span class="pre">logger</span></code> instance is accessible in training scope for info/debug statements.</p></li>
+<li><p>Dependencies: <code class="docutils literal notranslate"><span class="pre">numpy</span></code>, <code class="docutils literal notranslate"><span class="pre">scipy</span></code>, <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code>, <code class="docutils literal notranslate"><span class="pre">seaborn</span></code>, <code class="docutils literal notranslate"><span class="pre">sklearn</span></code> are installed (add to project requirements if absent).</p></li>
+</ul>
+</section>
+<section id="transform-map">
+<h2>Transform Map<a class="headerlink" href="#transform-map" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Endpoint</p></th>
+<th class="head"><p>Log Space Input</p></th>
+<th class="head"><p>Linear Transform Applied</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>LogD</p></td>
+<td><p>identity</p></td>
+<td><p>identity</p></td>
+<td><p>Already linear; skip 10**</p></td>
+</tr>
+<tr class="row-odd"><td><p>All others</p></td>
+<td><p>raw (log10)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10**values</span></code></p></td>
+<td><p>Applied to both true and predicted</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Implementation snippet:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">to_linear</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">values</span> <span class="k">if</span> <span class="n">endpoint</span> <span class="o">==</span> <span class="s2">&quot;LogD&quot;</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="api-examples">
+<h2>API Examples<a class="headerlink" href="#api-examples" title="Link to this heading">¶</a></h2>
+<p>Example usage in <code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code> (post-prediction):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.visualize.model_performance</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">plot_parity_grid</span><span class="p">,</span>
+    <span class="n">plot_metric_bars</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">y_true</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">Y_train</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">Y_val</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">Y_test</span><span class="p">}</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">pred_train</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">pred_val</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">pred_test</span><span class="p">}</span>
+<span class="n">y_mask</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">mask_train</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">mask_val</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">mask_test</span><span class="p">}</span>
+
+<span class="n">fig_root</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;figures&quot;</span>
+<span class="k">for</span> <span class="n">space</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">]:</span>
+    <span class="n">space_dir</span> <span class="o">=</span> <span class="n">fig_root</span> <span class="o">/</span> <span class="n">space</span>
+    <span class="n">space_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">plot_parity_grid</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_mask</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="n">space_dir</span><span class="p">)</span>
+    <span class="n">plot_metric_bars</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_mask</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span>
+                     <span class="n">save_path_r2</span><span class="o">=</span><span class="n">space_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics_r2.png&quot;</span><span class="p">,</span>
+                     <span class="n">save_path_spr2</span><span class="o">=</span><span class="n">space_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics_spearman_r2.png&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Expected parity figure filename pattern:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">figures/log/parity_Ames.png</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">figures/linear/parity_Ames.png</span></code></p></li>
+</ul>
+</section>
+<section id="todo-checklist">
+<h2>TODO Checklist<a class="headerlink" href="#todo-checklist" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Create module <code class="docutils literal notranslate"><span class="pre">src/admet/visualize/model_performance.py</span></code>.</p></li>
+<li><p>Implement shared helpers: masking, axis limit calculation, transform handling.</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">plot_parity_grid(...)</span></code>.</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">plot_metric_bars(...)</span></code>.</p></li>
+<li><p>Integrate calls into <code class="docutils literal notranslate"><span class="pre">train_xgb_models</span></code> after metrics computation.</p></li>
+<li><p>Add required plotting dependencies to <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>.</p></li>
+<li><p>Add unit tests for visualization logic (non-render assertions).</p></li>
+<li><p>Verify figure generation on a small synthetic dataset (CI-safe).</p></li>
+<li><p>Document new module with concise docstrings referencing transform rules.</p></li>
+<li><p>Confirm filenames and directory layout match plan; adjust if mismatch.</p></li>
+</ol>
+</section>
+<section id="unit-testing-strategy">
+<h2>Unit Testing Strategy<a class="headerlink" href="#unit-testing-strategy" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Granular Helper Tests:</p>
+<ul>
+<li><p>Transform: Assert <code class="docutils literal notranslate"><span class="pre">to_linear(log10(x))</span></code> ≈ original for non-<code class="docutils literal notranslate"><span class="pre">LogD</span></code>; identity for <code class="docutils literal notranslate"><span class="pre">LogD</span></code>.</p></li>
+<li><p>Mask Application: Ensure filtered arrays lengths equal <code class="docutils literal notranslate"><span class="pre">mask[:,</span> <span class="pre">j].sum()</span></code>.</p></li>
+<li><p>Axis Limits: Provide synthetic arrays; assert padding &gt; 0 and identity line fits range.</p></li>
+</ul>
+</li>
+<li><p>Statistical Computation Tests:</p>
+<ul>
+<li><p>R²: Compare function output vs <code class="docutils literal notranslate"><span class="pre">sklearn.metrics.r2_score</span></code>.</p></li>
+<li><p>Spearman ρ: Use monotonic sequences to assert ρ ≈ 1; square to 1 for ρ².</p></li>
+<li><p>Edge Case: Endpoint with <code class="docutils literal notranslate"><span class="pre">n_valid</span> <span class="pre">&lt;</span> <span class="pre">2</span></code> → Spearman returns NaN, annotate “n/a”.</p></li>
+</ul>
+</li>
+<li><p>Figure Generation (Lightweight):</p>
+<ul>
+<li><p>Use minimal synthetic dataset (e.g., 10 samples, 3 endpoints).</p></li>
+<li><p>Run plotting functions; assert expected files exist and file sizes &gt; 0 bytes.</p></li>
+<li><p>Do not assert pixel-level equality (too brittle).</p></li>
+</ul>
+</li>
+<li><p>Determinism:</p>
+<ul>
+<li><p>Avoid randomness; if jitter or sampling added later, gate behind parameter defaulting to off for tests.</p></li>
+</ul>
+</li>
+<li><p>Failure Modes:</p>
+<ul>
+<li><p>Empty masks: Parity plot for that endpoint should render annotation “No valid points” and skip scatter.</p></li>
+<li><p>Mixed NaNs post-transform: Ensure masking prevents propagation to metrics.</p></li>
+</ul>
+</li>
+<li><p>Test File Suggestions:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_model_performance_transforms.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_model_performance_metrics.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_model_performance_figures.py</span></code></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="error-overwrite-policy">
+<h2>Error &amp; Overwrite Policy<a class="headerlink" href="#error-overwrite-policy" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Overwrite Strategy: Existing figure files are overwritten unconditionally to reflect latest model state.</p></li>
+<li><p>Missing Directory: Auto-create with <code class="docutils literal notranslate"><span class="pre">mkdir(parents=True,</span> <span class="pre">exist_ok=True)</span></code>.</p></li>
+<li><p>Insufficient Data:</p>
+<ul>
+<li><p>Parity: If zero valid points after masking, create figure with informative text instead of skipping.</p></li>
+<li><p>Metrics Bars: Endpoint with no valid points yields bar value 0 with hatch pattern and legend note.</p></li>
+</ul>
+</li>
+<li><p>Spearman NaN: Replace NaN with 0 in bar charts but annotate atop bar “n/a”.</p></li>
+<li><p>Logging:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">logger.info</span></code>: Summary of generated files count and directory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">logger.warning</span></code>: Endpoints skipped or annotated due to insufficient data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">logger.debug</span></code>: Per-endpoint counts, axis limits, and computed metric values.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="spearman-clarification">
+<h2>Spearman Clarification<a class="headerlink" href="#spearman-clarification" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Reported Metrics:</p>
+<ul>
+<li><p>Parity Annotation: Spearman ρ (not squared) to reflect rank monotonicity directly.</p></li>
+<li><p>Bar Charts: Use ρ² to align with variance-explained style summaries; clearly label “Spearman ρ²”.</p></li>
+</ul>
+</li>
+<li><p>Consistent Labeling:</p>
+<ul>
+<li><p>Figure titles explicitly include “(log)” or “(linear)” and metric nomenclature.</p></li>
+<li><p>Legend does not repeat scale; scale is global per figure.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="extension-hooks-future">
+<h2>Extension Hooks (Future)<a class="headerlink" href="#extension-hooks-future" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Optional CLI flag <code class="docutils literal notranslate"><span class="pre">--skip-plots</span></code> for environments without display libs.</p></li>
+<li><p>Alternate output formats: <code class="docutils literal notranslate"><span class="pre">parity_{endpoint}.svg</span></code> for vector graphics.</p></li>
+<li><p>Combined multi-endpoint parity matrix (exploratory only; not in initial scope).</p></li>
+</ul>
+</section>
+<section id="success-criteria">
+<h2>Success Criteria<a class="headerlink" href="#success-criteria" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>All endpoints produce parity plots in both scales (unless masked out entirely).</p></li>
+<li><p>R² and Spearman ρ² bar charts include every endpoint and split.</p></li>
+<li><p>No exceptions thrown during typical training runs.</p></li>
+<li><p>Unit test suite passes with added visualization tests on CI.</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">XGBoost Post-Training Visualization Plan</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#scope-requirements">Scope &amp; Requirements</a></li>
+<li><a class="reference internal" href="#data-transforms">Data &amp; Transforms</a></li>
+<li><a class="reference internal" href="#integration-points">Integration Points</a></li>
+<li><a class="reference internal" href="#plot-designs">Plot Designs</a><ul>
+<li><a class="reference internal" href="#parity-plots-per-endpoint">Parity Plots (Per Endpoint)</a></li>
+<li><a class="reference internal" href="#bar-charts-r2-and-spearman-2">Bar Charts (R² and Spearman ρ²)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementation-outline">Implementation Outline</a><ul>
+<li><a class="reference internal" href="#new-module">New Module</a></li>
+<li><a class="reference internal" href="#trainer-hook">Trainer Hook</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#computation-details">Computation Details</a></li>
+<li><a class="reference internal" href="#file-layout-naming">File Layout &amp; Naming</a></li>
+<li><a class="reference internal" href="#styling-conventions">Styling &amp; Conventions</a></li>
+<li><a class="reference internal" href="#validation">Validation</a></li>
+<li><a class="reference internal" href="#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li><a class="reference internal" href="#assumptions">Assumptions</a></li>
+<li><a class="reference internal" href="#transform-map">Transform Map</a></li>
+<li><a class="reference internal" href="#api-examples">API Examples</a></li>
+<li><a class="reference internal" href="#todo-checklist">TODO Checklist</a></li>
+<li><a class="reference internal" href="#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li><a class="reference internal" href="#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li><a class="reference internal" href="#spearman-clarification">Spearman Clarification</a></li>
+<li><a class="reference internal" href="#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li><a class="reference internal" href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>

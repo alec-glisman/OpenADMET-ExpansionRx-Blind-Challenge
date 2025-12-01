@@ -7,11 +7,11 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/guide/cli.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="The admet command-line interface (CLI) is your primary tool for interacting with the framework. It streamlines common tasks like downloading datasets, creating reproducible splits, and training mod..." />
+<meta property="og:description" content="The admet package provides Python modules for training Chemprop models. Training is typically done via configuration files and Python scripts rather than a CLI interface. Training Chemprop Models: ..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="The admet command-line interface (CLI) is your primary tool for interacting with the framework. It streamlines common tasks like downloading datasets, creating reproducible splits, and training mod..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Overview" href="overview.html"><link rel="prev" title="Logging Configuration (admet.logging)" href="../api/admet.logging.html">
+<meta name="description" content="The admet package provides Python modules for training Chemprop models. Training is typically done via configuration files and Python scripts rather than a CLI interface. Training Chemprop Models: ..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Overview" href="overview.html"><link rel="prev" title="Utilities (admet.util)" href="../api/admet.util.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
@@ -213,14 +213,10 @@
   <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">CLI Usage</a></li>
@@ -274,45 +270,81 @@
         <article role="main" id="furo-main-content">
           <section id="cli-usage">
 <h1>CLI Usage<a class="headerlink" href="#cli-usage" title="Link to this heading">¶</a></h1>
-<p>The <cite>admet</cite> command-line interface (CLI) is your primary tool for interacting with the framework. It streamlines common tasks like downloading datasets, creating reproducible splits, and training models.</p>
-<p>You can access the help message for any command by appending <cite>–help</cite>.</p>
-<section id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
-<p><strong>Splitting Datasets</strong></p>
-<p>To create reproducible splits using random and scaffold cluster methods:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>split<span class="w"> </span>datasets<span class="w"> </span>assets/dataset/eda/data/set<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--log-level<span class="w"> </span>INFO<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output<span class="w"> </span>assets/dataset/splits<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--overwrite
+<p>The <code class="docutils literal notranslate"><span class="pre">admet</span></code> package provides Python modules for training Chemprop models.
+Training is typically done via configuration files and Python scripts rather
+than a CLI interface.</p>
+<section id="training-chemprop-models">
+<h2>Training Chemprop Models<a class="headerlink" href="#training-chemprop-models" title="Link to this heading">¶</a></h2>
+<p><strong>Single Model Training</strong></p>
+<p>Train a single Chemprop model using a configuration file:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropModel</span><span class="p">,</span> <span class="n">ChempropConfig</span>
+
+<span class="c1"># Load configuration</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">),</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/single_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Train model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><strong>Training a Single Model</strong></p>
-<p>To train a single XGBoost model on a specific fold (dataset path is taken from
-<code class="docutils literal notranslate"><span class="pre">data.root</span></code> inside the config):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>--log-level<span class="w"> </span>INFO<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>train<span class="w"> </span>xgb<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>configs/xgb_train_single.yaml
+<p><strong>Ensemble Training</strong></p>
+<p>Train an ensemble of models across multiple data splits:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.ensemble<span class="w"> </span>--config<span class="w"> </span>configs/ensemble_chemprop.yaml
 </pre></div>
 </div>
-<p><strong>Distributed Training with Ray</strong></p>
-<p>To train an ensemble of models across multiple folds using Ray for parallel execution:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>--log-level<span class="w"> </span>INFO<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>train<span class="w"> </span>xgb<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--config<span class="w"> </span>configs/xgb_train_ensemble.yaml
+<p>Or programmatically:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropEnsemble</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">),</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/ensemble_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">ensemble</span> <span class="o">=</span> <span class="n">ChempropEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">ensemble</span><span class="o">.</span><span class="n">train_all</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Provide <code class="docutils literal notranslate"><span class="pre">--data-root</span> <span class="pre">path/to/dataset</span></code> to override the directory specified in the YAML at runtime.</p>
-<p>MLflow logging is enabled by default. Set <code class="docutils literal notranslate"><span class="pre">training.experiment_name</span></code> (and optionally
-<code class="docutils literal notranslate"><span class="pre">training.tracking_uri</span></code>) in the YAML to control where runs are recorded. Ensemble
-training starts a parent run and logs each fold as a child run so metrics and artifacts
-are grouped together. All YAML config values and CLI overrides are logged as MLflow
-parameters for reproducibility.</p>
+<p><strong>Hyperparameter Optimization</strong></p>
+<p>Run HPO with Ray Tune and ASHA scheduler:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.hpo<span class="w"> </span>--config<span class="w"> </span>configs/hpo_chemprop.yaml
+</pre></div>
+</div>
+</section>
+<section id="configuration-files">
+<h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Link to this heading">¶</a></h2>
+<p>Configuration files are located in <code class="docutils literal notranslate"><span class="pre">configs/</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">single_chemprop.yaml</span></code>: Single model training configuration</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ensemble_chemprop.yaml</span></code>: Ensemble training across splits/folds</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hpo_chemprop.yaml</span></code>: Hyperparameter optimization settings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chemprop_curriculum.yaml</span></code>: Curriculum learning configuration</p></li>
+</ul>
+</section>
+<section id="mlflow-tracking">
+<h2>MLflow Tracking<a class="headerlink" href="#mlflow-tracking" title="Link to this heading">¶</a></h2>
+<p>All training runs log to MLflow automatically. Configure tracking in your YAML:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8080&quot;</span>
+<span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_admet&quot;</span>
+</pre></div>
+</div>
+<p>Start the MLflow server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlflow<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span>
+</pre></div>
+</div>
 </section>
 <section id="see-also">
 <h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="overview.html"><span class="doc">Overview</span></a> for a high-level introduction.</p></li>
-<li><p><a class="reference internal" href="development.html"><span class="doc">Development Guide</span></a> for setting up your environment.</p></li>
+<li><p><a class="reference internal" href="overview.html"><span class="doc">Overview</span></a> for a high-level introduction</p></li>
+<li><p><a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> for detailed training workflows</p></li>
+<li><p><a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for configuration file structure</p></li>
 </ul>
 </section>
 </section>
@@ -331,14 +363,14 @@ parameters for reproducibility.</p>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../api/admet.logging.html">
+          <a class="prev-page" href="../api/admet.util.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Logging Configuration (<cite>admet.logging</cite>)</div>
+                <div class="title">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</div>
                 
               </div>
             </a>
@@ -373,7 +405,9 @@ parameters for reproducibility.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">CLI Usage</a><ul>
-<li><a class="reference internal" href="#examples">Examples</a></li>
+<li><a class="reference internal" href="#training-chemprop-models">Training Chemprop Models</a></li>
+<li><a class="reference internal" href="#configuration-files">Configuration Files</a></li>
+<li><a class="reference internal" href="#mlflow-tracking">MLflow Tracking</a></li>
 <li><a class="reference internal" href="#see-also">See also</a></li>
 </ul>
 </li>

@@ -1,55 +1,94 @@
 CLI Usage
 =========
 
-The `admet` command-line interface (CLI) is your primary tool for interacting with the framework. It streamlines common tasks like downloading datasets, creating reproducible splits, and training models.
+The ``admet`` package provides Python modules for training Chemprop models.
+Training is typically done via configuration files and Python scripts rather
+than a CLI interface.
 
-You can access the help message for any command by appending `--help`.
+Training Chemprop Models
+------------------------
 
-Examples
---------
+**Single Model Training**
 
-**Splitting Datasets**
+Train a single Chemprop model using a configuration file:
 
-To create reproducible splits using random and scaffold cluster methods:
+.. code-block:: python
 
-.. code-block:: bash
+   from omegaconf import OmegaConf
+   from admet.model.chemprop import ChempropModel, ChempropConfig
 
-   admet split datasets assets/dataset/eda/data/set \
-       --log-level INFO \
-       --output assets/dataset/splits \
-       --overwrite
+   # Load configuration
+   config = OmegaConf.merge(
+       OmegaConf.structured(ChempropConfig),
+       OmegaConf.load("configs/single_chemprop.yaml")
+   )
 
-**Training a Single Model**
+   # Train model
+   model = ChempropModel.from_config(config)
+   model.fit()
 
-To train a single XGBoost model on a specific fold (dataset path is taken from
-``data.root`` inside the config):
+**Ensemble Training**
 
-.. code-block:: bash
-
-   admet --log-level INFO \
-       train xgb \
-       --config configs/xgb_train_single.yaml
-
-**Distributed Training with Ray**
-
-To train an ensemble of models across multiple folds using Ray for parallel execution:
+Train an ensemble of models across multiple data splits:
 
 .. code-block:: bash
 
-   admet --log-level INFO \
-       train xgb \
-       --config configs/xgb_train_ensemble.yaml
+   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
 
-Provide ``--data-root path/to/dataset`` to override the directory specified in the YAML at runtime.
+Or programmatically:
 
-MLflow logging is enabled by default. Set ``training.experiment_name`` (and optionally
-``training.tracking_uri``) in the YAML to control where runs are recorded. Ensemble
-training starts a parent run and logs each fold as a child run so metrics and artifacts
-are grouped together. All YAML config values and CLI overrides are logged as MLflow
-parameters for reproducibility.
+.. code-block:: python
+
+   from omegaconf import OmegaConf
+   from admet.model.chemprop import ChempropEnsemble, EnsembleConfig
+
+   config = OmegaConf.merge(
+       OmegaConf.structured(EnsembleConfig),
+       OmegaConf.load("configs/ensemble_chemprop.yaml")
+   )
+
+   ensemble = ChempropEnsemble.from_config(config)
+   ensemble.train_all()
+
+**Hyperparameter Optimization**
+
+Run HPO with Ray Tune and ASHA scheduler:
+
+.. code-block:: bash
+
+   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
+
+Configuration Files
+-------------------
+
+Configuration files are located in ``configs/``:
+
+- ``single_chemprop.yaml``: Single model training configuration
+- ``ensemble_chemprop.yaml``: Ensemble training across splits/folds
+- ``hpo_chemprop.yaml``: Hyperparameter optimization settings
+- ``chemprop_curriculum.yaml``: Curriculum learning configuration
+
+MLflow Tracking
+---------------
+
+All training runs log to MLflow automatically. Configure tracking in your YAML:
+
+.. code-block:: yaml
+
+   mlflow:
+     tracking: true
+     tracking_uri: "http://127.0.0.1:8080"
+     experiment_name: "chemprop_admet"
+
+Start the MLflow server:
+
+.. code-block:: bash
+
+   mlflow server --host 127.0.0.1 --port 8080
 
 See also
 --------
 
-* :doc:`overview` for a high-level introduction.
-* :doc:`development` for setting up your environment.
+* :doc:`overview` for a high-level introduction
+* :doc:`modeling` for detailed training workflows
+* :doc:`configuration` for configuration file structure

@@ -15,7 +15,7 @@ from torch import Tensor, nn
 @PredictorRegistry.register("regression-moe")
 class MixtureOfExpertsRegressionFFN(Predictor, HyperparametersMixin):
     r"""
-    Implementation of the Adaptive Mixture of Local Experts [1] model for regression tasks.
+    Implementation of the Adaptive Mixture of Local Experts [1]_ model for regression tasks.
     The works by passing the learned representation from message passing into one "gating network"
     and a configurable number of "experts". The outputs of the individual experts are
     multiplied element-wise by the output of the gating network, enabling the overall

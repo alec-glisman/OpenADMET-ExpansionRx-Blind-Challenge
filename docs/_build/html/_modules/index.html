@@ -204,14 +204,10 @@
   <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
@@ -258,23 +254,26 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>All modules for which code is available</h1>
-<ul><li><a href="admet/cli/split.html">admet.cli.split</a></li>
-<li><a href="admet/cli/train.html">admet.cli.train</a></li>
-<li><a href="admet/data/chem.html">admet.data.chem</a></li>
-<li><a href="admet/data/constants.html">admet.data.constants</a></li>
-<li><a href="admet/data/load.html">admet.data.load</a></li>
-<li><a href="admet/evaluate/ensemble.html">admet.evaluate.ensemble</a></li>
-<li><a href="admet/evaluate/metrics.html">admet.evaluate.metrics</a></li>
-<li><a href="admet/logging.html">admet.logging</a></li>
-<li><a href="admet/model/base.html">admet.model.base</a></li>
-<li><a href="admet/model/xgb_wrapper.html">admet.model.xgb_wrapper</a></li>
-<li><a href="admet/train/base/api.html">admet.train.base.api</a></li>
-<li><a href="admet/train/base/model_trainer.html">admet.train.base.model_trainer</a></li>
-<li><a href="admet/train/base/ray_trainer.html">admet.train.base.ray_trainer</a></li>
-<li><a href="admet/train/xgb_train.html">admet.train.xgb_train</a></li>
-<li><a href="admet/utils.html">admet.utils</a></li>
-<li><a href="admet/visualize/ensemble_eval.html">admet.visualize.ensemble_eval</a></li>
-<li><a href="admet/visualize/model_performance.html">admet.visualize.model_performance</a></li>
+<ul><li><a href="admet/data/fingerprint.html">admet.data.fingerprint</a></li>
+<li><a href="admet/data/property.html">admet.data.property</a></li>
+<li><a href="admet/data/smiles.html">admet.data.smiles</a></li>
+<li><a href="admet/data/split.html">admet.data.split</a></li>
+<li><a href="admet/data/stats.html">admet.data.stats</a></li>
+<li><a href="admet/model/chemprop/config.html">admet.model.chemprop.config</a></li>
+<li><a href="admet/model/chemprop/curriculum.html">admet.model.chemprop.curriculum</a></li>
+<li><a href="admet/model/chemprop/ensemble.html">admet.model.chemprop.ensemble</a></li>
+<li><a href="admet/model/chemprop/ffn.html">admet.model.chemprop.ffn</a></li>
+<li><a href="admet/model/chemprop/hpo.html">admet.model.chemprop.hpo</a></li>
+<li><a href="admet/model/chemprop/hpo_config.html">admet.model.chemprop.hpo_config</a></li>
+<li><a href="admet/model/chemprop/model.html">admet.model.chemprop.model</a></li>
+<li><a href="admet/plot/density.html">admet.plot.density</a></li>
+<li><a href="admet/plot/heatmap.html">admet.plot.heatmap</a></li>
+<li><a href="admet/plot/latex.html">admet.plot.latex</a></li>
+<li><a href="admet/plot/metrics.html">admet.plot.metrics</a></li>
+<li><a href="admet/plot/parity.html">admet.plot.parity</a></li>
+<li><a href="admet/plot/split.html">admet.plot.split</a></li>
+<li><a href="admet/util/logging.html">admet.util.logging</a></li>
+<li><a href="admet/util/utils.html">admet.util.utils</a></li>
 </ul>
         </article>
       </div>

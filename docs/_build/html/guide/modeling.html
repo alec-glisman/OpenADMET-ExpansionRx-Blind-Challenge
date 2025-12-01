@@ -7,10 +7,10 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/guide/modeling.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="This page describes model wrappers and how they integrate with training and configuration components. Wrapper Abstraction: Wrappers in admet.model standardize interactions with underlying libraries..." />
+<meta property="og:description" content="This guide describes the model implementations and how to train models for ADMET property prediction using the admet package. Chemprop Models: The primary modeling approach uses Chemprop message-pa..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="This page describes model wrappers and how they integrate with training and configuration components. Wrapper Abstraction: Wrappers in admet.model standardize interactions with underlying libraries..." />
+<meta name="description" content="This guide describes the model implementations and how to train models for ADMET property prediction using the admet package. Chemprop Models: The primary modeling approach uses Chemprop message-pa..." />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
@@ -213,14 +213,10 @@
   <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
@@ -274,86 +270,162 @@
         <article role="main" id="furo-main-content">
           <section id="modeling-guide">
 <h1>Modeling Guide<a class="headerlink" href="#modeling-guide" title="Link to this heading">¶</a></h1>
-<p>This page describes model wrappers and how they integrate with training and
-configuration components.</p>
-<section id="wrapper-abstraction">
-<h2>Wrapper Abstraction<a class="headerlink" href="#wrapper-abstraction" title="Link to this heading">¶</a></h2>
-<p>Wrappers in <cite>admet.model</cite> standardize interactions with underlying libraries
-(e.g. XGBoost, LightGBM) and expose a consistent interface for:</p>
+<p>This guide describes the model implementations and how to train models for
+ADMET property prediction using the <code class="docutils literal notranslate"><span class="pre">admet</span></code> package.</p>
+<section id="chemprop-models">
+<h2>Chemprop Models<a class="headerlink" href="#chemprop-models" title="Link to this heading">¶</a></h2>
+<p>The primary modeling approach uses Chemprop message-passing neural networks
+via the <code class="docutils literal notranslate"><span class="pre">admet.model.chemprop</span></code> subpackage. Key classes include:</p>
 <ul class="simple">
-<li><p>Initialization with hyperparameters</p></li>
-<li><p>Fitting on training data</p></li>
-<li><p>Predicting probabilities or continuous values</p></li>
-<li><p>Persisting / loading artifacts</p></li>
+<li><p><strong>ChempropModel</strong>: Single model training with configurable FFN architectures</p></li>
+<li><p><strong>ChempropEnsemble</strong>: Ensemble training across multiple splits/folds</p></li>
+<li><p><strong>ChempropHPO</strong>: Hyperparameter optimization with Ray Tune</p></li>
 </ul>
-</section>
-<section id="example-flow">
-<h2>Example Flow<a class="headerlink" href="#example-flow" title="Link to this heading">¶</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.xgb_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostWrapper</span>
+<section id="single-model-training">
+<h3>Single Model Training<a class="headerlink" href="#single-model-training" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropModel</span><span class="p">,</span> <span class="n">ChempropConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">XGBoostWrapper</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_depth&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">})</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">eval_set</span><span class="o">=</span><span class="p">[(</span><span class="n">X_valid</span><span class="p">,</span> <span class="n">y_valid</span><span class="p">)])</span>
-<span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="c1"># Load configuration from YAML</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/single_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
+
+<span class="c1"># Create and train model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">,</span> <span class="n">val_df</span><span class="p">)</span>
+
+<span class="c1"># Make predictions</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="trainer-interaction">
-<h2>Trainer Interaction<a class="headerlink" href="#trainer-interaction" title="Link to this heading">¶</a></h2>
-<p>Training modules in <cite>admet.train</cite> coordinate:</p>
+<section id="ensemble-training">
+<h3>Ensemble Training<a class="headerlink" href="#ensemble-training" title="Link to this heading">¶</a></h3>
+<p>For production use, train multiple models across different data splits:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropEnsemble</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="c1"># Load ensemble configuration</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/ensemble_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
+
+<span class="c1"># Train ensemble (parallelized with Ray)</span>
+<span class="n">ensemble</span> <span class="o">=</span> <span class="n">ChempropEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+<span class="n">ensemble</span><span class="o">.</span><span class="n">train_all</span><span class="p">()</span>
+
+<span class="c1"># Make ensemble predictions with uncertainty</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">ensemble</span><span class="o">.</span><span class="n">predict_ensemble</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="ffn-architecture-options">
+<h3>FFN Architecture Options<a class="headerlink" href="#ffn-architecture-options" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">ffn_type</span></code> parameter controls the prediction head:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">regression</span></code>: Standard multi-layer perceptron (default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mixture_of_experts</span></code>: Mixture of experts for heterogeneous data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">branched</span></code>: Branched architecture with shared and task-specific layers</p></li>
+</ul>
+<p>Configuration example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mixture_of_experts</span>
+<span class="w">  </span><span class="nt">ffn_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">  </span><span class="nt">ffn_num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</pre></div>
+</div>
+</section>
+<section id="hyperparameter-optimization">
+<h3>Hyperparameter Optimization<a class="headerlink" href="#hyperparameter-optimization" title="Link to this heading">¶</a></h3>
+<p>Use Ray Tune with ASHA scheduler for HPO:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropHPO</span><span class="p">,</span> <span class="n">HPOConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="c1"># Load HPO configuration</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/hpo_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">HPOConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
+
+<span class="c1"># Run hyperparameter search</span>
+<span class="n">hpo</span> <span class="o">=</span> <span class="n">ChempropHPO</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+<span class="n">best_config</span> <span class="o">=</span> <span class="n">hpo</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="curriculum-learning">
+<h2>Curriculum Learning<a class="headerlink" href="#curriculum-learning" title="Link to this heading">¶</a></h2>
+<p>Quality-aware curriculum learning progressively incorporates data based on
+quality tiers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">CurriculumState</span><span class="p">,</span> <span class="n">CurriculumCallback</span>
+
+<span class="c1"># Configure curriculum phases</span>
+<span class="n">curriculum</span> <span class="o">=</span> <span class="n">CurriculumState</span><span class="p">(</span>
+    <span class="n">warmup_epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>      <span class="c1"># Use only high-quality data</span>
+    <span class="n">expand_epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>     <span class="c1"># Gradually add medium-quality data</span>
+    <span class="n">robust_epochs</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>     <span class="c1"># Include all data</span>
+    <span class="n">polish_epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>      <span class="c1"># Fine-tune on high-quality data</span>
+<span class="p">)</span>
+
+<span class="c1"># Add callback to model training</span>
+<span class="n">callback</span> <span class="o">=</span> <span class="n">CurriculumCallback</span><span class="p">(</span><span class="n">curriculum_state</span><span class="o">=</span><span class="n">curriculum</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Curriculum phases:</p>
 <ol class="arabic simple">
-<li><p>Dataset assembly and splitting</p></li>
-<li><p>Model wrapper instantiation</p></li>
-<li><p>Metric evaluation callbacks</p></li>
-<li><p>Artifact persistence (e.g. best iteration parameters)</p></li>
+<li><p><strong>Warmup</strong>: Train only on highest-quality data</p></li>
+<li><p><strong>Expand</strong>: Gradually incorporate lower-quality data</p></li>
+<li><p><strong>Robust</strong>: Use all available data with quality-based weighting</p></li>
+<li><p><strong>Polish</strong>: Fine-tune on high-quality data</p></li>
 </ol>
 </section>
-<section id="artifact-layout">
-<h2>Artifact Layout<a class="headerlink" href="#artifact-layout" title="Link to this heading">¶</a></h2>
-<p>Trained models and related metadata may be stored under directories like:</p>
+<section id="mlflow-integration">
+<h2>MLflow Integration<a class="headerlink" href="#mlflow-integration" title="Link to this heading">¶</a></h2>
+<p>All training runs log to MLflow automatically:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configuration specifies MLflow settings</span>
+<span class="n">mlflow</span><span class="p">:</span>
+  <span class="n">tracking_uri</span><span class="p">:</span> <span class="s2">&quot;mlruns&quot;</span>
+  <span class="n">experiment_name</span><span class="p">:</span> <span class="s2">&quot;chemprop_admet&quot;</span>
+  <span class="n">log_model</span><span class="p">:</span> <span class="n">true</span>
+  <span class="n">log_predictions</span><span class="p">:</span> <span class="n">true</span>
+</pre></div>
+</div>
+<p>Logged artifacts include:</p>
 <ul class="simple">
-<li><p><cite>temp/xgb_artifacts/</cite></p></li>
-<li><p><cite>temp/xgb_artifacts/ensemble/high_quality/</cite></p></li>
+<li><p>Model checkpoints</p></li>
+<li><p>Training metrics (per epoch)</p></li>
+<li><p>Validation predictions</p></li>
+<li><p>Configuration YAML</p></li>
+<li><p>Learning curves</p></li>
 </ul>
 </section>
-<section id="common-wrapper-features-conceptual">
-<h2>Common Wrapper Features (Conceptual)<a class="headerlink" href="#common-wrapper-features-conceptual" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p>Parameter Validation: Ensures provided hyperparameters are acceptable.</p></li>
-<li><p>Fit/Predict API: Align naming across implementations.</p></li>
-<li><p>Probability Output: For classification tasks, <cite>predict_proba</cite> returns class probabilities.</p></li>
-<li><p>Early Stopping Support: Pass validation sets to underlying library for early stopping.</p></li>
-<li><p>Serialization: Save booster/model object plus config JSON/YAML.</p></li>
-</ul>
+<section id="classical-ml-models">
+<h2>Classical ML Models<a class="headerlink" href="#classical-ml-models" title="Link to this heading">¶</a></h2>
+<p>For baseline comparisons, classical models are available in
+<code class="docutils literal notranslate"><span class="pre">admet.model.classical</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.classical</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBoostModel</span>
+
+<span class="c1"># Train XGBoost baseline</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">XGBoostModel</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_depth&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">})</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+<span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
-<section id="extending-with-a-new-model">
-<h2>Extending with a New Model<a class="headerlink" href="#extending-with-a-new-model" title="Link to this heading">¶</a></h2>
-<p>To add a model type:</p>
-<ol class="arabic simple">
-<li><p>Create a new file <cite>my_model_wrapper.py</cite> in <cite>admet/model</cite>.</p></li>
-<li><p>Implement a class exposing <cite>fit</cite>, <cite>predict</cite>, and optional <cite>predict_proba</cite>.</p></li>
-<li><p>Handle parameter ingestion (store <cite>self.params</cite>).</p></li>
-<li><p>Add serialization helpers (<cite>save</cite>, <cite>load</cite>).</p></li>
-<li><p>Update CLI/train orchestration to recognize new <cite>–model-type</cite>.</p></li>
-</ol>
-</section>
-<section id="evaluation-hooks">
-<h2>Evaluation Hooks<a class="headerlink" href="#evaluation-hooks" title="Link to this heading">¶</a></h2>
-<p>After training, metrics from <cite>admet.evaluate.metrics</cite> are applied to predictions
-on validation/test sets. Store results alongside artifacts for reproducibility.</p>
-</section>
-<section id="xgboost-hyperparameter-considerations">
-<h2>XGBoost Hyperparameter Considerations<a class="headerlink" href="#xgboost-hyperparameter-considerations" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p>Depth / Complexity: Increase cautiously to avoid overfitting.</p></li>
-<li><p>Learning Rate: Lower rates often improve generalization (paired with higher rounds).</p></li>
-<li><p>Regularization: Leverage <cite>reg_lambda</cite>, <cite>reg_alpha</cite> to stabilize models.</p></li>
-<li><p>Sampling: <cite>subsample</cite> and <cite>colsample_bytree</cite> for diversity.</p></li>
-</ul>
+<section id="model-persistence">
+<h2>Model Persistence<a class="headerlink" href="#model-persistence" title="Link to this heading">¶</a></h2>
+<p>Models are saved as PyTorch Lightning checkpoints:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Save model</span>
+<span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;models/chemprop_logd.ckpt&quot;</span><span class="p">)</span>
+
+<span class="c1"># Load model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;models/chemprop_logd.ckpt&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="cross-references">
 <h2>Cross-References<a class="headerlink" href="#cross-references" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for passing hyperparameters.</p></li>
+<li><p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for detailed configuration options</p></li>
+<li><p>See <a class="reference internal" href="splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> for dataset partitioning methodology</p></li>
 </ul>
 </section>
 </section>
@@ -406,14 +478,17 @@ on validation/test sets. Store results alongside artifacts for reproducibility.<
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Modeling Guide</a><ul>
-<li><a class="reference internal" href="#wrapper-abstraction">Wrapper Abstraction</a></li>
-<li><a class="reference internal" href="#example-flow">Example Flow</a></li>
-<li><a class="reference internal" href="#trainer-interaction">Trainer Interaction</a></li>
-<li><a class="reference internal" href="#artifact-layout">Artifact Layout</a></li>
-<li><a class="reference internal" href="#common-wrapper-features-conceptual">Common Wrapper Features (Conceptual)</a></li>
-<li><a class="reference internal" href="#extending-with-a-new-model">Extending with a New Model</a></li>
-<li><a class="reference internal" href="#evaluation-hooks">Evaluation Hooks</a></li>
-<li><a class="reference internal" href="#xgboost-hyperparameter-considerations">XGBoost Hyperparameter Considerations</a></li>
+<li><a class="reference internal" href="#chemprop-models">Chemprop Models</a><ul>
+<li><a class="reference internal" href="#single-model-training">Single Model Training</a></li>
+<li><a class="reference internal" href="#ensemble-training">Ensemble Training</a></li>
+<li><a class="reference internal" href="#ffn-architecture-options">FFN Architecture Options</a></li>
+<li><a class="reference internal" href="#hyperparameter-optimization">Hyperparameter Optimization</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#curriculum-learning">Curriculum Learning</a></li>
+<li><a class="reference internal" href="#mlflow-integration">MLflow Integration</a></li>
+<li><a class="reference internal" href="#classical-ml-models">Classical ML Models</a></li>
+<li><a class="reference internal" href="#model-persistence">Model Persistence</a></li>
 <li><a class="reference internal" href="#cross-references">Cross-References</a></li>
 </ul>
 </li>

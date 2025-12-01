@@ -1,0 +1,1803 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="Introduction" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/planning/feature-chemprop-hpo.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="Status: Planned This implementation plan describes adding hyperparameter optimization (HPO) capabilities to the Chemprop model training pipeline using Ray Tune with ASHA scheduler. The HPO system w..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="Status: Planned This implementation plan describes adding hyperparameter optimization (HPO) capabilities to the Chemprop model training pipeline using Ray Tune with ASHA scheduler. The HPO system w..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>Introduction - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/planning/feature-chemprop-hpo.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h1>
+<p><img alt="Status: Planned" src="https://img.shields.io/badge/status-Planned-blue" /></p>
+<p>This implementation plan describes adding hyperparameter optimization (HPO) capabilities to the Chemprop model training pipeline using Ray Tune with ASHA scheduler. The HPO system will optimize <code class="docutils literal notranslate"><span class="pre">ChempropHyperparams</span></code> values using validation loss as the primary metric, support conditional search spaces for architecture-specific parameters, and enable transfer learning by training full ensembles with top-k configurations.</p>
+<section id="requirements-constraints">
+<h2>1. Requirements &amp; Constraints<a class="headerlink" href="#requirements-constraints" title="Link to this heading">¶</a></h2>
+<section id="functional-requirements">
+<h3>Functional Requirements<a class="headerlink" href="#functional-requirements" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>REQ-001</strong>: HPO pipeline must be fully configurable via YAML files processed by OmegaConf</p></li>
+<li><p><strong>REQ-002</strong>: Use validation loss (<code class="docutils literal notranslate"><span class="pre">val_loss</span></code>) as the primary optimization metric (minimize)</p></li>
+<li><p><strong>REQ-003</strong>: Support conditional search spaces for FFN architecture-specific parameters</p></li>
+<li><p><strong>REQ-004</strong>: Use ASHA scheduler for efficient early stopping of poor trials</p></li>
+<li><p><strong>REQ-005</strong>: Support 4 concurrent trials per GPU with fractional GPU allocation</p></li>
+<li><p><strong>REQ-006</strong>: Seeds must be configurable and reproducible across trials</p></li>
+<li><p><strong>REQ-007</strong>: Use single train/validation split during HPO for efficiency</p></li>
+<li><p><strong>REQ-008</strong>: Select top-k configurations and train full CV ensembles for each</p></li>
+<li><p><strong>REQ-009</strong>: Log all HPO trials and metrics to MLflow for analysis</p></li>
+<li><p><strong>REQ-010</strong>: Provide CLI entry point and bash script for running HPO</p></li>
+</ul>
+</section>
+<section id="security-requirements">
+<h3>Security Requirements<a class="headerlink" href="#security-requirements" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>SEC-001</strong>: No sensitive data in configuration files or logs</p></li>
+</ul>
+</section>
+<section id="constraints">
+<h3>Constraints<a class="headerlink" href="#constraints" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>CON-001</strong>: Must integrate with existing <code class="docutils literal notranslate"><span class="pre">ChempropModel</span></code> and <code class="docutils literal notranslate"><span class="pre">ChempropHyperparams</span></code> classes</p></li>
+<li><p><strong>CON-002</strong>: Must not break existing single model and ensemble training workflows</p></li>
+<li><p><strong>CON-003</strong>: GPU memory constraint: 4 trials sharing 1 GPU (0.25 GPU fraction per trial)</p></li>
+<li><p><strong>CON-004</strong>: Must use Ray Tune &gt;= 2.9.0 for stable ASHA implementation</p></li>
+</ul>
+</section>
+<section id="guidelines">
+<h3>Guidelines<a class="headerlink" href="#guidelines" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>GUD-001</strong>: Follow existing code patterns from <code class="docutils literal notranslate"><span class="pre">ensemble.py</span></code> for Ray integration</p></li>
+<li><p><strong>GUD-002</strong>: Use dataclasses with OmegaConf for all configuration structures</p></li>
+<li><p><strong>GUD-003</strong>: Implement comprehensive logging at DEBUG, INFO, WARNING levels</p></li>
+<li><p><strong>GUD-004</strong>: Include docstrings following numpydoc format for all public APIs</p></li>
+</ul>
+</section>
+<section id="patterns-to-follow">
+<h3>Patterns to Follow<a class="headerlink" href="#patterns-to-follow" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>PAT-001</strong>: Configuration pattern from <code class="docutils literal notranslate"><span class="pre">config.py</span></code> (dataclass + OmegaConf)</p></li>
+<li><p><strong>PAT-002</strong>: Factory pattern from <code class="docutils literal notranslate"><span class="pre">ChempropModel.from_config()</span></code></p></li>
+<li><p><strong>PAT-003</strong>: MLflow integration pattern from <code class="docutils literal notranslate"><span class="pre">ensemble.py</span></code></p></li>
+<li><p><strong>PAT-004</strong>: CLI pattern from <code class="docutils literal notranslate"><span class="pre">model.py</span></code> main() function</p></li>
+</ul>
+</section>
+</section>
+<section id="implementation-steps">
+<h2>2. Implementation Steps<a class="headerlink" href="#implementation-steps" title="Link to this heading">¶</a></h2>
+<section id="implementation-phase-1-configuration-infrastructure">
+<h3>Implementation Phase 1: Configuration Infrastructure<a class="headerlink" href="#implementation-phase-1-configuration-infrastructure" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>GOAL-001: Create HPO configuration dataclasses and YAML schema</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Completed</p></th>
+<th class="head"><p>Date</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TASK-001</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_config.py</span></code> with <code class="docutils literal notranslate"><span class="pre">HPOConfig</span></code> dataclass</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-002</p></td>
+<td><p>Define <code class="docutils literal notranslate"><span class="pre">SearchSpaceConfig</span></code> dataclass for individual parameter search spaces</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-003</p></td>
+<td><p>Define <code class="docutils literal notranslate"><span class="pre">ASHAConfig</span></code> dataclass for scheduler configuration</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-004</p></td>
+<td><p>Define <code class="docutils literal notranslate"><span class="pre">ResourceConfig</span></code> dataclass for GPU/CPU allocation</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-005</p></td>
+<td><p>Define <code class="docutils literal notranslate"><span class="pre">TransferLearningConfig</span></code> dataclass for top-k ensemble training</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-006</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code> example configuration file</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-007</p></td>
+<td><p>Add unit tests for configuration loading and validation</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>TASK-001 Details: HPOConfig Dataclass</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">HPOConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Root configuration for hyperparameter optimization.&quot;&quot;&quot;</span>
+    
+    <span class="c1"># Base model configuration (fixed parameters)</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">DataConfig</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span>  <span class="c1"># Default values, overridden by search space</span>
+    <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span>  <span class="c1"># Default values, overridden by search space</span>
+    <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span>
+    
+    <span class="c1"># HPO-specific settings</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpaceConfig</span>
+    <span class="n">scheduler</span><span class="p">:</span> <span class="n">ASHAConfig</span>
+    <span class="n">resources</span><span class="p">:</span> <span class="n">ResourceConfig</span>
+    <span class="n">transfer_learning</span><span class="p">:</span> <span class="n">TransferLearningConfig</span>
+    
+    <span class="c1"># General HPO settings</span>
+    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># Total number of trials</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12345</span>  <span class="c1"># Global seed for reproducibility</span>
+    <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;val_loss&quot;</span>  <span class="c1"># Metric to optimize</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;min&quot;</span>  <span class="c1"># &quot;min&quot; or &quot;max&quot;</span>
+</pre></div>
+</div>
+<p><strong>TASK-002 Details: SearchSpaceConfig Dataclass</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ParameterSpace</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for a single parameter&#39;s search space.&quot;&quot;&quot;</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># &quot;uniform&quot;, &quot;loguniform&quot;, &quot;choice&quot;, &quot;randint&quot;, &quot;fixed&quot;</span>
+    <span class="n">low</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># For uniform, loguniform, randint</span>
+    <span class="n">high</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># For uniform, loguniform, randint</span>
+    <span class="n">choices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># For choice</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># For fixed</span>
+    <span class="n">condition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Conditional expression, e.g., &quot;ffn_type == &#39;branched&#39;&quot;</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchSpaceConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Search space definitions for hyperparameters.&quot;&quot;&quot;</span>
+    
+    <span class="c1"># Learning rate schedule</span>
+    <span class="n">init_lr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">max_lr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">final_lr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Training dynamics</span>
+    <span class="n">warmup_epochs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Message passing architecture</span>
+    <span class="n">depth</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">message_hidden_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># FFN architecture</span>
+    <span class="n">dropout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">num_layers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">hidden_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ffn_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Conditional: only when ffn_type == &quot;branched&quot;</span>
+    <span class="n">trunk_n_layers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">trunk_hidden_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Conditional: only when ffn_type == &quot;mixture_of_experts&quot;</span>
+    <span class="n">n_experts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Loss function</span>
+    <span class="n">criterion</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># MPNN settings</span>
+    <span class="n">batch_norm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</pre></div>
+</div>
+<p><strong>TASK-003 Details: ASHAConfig Dataclass</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ASHAConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for ASHA scheduler.&quot;&quot;&quot;</span>
+    <span class="n">max_t</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>  <span class="c1"># Maximum epochs (same as max_epochs)</span>
+    <span class="n">grace_period</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Minimum epochs before pruning</span>
+    <span class="n">reduction_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>  <span class="c1"># Halving rate for trials</span>
+    <span class="n">brackets</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Number of brackets (1 = standard ASHA)</span>
+</pre></div>
+</div>
+<p><strong>TASK-004 Details: ResourceConfig Dataclass</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ResourceConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resource allocation for HPO trials.&quot;&quot;&quot;</span>
+    <span class="n">gpus_per_trial</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>  <span class="c1"># Fractional GPU (4 trials per GPU)</span>
+    <span class="n">cpus_per_trial</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># CPUs per trial</span>
+    <span class="n">max_concurrent_trials</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># Maximum parallel trials</span>
+</pre></div>
+</div>
+<p><strong>TASK-005 Details: TransferLearningConfig Dataclass</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TransferLearningConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for transfer learning with top-k configs.&quot;&quot;&quot;</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>  <span class="c1"># Number of best configurations to use</span>
+    <span class="n">train_full_cv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Train full cross-validation ensembles</span>
+    <span class="n">ensemble_splits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Splits for ensemble (null = all)</span>
+    <span class="n">ensemble_folds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Folds for ensemble (null = all)</span>
+</pre></div>
+</div>
+<p><strong>TASK-006 Details: Example YAML Configuration</strong></p>
+<p>Create <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Hyperparameter Optimization Configuration for Chemprop</span>
+<span class="c1"># ======================================================</span>
+<span class="c1"># This YAML configures Ray Tune HPO with ASHA scheduler.</span>
+<span class="c1">#</span>
+<span class="c1"># Usage:</span>
+<span class="c1">#   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml</span>
+
+<span class="c1"># Data configuration (fixed during HPO)</span>
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Single split/fold for HPO efficiency</span>
+<span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0&quot;</span>
+<span class="w">  </span><span class="nt">test_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/set/local_test.csv&quot;</span>
+<span class="w">  </span><span class="nt">blind_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># Not used during HPO</span>
+<span class="w">  </span><span class="nt">smiles_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
+<span class="w">  </span><span class="nt">target_cols</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;LogD&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">KSOL&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">HLM</span><span class="nv"> </span><span class="s">CLint&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">MLM</span><span class="nv"> </span><span class="s">CLint&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">Caco-2</span><span class="nv"> </span><span class="s">Permeability</span><span class="nv"> </span><span class="s">Papp</span><span class="nv"> </span><span class="s">A&gt;B&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">Caco-2</span><span class="nv"> </span><span class="s">Permeability</span><span class="nv"> </span><span class="s">Efflux&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">MPPB&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">MBPB&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">MGMB&quot;</span>
+<span class="w">  </span><span class="nt">target_weights</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.0</span>
+<span class="w">  </span><span class="nt">output_dir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+
+<span class="c1"># Default model configuration (overridden by search space)</span>
+<span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">  </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">  </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;regression&quot;</span>
+<span class="w">  </span><span class="nt">trunk_n_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">trunk_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">  </span><span class="nt">n_experts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+
+<span class="c1"># Default optimization configuration (overridden by search space)</span>
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">criterion</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;MSE&quot;</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-4</span>
+<span class="w">  </span><span class="nt">max_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-3</span>
+<span class="w">  </span><span class="nt">final_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-4</span>
+<span class="w">  </span><span class="nt">warmup_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">150</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">  </span><span class="nt">num_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12345</span><span class="w">  </span><span class="c1"># Base seed, trials get seed + trial_id</span>
+<span class="w">  </span><span class="nt">progress_bar</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+
+<span class="c1"># MLflow tracking</span>
+<span class="nt">mlflow</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8080&quot;</span>
+<span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_hpo&quot;</span>
+<span class="w">  </span><span class="nt">run_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># Auto-generated</span>
+
+<span class="c1"># Search space definitions</span>
+<span class="nt">search_space</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Learning rate (log-uniform scale)</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;loguniform&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-5</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-3</span>
+<span class="w">  </span><span class="nt">max_lr</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;loguniform&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-4</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-2</span>
+<span class="w">  </span><span class="nt">final_lr</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;loguniform&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-6</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-4</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># Training dynamics</span>
+<span class="w">  </span><span class="nt">warmup_epochs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;randint&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">16</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">32</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">]</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># Message passing</span>
+<span class="w">  </span><span class="nt">depth</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;randint&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">300</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">600</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">768</span><span class="p p-Indicator">]</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># FFN architecture</span>
+<span class="w">  </span><span class="nt">dropout</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;uniform&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.4</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;randint&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">300</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">600</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">768</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;regression&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;mixture_of_experts&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;branched&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># Conditional: branched FFN</span>
+<span class="w">  </span><span class="nt">trunk_n_layers</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;randint&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ffn_type</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">&#39;branched&#39;&quot;</span>
+<span class="w">  </span><span class="nt">trunk_hidden_dim</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">300</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">600</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ffn_type</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">&#39;branched&#39;&quot;</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># Conditional: mixture of experts</span>
+<span class="w">  </span><span class="nt">n_experts</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;randint&quot;</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ffn_type</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">&#39;mixture_of_experts&#39;&quot;</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># Loss function</span>
+<span class="w">  </span><span class="nt">criterion</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;MSE&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;MAE&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;RMSE&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1"># MPNN</span>
+<span class="w">  </span><span class="nt">batch_norm</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;choice&quot;</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">true</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">false</span><span class="p p-Indicator">]</span>
+
+<span class="c1"># ASHA scheduler configuration</span>
+<span class="nt">scheduler</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_t</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">150</span><span class="w">  </span><span class="c1"># Max epochs</span>
+<span class="w">  </span><span class="nt">grace_period</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">  </span><span class="c1"># Min epochs before pruning</span>
+<span class="w">  </span><span class="nt">reduction_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">brackets</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+
+<span class="c1"># Resource allocation</span>
+<span class="nt">resources</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">gpus_per_trial</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span><span class="w">  </span><span class="c1"># 4 trials per GPU</span>
+<span class="w">  </span><span class="nt">cpus_per_trial</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">max_concurrent_trials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+
+<span class="c1"># Transfer learning settings</span>
+<span class="nt">transfer_learning</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">top_k</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">  </span><span class="c1"># Train ensembles with top 3 configurations</span>
+<span class="w">  </span><span class="nt">train_full_cv</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="c1"># Use all splits/folds for ensemble training</span>
+<span class="w">  </span><span class="nt">ensemble_splits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="nt">ensemble_folds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+
+<span class="c1"># General HPO settings</span>
+<span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12345</span>
+<span class="nt">metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val_loss&quot;</span>
+<span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;min&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="implementation-phase-2-search-space-builder">
+<h3>Implementation Phase 2: Search Space Builder<a class="headerlink" href="#implementation-phase-2-search-space-builder" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>GOAL-002: Implement search space construction from configuration</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Completed</p></th>
+<th class="head"><p>Date</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TASK-008</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_search_space.py</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-009</p></td>
+<td><p>Implement <code class="docutils literal notranslate"><span class="pre">build_search_space()</span></code> function to convert config to Ray Tune format</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-010</p></td>
+<td><p>Implement conditional search space logic using <code class="docutils literal notranslate"><span class="pre">tune.sample_from()</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-011</p></td>
+<td><p>Add validation for search space configuration</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-012</p></td>
+<td><p>Add unit tests for search space building</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>TASK-008-010 Details: Search Space Builder Module</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># src/admet/model/chemprop/hpo_search_space.py</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Search space construction for Chemprop HPO.</span>
+
+<span class="sd">This module converts SearchSpaceConfig dataclass to Ray Tune search space</span>
+<span class="sd">format, including support for conditional parameters.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">tune</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchSpaceConfig</span><span class="p">,</span> <span class="n">ParameterSpace</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_parameter_space</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="n">ParameterSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a ParameterSpace to Ray Tune search space.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;uniform&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">low</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">high</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">param</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;loguniform&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">loguniform</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">low</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">high</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">param</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;choice&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">choices</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">param</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;randint&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">low</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">high</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># +1 for inclusive</span>
+    <span class="k">elif</span> <span class="n">param</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;fixed&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">param</span><span class="o">.</span><span class="n">value</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown search space type: </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_search_space</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">SearchSpaceConfig</span><span class="p">,</span>
+    <span class="n">defaults</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build Ray Tune search space from configuration.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : SearchSpaceConfig</span>
+<span class="sd">        Search space configuration from YAML.</span>
+<span class="sd">    defaults : Dict[str, Any]</span>
+<span class="sd">        Default values for parameters not in search space.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, Any]</span>
+<span class="sd">        Ray Tune compatible search space dictionary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">search_space</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="c1"># Non-conditional parameters</span>
+    <span class="n">param_names</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;init_lr&quot;</span><span class="p">,</span> <span class="s2">&quot;max_lr&quot;</span><span class="p">,</span> <span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="s2">&quot;warmup_epochs&quot;</span><span class="p">,</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;message_hidden_dim&quot;</span><span class="p">,</span> <span class="s2">&quot;dropout&quot;</span><span class="p">,</span> <span class="s2">&quot;num_layers&quot;</span><span class="p">,</span> <span class="s2">&quot;hidden_dim&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ffn_type&quot;</span><span class="p">,</span> <span class="s2">&quot;criterion&quot;</span><span class="p">,</span> <span class="s2">&quot;batch_norm&quot;</span>
+    <span class="p">]</span>
+    
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">param_names</span><span class="p">:</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">param</span><span class="o">.</span><span class="n">condition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">search_space</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_build_parameter_space</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">defaults</span><span class="p">:</span>
+            <span class="n">search_space</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    
+    <span class="c1"># Conditional parameters using tune.sample_from</span>
+    <span class="c1"># trunk_n_layers: only when ffn_type == &quot;branched&quot;</span>
+    <span class="n">trunk_n_layers_param</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;trunk_n_layers&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">trunk_n_layers_param</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">search_space</span><span class="p">[</span><span class="s2">&quot;trunk_n_layers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">sample_from</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">spec</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">tune</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">trunk_n_layers_param</span><span class="o">.</span><span class="n">low</span><span class="p">,</span> <span class="n">trunk_n_layers_param</span><span class="o">.</span><span class="n">high</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ffn_type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;branched&quot;</span>
+                <span class="k">else</span> <span class="n">defaults</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;trunk_n_layers&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    
+    <span class="c1"># trunk_hidden_dim: only when ffn_type == &quot;branched&quot;</span>
+    <span class="n">trunk_hidden_dim_param</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;trunk_hidden_dim&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">trunk_hidden_dim_param</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">search_space</span><span class="p">[</span><span class="s2">&quot;trunk_hidden_dim&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">sample_from</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">spec</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">tune</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">trunk_hidden_dim_param</span><span class="o">.</span><span class="n">choices</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ffn_type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;branched&quot;</span>
+                <span class="k">else</span> <span class="n">defaults</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;trunk_hidden_dim&quot;</span><span class="p">,</span> <span class="mi">600</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    
+    <span class="c1"># n_experts: only when ffn_type == &quot;mixture_of_experts&quot;</span>
+    <span class="n">n_experts_param</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;n_experts&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_experts_param</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">search_space</span><span class="p">[</span><span class="s2">&quot;n_experts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">sample_from</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">spec</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">tune</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">n_experts_param</span><span class="o">.</span><span class="n">low</span><span class="p">,</span> <span class="n">n_experts_param</span><span class="o">.</span><span class="n">high</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ffn_type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;mixture_of_experts&quot;</span>
+                <span class="k">else</span> <span class="n">defaults</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_experts&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">search_space</span>
+</pre></div>
+</div>
+</section>
+<section id="implementation-phase-3-trainable-function-and-callbacks">
+<h3>Implementation Phase 3: Trainable Function and Callbacks<a class="headerlink" href="#implementation-phase-3-trainable-function-and-callbacks" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>GOAL-003: Implement Ray Tune trainable function with metric reporting</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Completed</p></th>
+<th class="head"><p>Date</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TASK-013</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_trainable.py</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-014</p></td>
+<td><p>Implement <code class="docutils literal notranslate"><span class="pre">RayTuneReportCallback</span></code> for PyTorch Lightning</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-015</p></td>
+<td><p>Implement <code class="docutils literal notranslate"><span class="pre">train_chemprop_trial()</span></code> trainable function</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-016</p></td>
+<td><p>Add checkpoint saving/loading for trial recovery</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-017</p></td>
+<td><p>Add unit tests for trainable function</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>TASK-013-016 Details: Trainable Module</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># src/admet/model/chemprop/hpo_trainable.py</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Ray Tune trainable function for Chemprop HPO.</span>
+
+<span class="sd">This module provides the trainable function that Ray Tune calls for each</span>
+<span class="sd">trial, including a Lightning callback for metric reporting.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">tune</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ray.train</span><span class="w"> </span><span class="kn">import</span> <span class="n">Checkpoint</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">lightning.pytorch</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lightning.pytorch.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callback</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropModel</span><span class="p">,</span> <span class="n">ChempropHyperparams</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">RayTuneReportCallback</span><span class="p">(</span><span class="n">Callback</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    PyTorch Lightning callback that reports metrics to Ray Tune.</span>
+<span class="sd">    </span>
+<span class="sd">    Reports validation loss after each epoch to enable ASHA pruning.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_validation_epoch_end</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trainer</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">Trainer</span><span class="p">,</span>
+        <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Report metrics to Ray Tune after validation.&quot;&quot;&quot;</span>
+        <span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
+        
+        <span class="c1"># Get validation loss</span>
+        <span class="k">if</span> <span class="s2">&quot;val_loss&quot;</span> <span class="ow">in</span> <span class="n">trainer</span><span class="o">.</span><span class="n">callback_metrics</span><span class="p">:</span>
+            <span class="n">val_loss</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">callback_metrics</span><span class="p">[</span><span class="s2">&quot;val_loss&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val_loss</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">):</span>
+                <span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;val_loss&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">val_loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;val_loss&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val_loss</span><span class="p">)</span>
+        
+        <span class="c1"># Get other validation metrics</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">trainer</span><span class="o">.</span><span class="n">callback_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;val_&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">):</span>
+                    <span class="n">metrics</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">metrics</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        
+        <span class="c1"># Report to Ray Tune</span>
+        <span class="k">if</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="c1"># Create checkpoint for fault tolerance</span>
+            <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
+                <span class="n">checkpoint_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;checkpoint.ckpt&quot;</span>
+                <span class="n">trainer</span><span class="o">.</span><span class="n">save_checkpoint</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">)</span>
+                <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">Checkpoint</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span>
+                <span class="n">ray</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">metrics</span><span class="p">,</span> <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpoint</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">train_chemprop_trial</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Trainable function for a single HPO trial.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : Dict[str, Any]</span>
+<span class="sd">        Trial configuration containing:</span>
+<span class="sd">        - Hyperparameters sampled from search space</span>
+<span class="sd">        - Fixed parameters (data paths, target cols, etc.)</span>
+<span class="sd">        - Trial metadata (seed, trial_id)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropModel</span><span class="p">,</span> <span class="n">ChempropHyperparams</span>
+    
+    <span class="c1"># Extract fixed config</span>
+    <span class="n">data_config</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">][</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+    <span class="n">mlflow_config</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">][</span><span class="s2">&quot;mlflow&quot;</span><span class="p">]</span>
+    <span class="n">base_seed</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">][</span><span class="s2">&quot;base_seed&quot;</span><span class="p">]</span>
+    <span class="n">trial_id</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_trial_id&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    
+    <span class="c1"># Compute trial-specific seed</span>
+    <span class="n">trial_seed</span> <span class="o">=</span> <span class="n">base_seed</span> <span class="o">+</span> <span class="n">trial_id</span>
+    
+    <span class="c1"># Build hyperparams from sampled config</span>
+    <span class="n">hyperparams</span> <span class="o">=</span> <span class="n">ChempropHyperparams</span><span class="p">(</span>
+        <span class="n">init_lr</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;init_lr&quot;</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">),</span>
+        <span class="n">max_lr</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_lr&quot;</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">),</span>
+        <span class="n">final_lr</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">),</span>
+        <span class="n">warmup_epochs</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;warmup_epochs&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="n">patience</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">][</span><span class="s2">&quot;patience&quot;</span><span class="p">],</span>  <span class="c1"># Fixed during HPO</span>
+        <span class="n">max_epochs</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">][</span><span class="s2">&quot;max_epochs&quot;</span><span class="p">],</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+        <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># Avoid DataLoader conflicts in Ray</span>
+        <span class="n">seed</span><span class="o">=</span><span class="n">trial_seed</span><span class="p">,</span>
+        <span class="n">depth</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="n">message_hidden_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message_hidden_dim&quot;</span><span class="p">,</span> <span class="mi">600</span><span class="p">),</span>
+        <span class="n">dropout</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dropout&quot;</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span>
+        <span class="n">num_layers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_layers&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">hidden_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hidden_dim&quot;</span><span class="p">,</span> <span class="mi">600</span><span class="p">),</span>
+        <span class="n">criterion</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;criterion&quot;</span><span class="p">,</span> <span class="s2">&quot;MSE&quot;</span><span class="p">),</span>
+        <span class="n">ffn_type</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ffn_type&quot;</span><span class="p">,</span> <span class="s2">&quot;regression&quot;</span><span class="p">),</span>
+        <span class="n">trunk_n_layers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;trunk_n_layers&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">trunk_hidden_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;trunk_hidden_dim&quot;</span><span class="p">,</span> <span class="mi">600</span><span class="p">),</span>
+        <span class="n">n_experts</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_experts&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+        <span class="n">batch_norm</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_norm&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">)</span>
+    
+    <span class="c1"># Load data</span>
+    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">data_config</span><span class="p">[</span><span class="s2">&quot;data_dir&quot;</span><span class="p">])</span>
+    <span class="n">df_train</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;train.csv&quot;</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">df_validation</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;validation.csv&quot;</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    
+    <span class="c1"># Load test set if specified</span>
+    <span class="n">df_test</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;test_file&quot;</span><span class="p">):</span>
+        <span class="n">df_test</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_config</span><span class="p">[</span><span class="s2">&quot;test_file&quot;</span><span class="p">],</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    
+    <span class="c1"># Create model with Ray Tune callback</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="p">(</span>
+        <span class="n">df_train</span><span class="o">=</span><span class="n">df_train</span><span class="p">,</span>
+        <span class="n">df_validation</span><span class="o">=</span><span class="n">df_validation</span><span class="p">,</span>
+        <span class="n">df_test</span><span class="o">=</span><span class="n">df_test</span><span class="p">,</span>
+        <span class="n">smiles_col</span><span class="o">=</span><span class="n">data_config</span><span class="p">[</span><span class="s2">&quot;smiles_col&quot;</span><span class="p">],</span>
+        <span class="n">target_cols</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">data_config</span><span class="p">[</span><span class="s2">&quot;target_cols&quot;</span><span class="p">]),</span>
+        <span class="n">target_weights</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;target_weights&quot;</span><span class="p">,</span> <span class="p">[])),</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Use temp directory</span>
+        <span class="n">progress_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">hyperparams</span><span class="o">=</span><span class="n">hyperparams</span><span class="p">,</span>
+        <span class="n">mlflow_tracking</span><span class="o">=</span><span class="n">mlflow_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tracking&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+        <span class="n">mlflow_tracking_uri</span><span class="o">=</span><span class="n">mlflow_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tracking_uri&quot;</span><span class="p">),</span>
+        <span class="n">mlflow_experiment_name</span><span class="o">=</span><span class="n">mlflow_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">,</span> <span class="s2">&quot;chemprop_hpo&quot;</span><span class="p">),</span>
+        <span class="n">mlflow_run_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;trial_</span><span class="si">{</span><span class="n">trial_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">mlflow_nested</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Nest under HPO parent run</span>
+        <span class="n">mlflow_parent_run_id</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mlflow_parent_run_id&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    
+    <span class="c1"># Add Ray Tune callback to trainer</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">RayTuneReportCallback</span><span class="p">())</span>
+    
+    <span class="c1"># Train model</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+    
+    <span class="c1"># Close MLflow run</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="implementation-phase-4-hpo-runner">
+<h3>Implementation Phase 4: HPO Runner<a class="headerlink" href="#implementation-phase-4-hpo-runner" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>GOAL-004: Implement main HPO orchestration with ASHA scheduler</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Completed</p></th>
+<th class="head"><p>Date</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TASK-018</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo.py</span></code> main runner module</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-019</p></td>
+<td><p>Implement <code class="docutils literal notranslate"><span class="pre">ChempropHPO</span></code> class for orchestrating HPO</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-020</p></td>
+<td><p>Implement ASHA scheduler setup with configuration</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-021</p></td>
+<td><p>Implement MLflow parent run for HPO tracking</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-022</p></td>
+<td><p>Implement results collection and best config export</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-023</p></td>
+<td><p>Add CLI entry point with argparse</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-024</p></td>
+<td><p>Add integration tests for HPO runner</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>TASK-018-023 Details: HPO Runner Module</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># src/admet/model/chemprop/hpo.py</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Hyperparameter optimization runner for Chemprop models.</span>
+
+<span class="sd">This module provides the main entry point for running HPO with Ray Tune,</span>
+<span class="sd">using ASHA scheduler for efficient trial pruning.</span>
+
+<span class="sd">Usage</span>
+<span class="sd">-----</span>
+<span class="sd">python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mlflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">MlflowClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictConfig</span><span class="p">,</span> <span class="n">OmegaConf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">tune</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.schedulers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASHAScheduler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResultGrid</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HPOConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_search_space</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_search_space</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_trainable</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_chemprop_trial</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.hpo&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ChempropHPO</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Hyperparameter optimization orchestrator for Chemprop models.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : HPOConfig or DictConfig</span>
+<span class="sd">        HPO configuration loaded from YAML.</span>
+<span class="sd">    </span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : HPOConfig</span>
+<span class="sd">        The HPO configuration.</span>
+<span class="sd">    results : ResultGrid or None</span>
+<span class="sd">        Ray Tune results after HPO completes.</span>
+<span class="sd">    best_configs : List[Dict[str, Any]]</span>
+<span class="sd">        Top-k configurations sorted by validation loss.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">HPOConfig</span> <span class="o">|</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ResultGrid</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MlflowClient</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">HPOConfig</span> <span class="o">|</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChempropHPO&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create HPO runner from configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_mlflow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize MLflow tracking for HPO.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="p">:</span>
+            <span class="k">return</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking_uri</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tracking_uri</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking_uri</span><span class="p">)</span>
+        
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">set_experiment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+        
+        <span class="c1"># Start parent run for HPO</span>
+        <span class="n">parent_run</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">run_name</span> <span class="ow">or</span> <span class="s2">&quot;hpo_run&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span> <span class="o">=</span> <span class="n">parent_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
+        
+        <span class="c1"># Log HPO configuration</span>
+        <span class="n">config_dict</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">_flatten_dict</span><span class="p">(</span><span class="n">config_dict</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started MLflow HPO parent run: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_scheduler</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ASHAScheduler</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build ASHA scheduler from configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ASHAScheduler</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+            <span class="n">max_t</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">max_t</span><span class="p">,</span>
+            <span class="n">grace_period</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">grace_period</span><span class="p">,</span>
+            <span class="n">reduction_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">reduction_factor</span><span class="p">,</span>
+            <span class="n">brackets</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">brackets</span><span class="p">,</span>
+        <span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build Ray Tune search space from configuration.&quot;&quot;&quot;</span>
+        <span class="c1"># Get default values from model/optimization config</span>
+        <span class="n">defaults</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="s1">&#39;__dataclass_fields__&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="p">,</span> <span class="s1">&#39;__dataclass_fields__&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="p">),</span>
+        <span class="p">}</span>
+        
+        <span class="n">search_space</span> <span class="o">=</span> <span class="n">build_search_space</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span> <span class="n">defaults</span><span class="p">)</span>
+        
+        <span class="c1"># Add fixed configuration that all trials need</span>
+        <span class="n">search_space</span><span class="p">[</span><span class="s2">&quot;_fixed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">&quot;base_seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+            <span class="s2">&quot;patience&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">patience</span><span class="p">,</span>
+            <span class="s2">&quot;max_epochs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_epochs</span><span class="p">,</span>
+            <span class="s2">&quot;mlflow_parent_run_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span><span class="p">,</span>
+        <span class="p">}</span>
+        
+        <span class="k">return</span> <span class="n">search_space</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResultGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run hyperparameter optimization.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ResultGrid</span>
+<span class="sd">            Ray Tune results containing all trial information.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Initialize MLflow</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_mlflow</span><span class="p">()</span>
+        
+        <span class="c1"># Initialize Ray</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">ignore_reinit_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initialized Ray cluster&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Build search space and scheduler</span>
+        <span class="n">search_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_search_space</span><span class="p">()</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_scheduler</span><span class="p">()</span>
+        
+        <span class="c1"># Configure resources</span>
+        <span class="n">trainable_with_resources</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">with_resources</span><span class="p">(</span>
+            <span class="n">train_chemprop_trial</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">gpus_per_trial</span><span class="p">,</span>
+                <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">cpus_per_trial</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting HPO with </span><span class="si">%d</span><span class="s2"> samples&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">num_samples</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Resources: </span><span class="si">%.2f</span><span class="s2"> GPU, </span><span class="si">%d</span><span class="s2"> CPU per trial&quot;</span><span class="p">,</span> 
+                   <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">gpus_per_trial</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">cpus_per_trial</span><span class="p">)</span>
+        
+        <span class="c1"># Run HPO</span>
+        <span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="p">(</span>
+            <span class="n">trainable_with_resources</span><span class="p">,</span>
+            <span class="n">param_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">tune_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">TuneConfig</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                <span class="n">scheduler</span><span class="o">=</span><span class="n">scheduler</span><span class="p">,</span>
+                <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
+                <span class="n">max_concurrent_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">max_concurrent_trials</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">run_config</span><span class="o">=</span><span class="n">ray</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">RunConfig</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;chemprop_hpo&quot;</span><span class="p">,</span>
+                <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+        
+        <span class="c1"># Collect best configurations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_collect_best_configs</span><span class="p">()</span>
+        
+        <span class="c1"># Log results to MLflow</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_results</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_collect_best_configs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect top-k configurations from HPO results.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        
+        <span class="c1"># Get all results sorted by metric</span>
+        <span class="n">results_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_dataframe</span><span class="p">()</span>
+        <span class="n">results_df</span> <span class="o">=</span> <span class="n">results_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;min&quot;</span><span class="p">))</span>
+        
+        <span class="c1"># Extract top-k configurations</span>
+        <span class="n">top_k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">top_k</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">top_k</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_df</span><span class="p">))):</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="c1"># Remove internal keys</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_fixed&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_trial_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">&quot;rank&quot;</span><span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="s2">&quot;val_loss&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">metric</span><span class="p">),</span>
+                <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="n">config</span><span class="p">,</span>
+            <span class="p">})</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Collected top </span><span class="si">%d</span><span class="s2"> configurations&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">))</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log HPO results to MLflow.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        
+        <span class="c1"># Log best configurations</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">best</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;top_</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">_val_loss&quot;</span><span class="p">,</span>
+                <span class="n">best</span><span class="p">[</span><span class="s2">&quot;val_loss&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+        
+        <span class="c1"># Save best configs as artifact</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+        
+        <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+        <span class="n">configs_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;best_configs.yaml&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">configs_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">configs_path</span><span class="p">),</span>
+            <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;hpo_results&quot;</span>
+        <span class="p">)</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged HPO results to MLflow&quot;</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">train_top_k_ensembles</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Train full CV ensembles with top-k configurations.</span>
+<span class="sd">        </span>
+<span class="sd">        This implements transfer learning by taking the best HPO configs</span>
+<span class="sd">        and training complete ensembles across all splits and folds.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Transfer learning disabled, skipping ensemble training&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No best configs available, run HPO first&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropEnsemble</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training ensembles with top </span><span class="si">%d</span><span class="s2"> configurations&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">))</span>
+        
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">best</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training ensemble </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> (val_loss=</span><span class="si">%.4f</span><span class="s2">)&quot;</span><span class="p">,</span> 
+                       <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">),</span> <span class="n">best</span><span class="p">[</span><span class="s2">&quot;val_loss&quot;</span><span class="p">])</span>
+            
+            <span class="c1"># Build ensemble config from best HPO config</span>
+            <span class="n">ensemble_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_ensemble_config</span><span class="p">(</span><span class="n">best</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">],</span> <span class="n">rank</span><span class="o">=</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            
+            <span class="c1"># Train ensemble</span>
+            <span class="n">ensemble</span> <span class="o">=</span> <span class="n">ChempropEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">ensemble_config</span><span class="p">)</span>
+            <span class="n">ensemble</span><span class="o">.</span><span class="n">train_all</span><span class="p">()</span>
+            <span class="n">ensemble</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Completed ensemble </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_configs</span><span class="p">))</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_ensemble_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hpo_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DictConfig</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build ensemble config from HPO best config.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">EnsembleConfig</span>
+        
+        <span class="c1"># Start with base config</span>
+        <span class="n">ensemble_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">)</span>
+        
+        <span class="c1"># Copy data config but update data_dir to ensemble root</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="c1"># Extract parent directory (remove /split_X/fold_Y from path)</span>
+        <span class="n">data_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
+        <span class="n">ensemble_data_dir</span> <span class="o">=</span> <span class="n">data_dir</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>  <span class="c1"># Go up from fold_X/split_Y</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">ensemble_data_dir</span><span class="p">)</span>
+        
+        <span class="c1"># Apply splits/folds filter if specified</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">splits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">ensemble_splits</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">folds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">ensemble_folds</span>
+        
+        <span class="c1"># Apply best hyperparameters to model config</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">message_hidden_dim</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message_hidden_dim&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">message_hidden_dim</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">num_layers</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_layers&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">num_layers</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">hidden_dim</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hidden_dim&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dropout&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">batch_norm</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_norm&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">batch_norm</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ffn_type</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ffn_type&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ffn_type</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">trunk_n_layers</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;trunk_n_layers&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">trunk_n_layers</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">trunk_hidden_dim</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;trunk_hidden_dim&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">trunk_hidden_dim</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_experts</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_experts&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_experts</span><span class="p">)</span>
+        
+        <span class="c1"># Apply best hyperparameters to optimization config</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">criterion</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;criterion&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">criterion</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">init_lr</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;init_lr&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">init_lr</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_lr&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">final_lr</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">final_lr</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">warmup_epochs</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;warmup_epochs&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">warmup_epochs</span><span class="p">)</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">hpo_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span>
+        
+        <span class="c1"># MLflow config for ensemble</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">mlflow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">ensemble_config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">run_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;ensemble_top_</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+        <span class="k">return</span> <span class="n">ensemble_config</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up resources.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_run_id</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ended MLflow HPO run&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">ray</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Shut down Ray cluster&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_flatten_dict</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">parent_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Flatten nested dictionary for MLflow params.&quot;&quot;&quot;</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">new_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parent_key</span><span class="si">}{</span><span class="n">sep</span><span class="si">}{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">parent_key</span> <span class="k">else</span> <span class="n">k</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">max_depth</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">items</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_flatten_dict</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">new_key</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">max_depth</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">str_val</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">str_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">250</span><span class="p">:</span>
+                <span class="n">str_val</span> <span class="o">=</span> <span class="n">str_val</span><span class="p">[:</span><span class="mi">247</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;...&quot;</span>
+            <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">new_key</span><span class="p">,</span> <span class="n">str_val</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">run_hpo_from_config</span><span class="p">(</span><span class="n">config_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">log_level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run HPO from a YAML configuration file.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config_path : str</span>
+<span class="sd">        Path to HPO YAML configuration file.</span>
+<span class="sd">    log_level : str, default=&quot;INFO&quot;</span>
+<span class="sd">        Logging level.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Configure logging</span>
+    <span class="n">numeric_level</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">log_level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">numeric_level</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
+        <span class="n">level</span><span class="o">=</span><span class="n">numeric_level</span><span class="p">,</span>
+        <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> - </span><span class="si">%(name)s</span><span class="s2"> - </span><span class="si">%(levelname)s</span><span class="s2"> - </span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading HPO configuration from: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config_path</span><span class="p">)</span>
+    
+    <span class="c1"># Load configuration</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">HPOConfig</span><span class="p">),</span>
+        <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">config_path</span><span class="p">),</span>
+    <span class="p">)</span>
+    
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Configuration:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+    
+    <span class="c1"># Create and run HPO</span>
+    <span class="n">hpo</span> <span class="o">=</span> <span class="n">ChempropHPO</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">hpo</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+    
+    <span class="c1"># Train ensembles with best configs</span>
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+        <span class="n">hpo</span><span class="o">.</span><span class="n">train_top_k_ensembles</span><span class="p">()</span>
+    
+    <span class="n">hpo</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;HPO complete!&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CLI entrypoint for HPO.&quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Run hyperparameter optimization for Chemprop models.&quot;</span><span class="p">,</span>
+        <span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawDescriptionHelpFormatter</span><span class="p">,</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">Examples:</span>
+<span class="s2">  python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml</span>
+<span class="s2">  python -m admet.model.chemprop.hpo -c configs/hpo.yaml --log-level DEBUG</span>
+<span class="s2">        &quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;--config&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to HPO YAML configuration file&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--log-level&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span> <span class="s2">&quot;WARNING&quot;</span><span class="p">,</span> <span class="s2">&quot;ERROR&quot;</span><span class="p">],</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Logging level (default: INFO)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">run_hpo_from_config</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="implementation-phase-5-bash-script-and-documentation">
+<h3>Implementation Phase 5: Bash Script and Documentation<a class="headerlink" href="#implementation-phase-5-bash-script-and-documentation" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>GOAL-005: Create runner script and update documentation</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Completed</p></th>
+<th class="head"><p>Date</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TASK-025</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">scripts/run_chemprop_hpo.sh</span></code> bash script</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-026</p></td>
+<td><p>Update <code class="docutils literal notranslate"><span class="pre">scripts/README.md</span></code> with HPO documentation</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-027</p></td>
+<td><p>Update <code class="docutils literal notranslate"><span class="pre">scripts/lib/common.sh</span></code> if needed for HPO</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-028</p></td>
+<td><p>Add HPO section to main README.md</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>TASK-025 Details: HPO Runner Script</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env bash</span>
+<span class="c1"># =============================================================================</span>
+<span class="c1"># Chemprop Hyperparameter Optimization Script</span>
+<span class="c1"># =============================================================================</span>
+<span class="c1"># This script runs Ray Tune HPO for Chemprop models and optionally trains</span>
+<span class="c1"># full CV ensembles with the best configurations.</span>
+<span class="c1">#</span>
+<span class="c1"># Usage:</span>
+<span class="c1">#   ./scripts/run_chemprop_hpo.sh [--dry-run] [--config PATH] [--log-level LEVEL]</span>
+<span class="c1">#</span>
+<span class="c1"># Options:</span>
+<span class="c1">#   --dry-run     Print commands without executing</span>
+<span class="c1">#   --config      Path to HPO config (default: configs/hpo_chemprop.yaml)</span>
+<span class="c1">#   --log-level   Set logging level (DEBUG, INFO, WARNING, ERROR)</span>
+<span class="c1">#</span>
+<span class="c1"># =============================================================================</span>
+
+<span class="nb">set</span><span class="w"> </span>-euo<span class="w"> </span>pipefail
+
+<span class="c1"># Source common library</span>
+<span class="nv">SCRIPT_DIR</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>dirname<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">BASH_SOURCE</span><span class="p">[0]</span><span class="si">}</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span>
+<span class="nb">source</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SCRIPT_DIR</span><span class="s2">/lib/common.sh&quot;</span>
+
+<span class="c1"># Configuration</span>
+<span class="nv">PROJECT_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>get_project_root<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SCRIPT_DIR</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span>
+<span class="nv">DEFAULT_CONFIG</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PROJECT_ROOT</span><span class="si">}</span><span class="s2">/configs/hpo_chemprop.yaml&quot;</span>
+
+<span class="c1"># Default options</span>
+<span class="nv">DRY_RUN</span><span class="o">=</span><span class="nb">false</span>
+<span class="nv">CONFIG_FILE</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DEFAULT_CONFIG</span><span class="s2">&quot;</span>
+<span class="nv">LOG_LEVEL</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span>
+
+<span class="c1"># Parse arguments</span>
+<span class="k">while</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="nv">$#</span><span class="w"> </span>-gt<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nv">$1</span><span class="w"> </span><span class="k">in</span>
+<span class="w">        </span>--dry-run<span class="o">)</span>
+<span class="w">            </span><span class="nv">DRY_RUN</span><span class="o">=</span><span class="nb">true</span>
+<span class="w">            </span><span class="nb">shift</span>
+<span class="w">            </span><span class="p">;;</span>
+<span class="w">        </span>--config<span class="o">)</span>
+<span class="w">            </span><span class="nv">CONFIG_FILE</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$2</span><span class="s2">&quot;</span>
+<span class="w">            </span><span class="nb">shift</span><span class="w"> </span><span class="m">2</span>
+<span class="w">            </span><span class="p">;;</span>
+<span class="w">        </span>--log-level<span class="o">)</span>
+<span class="w">            </span><span class="nv">LOG_LEVEL</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$2</span><span class="s2">&quot;</span>
+<span class="w">            </span><span class="nb">shift</span><span class="w"> </span><span class="m">2</span>
+<span class="w">            </span><span class="p">;;</span>
+<span class="w">        </span>-h<span class="p">|</span>--help<span class="o">)</span>
+<span class="w">            </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Usage: </span><span class="nv">$0</span><span class="s2"> [--dry-run] [--config PATH] [--log-level LEVEL]&quot;</span>
+<span class="w">            </span><span class="nb">exit</span><span class="w"> </span><span class="m">0</span>
+<span class="w">            </span><span class="p">;;</span>
+<span class="w">        </span>*<span class="o">)</span>
+<span class="w">            </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Unknown option: </span><span class="nv">$1</span><span class="s2">&quot;</span>
+<span class="w">            </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="w">            </span><span class="p">;;</span>
+<span class="w">    </span><span class="k">esac</span>
+<span class="k">done</span>
+
+<span class="c1"># Change to project root</span>
+<span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PROJECT_ROOT</span><span class="s2">&quot;</span>
+
+<span class="c1"># Check config file exists</span>
+check_config_exists<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CONFIG_FILE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+
+log_info<span class="w"> </span><span class="s2">&quot;Starting Chemprop HPO&quot;</span>
+log_info<span class="w"> </span><span class="s2">&quot;Config file: </span><span class="nv">$CONFIG_FILE</span><span class="s2">&quot;</span>
+
+<span class="c1"># Build command</span>
+<span class="nv">CMD</span><span class="o">=</span><span class="s2">&quot;python -m admet.model.chemprop.hpo --config </span><span class="nv">$CONFIG_FILE</span><span class="s2"> --log-level </span><span class="nv">$LOG_LEVEL</span><span class="s2">&quot;</span>
+
+<span class="c1"># Execute command</span>
+<span class="k">if</span><span class="w"> </span>execute_command<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CMD</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DRY_RUN</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;HPO run&quot;</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span>log_success<span class="w"> </span><span class="s2">&quot;HPO completed successfully&quot;</span>
+<span class="k">else</span>
+<span class="w">    </span>log_error<span class="w"> </span><span class="s2">&quot;HPO failed&quot;</span>
+<span class="w">    </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="k">fi</span>
+</pre></div>
+</div>
+</section>
+<section id="implementation-phase-6-testing">
+<h3>Implementation Phase 6: Testing<a class="headerlink" href="#implementation-phase-6-testing" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>GOAL-006: Implement comprehensive tests for HPO system</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Completed</p></th>
+<th class="head"><p>Date</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TASK-029</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_config.py</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-030</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_search_space.py</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-031</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_trainable.py</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>TASK-032</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">tests/integration/test_hpo_integration.py</span></code></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>TASK-033</p></td>
+<td><p>Add smoke test for full HPO pipeline (5 trials, 5 epochs)</p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="alternatives">
+<h2>3. Alternatives<a class="headerlink" href="#alternatives" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>ALT-001</strong>: Use Optuna directly instead of Ray Tune - Rejected because Ray Tune provides better GPU sharing and integrates with existing ensemble code</p></li>
+<li><p><strong>ALT-002</strong>: Use HyperBand instead of ASHA - ASHA is simpler and performs similarly for our use case</p></li>
+<li><p><strong>ALT-003</strong>: Use Population-Based Training (PBT) - Too complex for initial implementation, can be added later</p></li>
+<li><p><strong>ALT-004</strong>: Optimize per-target weights alongside hyperparameters - Deferred to future work to keep scope manageable</p></li>
+</ul>
+</section>
+<section id="dependencies">
+<h2>4. Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>DEP-001</strong>: <code class="docutils literal notranslate"><span class="pre">ray[tune]&gt;=2.9.0</span></code> - Ray Tune framework</p></li>
+<li><p><strong>DEP-002</strong>: <code class="docutils literal notranslate"><span class="pre">optuna&gt;=3.0.0</span></code> - Optional, for Bayesian search algorithm</p></li>
+<li><p><strong>DEP-003</strong>: Existing <code class="docutils literal notranslate"><span class="pre">ChempropModel</span></code> and <code class="docutils literal notranslate"><span class="pre">ChempropHyperparams</span></code> classes</p></li>
+<li><p><strong>DEP-004</strong>: Existing <code class="docutils literal notranslate"><span class="pre">ChempropEnsemble</span></code> for transfer learning</p></li>
+<li><p><strong>DEP-005</strong>: MLflow for experiment tracking</p></li>
+<li><p><strong>DEP-006</strong>: OmegaConf for configuration management</p></li>
+</ul>
+</section>
+<section id="files">
+<h2>5. Files<a class="headerlink" href="#files" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>FILE-001</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_config.py</span></code> - HPO configuration dataclasses</p></li>
+<li><p><strong>FILE-002</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_search_space.py</span></code> - Search space builder</p></li>
+<li><p><strong>FILE-003</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_trainable.py</span></code> - Ray Tune trainable function</p></li>
+<li><p><strong>FILE-004</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo.py</span></code> - Main HPO runner</p></li>
+<li><p><strong>FILE-005</strong>: <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code> - Example HPO configuration</p></li>
+<li><p><strong>FILE-006</strong>: <code class="docutils literal notranslate"><span class="pre">scripts/run_chemprop_hpo.sh</span></code> - Bash runner script</p></li>
+<li><p><strong>FILE-007</strong>: <code class="docutils literal notranslate"><span class="pre">scripts/README.md</span></code> - Updated with HPO documentation</p></li>
+<li><p><strong>FILE-008</strong>: <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_config.py</span></code> - Config tests</p></li>
+<li><p><strong>FILE-009</strong>: <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_search_space.py</span></code> - Search space tests</p></li>
+<li><p><strong>FILE-010</strong>: <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_trainable.py</span></code> - Trainable tests</p></li>
+<li><p><strong>FILE-011</strong>: <code class="docutils literal notranslate"><span class="pre">tests/integration/test_hpo_integration.py</span></code> - Integration tests</p></li>
+</ul>
+</section>
+<section id="testing">
+<h2>6. Testing<a class="headerlink" href="#testing" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>TEST-001</strong>: Unit test configuration loading and validation</p></li>
+<li><p><strong>TEST-002</strong>: Unit test search space generation for all parameter types</p></li>
+<li><p><strong>TEST-003</strong>: Unit test conditional search space logic</p></li>
+<li><p><strong>TEST-004</strong>: Unit test RayTuneReportCallback metric reporting</p></li>
+<li><p><strong>TEST-005</strong>: Integration test HPO with 5 trials, 5 epochs on synthetic data</p></li>
+<li><p><strong>TEST-006</strong>: Smoke test full pipeline including transfer learning</p></li>
+<li><p><strong>TEST-007</strong>: Test MLflow logging for HPO runs</p></li>
+<li><p><strong>TEST-008</strong>: Test YAML config roundtrip (load, modify, save)</p></li>
+</ul>
+</section>
+<section id="risks-assumptions">
+<h2>7. Risks &amp; Assumptions<a class="headerlink" href="#risks-assumptions" title="Link to this heading">¶</a></h2>
+<section id="risks">
+<h3>Risks<a class="headerlink" href="#risks" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>RISK-001</strong>: GPU memory contention with 4 concurrent trials - Mitigation: Start with 0.25 GPU fraction, adjust based on testing</p></li>
+<li><p><strong>RISK-002</strong>: Ray and PyTorch Lightning callback conflicts - Mitigation: Test callback integration thoroughly</p></li>
+<li><p><strong>RISK-003</strong>: MLflow nested run complexity - Mitigation: Follow existing ensemble.py pattern</p></li>
+<li><p><strong>RISK-004</strong>: Long HPO runtime (100 trials × 150 epochs) - Mitigation: ASHA pruning should reduce effective compute by 3-5x</p></li>
+</ul>
+</section>
+<section id="assumptions">
+<h3>Assumptions<a class="headerlink" href="#assumptions" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>ASSUMPTION-001</strong>: Single train/validation split is representative enough for HPO</p></li>
+<li><p><strong>ASSUMPTION-002</strong>: Validation loss is a good proxy for test performance</p></li>
+<li><p><strong>ASSUMPTION-003</strong>: Best HPO config generalizes across different data splits</p></li>
+<li><p><strong>ASSUMPTION-004</strong>: 4 trials per GPU fits in memory with batch_size ≤ 128</p></li>
+</ul>
+</section>
+</section>
+<section id="related-specifications-further-reading">
+<h2>8. Related Specifications / Further Reading<a class="headerlink" href="#related-specifications-further-reading" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://docs.ray.io/en/latest/tune/index.html">Ray Tune Documentation</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/1810.05934">ASHA Paper</a></p></li>
+<li><p><a class="reference external" href="https://chemprop.readthedocs.io/">Chemprop Documentation</a></p></li>
+<li><p><a class="reference external" href="https://omegaconf.readthedocs.io/">OmegaConf Documentation</a></p></li>
+<li><p>Existing files: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/ensemble.py</span></code>, <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/config.py</span></code></p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Introduction</a><ul>
+<li><a class="reference internal" href="#requirements-constraints">1. Requirements &amp; Constraints</a><ul>
+<li><a class="reference internal" href="#functional-requirements">Functional Requirements</a></li>
+<li><a class="reference internal" href="#security-requirements">Security Requirements</a></li>
+<li><a class="reference internal" href="#constraints">Constraints</a></li>
+<li><a class="reference internal" href="#guidelines">Guidelines</a></li>
+<li><a class="reference internal" href="#patterns-to-follow">Patterns to Follow</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementation-steps">2. Implementation Steps</a><ul>
+<li><a class="reference internal" href="#implementation-phase-1-configuration-infrastructure">Implementation Phase 1: Configuration Infrastructure</a></li>
+<li><a class="reference internal" href="#implementation-phase-2-search-space-builder">Implementation Phase 2: Search Space Builder</a></li>
+<li><a class="reference internal" href="#implementation-phase-3-trainable-function-and-callbacks">Implementation Phase 3: Trainable Function and Callbacks</a></li>
+<li><a class="reference internal" href="#implementation-phase-4-hpo-runner">Implementation Phase 4: HPO Runner</a></li>
+<li><a class="reference internal" href="#implementation-phase-5-bash-script-and-documentation">Implementation Phase 5: Bash Script and Documentation</a></li>
+<li><a class="reference internal" href="#implementation-phase-6-testing">Implementation Phase 6: Testing</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alternatives">3. Alternatives</a></li>
+<li><a class="reference internal" href="#dependencies">4. Dependencies</a></li>
+<li><a class="reference internal" href="#files">5. Files</a></li>
+<li><a class="reference internal" href="#testing">6. Testing</a></li>
+<li><a class="reference internal" href="#risks-assumptions">7. Risks &amp; Assumptions</a><ul>
+<li><a class="reference internal" href="#risks">Risks</a></li>
+<li><a class="reference internal" href="#assumptions">Assumptions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#related-specifications-further-reading">8. Related Specifications / Further Reading</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>

@@ -7,10 +7,10 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/guide/splitting.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="This guide describes how datasets are partitioned into training, validation, test sets and how quality tiers interact with splits. Goals: Maintain representative distributions across splits., Avoid..." />
+<meta property="og:description" content="This guide describes how datasets are partitioned into training and validation sets using cluster-aware cross-validation with quality stratification. Goals: Maintain representative distributions ac..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="This guide describes how datasets are partitioned into training, validation, test sets and how quality tiers interact with splits. Goals: Maintain representative distributions across splits., Avoid..." />
+<meta name="description" content="This guide describes how datasets are partitioned into training and validation sets using cluster-aware cross-validation with quality stratification. Goals: Maintain representative distributions ac..." />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration Guide" href="configuration.html"><link rel="prev" title="Data Sources &amp; Curation" href="data_sources.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
@@ -213,14 +213,10 @@
   <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
@@ -274,99 +270,138 @@
         <article role="main" id="furo-main-content">
           <section id="dataset-splitting-methodology">
 <h1>Dataset Splitting Methodology<a class="headerlink" href="#dataset-splitting-methodology" title="Link to this heading">¶</a></h1>
-<p>This guide describes how datasets are partitioned into training, validation,
-test sets and how quality tiers interact with splits.</p>
+<p>This guide describes how datasets are partitioned into training and validation
+sets using cluster-aware cross-validation with quality stratification.</p>
 <section id="goals">
 <h2>Goals<a class="headerlink" href="#goals" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>Maintain representative distributions across splits.</p></li>
-<li><p>Avoid data leakage (e.g. identical molecules appearing in both train and test).</p></li>
-<li><p>Respect quality tiers (e.g. high quality prioritized for training robustness).</p></li>
-<li><p>Ensure reproducibility via deterministic seeds.</p></li>
+<li><p>Maintain representative distributions across splits</p></li>
+<li><p>Avoid data leakage via cluster-based grouping (similar molecules stay together)</p></li>
+<li><p>Respect quality tiers for training robustness</p></li>
+<li><p>Ensure reproducibility via deterministic seeds</p></li>
 </ul>
 </section>
-<section id="core-components">
-<h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h2>
+<section id="core-module">
+<h2>Core Module<a class="headerlink" href="#core-module" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">admet.data.split</span></code> module provides the splitting functionality:</p>
 <ul class="simple">
-<li><p><cite>admet.data.dataset_split_pipeline</cite>: Orchestrates end‑to‑end splitting.</p></li>
-<li><p><cite>admet.data.splitter</cite>: Implements splitting strategies and helper utilities.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pipeline()</span></code>: High-level function for end-to-end splitting</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_bitbirch_clusters()</span></code>: Cluster SMILES using BitBirch fingerprints</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cluster_data()</span></code>: Cluster molecules using various methods</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cluster_multilabel_stratified_kfold()</span></code>: Multi-label stratified k-fold splitting</p></li>
 </ul>
 </section>
-<section id="typical-workflow">
-<h2>Typical Workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading">¶</a></h2>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>load curated dataset --&gt; annotate quality --&gt; group / stratify --&gt; perform split
-                      --&gt; write split artifacts --&gt; downstream training
-</pre></div>
-</div>
-</section>
-<section id="stratification-logic-conceptual">
-<h2>Stratification Logic (Conceptual)<a class="headerlink" href="#stratification-logic-conceptual" title="Link to this heading">¶</a></h2>
-<p>(Placeholder) Strategies may include:</p>
+<section id="clustering-methods">
+<h2>Clustering Methods<a class="headerlink" href="#clustering-methods" title="Link to this heading">¶</a></h2>
+<p>The module supports multiple clustering approaches:</p>
 <ul class="simple">
-<li><p>Random Stratified: Maintain label distribution across train/valid/test.</p></li>
-<li><p>Scaffold or Cluster Based: Group molecules to reduce structural leakage.</p></li>
-<li><p>Quality-Aware: Allocate high quality examples proportionally or with oversampling.</p></li>
+<li><p><strong>BitBirch</strong> (default): Fast hierarchical clustering on molecular fingerprints</p></li>
+<li><p><strong>Random</strong>: Random cluster assignment</p></li>
+<li><p><strong>Scaffold</strong>: Murcko scaffold-based grouping</p></li>
+<li><p><strong>K-Means</strong>: K-means clustering on fingerprints</p></li>
+<li><p><strong>UMAP</strong>: UMAP dimensionality reduction + clustering</p></li>
+<li><p><strong>Butina</strong>: Taylor-Butina clustering</p></li>
 </ul>
 </section>
-<section id="determinism-seeds">
-<h2>Determinism &amp; Seeds<a class="headerlink" href="#determinism-seeds" title="Link to this heading">¶</a></h2>
-<p>Pass a fixed seed to splitting functions for reproducibility:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.splitter</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_splits</span>
+<section id="splitting-strategies">
+<h2>Splitting Strategies<a class="headerlink" href="#splitting-strategies" title="Link to this heading">¶</a></h2>
+<p>Three k-fold cross-validation strategies are available:</p>
+<ul class="simple">
+<li><p><strong>MultilabelStratifiedKFold</strong>: Stratifies by task presence and quality tier (recommended)</p></li>
+<li><p><strong>StratifiedKFold</strong>: Stratifies by quality tier only</p></li>
+<li><p><strong>GroupKFold</strong>: Ensures cluster integrity (no cluster split across folds)</p></li>
+</ul>
+</section>
+<section id="pipeline-usage">
+<h2>Pipeline Usage<a class="headerlink" href="#pipeline-usage" title="Link to this heading">¶</a></h2>
+<p>The high-level <code class="docutils literal notranslate"><span class="pre">pipeline()</span></code> function handles clustering and splitting:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.split</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span>
 
-<span class="n">train_df</span><span class="p">,</span> <span class="n">valid_df</span><span class="p">,</span> <span class="n">test_df</span> <span class="o">=</span> <span class="n">create_splits</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="c1"># Create 5 splits × 5 folds with BitBirch clustering</span>
+<span class="n">df_with_splits</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">df</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+    <span class="n">smiles_col</span><span class="o">=</span><span class="s2">&quot;SMILES&quot;</span><span class="p">,</span>
+    <span class="n">quality_col</span><span class="o">=</span><span class="s2">&quot;Quality&quot;</span><span class="p">,</span>
+    <span class="n">target_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;LogD&quot;</span><span class="p">,</span> <span class="s2">&quot;Log KSOL&quot;</span><span class="p">,</span> <span class="s2">&quot;Log HLM CLint&quot;</span><span class="p">],</span>
+    <span class="n">cluster_method</span><span class="o">=</span><span class="s2">&quot;bitbirch&quot;</span><span class="p">,</span>
+    <span class="n">split_method</span><span class="o">=</span><span class="s2">&quot;multilabel_stratified_kfold&quot;</span><span class="p">,</span>
+    <span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">n_folds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">fig_dir</span><span class="o">=</span><span class="s2">&quot;outputs/split_diagnostics&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Result contains columns: split_0_fold_0, split_0_fold_1, etc.</span>
+<span class="c1"># Values are &quot;train&quot; or &quot;validation&quot;</span>
 </pre></div>
 </div>
 </section>
-<section id="leakage-avoidance">
-<h2>Leakage Avoidance<a class="headerlink" href="#leakage-avoidance" title="Link to this heading">¶</a></h2>
-<p>Common safeguards:</p>
+<section id="lower-level-api">
+<h2>Lower-Level API<a class="headerlink" href="#lower-level-api" title="Link to this heading">¶</a></h2>
+<p>For more control, use the individual functions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.split</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_bitbirch_clusters</span><span class="p">,</span>
+    <span class="n">cluster_data</span><span class="p">,</span>
+    <span class="n">cluster_multilabel_stratified_kfold</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Get cluster labels</span>
+<span class="n">cluster_labels</span> <span class="o">=</span> <span class="n">get_bitbirch_clusters</span><span class="p">(</span><span class="n">smiles_list</span><span class="p">)</span>
+
+<span class="c1"># Or use cluster_data for any method</span>
+<span class="n">cluster_mapping</span> <span class="o">=</span> <span class="n">cluster_data</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">,</span>
+    <span class="n">smiles_col</span><span class="o">=</span><span class="s2">&quot;SMILES&quot;</span><span class="p">,</span>
+    <span class="n">cluster_method</span><span class="o">=</span><span class="s2">&quot;bitbirch&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Perform stratified splitting</span>
+<span class="n">fold_assignments</span> <span class="o">=</span> <span class="n">cluster_multilabel_stratified_kfold</span><span class="p">(</span>
+    <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+    <span class="n">cluster_labels</span><span class="o">=</span><span class="n">cluster_labels</span><span class="p">,</span>
+    <span class="n">target_cols</span><span class="o">=</span><span class="n">target_cols</span><span class="p">,</span>
+    <span class="n">quality_col</span><span class="o">=</span><span class="s2">&quot;Quality&quot;</span><span class="p">,</span>
+    <span class="n">n_folds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="output-structure">
+<h2>Output Structure<a class="headerlink" href="#output-structure" title="Link to this heading">¶</a></h2>
+<p>Split outputs follow this directory structure:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>assets/dataset/split_train_val/
+└── v3/
+    └── quality_high/
+        └── bitbirch/
+            └── multilabel_stratified_kfold/
+                └── data/
+                    ├── split_0/
+                    │   ├── fold_0/
+                    │   │   ├── train.csv
+                    │   │   └── validation.csv
+                    │   ├── fold_1/
+                    │   └── ...
+                    └── split_1/
+                        └── ...
+</pre></div>
+</div>
+</section>
+<section id="diagnostic-figures">
+<h2>Diagnostic Figures<a class="headerlink" href="#diagnostic-figures" title="Link to this heading">¶</a></h2>
+<p>When <code class="docutils literal notranslate"><span class="pre">fig_dir</span></code> is provided, the pipeline generates:</p>
 <ul class="simple">
-<li><p>Deduplicate identical canonical SMILES before splitting.</p></li>
-<li><p>(Optional) Remove highly similar molecules or group by scaffold.</p></li>
-<li><p>Audit cross‑split overlap after splitting (report count, %).</p></li>
-</ul>
-</section>
-<section id="output-artifacts">
-<h2>Output Artifacts<a class="headerlink" href="#output-artifacts" title="Link to this heading">¶</a></h2>
-<p>Split outputs are stored under directories such as:</p>
-<ul class="simple">
-<li><p><cite>assets/raw/splits/high_quality/</cite></p></li>
-<li><p><cite>assets/raw/splits/medium_quality/</cite></p></li>
-<li><p>Combined or ensemble split variants in <cite>temp/xgb_artifacts/</cite> (for model training).</p></li>
-</ul>
-</section>
-<section id="validation-qa">
-<h2>Validation &amp; QA<a class="headerlink" href="#validation-qa" title="Link to this heading">¶</a></h2>
-<p>Recommended post‑split checks:</p>
-<ol class="arabic simple">
-<li><p>Label distribution parity across splits.</p></li>
-<li><p>Overlap count of unique SMILES between splits (expect 0 ideally).</p></li>
-<li><p>Summary statistics (mean, std of key numeric fields) per split.</p></li>
-<li><p>Size ratio (e.g. 70/15/15) adherence.</p></li>
-</ol>
-</section>
-<section id="extensibility">
-<h2>Extensibility<a class="headerlink" href="#extensibility" title="Link to this heading">¶</a></h2>
-<p>To add a new strategy:</p>
-<ol class="arabic simple">
-<li><p>Implement a function/class in <cite>splitter.py</cite> encapsulating logic.</p></li>
-<li><p>Add a selector/factory to route CLI argument to new implementation.</p></li>
-<li><p>Document constraints (e.g. minimum dataset size) here and in CLI help.</p></li>
-</ol>
-</section>
-<section id="future-enhancements">
-<h2>Future Enhancements<a class="headerlink" href="#future-enhancements" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p>Incorporate scaffold splitting for chemical diversity.</p></li>
-<li><p>Add automatic leakage audit reports to build artifacts.</p></li>
-<li><p>Support k‑fold cross validation mode.</p></li>
+<li><p>Cluster size histograms</p></li>
+<li><p>Per-endpoint value distributions by split</p></li>
+<li><p>Train/validation set size comparisons</p></li>
+<li><p>Quality tier distributions</p></li>
 </ul>
 </section>
 <section id="cross-references">
 <h2>Cross-References<a class="headerlink" href="#cross-references" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>See <a class="reference internal" href="data_sources.html"><span class="doc">Data Sources &amp; Curation</span></a> for upstream curated dataset provenance.</p></li>
-<li><p>See <a class="reference internal" href="architecture.html"><span class="doc">Architecture Overview</span></a> for the overall pipeline placement.</p></li>
+<li><p>See <a class="reference internal" href="data_sources.html"><span class="doc">Data Sources &amp; Curation</span></a> for upstream curated dataset provenance</p></li>
+<li><p>See <a class="reference internal" href="architecture.html"><span class="doc">Architecture Overview</span></a> for the overall pipeline placement</p></li>
+<li><p>See <a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> for how splits are used in training</p></li>
 </ul>
 </section>
 </section>
@@ -428,15 +463,13 @@ test sets and how quality tiers interact with splits.</p>
             <ul>
 <li><a class="reference internal" href="#">Dataset Splitting Methodology</a><ul>
 <li><a class="reference internal" href="#goals">Goals</a></li>
-<li><a class="reference internal" href="#core-components">Core Components</a></li>
-<li><a class="reference internal" href="#typical-workflow">Typical Workflow</a></li>
-<li><a class="reference internal" href="#stratification-logic-conceptual">Stratification Logic (Conceptual)</a></li>
-<li><a class="reference internal" href="#determinism-seeds">Determinism &amp; Seeds</a></li>
-<li><a class="reference internal" href="#leakage-avoidance">Leakage Avoidance</a></li>
-<li><a class="reference internal" href="#output-artifacts">Output Artifacts</a></li>
-<li><a class="reference internal" href="#validation-qa">Validation &amp; QA</a></li>
-<li><a class="reference internal" href="#extensibility">Extensibility</a></li>
-<li><a class="reference internal" href="#future-enhancements">Future Enhancements</a></li>
+<li><a class="reference internal" href="#core-module">Core Module</a></li>
+<li><a class="reference internal" href="#clustering-methods">Clustering Methods</a></li>
+<li><a class="reference internal" href="#splitting-strategies">Splitting Strategies</a></li>
+<li><a class="reference internal" href="#pipeline-usage">Pipeline Usage</a></li>
+<li><a class="reference internal" href="#lower-level-api">Lower-Level API</a></li>
+<li><a class="reference internal" href="#output-structure">Output Structure</a></li>
+<li><a class="reference internal" href="#diagnostic-figures">Diagnostic Figures</a></li>
 <li><a class="reference internal" href="#cross-references">Cross-References</a></li>
 </ul>
 </li>
