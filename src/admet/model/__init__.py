@@ -1,14 +1,18 @@
-"""
-Model
-=====
+from __future__ import annotations
 
-Model abstractions and backend implementations.
+import logging
+import warnings
 
-.. module:: admet.model
+__all__ = ["classical", "chemprop"]
 
-"""
+# Suppress overly verbose logging from dependencies
+logging.getLogger("lightning.pytorch").setLevel(logging.WARNING)
+logging.getLogger("lightning.fabric").setLevel(logging.WARNING)
+logging.getLogger("lightning.pytorch.accelerators.cuda").setLevel(logging.WARNING)
+logging.getLogger("mlflow").setLevel(logging.WARNING)
 
-from .base import BaseModel
-from .xgb_wrapper import XGBoostMultiEndpoint
-
-__all__ = ["BaseModel", "XGBoostMultiEndpoint"]
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*srun.*")
+warnings.filterwarnings("ignore", message=".*num_workers.*")
+warnings.filterwarnings("ignore", message=".*Please use `name`.*")
+warnings.filterwarnings("ignore", message=".*Please set `input_example`.*")

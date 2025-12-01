@@ -1,68 +1,130 @@
 Architecture Overview
 ======================
 
-This page gives you a high‑level mental model of the `admet` package: how
+This page gives you a high-level mental model of the ``admet`` package: how
 modules are layered, how data flows through the system, and where you can
 extend functionality.
 
 Layered Package Map
 -------------------
 
-The code base is organized into clear functional layers:
+The codebase is organized into clear functional layers:
 
-1. Data Layer (`admet.data`): loading, curation, chemical feature extraction, splitting.
-2. Modeling Layer (`admet.model`): model wrappers (e.g., XGBoost, LightGBM) with unified interfaces.
-3. Training Layer (`admet.train`): trainer abstractions that orchestrate datasets, models, metrics, persistence.
-4. Evaluation Layer (`admet.evaluate`): metric calculation and reporting.
-5. Visualization Layer (`admet.visualize`): generation of performance figures and dataset exploration plots.
-6. CLI Layer (`admet.cli`): user‑facing entry points for download, split, train, evaluate.
+1. **Data Layer** (``admet.data``): Data loading, chemical feature extraction, and
+   cluster-based dataset splitting with quality-aware stratification.
+
+2. **Modeling Layer** (``admet.model``): Model implementations organized by type:
+
+   - ``admet.model.chemprop``: Chemprop MPNN models with ensemble training,
+     hyperparameter optimization, and curriculum learning support.
+   - ``admet.model.classical``: Traditional ML models (XGBoost, LightGBM).
+
+3. **Visualization Layer** (``admet.plot``): Performance figures, parity plots,
+   metric visualizations, and dataset exploration plots.
+
+4. **Utilities** (``admet.util``): Logging configuration and helper functions.
 
 Data Flow Lifecycle
 -------------------
 
-The typical end‑to‑end pipeline follows these stages:
+The typical end-to-end pipeline follows these stages:
 
 .. code-block:: text
 
-   raw data --> standardization / cleaning --> feature engineering (fingerprints)
-             --> dataset splitting (quality tiers & train/valid/test)
-             --> model training (hyperparameters / config) --> evaluation (metrics)
-             --> visualization (figures, summaries) --> artifacts (saved models)
+   raw data --> standardization / cleaning --> SMILES canonicalization
+             --> cluster-based splitting (BitBirch + stratification)
+             --> model training (Chemprop + curriculum learning)
+             --> ensemble predictions (with uncertainty)
+             --> evaluation (metrics) --> visualization
 
 Key Modules and Responsibilities
 --------------------------------
 
-- `admet.data.download`: Fetch or assemble raw and curated datasets.
-- `admet.data.chem` / `fingerprinting`: Molecular feature generation (e.g. fingerprints).
-- `admet.data.splitter`: Implements split strategies and quality stratification.
-- `admet.model.*_wrapper`: Adapters around external libraries to present a unified interface.
-- `admet.train.*`: Trainers coordinating model fitting and artifact output.
-- `admet.evaluate.metrics`: Metric definitions for classification/regression.
-- `admet.visualize.*`: Plotting utilities for dataset and performance inspection.
+Data Layer
+^^^^^^^^^^
+
+- ``admet.data.smiles``: SMILES processing and canonicalization
+- ``admet.data.fingerprint``: Molecular fingerprint generation (Morgan, ECFP)
+- ``admet.data.property``: Property calculation and feature engineering
+- ``admet.data.split``: Cluster-aware splitting with BitBirch and stratification
+- ``admet.data.constant``: Dataset constants and transformation helpers
+- ``admet.data.stats``: Statistical analysis utilities
+
+Modeling Layer
+^^^^^^^^^^^^^^
+
+- ``admet.model.chemprop.model``: ``ChempropModel`` class for single model training
+- ``admet.model.chemprop.ensemble``: ``ChempropEnsemble`` for multi-fold training
+- ``admet.model.chemprop.hpo``: ``ChempropHPO`` for hyperparameter optimization
+- ``admet.model.chemprop.curriculum``: Curriculum learning with quality awareness
+- ``admet.model.chemprop.ffn``: Custom FFN architectures (MoE, Branched)
+- ``admet.model.chemprop.config``: OmegaConf dataclass configurations
+- ``admet.model.classical``: Classical ML model wrappers
+
+Visualization Layer
+^^^^^^^^^^^^^^^^^^^
+
+- ``admet.plot.parity``: Parity plots for regression evaluation
+- ``admet.plot.metrics``: Metric computation and bar chart visualization
+- ``admet.plot.density``: Distribution and density plots
+- ``admet.plot.heatmap``: Correlation heatmaps
+- ``admet.plot.split``: Dataset split diagnostics
+- ``admet.plot.latex``: LaTeX-safe formatting for publications
+
+Configuration System
+--------------------
+
+The package uses OmegaConf dataclasses for configuration management:
+
+.. code-block:: python
+
+   from admet.model.chemprop import ChempropConfig, EnsembleConfig
+   from omegaconf import OmegaConf
+
+   # Load from YAML
+   config = OmegaConf.load("configs/ensemble_chemprop.yaml")
+   cfg = OmegaConf.structured(EnsembleConfig(**config))
+
+   # Access nested configuration
+   print(cfg.model.ffn_type)  # "regression"
+   print(cfg.data.smiles_col)  # "SMILES"
+
+Key configuration classes:
+
+- ``ChempropConfig``: Single model configuration
+- ``EnsembleConfig``: Multi-model ensemble settings
+- ``HPOConfig``: Hyperparameter optimization settings
+- ``DataConfig``: Dataset paths and column names
+- ``ModelConfig``: Model architecture parameters
+- ``OptimizationConfig``: Training hyperparameters
+- ``MlflowConfig``: Experiment tracking settings
 
 Extensibility Points
 --------------------
 
 You can add new functionality without modifying core internals by:
 
-- New Data Source: Implement a loader in `admet.data.download` and register it in the CLI.
-- Custom Feature Representation: Add a module in `admet.data.fingerprinting` and expose a factory.
-- New Model Type: Create a wrapper subclass in `admet.model` following existing wrapper API.
-- Alternative Trainer: Implement a trainer in `admet.train` leveraging shared utilities.
-- Additional Metrics: Define functions in `admet.evaluate.metrics` and reference them in evaluation.
-- New Visualizations: Add plotting functions in `admet.visualize` and link them in docs/examples.
+- **New Splitting Strategy**: Add a function in ``admet.data.split`` implementing
+  the cluster/stratification logic.
+- **Custom FFN Architecture**: Implement in ``admet.model.chemprop.ffn`` following
+  the existing MoE/Branched patterns.
+- **New Visualization**: Add plotting functions in ``admet.plot`` and expose
+  via ``__init__.py``.
+- **Additional Metrics**: Extend ``admet.plot.metrics`` with new metric functions.
 
 Design Principles
 -----------------
 
-- Separation of Concerns: Keep data preparation, training, and evaluation isolated.
-- Minimal Coupling: Model wrappers do not assume specific dataset implementations beyond required interface.
-- Declarative Configuration: Hyperparameters and run settings externalized (e.g., YAML config files).
-- Reproducibility: Deterministic seeds for splitting and training when feasible.
+- **Separation of Concerns**: Data preparation, modeling, and visualization isolated.
+- **Configuration-Driven**: All hyperparameters externalized to YAML files.
+- **Reproducibility**: Deterministic seeds, cluster-based splitting, MLflow tracking.
+- **Parallelization**: Ray-based distributed training and HPO.
+- **Quality Awareness**: Curriculum learning and stratification by quality tiers.
 
 Cross-References
 ----------------
 
-- See :doc:`data_sources` for input provenance and curation.
-- See :doc:`splitting` for dataset partitioning methodology.
-- See :doc:`modeling` (planned) for details on adding new model wrappers.
+- See :doc:`data_sources` for input provenance and curation
+- See :doc:`splitting` for dataset partitioning methodology
+- See :doc:`modeling` for training details and model usage
+- See :doc:`configuration` for configuration file format

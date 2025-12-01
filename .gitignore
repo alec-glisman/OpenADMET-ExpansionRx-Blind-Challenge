@@ -11,6 +11,13 @@ build
 *.egg-info
 *.lock
 
+# models
+models
+mlruns
+mlartifacts
+lightning_logs
+ray_results
+
 # caches
 .mypy_cache
 .pytest_cache
@@ -35,8 +42,7 @@ cache
 
 # data files
 assets
-models
-mlruns
+old
 *.db
 *.log
 *.out
@@ -44,3 +50,6 @@ mlruns
 *.csv
 *.npz
 *.parquet
+
+# keep raw data tracked
+!/data/*

@@ -26,7 +26,7 @@ app = marimo.App(width="full")
 with app.setup:
     # Initialization code that runs before all other cells
 
-    import requests
+    import requests  # type: ignore[import-untyped]
 
     cluster_url = "https://raw.githubusercontent.com/PatWalters/practical_cheminformatics_posts/refs/heads/main/expansion_data_exploration/bblean_cluster.py"
     response = requests.get(cluster_url)

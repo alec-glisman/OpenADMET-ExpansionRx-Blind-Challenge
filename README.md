@@ -10,6 +10,230 @@ This repository contains code and documentation for participating in the OpenADM
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
 
+### Training Models
+
+#### Single Model Training
+
+Train a single Chemprop model using a YAML configuration file:
+
+```bash
+# Train from command line
+python -m admet.model.chemprop.model --config configs/example_chemprop.yaml
+
+# With debug logging
+python -m admet.model.chemprop.model -c configs/example_chemprop.yaml --log-level DEBUG
+```
+
+Or programmatically in Python:
+
+```python
+from omegaconf import OmegaConf
+from admet.model.chemprop import ChempropConfig, ChempropModel
+
+# Load configuration from YAML
+config = OmegaConf.merge(
+    OmegaConf.structured(ChempropConfig),
+    OmegaConf.load("configs/example_chemprop.yaml")
+)
+
+# Create and train model
+model = ChempropModel.from_config(config)
+model.fit()
+
+# Generate predictions
+predictions = model.predict(test_df, generate_plots=True, split_name="test")
+
+# Clean up MLflow run
+model.close()
+```
+
+#### Ensemble Training
+
+Train an ensemble of models across multiple splits and folds with Ray-based parallelization:
+
+```bash
+# Train ensemble from command line
+python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+
+# Limit parallel models to prevent OOM
+python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
+```
+
+Or programmatically:
+
+```python
+from omegaconf import OmegaConf
+from admet.model.chemprop import EnsembleConfig, ChempropEnsemble
+
+# Load ensemble configuration
+config = OmegaConf.merge(
+    OmegaConf.structured(EnsembleConfig),
+    OmegaConf.load("configs/ensemble_chemprop.yaml")
+)
+
+# Create ensemble trainer
+ensemble = ChempropEnsemble.from_config(config)
+
+# Discover available splits/folds
+splits_folds = ensemble.discover_splits_folds()
+print(f"Found {len(splits_folds)} split/fold combinations")
+
+# Train all models (uses Ray for parallelization)
+ensemble.train_all(max_parallel=2)
+
+# Generate ensemble predictions with uncertainty estimates
+test_predictions = ensemble.predict_ensemble(test_df, split_name="test")
+blind_predictions = ensemble.predict_ensemble(blind_df, split_name="blind")
+
+# Access mean predictions and standard errors
+print(test_predictions[["SMILES", "LogD_mean", "LogD_stderr"]])
+
+# Generate ensemble plots with error bars
+ensemble.generate_ensemble_plots(test_predictions, split_name="test")
+
+# Clean up
+ensemble.close()
+```
+
+The ensemble configuration extends the single-model config with additional options:
+
+```yaml
+# configs/ensemble_chemprop.yaml
+ensemble:
+  # Root directory containing split_*/fold_*/ subdirectories
+  data_dir: "assets/dataset/splits/data"
+  # Optional: filter specific splits/folds (null = use all)
+  splits: null
+  folds: null
+
+# Rest of config same as single model...
+data:
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+  # ...
+```
+
+#### Hyperparameter Optimization
+
+Run hyperparameter optimization (HPO) for Chemprop models using Ray Tune with ASHA scheduler:
+
+```bash
+# Run HPO from command line
+python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml --num-samples 50
+
+# With custom resource allocation
+python -m admet.model.chemprop.hpo -c configs/hpo_chemprop.yaml \
+    --gpus-per-trial 0.5 --cpus-per-trial 4 --output-dir hpo_results/
+```
+
+Or use the convenience bash script:
+
+```bash
+# Run HPO with default settings
+./scripts/run_chemprop_hpo.sh --config configs/hpo_chemprop.yaml --num-samples 50
+```
+
+Or programmatically in Python:
+
+```python
+from omegaconf import OmegaConf
+from admet.model.chemprop import ChempropHPO, HPOConfig
+
+# Load HPO configuration
+config = OmegaConf.merge(
+    OmegaConf.structured(HPOConfig),
+    OmegaConf.load("configs/hpo_chemprop.yaml")
+)
+
+# Create HPO runner
+hpo = ChempropHPO(config)
+
+# Run optimization (returns Ray Tune ResultGrid)
+result = hpo.run()
+
+# Get top-k configurations as list of dicts
+top_configs = hpo.get_top_k_configs(result, k=5)
+
+# Results are also saved to:
+# - hpo_results/top_k_configs.json (best hyperparameters)
+# - hpo_results/ray_results/ (full Ray Tune artifacts)
+```
+
+Key HPO features:
+
+- **ASHA Scheduler**: Early stopping of underperforming trials using Asynchronous Successive Halving
+- **Conditional Search Spaces**: Automatic handling of architecture-dependent parameters (MoE experts, branched network trunk settings)
+- **Transfer Learning**: Optional warm-start from pretrained CheMeleon checkpoints
+- **MLflow Integration**: All trials logged as nested runs under a parent HPO experiment
+- **Resource Management**: Fine-grained GPU/CPU allocation per trial for efficient parallelization
+
+### Model Card
+
+Comprehensive model documentation following ML transparency best practices is available in [`docs/model_card.md`](./docs/model_card.md). The model card includes:
+
+- Intended use cases and limitations
+- Training data descriptions and preprocessing
+- Evaluation metrics and benchmark results
+- Ethical considerations and bias analysis
+
+### Ensemble Metrics
+
+The ensemble training module reports comprehensive performance metrics:
+
+- **MAE** (Mean Absolute Error): Primary regression metric
+- **RMSE** (Root Mean Square Error): Penalizes large errors
+- **RAE** (Relative Absolute Error): Scale-independent error relative to baseline
+- **$R^2$**: Coefficient of determination
+- **Pearson $r^2$**: Squared linear correlation coefficient
+- **Spearman $\rho^2$**: Squared rank correlation (robust to outliers)
+- **Kendall $\tau$**: Ordinal association measure
+
+These metrics are computed per-target and aggregated with uncertainty estimates (mean ± stderr) across ensemble members.
+
+### Data Splitting
+
+Generate train/validation splits using cluster-based cross-validation with multiple stratification strategies:
+
+```bash
+# Run data splitting from command line
+python -m admet.data.split --input data.csv --output outputs/ \
+    --cluster-method bitbirch --split-method multilabel_stratified_kfold
+
+# Or use the batch script for all configurations
+./scripts/run_data_splits.sh --input data.csv --output-dir assets/dataset/splits/
+```
+
+Or programmatically in Python:
+
+```python
+from admet.data.split import pipeline
+import pandas as pd
+
+df = pd.read_csv("data.csv")
+
+# Run clustering and cross-validation splitting
+df_with_assignments = pipeline(
+    df,
+    cluster_method="bitbirch",      # Options: random, scaffold, kmeans, umap, butina, bitbirch
+    split_method="multilabel_stratified_kfold",  # Options: group_kfold, stratified_kfold, multilabel_stratified_kfold
+    n_splits=5,
+    n_folds=5,
+    smiles_col="SMILES",
+    quality_col="Quality",
+    fig_dir="outputs/figures",
+)
+
+# Access fold assignments
+print(df_with_assignments[["SMILES", "cluster", "split_0_fold_0"]])
+```
+
+Key splitting features:
+
+- **BitBirch Clustering**: Scalable hierarchical clustering using RDKit fingerprints (recommended)
+- **Stratification Options**: Balance endpoint coverage and quality distributions across folds
+- **Multi-label Support**: Handle sparse multi-task datasets with `MultilabelStratifiedKFold`
+- **Diagnostic Plots**: Automatic visualization of cluster distributions and fold statistics
+
 ### Tech Stack Highlights
 
 - `Python 3.11`: modern baseline with `Typer`/`Rich` powering the CLI.
@@ -18,7 +242,7 @@ You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if 
 - `Transformers` (`ChemBERTa`): SMILES sequence modeling and transfer learning.
 - `XGBoost` + `LightGBM`: strong tabular baselines for speed and interpretability.
 - `PyTorch` + `TorchMetrics`: deep learning backbone with consistent metric logging.
-- `Ray Tune`: distributed hyperparameter search and parallel training orchestration.
+- `Ray Tune`: distributed hyperparameter search (ASHA scheduler) and parallel training orchestration.
 - `MLflow`: experiment tracking, artifacts, and configuration capture.
 - `Matplotlib`/`Seaborn`: visualization stack for EDA and reporting.
 - `Polaris`/`TDC`/`Hugging Face Datasets`: curated ADMET data access and augmentation.
@@ -37,106 +261,6 @@ You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if 
 - `pytest -q`: quick test suite smoke run on commit.
 - `docs` rebuild hook: ensures Sphinx docs compile cleanly before commits.
 - `Commitizen`: commit message linting to enforce changelog-friendly messages.
-
-### Split the dataset
-
-To create train/validation/test splits of the dataset, run the dataset split pipeline:
-
-```bash
-admet --log-level 'INFO' \
-  split datasets \
-  --input 'assets/dataset/eda/data/set' \
-  --output 'assets/dataset/splits' \
-  --overwrite
-```
-
-### Train XGBoost Model
-
-To train an XGBoost model, you will need to create a YAML configuration file with the desired hyperparameters
-and dataset location. The dataset root lives under `data.root` in the config (override anytime with
-`--data-root`). We have provided multiple template configuration files under the `configs/` directory.
-
-#### Single Model Training
-
-To train a single XGBoost model on a specific fold, run the following command:
-
-```bash
-admet --log-level INFO \
-  train xgb \
-  --config configs/xgb_train_single.yaml
-```
-
-MLflow logging is on by default for training. Set `training.experiment_name`
-and optionally `training.tracking_uri` in your YAML (defaults can also be set
-with `MLFLOW_TRACKING_URI`). The CLI logs:
-
-- all YAML config values and CLI overrides as MLflow parameters for reproducibility
-- metrics and per-split summaries
-- artifacts (trained model, metrics.json, figures, and summary CSV/JSON for ensembles)
-
-#### Ensemble (Multi-Model) Training
-
-To train multiple XGBoost models across all folds, run the following command:
-
-```bash
-admet --log-level INFO \
-  train xgb \
-  --config configs/xgb_train_ensemble.yaml
-```
-
-To override the dataset location without editing the YAML, provide `--data-root path/to/dataset`.
-
-A parent MLflow run is created for ensembles; each fold/model is logged as a
-child run so artifacts and metrics stay grouped.
-
-A Ray cluster can be pre-initialized to accelerate multi-model training.
-If one is not already running, the job will create a local Ray cluster instance if `--ray-address "local"` is specified or will run without Ray if `--ray-address` is not provided.
-
-#### Ensemble Evaluation
-
-To evaluate an ensemble of models produced by `admet train` under a single
-parent directory, use the `ensemble-eval` command with a YAML configuration.
-An example is provided at `configs/xgb_predict.yaml` as a template.
-
-Example command:
-
-```bash
-admet --log-level DEBUG \
-    ensemble-eval \
-  --config configs/xgb_predict_ensemble.yaml
-```
-
-The YAML fields are as follows:
-
-- `models_root`: Parent directory containing many model run subdirectories.
-  Each run should have been created by `admet train` and contain a
-  `run_meta.json` file written by the trainer, or a legacy `config.json` for
-  older XGBoost-only runs.
-- `eval_csv`: Path to the labeled evaluation CSV. Expected columns (header
-  row):
-
-  ```csv
-  Molecule Name,SMILES,Dataset,LogD,KSOL,HLM CLint,MLM CLint,Caco-2 Permeability Papp A>B,Caco-2 Permeability Efflux,MPPB,MBPB,MGMB
-  ```
-
-- `blind_csv`: Path to an unlabeled CSV (or `null` if not used). Expected
-  columns:
-
-  ```csv
-  Molecule Name,SMILES
-  ```
-
-- `train_data_root`: Optional path to the Hugging Face training splits used to
-  fit the ensemble. When provided, the CLI will score the aggregated
-  train/validation/test splits and emit predictions, metrics, and plots under
-  the `train/` output folders.
-
-- `agg_fn`: Aggregation function for ensemble predictions (choices: `mean` or
-  `median`; default `mean`).
-
-The CLI options are:
-
-- `--config / -c`: Path to the YAML configuration file.
 
 ### Documentation Build
 
@@ -187,7 +311,8 @@ These targets call `sphinx-build` under the hood and produce output in `docs/_bu
 
 We plan to benchmark the following models:
 
-- XGBoost Baseline
+- XGBoost
+- LightGBM
 - Chemprop Multitask (trained from scratch)
 - Chemprop CheMeleon (finetuned)
 - GROVER (finetuned)
@@ -201,6 +326,8 @@ Each of the models will be trained as ensemble models with 5-fold cross-validati
 We will explore various hyperparameter optimization strategies, including grid search, random search, and Bayesian optimization, to identify the best model configurations for each architecture.
 
 We will also explore super-ensembling techniques to combine the embeddings and/or predictions from multiple models to further enhance predictive performance.
+
+To begin, we will not use KERMT and ChemBERTa-3 due to local hardware constraints, but we plan to include them in future iterations.
 
 ### Endpoints
 
@@ -232,18 +359,6 @@ The challenge will be judged based on the following criteria:
 ### Datasets
 
 We will attempt to augment the provided training dataset with additional publicly available ADMET datasets to improve model performance. Potential sources for augmentation are listed in the Links section below.
-
-## Open Questions
-
-- How to best split the dataset for train/validation/test?
-  - Random split
-  - Scaffold split
-  - Butina clustering split
-  - UMAP clustering split
-  - Time-based split (if timestamps are available)
-- Should we incorprate stereochemistry information or remove it as part of preprocessing?
-- How should we handle salts and counterions in the SMILES strings?
-- How should we handle tautomeric forms of molecules?
 
 ## Links
 

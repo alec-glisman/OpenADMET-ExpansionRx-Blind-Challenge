@@ -41,6 +41,12 @@ This file documents how to contribute to this machine-learning project. It cover
 - Add fast unit tests for deterministic code paths. Heavy model training should not run in CI unless it is a short smoke test.
 - Use `pytest` for tests. Keep CI jobs fast by running only unit tests and linters; reserve longer integration tests for scheduled pipelines.
 
+Note: Tests that require MLflow (e.g., start MLflow runs) are marked with `no_mlflow_runs` and are excluded by default from CI and standard `pytest` runs. To run them explicitly, use:
+
+```bash
+pytest -m no_mlflow_runs -q
+```
+
 Example local test run:
 
 ```bash

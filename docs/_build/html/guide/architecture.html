@@ -7,10 +7,10 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/guide/architecture.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="This page gives you a high‑level mental model of the admet package: how modules are layered, how data flows through the system, and where you can extend functionality. Layered Package Map: The code..." />
+<meta property="og:description" content="This page gives you a high-level mental model of the admet package: how modules are layered, how data flows through the system, and where you can extend functionality. Layered Package Map: The code..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="This page gives you a high‑level mental model of the admet package: how modules are layered, how data flows through the system, and where you can extend functionality. Layered Package Map: The code..." />
+<meta name="description" content="This page gives you a high-level mental model of the admet package: how modules are layered, how data flows through the system, and where you can extend functionality. Layered Package Map: The code..." />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Data Sources &amp; Curation" href="data_sources.html"><link rel="prev" title="Development Guide" href="development.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
@@ -213,14 +213,10 @@
   <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<cite>admet.data</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Wrappers (<cite>admet.model</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.train.html">Training Orchestration (<cite>admet.train</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.evaluate.html">Evaluation (<cite>admet.evaluate</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.visualize.html">Visualization Tools (<cite>admet.visualize</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.cli.html">Command Line Interface (<cite>admet.cli</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.utils.html">General Utilities (<cite>admet.utils</cite>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/admet.logging.html">Logging Configuration (<cite>admet.logging</cite>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
@@ -274,70 +270,131 @@
         <article role="main" id="furo-main-content">
           <section id="architecture-overview">
 <h1>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h1>
-<p>This page gives you a high‑level mental model of the <cite>admet</cite> package: how
+<p>This page gives you a high-level mental model of the <code class="docutils literal notranslate"><span class="pre">admet</span></code> package: how
 modules are layered, how data flows through the system, and where you can
 extend functionality.</p>
 <section id="layered-package-map">
 <h2>Layered Package Map<a class="headerlink" href="#layered-package-map" title="Link to this heading">¶</a></h2>
-<p>The code base is organized into clear functional layers:</p>
+<p>The codebase is organized into clear functional layers:</p>
 <ol class="arabic simple">
-<li><p>Data Layer (<cite>admet.data</cite>): loading, curation, chemical feature extraction, splitting.</p></li>
-<li><p>Modeling Layer (<cite>admet.model</cite>): model wrappers (e.g., XGBoost, LightGBM) with unified interfaces.</p></li>
-<li><p>Training Layer (<cite>admet.train</cite>): trainer abstractions that orchestrate datasets, models, metrics, persistence.</p></li>
-<li><p>Evaluation Layer (<cite>admet.evaluate</cite>): metric calculation and reporting.</p></li>
-<li><p>Visualization Layer (<cite>admet.visualize</cite>): generation of performance figures and dataset exploration plots.</p></li>
-<li><p>CLI Layer (<cite>admet.cli</cite>): user‑facing entry points for download, split, train, evaluate.</p></li>
+<li><p><strong>Data Layer</strong> (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>): Data loading, chemical feature extraction, and
+cluster-based dataset splitting with quality-aware stratification.</p></li>
+<li><p><strong>Modeling Layer</strong> (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>): Model implementations organized by type:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop</span></code>: Chemprop MPNN models with ensemble training,
+hyperparameter optimization, and curriculum learning support.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.classical</span></code>: Traditional ML models (XGBoost, LightGBM).</p></li>
+</ul>
+</li>
+<li><p><strong>Visualization Layer</strong> (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>): Performance figures, parity plots,
+metric visualizations, and dataset exploration plots.</p></li>
+<li><p><strong>Utilities</strong> (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>): Logging configuration and helper functions.</p></li>
 </ol>
 </section>
 <section id="data-flow-lifecycle">
 <h2>Data Flow Lifecycle<a class="headerlink" href="#data-flow-lifecycle" title="Link to this heading">¶</a></h2>
-<p>The typical end‑to‑end pipeline follows these stages:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>raw data --&gt; standardization / cleaning --&gt; feature engineering (fingerprints)
-          --&gt; dataset splitting (quality tiers &amp; train/valid/test)
-          --&gt; model training (hyperparameters / config) --&gt; evaluation (metrics)
-          --&gt; visualization (figures, summaries) --&gt; artifacts (saved models)
+<p>The typical end-to-end pipeline follows these stages:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>raw data --&gt; standardization / cleaning --&gt; SMILES canonicalization
+          --&gt; cluster-based splitting (BitBirch + stratification)
+          --&gt; model training (Chemprop + curriculum learning)
+          --&gt; ensemble predictions (with uncertainty)
+          --&gt; evaluation (metrics) --&gt; visualization
 </pre></div>
 </div>
 </section>
 <section id="key-modules-and-responsibilities">
 <h2>Key Modules and Responsibilities<a class="headerlink" href="#key-modules-and-responsibilities" title="Link to this heading">¶</a></h2>
+<section id="data-layer">
+<h3>Data Layer<a class="headerlink" href="#data-layer" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p><cite>admet.data.download</cite>: Fetch or assemble raw and curated datasets.</p></li>
-<li><p><cite>admet.data.chem</cite> / <cite>fingerprinting</cite>: Molecular feature generation (e.g. fingerprints).</p></li>
-<li><p><cite>admet.data.splitter</cite>: Implements split strategies and quality stratification.</p></li>
-<li><p><cite>admet.model.*_wrapper</cite>: Adapters around external libraries to present a unified interface.</p></li>
-<li><p><cite>admet.train.*</cite>: Trainers coordinating model fitting and artifact output.</p></li>
-<li><p><cite>admet.evaluate.metrics</cite>: Metric definitions for classification/regression.</p></li>
-<li><p><cite>admet.visualize.*</cite>: Plotting utilities for dataset and performance inspection.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.data.smiles</span></code>: SMILES processing and canonicalization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.data.fingerprint</span></code>: Molecular fingerprint generation (Morgan, ECFP)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.data.property</span></code>: Property calculation and feature engineering</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.data.split</span></code>: Cluster-aware splitting with BitBirch and stratification</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.data.constant</span></code>: Dataset constants and transformation helpers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.data.stats</span></code>: Statistical analysis utilities</p></li>
+</ul>
+</section>
+<section id="modeling-layer">
+<h3>Modeling Layer<a class="headerlink" href="#modeling-layer" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.model</span></code>: <code class="docutils literal notranslate"><span class="pre">ChempropModel</span></code> class for single model training</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.ensemble</span></code>: <code class="docutils literal notranslate"><span class="pre">ChempropEnsemble</span></code> for multi-fold training</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.hpo</span></code>: <code class="docutils literal notranslate"><span class="pre">ChempropHPO</span></code> for hyperparameter optimization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.curriculum</span></code>: Curriculum learning with quality awareness</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.ffn</span></code>: Custom FFN architectures (MoE, Branched)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.config</span></code>: OmegaConf dataclass configurations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.classical</span></code>: Classical ML model wrappers</p></li>
+</ul>
+</section>
+<section id="visualization-layer">
+<h3>Visualization Layer<a class="headerlink" href="#visualization-layer" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.plot.parity</span></code>: Parity plots for regression evaluation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.plot.metrics</span></code>: Metric computation and bar chart visualization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.plot.density</span></code>: Distribution and density plots</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.plot.heatmap</span></code>: Correlation heatmaps</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.plot.split</span></code>: Dataset split diagnostics</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.plot.latex</span></code>: LaTeX-safe formatting for publications</p></li>
+</ul>
+</section>
+</section>
+<section id="configuration-system">
+<h2>Configuration System<a class="headerlink" href="#configuration-system" title="Link to this heading">¶</a></h2>
+<p>The package uses OmegaConf dataclasses for configuration management:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropConfig</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="c1"># Load from YAML</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/ensemble_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
+
+<span class="c1"># Access nested configuration</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ffn_type</span><span class="p">)</span>  <span class="c1"># &quot;regression&quot;</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">)</span>  <span class="c1"># &quot;SMILES&quot;</span>
+</pre></div>
+</div>
+<p>Key configuration classes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ChempropConfig</span></code>: Single model configuration</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EnsembleConfig</span></code>: Multi-model ensemble settings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HPOConfig</span></code>: Hyperparameter optimization settings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DataConfig</span></code>: Dataset paths and column names</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModelConfig</span></code>: Model architecture parameters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OptimizationConfig</span></code>: Training hyperparameters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MlflowConfig</span></code>: Experiment tracking settings</p></li>
 </ul>
 </section>
 <section id="extensibility-points">
 <h2>Extensibility Points<a class="headerlink" href="#extensibility-points" title="Link to this heading">¶</a></h2>
 <p>You can add new functionality without modifying core internals by:</p>
 <ul class="simple">
-<li><p>New Data Source: Implement a loader in <cite>admet.data.download</cite> and register it in the CLI.</p></li>
-<li><p>Custom Feature Representation: Add a module in <cite>admet.data.fingerprinting</cite> and expose a factory.</p></li>
-<li><p>New Model Type: Create a wrapper subclass in <cite>admet.model</cite> following existing wrapper API.</p></li>
-<li><p>Alternative Trainer: Implement a trainer in <cite>admet.train</cite> leveraging shared utilities.</p></li>
-<li><p>Additional Metrics: Define functions in <cite>admet.evaluate.metrics</cite> and reference them in evaluation.</p></li>
-<li><p>New Visualizations: Add plotting functions in <cite>admet.visualize</cite> and link them in docs/examples.</p></li>
+<li><p><strong>New Splitting Strategy</strong>: Add a function in <code class="docutils literal notranslate"><span class="pre">admet.data.split</span></code> implementing
+the cluster/stratification logic.</p></li>
+<li><p><strong>Custom FFN Architecture</strong>: Implement in <code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.ffn</span></code> following
+the existing MoE/Branched patterns.</p></li>
+<li><p><strong>New Visualization</strong>: Add plotting functions in <code class="docutils literal notranslate"><span class="pre">admet.plot</span></code> and expose
+via <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>.</p></li>
+<li><p><strong>Additional Metrics</strong>: Extend <code class="docutils literal notranslate"><span class="pre">admet.plot.metrics</span></code> with new metric functions.</p></li>
 </ul>
 </section>
 <section id="design-principles">
 <h2>Design Principles<a class="headerlink" href="#design-principles" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>Separation of Concerns: Keep data preparation, training, and evaluation isolated.</p></li>
-<li><p>Minimal Coupling: Model wrappers do not assume specific dataset implementations beyond required interface.</p></li>
-<li><p>Declarative Configuration: Hyperparameters and run settings externalized (e.g., YAML config files).</p></li>
-<li><p>Reproducibility: Deterministic seeds for splitting and training when feasible.</p></li>
+<li><p><strong>Separation of Concerns</strong>: Data preparation, modeling, and visualization isolated.</p></li>
+<li><p><strong>Configuration-Driven</strong>: All hyperparameters externalized to YAML files.</p></li>
+<li><p><strong>Reproducibility</strong>: Deterministic seeds, cluster-based splitting, MLflow tracking.</p></li>
+<li><p><strong>Parallelization</strong>: Ray-based distributed training and HPO.</p></li>
+<li><p><strong>Quality Awareness</strong>: Curriculum learning and stratification by quality tiers.</p></li>
 </ul>
 </section>
 <section id="cross-references">
 <h2>Cross-References<a class="headerlink" href="#cross-references" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>See <a class="reference internal" href="data_sources.html"><span class="doc">Data Sources &amp; Curation</span></a> for input provenance and curation.</p></li>
-<li><p>See <a class="reference internal" href="splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> for dataset partitioning methodology.</p></li>
-<li><p>See <a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> (planned) for details on adding new model wrappers.</p></li>
+<li><p>See <a class="reference internal" href="data_sources.html"><span class="doc">Data Sources &amp; Curation</span></a> for input provenance and curation</p></li>
+<li><p>See <a class="reference internal" href="splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> for dataset partitioning methodology</p></li>
+<li><p>See <a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> for training details and model usage</p></li>
+<li><p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for configuration file format</p></li>
 </ul>
 </section>
 </section>
@@ -400,7 +457,13 @@ extend functionality.</p>
 <li><a class="reference internal" href="#">Architecture Overview</a><ul>
 <li><a class="reference internal" href="#layered-package-map">Layered Package Map</a></li>
 <li><a class="reference internal" href="#data-flow-lifecycle">Data Flow Lifecycle</a></li>
-<li><a class="reference internal" href="#key-modules-and-responsibilities">Key Modules and Responsibilities</a></li>
+<li><a class="reference internal" href="#key-modules-and-responsibilities">Key Modules and Responsibilities</a><ul>
+<li><a class="reference internal" href="#data-layer">Data Layer</a></li>
+<li><a class="reference internal" href="#modeling-layer">Modeling Layer</a></li>
+<li><a class="reference internal" href="#visualization-layer">Visualization Layer</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-system">Configuration System</a></li>
 <li><a class="reference internal" href="#extensibility-points">Extensibility Points</a></li>
 <li><a class="reference internal" href="#design-principles">Design Principles</a></li>
 <li><a class="reference internal" href="#cross-references">Cross-References</a></li>

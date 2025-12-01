@@ -1,0 +1,122 @@
+# Ensemble ChempropModel Configuration
+# =====================================
+# This YAML file configures ensemble training across multiple splits and folds.
+# The script will automatically discover split_*/fold_*/ subdirectories and
+# train a model on each, then aggregate predictions with uncertainty estimates.
+#
+# Usage:
+#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
+
+# Data configuration for ensemble
+data:
+  # Root directory containing split_*/fold_*/ subdirectories
+  # Expected structure:
+  #   data_dir/
+  #     split_0/
+  #       fold_0/
+  #         train.csv
+  #         validation.csv
+  #       fold_1/
+  #         ...
+  #     split_1/
+  #       ...
+  data_dir: "assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+
+  # Global test and blind files (same for all ensemble members)
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+
+  # Output directory for ensemble results (null for temp directory)
+  output_dir: null
+
+  # Column configuration
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+  # Per-task loss weights (optional, defaults to 1.0 for each)
+  target_weights:
+    - 0.5
+    - 2.0
+    - 3.0
+    - 3.0
+    - 5.0
+    - 5.0
+    - 2.0
+    - 3.0
+    - 3.5
+
+  # Optional: filter specific splits/folds (null = use all found)
+  # splits: [0, 1, 2]  # Only use splits 0, 1, 2
+  # folds: [0, 1, 2, 3, 4]  # Only use folds 0-4
+  splits: null
+  folds: null
+
+# Model architecture configuration (shared across ensemble)
+model:
+  depth: 5
+  message_hidden_dim: 500
+  num_layers: 2
+  hidden_dim: 500
+  dropout: 0.05
+  batch_norm: true
+  ffn_type: "regression"
+  trunk_n_layers: 2
+  trunk_hidden_dim: 500
+  n_experts: 4
+
+# Optimization configuration (shared across ensemble)
+optimization:
+  criterion: "MSE"
+  init_lr: 1.0e-4
+  max_lr: 1.0e-3
+  final_lr: 1.0e-4
+  warmup_epochs: 5
+  max_epochs: 150
+  patience: 15
+  batch_size: 32
+  num_workers: 0
+  seed: 12345
+  progress_bar: false
+
+# MLflow experiment tracking configuration
+mlflow:
+  tracking: true
+  tracking_uri: "http://127.0.0.1:8080"
+  experiment_name: "ensemble_chemprop_production"
+  run_name: null # Auto-generated parent run name
+  nested: true
+
+# Ensemble-specific settings
+# Maximum models to train in parallel (adjust based on GPU memory)
+# Each model will get 1/max_parallel of the GPU
+max_parallel: 5
+
+# Ray cluster configuration (optional)
+# ray_num_cpus: 8  # Limit CPUs for Ray
+# ray_num_gpus: 1  # Number of GPUs available
+ray_num_cpus: null
+ray_num_gpus: null
+
+# Curriculum learning configuration
+# =================================
+# Quality-aware curriculum learning is disabled by default.
+# Enable it when training on mixed-quality datasets.
+curriculum:
+  enabled: false
+  quality_col: "Quality"
+  qualities:
+    - "high"
+    - "medium"
+    - "low"
+  patience: 5
+  seed: 42

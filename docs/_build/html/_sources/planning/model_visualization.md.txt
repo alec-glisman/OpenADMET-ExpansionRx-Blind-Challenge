@@ -1,0 +1,292 @@
+---
+
+post_title: "XGBoost Post-Training Visualization Plan"
+author1: "OpenADMET Team"
+post_slug: "xgb-visualization-plan"
+microsoft_alias: "na"
+featured_image: ""
+categories: ["docs"]
+tags: ["xgboost", "visualization", "metrics", "admet"]
+ai_note: "true"
+summary: "Add default post-training visualizations: per-endpoint parity plots with train/val/test subplots, and bar charts for R² and Spearman ρ² across splits on log/linear scales."
+post_date: "2025-11-19"
+---
+
+# XGBoost Post-Training Visualization Plan
+
+## Overview
+
+- Goal: After every XGBoost training run, automatically generate:
+  - Per-endpoint parity plots (predicted vs. true) with three subplots: train, validation, test.
+  - Bar charts for per-endpoint R² and Spearman ρ² across splits (train/val/test).
+- Scales: Produce both log and linear scale plots (consistent with current metric computation).
+- Defaults: No new CLI flags; visualizations run by default post-training and save under `output_dir/figures`.
+
+## Scope & Requirements
+
+- Always-on visualization after training completes successfully.
+- Parity plots:
+  - One figure per endpoint containing 3 subplots (train/val/test).
+  - Include 45° identity line, equal aspect ratio, and annotated statistics (MAE, RMSE, R², Spearman ρ).
+- Metric bar charts:
+  - Two separate figures per scale: one for R² and one for Spearman ρ².
+  - Grouped by endpoint with three bars per endpoint (train, val, test).
+- Scales:
+  - Log-space plots and metrics (as trained/evaluated).
+  - Linear-space plots and metrics (apply 10^x to all endpoints except `LogD`).
+- Output:
+  - Save to `output_dir/figures/log/` and `output_dir/figures/linear/`.
+  - Filenames:
+    - Parity plots: `parity_{endpoint}.png`
+    - R² bars: `metrics_r2.png`
+    - Spearman ρ² bars: `metrics_spearman_r2.png`
+- No CLI changes required.
+
+## Data & Transforms
+
+- Data sources in trainer (`train_xgb_models`):
+  - Features: `X_train`, `X_val`, `X_test`
+  - Targets: `Y_train`, `Y_val`, `Y_test`
+  - Masks: `mask_train`, `mask_val`, `mask_test` where 1 indicates non-NaN labels.
+  - Predictions: `pred_train`, `pred_val`, `pred_test`
+  - Endpoints: `dataset.endpoints` (aligned to target/pred columns by index).
+- Transform rules (consistent with `compute_metrics_log_and_linear`):
+  - Log space: use `Y_*` and `pred_*` as-is.
+  - Linear space: apply `10**x` to `Y_*` and `pred_*` for all endpoints except `LogD`.
+- Masking:
+  - For endpoint j, use rows where `mask_*[:, j] == 1` for plotting and metric computation.
+
+## Integration Points
+
+- Hook in xgb_train.py:
+  - After computing `pred_*` and `metrics`, call visualization utilities.
+  - Use in-scope arrays (`Y_*`, `pred_*`, `mask_*`, `endpoints`) to avoid recomputation/reload.
+- Artifact placement:
+  - Ensure `output_dir/figures/{space}` exists; save figures there.
+  - Keep existing artifacts (`model/` and `metrics.json`) unchanged.
+
+## Plot Designs
+
+### Parity Plots (Per Endpoint)
+
+- Layout: 1 figure per endpoint, 3 subplots: train (left), validation (center), test (right).
+- Elements:
+  - Scatter of predicted vs true.
+  - 45° identity line.
+  - Equal aspect ratio and matched x/y limits (auto-expand by small margin).
+  - Axis labels: `True` vs `Predicted` with unit/scale notation (e.g., “(log10)” or “(linear)”).
+  - Stats box: MAE, RMSE, R², Spearman ρ (rounded, consistent formatting).
+- Styles:
+  - Seaborn default style, gridlines (y and x), alpha ~0.7 for points, small point size for dense data.
+  - DPI 600 for publication-ready figures.
+
+### Bar Charts (R² and Spearman ρ²)
+
+- Two figures per scale:
+  - `metrics_r2.png`: grouped bars per endpoint showing R² for train, val, test.
+  - `metrics_spearman_r2.png`: grouped bars per endpoint showing ρ² for train, val, test.
+- Bars:
+  - X-axis: endpoints (ordered as in `dataset.endpoints`).
+  - Three bars per endpoint (train, val, test); legend denotes split.
+  - Y-axis: [0, 1] where applicable; clamp negative R² to display but do not truncate data.
+- Labels:
+  - Title indicates scale and metric (e.g., “R² by Endpoint (log)”), legend for splits.
+  - Rotate endpoint labels for readability (e.g., 30–45°).
+- Styles:
+  - Seaborn color palette with consistent split colors across figures.
+  - Gridlines on y-axis, DPI 600.
+
+## Implementation Outline
+
+### New Module
+
+- `src/admet/visualize/model_performance.py`
+  - `plot_parity_grid(y_true_dict, y_pred_dict, mask_dict, endpoints, *, space: str, save_dir: Path, dpi: int = 600) -> None`
+    - `y_*_dict`: dict with keys `train`, `val`, `test` → arrays shaped `(n_samples, n_endpoints)`.
+    - Applies endpoint-wise masking.
+    - Applies scale transform for `space in {"log","linear"}`.
+    - Generates one figure per endpoint with 3 subplots and saves PNGs.
+  - `plot_metric_bars(y_true_dict, y_pred_dict, mask_dict, endpoints, *, space: str, save_path_r2: Path, save_path_spr2: Path, dpi: int = 600) -> None`
+    - Computes per-endpoint R² and Spearman ρ; squares ρ for ρ².
+    - Builds grouped bar charts across endpoints for each split (train/val/test).
+    - Saves two figures.
+
+### Trainer Hook
+
+- In `train_xgb_models` (post-prediction, pre-return):
+  - Compose dictionaries:
+    - `y_true = {"train": Y_train, "val": Y_val, "test": Y_test}`
+    - `y_pred = {"train": pred_train, "val": pred_val, "test": pred_test}`
+    - `y_mask = {"train": mask_train, "val": mask_val, "test": mask_test}`
+  - For each `space in ["log","linear"]`:
+    - Create `fig_dir = output_dir / "figures" / space` and save:
+      - Parity plots: `parity_{endpoint}.png`
+      - Metric bars: `metrics_r2.png`, `metrics_spearman_r2.png`
+
+## Computation Details
+
+- R²: `sklearn.metrics.r2_score` or manual variance-based computation on masked vectors.
+- Spearman ρ: `scipy.stats.spearmanr(y_true_ep, y_pred_ep).correlation`; square for ρ²; handle NaN when fewer than 2 points.
+- Mask enforcement: always filter by `mask_split[:, j] == 1` before any computation or plotting.
+- Axis limits:
+  - Compute min/max from pooled true and predicted values; pad by ~5–10%.
+  - For linear space with heavy tails, cap at robust percentiles (e.g., 1st–99th) with an option to extend if too aggressive.
+
+## File Layout & Naming
+
+- Output directories:
+  - `output_dir/figures/log/`
+  - `output_dir/figures/linear/`
+- Filenames:
+  - Parity per endpoint: `parity_{endpoint}.png`
+  - R² bars: `metrics_r2.png`
+  - Spearman ρ² bars: `metrics_spearman_r2.png`
+
+## Styling & Conventions
+
+- Use seaborn defaults; grids styled as `--` with alpha ~0.7.
+- Font sizes consistent with existing plots (labels ~12–14; ticks ~10–12).
+- DPI 600 to match `dataset_viz` figure quality.
+- Logging: `logger.info` path of saved figures; `logger.debug` with basic counts.
+
+## Validation
+
+- Unit-check: ensure figures are generated when `output_dir` is provided.
+- Quick run sanity:
+  - Verify counts of generated files match number of endpoints and scales.
+  - Spot-check that parity axes are equal and identity line is drawn.
+  - Confirm bar charts include all endpoints and splits.
+
+## Risks & Mitigations
+
+- Sparse endpoints:
+  - If an endpoint has too few points (mask sum < 2), skip Spearman computation and annotate “n/a”.
+- Linear scale outliers:
+  - Use robust axis limits to keep plots readable; note in docstring.
+- Performance:
+  - Figures scale linearly with endpoints; acceptable for typical ADMET endpoint counts.
+
+## Assumptions
+
+- Dataset Integrity: All `Y_*` arrays align column-wise with `endpoints` and contain log10-transformed values where applicable (training operates in log space).
+- Endpoint Exception: `LogD` is already linear; exclude it from 10** back-transform in linear space derivations.
+- Mask Semantics: `mask_split[i, j] == 1` implies a valid label for sample i, endpoint j; zeros imply exclusion from plotting and metrics.
+- Consistent Ordering: Endpoints appear in identical order across arrays, masks, metrics, and output figures.
+- Prediction Completeness: Each trained endpoint produces predictions for all samples (mask filters validity).
+- Logger Availability: A configured `logger` instance is accessible in training scope for info/debug statements.
+- Dependencies: `numpy`, `scipy`, `matplotlib`, `seaborn`, `sklearn` are installed (add to project requirements if absent).
+
+## Transform Map
+
+| Endpoint | Log Space Input | Linear Transform Applied | Notes |
+|----------|-----------------|--------------------------|-------|
+| LogD     | identity        | identity                 | Already linear; skip 10** |
+| All others | raw (log10)   | `10**values`             | Applied to both true and predicted |
+
+Implementation snippet:
+
+```python
+def to_linear(values: np.ndarray, endpoint: str) -> np.ndarray:
+    return values if endpoint == "LogD" else np.power(10.0, values)
+```
+
+## API Examples
+
+Example usage in `train_xgb_models` (post-prediction):
+
+```python
+from admet.visualize.model_performance import (
+    plot_parity_grid,
+    plot_metric_bars,
+)
+
+y_true = {"train": Y_train, "val": Y_val, "test": Y_test}
+y_pred = {"train": pred_train, "val": pred_val, "test": pred_test}
+y_mask = {"train": mask_train, "val": mask_val, "test": mask_test}
+
+fig_root = output_dir / "figures"
+for space in ["log", "linear"]:
+    space_dir = fig_root / space
+    space_dir.mkdir(parents=True, exist_ok=True)
+    plot_parity_grid(y_true, y_pred, y_mask, endpoints, space=space, save_dir=space_dir)
+    plot_metric_bars(y_true, y_pred, y_mask, endpoints, space=space,
+                     save_path_r2=space_dir / "metrics_r2.png",
+                     save_path_spr2=space_dir / "metrics_spearman_r2.png")
+```
+
+Expected parity figure filename pattern:
+
+- `figures/log/parity_Ames.png`
+- `figures/linear/parity_Ames.png`
+
+## TODO Checklist
+
+1. Create module `src/admet/visualize/model_performance.py`.
+2. Implement shared helpers: masking, axis limit calculation, transform handling.
+3. Implement `plot_parity_grid(...)`.
+4. Implement `plot_metric_bars(...)`.
+5. Integrate calls into `train_xgb_models` after metrics computation.
+6. Add required plotting dependencies to `pyproject.toml`.
+7. Add unit tests for visualization logic (non-render assertions).
+8. Verify figure generation on a small synthetic dataset (CI-safe).
+9. Document new module with concise docstrings referencing transform rules.
+10. Confirm filenames and directory layout match plan; adjust if mismatch.
+
+## Unit Testing Strategy
+
+- Granular Helper Tests:
+  - Transform: Assert `to_linear(log10(x))` ≈ original for non-`LogD`; identity for `LogD`.
+  - Mask Application: Ensure filtered arrays lengths equal `mask[:, j].sum()`.
+  - Axis Limits: Provide synthetic arrays; assert padding > 0 and identity line fits range.
+- Statistical Computation Tests:
+  - R²: Compare function output vs `sklearn.metrics.r2_score`.
+  - Spearman ρ: Use monotonic sequences to assert ρ ≈ 1; square to 1 for ρ².
+  - Edge Case: Endpoint with `n_valid < 2` → Spearman returns NaN, annotate “n/a”.
+- Figure Generation (Lightweight):
+  - Use minimal synthetic dataset (e.g., 10 samples, 3 endpoints).
+  - Run plotting functions; assert expected files exist and file sizes > 0 bytes.
+  - Do not assert pixel-level equality (too brittle).
+- Determinism:
+  - Avoid randomness; if jitter or sampling added later, gate behind parameter defaulting to off for tests.
+- Failure Modes:
+  - Empty masks: Parity plot for that endpoint should render annotation “No valid points” and skip scatter.
+  - Mixed NaNs post-transform: Ensure masking prevents propagation to metrics.
+- Test File Suggestions:
+  - `tests/test_model_performance_transforms.py`
+  - `tests/test_model_performance_metrics.py`
+  - `tests/test_model_performance_figures.py`
+
+## Error & Overwrite Policy
+
+- Overwrite Strategy: Existing figure files are overwritten unconditionally to reflect latest model state.
+- Missing Directory: Auto-create with `mkdir(parents=True, exist_ok=True)`.
+- Insufficient Data:
+  - Parity: If zero valid points after masking, create figure with informative text instead of skipping.
+  - Metrics Bars: Endpoint with no valid points yields bar value 0 with hatch pattern and legend note.
+- Spearman NaN: Replace NaN with 0 in bar charts but annotate atop bar “n/a”.
+- Logging:
+  - `logger.info`: Summary of generated files count and directory.
+  - `logger.warning`: Endpoints skipped or annotated due to insufficient data.
+  - `logger.debug`: Per-endpoint counts, axis limits, and computed metric values.
+
+## Spearman Clarification
+
+- Reported Metrics:
+  - Parity Annotation: Spearman ρ (not squared) to reflect rank monotonicity directly.
+  - Bar Charts: Use ρ² to align with variance-explained style summaries; clearly label “Spearman ρ²”.
+- Consistent Labeling:
+  - Figure titles explicitly include “(log)” or “(linear)” and metric nomenclature.
+  - Legend does not repeat scale; scale is global per figure.
+
+## Extension Hooks (Future)
+
+- Optional CLI flag `--skip-plots` for environments without display libs.
+- Alternate output formats: `parity_{endpoint}.svg` for vector graphics.
+- Combined multi-endpoint parity matrix (exploratory only; not in initial scope).
+
+## Success Criteria
+
+- All endpoints produce parity plots in both scales (unless masked out entirely).
+- R² and Spearman ρ² bar charts include every endpoint and split.
+- No exceptions thrown during typical training runs.
+- Unit test suite passes with added visualization tests on CI.

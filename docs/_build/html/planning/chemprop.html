@@ -1,0 +1,895 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="3. Features & Implementation Plan" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/planning/chemprop.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="We’ll implement and test features in phases, walking from basics → sophistication. Each phase should introduce code plus unit tests. Phase 0 – Environment &amp; Dependencies: Goal: Make the repo in..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="We’ll implement and test features in phases, walking from basics → sophistication. Each phase should introduce code plus unit tests. Phase 0 – Environment &amp; Dependencies: Goal: Make the repo in..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>3. Features &amp; Implementation Plan - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/planning/chemprop.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <div class="highlight-markdown notranslate"><div class="highlight"><pre><span></span><span class="gh"># Quality-Aware Curriculum ML for Molecular Property Prediction</span>
+
+This repository is a <span class="gs">**unified framework**</span> for training and evaluating:
+
+<span class="k">-</span><span class="w"> </span><span class="gs">**Classical models**</span>: XGBoost, LightGBM  
+<span class="k">-</span><span class="w"> </span><span class="gs">**Deep learning models**</span>: Chemprop-like GNNs via PyTorch Lightning  
+
+…with:
+
+<span class="k">-</span><span class="w"> </span><span class="gs">**Data quality–aware training**</span> (sample weights + curriculum)  
+<span class="k">-</span><span class="w"> </span><span class="gs">**Chemically meaningful cross-validation**</span> (BitBirch cluster–aware folds)  
+<span class="k">-</span><span class="w"> </span><span class="gs">**Multi-task learning with task weighting**</span>  
+<span class="k">-</span><span class="w"> </span><span class="gs">**Ray Tune**</span> for scalable hyperparameter optimization  
+<span class="k">-</span><span class="w"> </span><span class="gs">**MLflow**</span> (with nested runs) for experiment tracking  
+<span class="k">-</span><span class="w"> </span><span class="gs">**OmegaConf**</span> for configuration management  
+<span class="k">-</span><span class="w"> </span>A growing <span class="gs">**unit test suite**</span> (pytest) to keep everything sane.
+
+The goal: a <span class="ge">*single repo*</span> you can use to systematically compare classical and deep models on molecular datasets where <span class="gs">**data quality varies**</span> and <span class="gs">**chemical diversity and leakage control matter**</span>.
+
+---
+
+<span class="sb">```mermaid</span>
+
+<span class="s">flowchart TD</span>
+
+<span class="s">  subgraph D[Data Preparation]</span>
+<span class="s">    A[Raw CSV: smiles + y_i + assay_quality + dataset_quality]</span>
+<span class="s">    B[augment_quality(df)\n- map assay_quality\n- map dataset_quality\n- combine to quality_score\n- assign quality_bucket]</span>
+<span class="s">    A --&gt; B</span>
+<span class="s">  end</span>
+
+<span class="s">  subgraph CV[Cross-Validation Setup]</span>
+<span class="s">    C[make_folds(df, K)] </span>
+<span class="s">  end</span>
+
+<span class="s">  D --&gt; C</span>
+
+<span class="s">  subgraph R[Ray Tune]</span>
+<span class="s">    R1[Define search space\nlr, wd, depth, hidden_size, dropout,\ncurr_patience, batch_size]</span>
+<span class="s">    R2[Ray Tuner\n(num_samples = N)]</span>
+<span class="s">  end</span>
+
+<span class="s">  C --&gt; R1</span>
+<span class="s">  R1 --&gt; R2</span>
+
+<span class="s">  subgraph T[Per Trial (config)]</span>
+<span class="s">    direction TB</span>
+<span class="s">    T0[Start MLflow parent run\n(trial_id)]</span>
+<span class="s">    subgraph F[For each fold k in 1..K]</span>
+<span class="s">      direction TB</span>
+<span class="s">      F1[Start nested MLflow run\n(trial_id, fold_k)]</span>
+<span class="s">      F2[Create CurriculumState\n(patience = curr_patience)]</span>
+<span class="s">      F3[Create MolDataModule\n(train_idx_k, val_idx_k,\nquality-aware sampler)]</span>
+<span class="s">      F4[Init ChempropLightning\n(Chemprop model + MPNN)]</span>
+<span class="s">      F5[Train with PyTorch Lightning\n+ CurriculumCallback]</span>
+<span class="s">      F6[Compute val_high, val_med, val_low,\nval_combined for fold k]</span>
+<span class="s">      F7[Log fold metrics to nested MLflow run]</span>
+<span class="s">    end</span>
+<span class="s">    T1[Aggregate fold metrics\n(mean val_combined across folds)]</span>
+<span class="s">    T2[Log CV metrics to parent run]</span>
+<span class="s">    T3[Report val_combined to Ray Tune]</span>
+<span class="s">    T0 --&gt; F --&gt; T1 --&gt; T2 --&gt; T3</span>
+<span class="s">  end</span>
+
+<span class="s">  R2 --&gt; T</span>
+
+<span class="s">  subgraph SEL[Selection &amp; Final Model]</span>
+<span class="s">    S1[Ray Tune selects best config]</span>
+<span class="s">    S2[Train final model on full data\nwith best config + curriculum]</span>
+<span class="s">    S3[Log final training as MLflow run]</span>
+<span class="s">  end</span>
+
+<span class="s">  T --&gt; S1 --&gt; S2 --&gt; S3</span>
+
+<span class="sb">```</span>
+
+
+<span class="gu">## 1. High-Level Architecture</span>
+
+<span class="gs">**Single source dataset**</span> (on disk):
+
+<span class="k">-</span><span class="w"> </span><span class="sb">`data/molecules.csv`</span>  
+<span class="w">  </span><span class="k">-</span><span class="w"> </span><span class="sb">`smiles`</span>  
+<span class="w">  </span><span class="k">-</span><span class="w"> </span><span class="sb">`quality`</span> (e.g. <span class="sb">`high/medium/low`</span>)  
+<span class="w">  </span><span class="k">-</span><span class="w"> </span>multi-task targets: <span class="sb">`y1`</span>, <span class="sb">`y2`</span>, …  
+<span class="w">  </span><span class="k">-</span><span class="w"> </span>optional extra feature / meta columns  
+
+<span class="gs">**Derived views and logic (in code):**</span>
+
+<span class="k">1.</span> <span class="gs">**Quality augmentation**</span>
+<span class="w">   </span><span class="k">-</span><span class="w"> </span><span class="sb">`quality_bucket`</span> (categorical)
+<span class="w">   </span><span class="k">-</span><span class="w"> </span><span class="sb">`sample_weight`</span> (numeric, from config: <span class="sb">`high → 1.0`</span>, <span class="sb">`medium → 0.5`</span>, <span class="sb">`low → 0.2`</span>, etc.)
+
+<span class="k">2.</span> <span class="gs">**BitBirch clustering**</span>
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>RDKit fingerprints → BitBirch → <span class="sb">`cluster_id`</span> per molecule
+
+<span class="k">3.</span> <span class="gs">**Stratified, cluster-aware K-fold splitting**</span>
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Combine <span class="gs">**binned task label(s)**</span> + <span class="sb">`quality_bucket`</span> into a joint <span class="sb">`strata`</span> label  
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Use <span class="sb">`StratifiedGroupKFold(y=strata, groups=cluster_id)`</span> to get folds
+
+<span class="k">4.</span> <span class="gs">**Model-specific datasets**</span>
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Classical: <span class="sb">`X, y, w`</span> matrices per fold  
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Chemprop: <span class="sb">`MolDataset`</span> + DataLoaders per fold with <span class="sb">`(x, y, quality_bucket)`</span>
+
+<span class="k">5.</span> <span class="gs">**Model training &amp; evaluation**</span>
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Classical: XGBoost / LightGBM (multi-output) with <span class="sb">`sample_weight`</span>  
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Chemprop: Lightning module with:
+<span class="w">     </span><span class="k">-</span><span class="w"> </span>multi-task loss
+<span class="w">     </span><span class="k">-</span><span class="w"> </span>task weighting
+<span class="w">     </span><span class="k">-</span><span class="w"> </span>curriculum learning based on quality buckets
+
+<span class="k">6.</span> <span class="gs">**HPO &amp; tracking**</span>
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Ray Tune trials → parent MLflow run  
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Each fold → nested MLflow run  
+<span class="w">   </span><span class="k">-</span><span class="w"> </span>Metrics logged per fold &amp; aggregated (CV mean)
+
+---
+
+<span class="gu">## 2. Repository Layout</span>
+
+Planned structure (some files already implemented, others to be added incrementally):
+
+```text
+quality_curriculum_ml/
+├── pyproject.toml           # packaging + dependencies
+├── requirements.txt         # Python dependencies
+├── README.md                # this file
+├── data/
+│   └── molecules.csv        # main dataset (user-provided)
+├── config/
+│   ├── base.yaml            # data, CV, quality, MLflow, Ray
+│   ├── xgboost.yaml         # XGBoost model defaults
+│   ├── lightgbm.yaml        # LightGBM model defaults
+│   └── chemprop.yaml        # Chemprop model defaults
+├── src/
+│   └── quality_curriculum_ml/
+│       ├── <span class="gs">__init__</span>.py
+│       ├── classical/
+│       │   ├── <span class="gs">__init__</span>.py
+│       │   ├── data.py          # load/augment/encode data for classical models
+│       │   ├── models.py        # XGB/LGBM wrappers
+│       │   ├── metrics.py       # per-task &amp; aggregated metrics
+│       │   └── tune_trainable.py# Ray trainable for classical models
+│       └── chemprop/
+│           ├── <span class="gs">__init__</span>.py
+│           ├── data.py          # SMILES featurization + datasets/loaders
+│           ├── curriculum.py    # curriculum state + callbacks
+│           ├── model.py         # LightningModule wrapping Chemprop GNN
+│           └── tune_trainable.py# Ray trainable for Chemprop + Lightning
+├── scripts/
+│   ├── run_tune_xgboost.py      # Ray entrypoint for XGBoost
+│   ├── run_tune_lightgbm.py     # Ray entrypoint for LightGBM
+│   ├── run_tune_chemprop.py     # Ray entrypoint for Chemprop
+│   └── run_mlflow_ui.sh         # convenience script for MLflow UI
+└── tests/
+    ├── <span class="gs">__init__</span>.py
+    ├── test_data.py             # unit tests for data loading/splitting
+    ├── test_classical_models.py # unit tests for XGB/LGBM pipeline
+    ├── test_chemprop_model.py   # unit tests for Chemprop Lightning module
+    └── test_integration.py      # light integration tests for end-to-end flow
+</pre></div>
+</div>
+<hr class="docutils" />
+<section id="features-implementation-plan">
+<h1>3. Features &amp; Implementation Plan<a class="headerlink" href="#features-implementation-plan" title="Link to this heading">¶</a></h1>
+<p>We’ll implement and test features in <strong>phases</strong>, walking from basics → sophistication. Each phase should introduce <strong>code plus unit tests</strong>.</p>
+<section id="phase-0-environment-dependencies">
+<h2>Phase 0 – Environment &amp; Dependencies<a class="headerlink" href="#phase-0-environment-dependencies" title="Link to this heading">¶</a></h2>
+<p><strong>Goal</strong>: Make the repo installable and runnable.</p>
+<ul class="simple">
+<li><p>[ ] Add <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> / <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> with:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">pandas</span></code>, <code class="docutils literal notranslate"><span class="pre">numpy</span></code>, <code class="docutils literal notranslate"><span class="pre">scikit-learn</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xgboost</span></code>, <code class="docutils literal notranslate"><span class="pre">lightgbm</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rdkit</span></code> (or ensure it’s available via conda)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bitbirch</span></code> (or your chosen BitBirch implementation)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">torch</span></code>, <code class="docutils literal notranslate"><span class="pre">pytorch-lightning</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chemprop</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ray[tune]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mlflow</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">omegaconf</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pytest</span></code></p></li>
+</ul>
+</li>
+<li><p>[ ] Add <code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/__init__.py</span></code></p></li>
+<li><p>[ ] Add <code class="docutils literal notranslate"><span class="pre">tests/</span></code> boilerplate and ensure <code class="docutils literal notranslate"><span class="pre">pytest</span></code> runs.</p></li>
+</ul>
+<p><strong>Unit tests</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_environment.py</span></code> (optional)</p>
+<ul>
+<li><p>Confirm imports work (e.g. <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">xgboost</span></code>, <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">lightgbm</span></code>, <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">mlflow</span></code>).</p></li>
+<li><p>Basic smoke test.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="phase-1-core-data-handling-classical-path">
+<h2>Phase 1 – Core Data Handling (Classical Path)<a class="headerlink" href="#phase-1-core-data-handling-classical-path" title="Link to this heading">¶</a></h2>
+<p><strong>Goal</strong>: Load <code class="docutils literal notranslate"><span class="pre">molecules.csv</span></code>, augment with quality, and produce <code class="docutils literal notranslate"><span class="pre">X,</span> <span class="pre">y,</span> <span class="pre">w</span></code> for classical models.</p>
+<p><strong>Files</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">config/base.yaml</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.path</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.target_cols</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.quality_col</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">training.task_weights</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">quality_weights</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cv.*</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mlflow.*</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ray.*</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/classical/data.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_data(path)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">augment_quality(df,</span> <span class="pre">quality_col,</span> <span class="pre">quality_weights)</span></code></p></li>
+<li><p><strong>temporary</strong> <code class="docutils literal notranslate"><span class="pre">make_folds(df,</span> <span class="pre">...)</span></code> using simple KFold (to be replaced with BitBirch-stratified later)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_xyw(df,</span> <span class="pre">target_cols)</span></code> → <code class="docutils literal notranslate"><span class="pre">X,</span> <span class="pre">y,</span> <span class="pre">sample_weight</span></code></p></li>
+</ul>
+</li>
+</ul>
+<p><strong>Unit tests</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_data.py</span></code>:</p>
+<ul>
+<li><p>Create small synthetic DataFrame:</p>
+<ul>
+<li><p>columns: <code class="docutils literal notranslate"><span class="pre">f1,</span> <span class="pre">f2,</span> <span class="pre">quality,</span> <span class="pre">y1,</span> <span class="pre">y2</span></code></p></li>
+</ul>
+</li>
+<li><p>Test <code class="docutils literal notranslate"><span class="pre">augment_quality</span></code>:</p>
+<ul>
+<li><p>correct <code class="docutils literal notranslate"><span class="pre">quality_bucket</span></code> assignment</p></li>
+<li><p>correct <code class="docutils literal notranslate"><span class="pre">sample_weight</span></code> mapping</p></li>
+</ul>
+</li>
+<li><p>Test <code class="docutils literal notranslate"><span class="pre">get_xyw</span></code>:</p>
+<ul>
+<li><p>correct feature/target separation</p></li>
+<li><p>correct shape and dtype</p></li>
+</ul>
+</li>
+<li><p>Test <code class="docutils literal notranslate"><span class="pre">make_folds</span></code>:</p>
+<ul>
+<li><p>correct number of folds and non-overlapping indices.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="phase-2-classical-models-metrics-mlflow-ray-tune">
+<h2>Phase 2 – Classical Models + Metrics + MLflow + Ray Tune<a class="headerlink" href="#phase-2-classical-models-metrics-mlflow-ray-tune" title="Link to this heading">¶</a></h2>
+<p><strong>Goal</strong>: Full classical path with CV, HPO, and tracking.</p>
+<p><strong>Files</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/classical/models.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_model(model_type,</span> <span class="pre">params)</span></code> → <code class="docutils literal notranslate"><span class="pre">MultiOutputRegressor(XGBRegressor/LGBMRegressor)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fit_model(model,</span> <span class="pre">X,</span> <span class="pre">y,</span> <span class="pre">sample_weight)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">predict_model(model,</span> <span class="pre">X)</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/classical/metrics.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">per_task_rmse(y_true,</span> <span class="pre">y_pred)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aggregate_metric(per_task,</span> <span class="pre">task_weights)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_metric_dict(y_true,</span> <span class="pre">y_pred,</span> <span class="pre">task_weights,</span> <span class="pre">prefix=&quot;val&quot;)</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/classical/tune_trainable.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">tune_trainable(config,</span> <span class="pre">df,</span> <span class="pre">target_cols,</span> <span class="pre">task_weights,</span> <span class="pre">model_type,</span> <span class="pre">n_splits,</span> <span class="pre">experiment_name)</span></code></p></li>
+<li><p>Handles:</p>
+<ul>
+<li><p>augment df with quality &amp; weights</p></li>
+<li><p>K-fold split</p></li>
+<li><p>per-fold training and evaluation</p></li>
+<li><p>MLflow parent + nested runs</p></li>
+<li><p>reports aggregated <code class="docutils literal notranslate"><span class="pre">val_rmse_weighted</span></code> to Ray Tune</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/run_tune_xgboost.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/run_tune_lightgbm.py</span></code></p></li>
+</ul>
+<p><strong>Unit tests</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_classical_models.py</span></code>:</p>
+<ul>
+<li><p>Simple synthetic regression (e.g. 2D features, 2 tasks) where XGB/LGBM can learn easily.</p></li>
+<li><p>Test <code class="docutils literal notranslate"><span class="pre">build_model</span></code> and <code class="docutils literal notranslate"><span class="pre">fit_model</span></code>:</p>
+<ul>
+<li><p>training runs without errors</p></li>
+<li><p>predictions shape matches targets</p></li>
+</ul>
+</li>
+<li><p>Test <code class="docutils literal notranslate"><span class="pre">metrics</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">per_task_rmse</span></code> and <code class="docutils literal notranslate"><span class="pre">aggregate_metric</span></code> with small arrays.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_integration.py</span></code> (partial):</p>
+<ul>
+<li><p>Smoke test: run <code class="docutils literal notranslate"><span class="pre">tune_trainable</span></code> for 1 trial, 2 folds, small synthetic df, <code class="docutils literal notranslate"><span class="pre">num_samples=1</span></code> with dummy MLflow tracking URI (e.g. local directory).</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="phase-3-chemprop-lightning-curriculum">
+<h2>Phase 3 – Chemprop + Lightning Curriculum<a class="headerlink" href="#phase-3-chemprop-lightning-curriculum" title="Link to this heading">¶</a></h2>
+<p><strong>Goal</strong>: Add deep model path with curriculum, still using simple K-fold (no BitBirch yet).</p>
+<p><strong>Files</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">config/chemprop.yaml</span></code>:</p>
+<ul>
+<li><p>chemprop model parameters</p></li>
+<li><p>optimization hyperparams (lr, weight_decay, batch_size, max_epochs, curr_patience)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/chemprop/data.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">augment_quality(df,</span> <span class="pre">quality_col,</span> <span class="pre">quality_weights)</span></code> (can reuse or share logic with classical)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make_folds(df,</span> <span class="pre">...)</span></code> (temporary)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MolDataset(df,</span> <span class="pre">target_cols)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">collate_mol_batch(batch)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MolDataModule</span></code> (or simple class with <code class="docutils literal notranslate"><span class="pre">setup()</span></code>, <code class="docutils literal notranslate"><span class="pre">train_dataloader()</span></code>, <code class="docutils literal notranslate"><span class="pre">val_dataloader()</span></code>)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/chemprop/curriculum.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">CurriculumState</span></code>:</p>
+<ul>
+<li><p>tracking <code class="docutils literal notranslate"><span class="pre">phase</span></code>, weights for <code class="docutils literal notranslate"><span class="pre">high/medium/low</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">update_from_val_high</span></code>, <code class="docutils literal notranslate"><span class="pre">maybe_advance_phase</span></code>, <code class="docutils literal notranslate"><span class="pre">set_polish</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CurriculumCallback</span></code> (Lightning callback reading <code class="docutils literal notranslate"><span class="pre">val_high_loss</span></code> and updating state)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/chemprop/model.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ChempropLightning</span></code> (LightningModule):</p>
+<ul>
+<li><p>wraps <code class="docutils literal notranslate"><span class="pre">MoleculeModel</span></code></p></li>
+<li><p>uses <code class="docutils literal notranslate"><span class="pre">task_weights</span></code> to compute multi-task loss</p></li>
+<li><p>logs:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">val_high_loss</span></code>, <code class="docutils literal notranslate"><span class="pre">val_medium_loss</span></code>, <code class="docutils literal notranslate"><span class="pre">val_low_loss</span></code>, <code class="docutils literal notranslate"><span class="pre">val_combined</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/chemprop/tune_trainable.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">tune_trainable_chemprop(config,</span> <span class="pre">df,</span> <span class="pre">target_cols,</span> <span class="pre">task_weights,</span> <span class="pre">n_splits,</span> <span class="pre">experiment_name)</span></code></p></li>
+<li><p>very similar structure to classical <code class="docutils literal notranslate"><span class="pre">tune_trainable</span></code>, but builds and trains Lightning model</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/run_tune_chemprop.py</span></code></p></li>
+</ul>
+<p><strong>Unit tests</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_chemprop_model.py</span></code>:</p>
+<ul>
+<li><p>Use tiny synthetic MolDataset:</p>
+<ul>
+<li><p>maybe use trivial “features” (e.g. random tensors) instead of real SMILES to start</p></li>
+</ul>
+</li>
+<li><p>Ensure:</p>
+<ul>
+<li><p>forward pass works</p></li>
+<li><p>training_step and validation_step don’t crash</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">validation_epoch_end</span></code> returns proper keys</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_integration.py</span></code>:</p>
+<ul>
+<li><p>Add a small test that runs <code class="docutils literal notranslate"><span class="pre">tune_trainable_chemprop</span></code> on a tiny df with 1–2 epochs and 2 folds, <code class="docutils literal notranslate"><span class="pre">num_samples=1</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="phase-4-bitbirch-stratifiedgroupkfold">
+<h2>Phase 4 – BitBirch + StratifiedGroupKFold<a class="headerlink" href="#phase-4-bitbirch-stratifiedgroupkfold" title="Link to this heading">¶</a></h2>
+<p><strong>Goal</strong>: Replace simple KFold with <strong>BitBirch + task + quality</strong>–aware CV.</p>
+<p><strong>Files</strong></p>
+<ul class="simple">
+<li><p>Update <strong>or add</strong>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/classical/data.py</span></code> and <code class="docutils literal notranslate"><span class="pre">src/quality_curriculum_ml/chemprop/data.py</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_fingerprints(df)</span></code> → RDKit Morgan fingerprints</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_bitbirch(fps)</span></code> → <code class="docutils literal notranslate"><span class="pre">cluster_id</span></code> (BitBirch)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_strata(df,</span> <span class="pre">primary_task,</span> <span class="pre">quality_col)</span></code>:</p>
+<ul>
+<li><p>bin primary task into quantiles</p></li>
+<li><p>combine bins + quality to <code class="docutils literal notranslate"><span class="pre">strata</span></code> labels</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make_bitbirch_stratified_folds(df,</span> <span class="pre">primary_task,</span> <span class="pre">quality_col,</span> <span class="pre">n_splits,</span> <span class="pre">random_state)</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">StratifiedGroupKFold(y=strata,</span> <span class="pre">groups=cluster_id)</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Update Ray trainables to call <code class="docutils literal notranslate"><span class="pre">make_bitbirch_stratified_folds</span></code> instead of simple <code class="docutils literal notranslate"><span class="pre">make_folds</span></code>.</p></li>
+</ul>
+<p><strong>Unit tests</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_data.py</span></code> additions:</p>
+<ul>
+<li><p>Use small synthetic df with:</p>
+<ul>
+<li><p>dummy fingerprints / clusters (you can skip real RDKit in unit tests and feed fake cluster_ids)</p></li>
+<li><p>known quality levels, task bins</p></li>
+</ul>
+</li>
+<li><p>Test:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_strata</span></code> produces expected label combinations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make_bitbirch_stratified_folds</span></code>:</p>
+<ul>
+<li><p>each cluster_id appears in only one fold</p></li>
+<li><p>per-fold distribution of <code class="docutils literal notranslate"><span class="pre">strata</span></code> is reasonably balanced (rough check).</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="phase-5-polishing-docs-and-additional-tests">
+<h2>Phase 5 – Polishing, Docs, and Additional Tests<a class="headerlink" href="#phase-5-polishing-docs-and-additional-tests" title="Link to this heading">¶</a></h2>
+<p><strong>Goal</strong>: Make the repo pleasant to use and robust.</p>
+<p><strong>Tasks</strong></p>
+<ul>
+<li><p>[ ] Add <strong>full examples</strong> to README:</p>
+<ul class="simple">
+<li><p>Example commands: <code class="docutils literal notranslate"><span class="pre">run_tune_xgboost.py</span></code>, <code class="docutils literal notranslate"><span class="pre">run_tune_chemprop.py</span></code></p></li>
+<li><p>Example of configuring model and quality weights via YAML</p></li>
+</ul>
+</li>
+<li><p>[ ] Add more <strong>integration tests</strong>:</p>
+<ul class="simple">
+<li><p>e.g., one end-to-end run for XGBoost and Chemprop on toy data.</p></li>
+</ul>
+</li>
+<li><p>[ ] Add <strong>continuous integration</strong> (GitHub Actions or similar) to run pytest and maybe a minimal Ray Tune trial.</p></li>
+<li><p>[ ] Optional: add <strong>Makefile</strong> / <code class="docutils literal notranslate"><span class="pre">scripts/run_all.sh</span></code> to orchestrate:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>tune-xgb
+make<span class="w"> </span>tune-lightgbm
+make<span class="w"> </span>tune-chemprop
+make<span class="w"> </span>mlflow-ui
+</pre></div>
+</div>
+</li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="how-to-use-once-implemented">
+<h1>4. How to Use (Once Implemented)<a class="headerlink" href="#how-to-use-once-implemented" title="Link to this heading">¶</a></h1>
+<section id="prepare-your-dataset">
+<h2>4.1. Prepare your dataset<a class="headerlink" href="#prepare-your-dataset" title="Link to this heading">¶</a></h2>
+<p>Create <code class="docutils literal notranslate"><span class="pre">data/molecules.csv</span></code> with at least:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">smiles</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">quality</span></code> (values: <code class="docutils literal notranslate"><span class="pre">high</span></code>, <code class="docutils literal notranslate"><span class="pre">medium</span></code>, <code class="docutils literal notranslate"><span class="pre">low</span></code>)</p></li>
+<li><p>target columns, e.g. <code class="docutils literal notranslate"><span class="pre">y1</span></code>, <code class="docutils literal notranslate"><span class="pre">y2</span></code></p></li>
+</ul>
+<p>Update:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">config/base.yaml</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.path:</span> <span class="pre">&quot;data/molecules.csv&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.target_cols:</span> <span class="pre">[&quot;y1&quot;,</span> <span class="pre">&quot;y2&quot;]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.quality_col:</span> <span class="pre">&quot;quality&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">training.task_weights:</span> <span class="pre">[0.5,</span> <span class="pre">0.5]</span></code> (one per target)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">quality_weights:</span> <span class="pre">{high:</span> <span class="pre">1.0,</span> <span class="pre">medium:</span> <span class="pre">0.5,</span> <span class="pre">low:</span> <span class="pre">0.2}</span></code></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="install-run">
+<h2>4.2. Install &amp; run<a class="headerlink" href="#install-run" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># create env and install dependencies</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+
+<span class="c1"># Classical models</span>
+<span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>scripts/run_tune_xgboost.py
+<span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>scripts/run_tune_lightgbm.py
+
+<span class="c1"># Chemprop deep model</span>
+<span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>scripts/run_tune_chemprop.py
+</pre></div>
+</div>
+<p>Start MLflow UI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/run_mlflow_ui.sh
+<span class="c1"># open http://localhost:5000 in your browser</span>
+</pre></div>
+</div>
+<p>Run tests:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>pytest<span class="w"> </span>-q
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="extension-ideas">
+<h1>5. Extension Ideas<a class="headerlink" href="#extension-ideas" title="Link to this heading">¶</a></h1>
+<p>Once the basic plan is implemented and tested, you can:</p>
+<ul class="simple">
+<li><p>Add <strong>ensembles</strong> that combine classical and Chemprop predictions.</p></li>
+<li><p>Add <strong>more sophisticated curricula</strong> for Chemprop:</p>
+<ul>
+<li><p>actual bucket-aware sampling schedules tied to <code class="docutils literal notranslate"><span class="pre">CurriculumState</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Add <strong>more models</strong>:</p>
+<ul>
+<li><p>Random Forest, k-NN, SVM, etc., leveraging the same quality-weighted data.</p></li>
+</ul>
+</li>
+<li><p>Add <strong>custom evaluation suites</strong>:</p>
+<ul>
+<li><p>per-target calibration plots, parity plots, per-quality bucket performance.</p></li>
+</ul>
+</li>
+</ul>
+<hr class="docutils" />
+<p>This README is your <strong>roadmap</strong>: it tells you what files exist (or should be created), how they connect, what each phase adds, and where unit tests live. You can implement it phase by phase, running the tests as you go, and end up with a robust, quality-aware, multi-model molecular ML framework.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">::</span><span class="n">contentReference</span><span class="p">[</span><span class="n">oaicite</span><span class="p">:</span><span class="mi">0</span><span class="p">]{</span><span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">3. Features &amp; Implementation Plan</a><ul>
+<li><a class="reference internal" href="#phase-0-environment-dependencies">Phase 0 – Environment &amp; Dependencies</a></li>
+<li><a class="reference internal" href="#phase-1-core-data-handling-classical-path">Phase 1 – Core Data Handling (Classical Path)</a></li>
+<li><a class="reference internal" href="#phase-2-classical-models-metrics-mlflow-ray-tune">Phase 2 – Classical Models + Metrics + MLflow + Ray Tune</a></li>
+<li><a class="reference internal" href="#phase-3-chemprop-lightning-curriculum">Phase 3 – Chemprop + Lightning Curriculum</a></li>
+<li><a class="reference internal" href="#phase-4-bitbirch-stratifiedgroupkfold">Phase 4 – BitBirch + StratifiedGroupKFold</a></li>
+<li><a class="reference internal" href="#phase-5-polishing-docs-and-additional-tests">Phase 5 – Polishing, Docs, and Additional Tests</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#how-to-use-once-implemented">4. How to Use (Once Implemented)</a><ul>
+<li><a class="reference internal" href="#prepare-your-dataset">4.1. Prepare your dataset</a></li>
+<li><a class="reference internal" href="#install-run">4.2. Install &amp; run</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#extension-ideas">5. Extension Ideas</a></li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>
