@@ -16,7 +16,7 @@ experiment_name: chemprop_hpo
 
 # Data configuration
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
-val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/val.csv
+val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
 target_columns:
   - "LogD"
@@ -34,7 +34,7 @@ output_dir: assets/models/chemprop/hpo/chemprop_example
 ray_storage_path: null # Uses output_dir/ray_results if null
 
 # Reproducibility
-seed: 42
+seed: 12345
 
 # =============================================================================
 # Search Space Configuration
@@ -77,26 +77,26 @@ search_space:
   # Message passing architecture
   depth:
     type: choice
-    values: [3, 4, 5, 6]
+    values: [3, 4, 5, 6, 7]
 
   # Message hidden dim (MPNN layer width) - can be different from FFN hidden_dim
   message_hidden_dim:
     type: choice
-    values: [256, 512, 768, 1024]
+    values: [200, 300, 400, 500, 600, 700, 800]
 
   # Legacy hidden_dim (fallback if message_hidden_dim not specified)
   hidden_dim:
     type: choice
-    values: [256, 512, 768, 1024]
+    values: [200, 300, 400, 500, 600, 700, 800]
 
   # FFN architecture
   ffn_num_layers:
     type: choice
-    values: [1, 2, 3]
+    values: [1, 2, 3, 4]
 
   ffn_hidden_dim:
     type: choice
-    values: [256, 512, 768, 1024]
+    values: [200, 300, 400, 500, 600, 700, 800]
 
   # Training
   batch_size:
@@ -124,7 +124,7 @@ search_space:
 
   trunk_hidden_dim:
     type: choice
-    values: [256, 512, 768]
+    values: [300, 400, 500, 600, 700, 800]
     conditional_on: ffn_type
     conditional_values: [branched]
 
@@ -138,7 +138,7 @@ search_space:
   target_weights:
     type: uniform
     low: 0.05
-    high: 50.0
+    high: 10.0
 
 # =============================================================================
 # ASHA Scheduler Configuration
@@ -182,7 +182,7 @@ resources:
 # =============================================================================
 transfer_learning:
   # Number of top configurations to use
-  top_k: 10
+  top_k: 20
 
   # Full training parameters
   full_epochs: 50
@@ -212,7 +212,7 @@ curriculum:
 
   # Epochs without improvement before phase transition
   # Lower patience for shorter HPO trials
-  patience: 3
+  patience: 5
 
   # Random seed for reproducible sampling
-  seed: 42
+  seed: 12345

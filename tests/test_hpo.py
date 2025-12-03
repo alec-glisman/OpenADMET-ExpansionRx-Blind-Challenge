@@ -69,7 +69,7 @@ def test_hpo_config() -> HPOConfig:
     return HPOConfig(
         experiment_name="test_hpo",
         data_path="train.csv",
-        val_data_path="val.csv",
+        val_data_path="validation.csv",
         smiles_column="smiles",
         target_columns=["target1", "target2"],
         output_dir="/tmp/hpo_test",
@@ -113,7 +113,7 @@ class TestChempropHPO:
 
         # Should have fixed parameters
         assert space["data_path"] == "train.csv"
-        assert space["val_data_path"] == "val.csv"
+        assert space["val_data_path"] == "validation.csv"
         assert space["smiles_column"] == "smiles"
         assert space["target_columns"] == ["target1", "target2"]
         assert space["max_epochs"] == 50

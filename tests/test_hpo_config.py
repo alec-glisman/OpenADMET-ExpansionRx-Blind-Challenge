@@ -157,7 +157,7 @@ class TestHPOConfig:
         config = HPOConfig(
             experiment_name="full_hpo",
             data_path="train.csv",
-            val_data_path="val.csv",
+            val_data_path="validation.csv",
             smiles_column="SMILES",
             target_columns=["logD", "solubility"],
             output_dir="outputs/hpo",
@@ -168,7 +168,7 @@ class TestHPOConfig:
             asha=ASHAConfig(max_t=100),
             resources=ResourceConfig(num_samples=30),
         )
-        assert config.val_data_path == "val.csv"
+        assert config.val_data_path == "validation.csv"
         assert config.seed == 123
         assert config.asha.max_t == 100
         assert config.resources.num_samples == 30

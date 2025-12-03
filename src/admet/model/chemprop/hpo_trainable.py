@@ -13,7 +13,8 @@ from typing import Any
 import pandas as pd
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
-from ray import train
+from ray.air import session
+import ray.tune
 from ray.train import Checkpoint
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
@@ -118,7 +119,7 @@ class RayTuneReportCallback(Callback):
             checkpoint = None
             if self.checkpoint_dir is not None and self.checkpoint_dir.exists():
                 checkpoint = Checkpoint.from_directory(str(self.checkpoint_dir))
-            train.report(metrics, checkpoint=checkpoint)
+            ray.tune.report(metrics, checkpoint=checkpoint)
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:
@@ -160,8 +161,33 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     # Extract target weights from config
     target_weights = _extract_target_weights(config, target_columns)
 
-    # Create output directory in Ray's trial directory
-    output_dir = Path(train.get_context().get_trial_dir()) / "checkpoints"
+    # Create output directory in Ray's trial directory (Ray Tune / Ray Train session)
+    trial_dir = None
+
+    # Preferred: Ray Train context API (Ray >=2.x)
+    try:
+        trial_dir_str = ray.tune.get_context().get_trial_dir()
+        if trial_dir_str:
+            trial_dir = Path(trial_dir_str)
+    except Exception:
+        # Not running within a Ray Train context
+        trial_dir = None
+
+    # Fallback: Ray AIR (session) API if available (older/newer AIR APIs)
+    if trial_dir is None:
+        try:
+            # session is the ray.air.session module which exposes helper functions
+            trial_dir_str = session.get_trial_dir()
+            if trial_dir_str:
+                trial_dir = Path(trial_dir_str)
+        except Exception:
+            trial_dir = None
+
+    # Final fallback: use current working dir (useful for unit tests)
+    if trial_dir is None:
+        trial_dir = Path.cwd() / "ray_trial"
+
+    output_dir = trial_dir / "checkpoints"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create model (disable MLflow tracking - HPO orchestrator handles logging)

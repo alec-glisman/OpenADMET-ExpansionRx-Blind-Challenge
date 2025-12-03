@@ -46,14 +46,14 @@ data:
   # Per-task loss weights (optional, defaults to 1.0 for each)
   target_weights:
     - 1.0
-    - 2.0
-    - 3.0
-    - 3.0
-    - 3.0
+    - 1.5
     - 2.0
     - 2.0
-    - 3.0
-    - 3.5
+    - 2.0
+    - 1.5
+    - 1.5
+    - 2.0
+    - 2.5
 
   # Optional: filter specific splits/folds (null = use all found)
   # splits: [0, 1, 2]  # Only use splits 0, 1, 2

@@ -9,6 +9,8 @@ from typing import Any
 
 from omegaconf import MISSING
 
+from admet.model.chemprop.config import CurriculumConfig
+
 
 @dataclass
 class ParameterSpace:
@@ -167,6 +169,7 @@ class HPOConfig:
         asha: ASHA scheduler configuration
         resources: Resource allocation configuration
         transfer_learning: Transfer learning configuration
+        curriculum: Curriculum learning configuration
         base_config_path: Path to base Chemprop config YAML (optional)
         seed: Random seed for reproducibility
         ray_storage_path: Path for Ray Tune storage (optional)
@@ -188,6 +191,7 @@ class HPOConfig:
     asha: ASHAConfig = field(default_factory=ASHAConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
 
     # Reproducibility
     seed: int = 42

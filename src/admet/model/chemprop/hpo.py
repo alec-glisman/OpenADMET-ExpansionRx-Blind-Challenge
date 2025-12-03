@@ -86,9 +86,8 @@ class ChempropHPO:
         scheduler = self._build_scheduler()
 
         # Configure Ray Tune
+        # Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict
         tune_config = tune.TuneConfig(
-            metric=self.config.asha.metric,
-            mode=self.config.asha.mode,
             scheduler=scheduler,
             num_samples=self.config.resources.num_samples,
             max_concurrent_trials=self.config.resources.max_concurrent_trials,
@@ -103,10 +102,12 @@ class ChempropHPO:
             },
         )
 
-        # Setup storage path
+        # Setup storage path (must be absolute for Ray Tune)
         storage_path = self.config.ray_storage_path
         if storage_path is None:
             storage_path = str(Path(self.config.output_dir) / "ray_results")
+        # Convert to absolute path if relative
+        storage_path = str(Path(storage_path).resolve())
 
         # Run HPO
         logger.info(
@@ -117,11 +118,16 @@ class ChempropHPO:
         )
 
         # Setup MLflow callback for per-trial logging
+        tags: dict[str, str] = {"parent_run_id": self._mlflow_run_id or ""}
+        if self._mlflow_run_id:
+            # Attach Ray Tune trial runs as children of the parent HPO run
+            tags["mlflow.parentRunId"] = self._mlflow_run_id
+
         mlflow_callback = MLflowLoggerCallback(
             tracking_uri=mlflow.get_tracking_uri(),
             experiment_name=self.config.experiment_name,
             save_artifact=True,
-            tags={"parent_run_id": self._mlflow_run_id or ""},
+            tags=tags,
         )
 
         tuner = tune.Tuner(
@@ -159,8 +165,9 @@ class ChempropHPO:
         )
 
         # Add fixed parameters needed by trainable
-        space["data_path"] = self.config.data_path
-        space["val_data_path"] = self.config.val_data_path
+        # Convert paths to absolute to ensure Ray workers can find them
+        space["data_path"] = str(Path(self.config.data_path).resolve())
+        space["val_data_path"] = str(Path(self.config.val_data_path).resolve()) if self.config.val_data_path else None
         space["smiles_column"] = self.config.smiles_column
         space["target_columns"] = self.config.target_columns
         space["max_epochs"] = self.config.asha.max_t

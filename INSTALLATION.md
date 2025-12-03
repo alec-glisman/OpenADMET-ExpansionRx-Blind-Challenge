@@ -13,6 +13,9 @@ source .venv/bin/activate
 
 # install project in editable mode with dev and docs extras
 uv pip install -e ".[dev,docs]" --extra-index-url https://download.pytorch.org/whl/cu130
+
+# sync environment (if needed)
+uv sync --extra "dev" --extra "docs"
 ```
 
 ## Notes and caveats

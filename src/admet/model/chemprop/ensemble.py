@@ -405,11 +405,6 @@ class ChempropEnsemble:
             The model creates its own nested MLflow run under the parent run,
             so all artifacts (checkpoints, metrics, plots) are logged directly.
             """
-            from omegaconf import OmegaConf
-
-            from admet.model.chemprop.config import ChempropConfig
-            from admet.model.chemprop.model import ChempropModel
-
             # Reconstruct config from dict
             config = OmegaConf.structured(ChempropConfig)
             config = OmegaConf.merge(config, OmegaConf.create(config_dict))
@@ -446,7 +441,19 @@ class ChempropEnsemble:
                     generate_plots=True,  # Generate plots for each model
                     split_name="test",
                 )
-                # Add SMILES and actual values to predictions
+                # Prepend SMILES and Molecule Name columns to predictions if present
+                if "Molecule Name" in test_df.columns:
+                    pred_df["Molecule Name"] = test_df["Molecule Name"].values
+                    cols = pred_df.columns.tolist()
+                    cols.insert(0, cols.pop(cols.index("Molecule Name")))
+                    pred_df = pred_df[cols]
+
+                if smiles_col in test_df.columns:
+                    pred_df[smiles_col] = test_df[smiles_col].values
+                    cols = pred_df.columns.tolist()
+                    cols.insert(0, cols.pop(cols.index(smiles_col)))
+                    pred_df = pred_df[cols]
+
                 test_preds = pred_df.copy()
                 test_preds[smiles_col] = test_df[smiles_col].values
                 for col in target_cols:
@@ -460,9 +467,18 @@ class ChempropEnsemble:
                     generate_plots=False,  # No ground truth for blind
                     split_name="blind",
                 )
-                # Add SMILES to predictions
-                blind_preds = pred_df.copy()
-                blind_preds[smiles_col] = blind_df[smiles_col].values
+                # Prepend SMILES and Molecule Name columns to predictions if present
+                if "Molecule Name" in blind_df.columns:
+                    pred_df["Molecule Name"] = blind_df["Molecule Name"].values
+                    cols = pred_df.columns.tolist()
+                    cols.insert(0, cols.pop(cols.index("Molecule Name")))
+                    pred_df = pred_df[cols]
+
+                if smiles_col in blind_df.columns:
+                    pred_df[smiles_col] = blind_df[smiles_col].values
+                    cols = pred_df.columns.tolist()
+                    cols.insert(0, cols.pop(cols.index(smiles_col)))
+                    pred_df = pred_df[cols]
 
             # Close model (ends nested MLflow run)
             model.close()
@@ -532,11 +548,13 @@ class ChempropEnsemble:
             test_ensemble = self._aggregate_predictions(self._all_test_predictions, split_name="test")
             self._save_ensemble_predictions(test_ensemble, "test")
             self._generate_ensemble_plots(test_ensemble, "test")
+            self._generate_unlabeled_ensemble_plots(test_ensemble, "test")
 
         # Aggregate blind predictions
         if self._all_blind_predictions:
             blind_ensemble = self._aggregate_predictions(self._all_blind_predictions, split_name="blind")
             self._save_ensemble_predictions(blind_ensemble, "blind")
+            self._generate_unlabeled_ensemble_plots(blind_ensemble, "blind")
 
         # Log ensemble metrics
         self._log_ensemble_metrics()
@@ -636,6 +654,66 @@ class ChempropEnsemble:
             self._mlflow_client.log_artifact(self.parent_run_id, str(submissions_path), artifact_path="submissions")
 
         logger.info("Saved ensemble predictions for %s", split_name)
+
+    def _generate_unlabeled_ensemble_plots(self, predictions: pd.DataFrame, split_name: str) -> None:
+        """
+        Generate ensemble visualizations when the predictions lack ground truth.
+
+        Creates prediction distribution plots for mean predictions and
+        standard errors, then logs them to MLflow.
+
+        Parameters
+        ----------
+        predictions : pd.DataFrame
+            Aggregated ensemble predictions with mean and stderr columns.
+        split_name : str
+            Name of the split (e.g., "test", "blind").
+        """
+        from admet.plot.density import plot_endpoint_distributions
+
+        if self._temp_dir is None:
+            self._temp_dir = Path(tempfile.mkdtemp(prefix="ensemble_"))
+
+        plot_dir = self._temp_dir / f"plots_{split_name}"
+        plot_dir.mkdir(exist_ok=True)
+
+        target_cols = list(self.config.data.target_cols)
+
+        # Collect mean and stderr columns for distribution plots
+        mean_cols = [f"{target}_mean" for target in target_cols]
+        stderr_cols = [f"{target}_stderr" for target in target_cols]
+
+        # Plot mean prediction distributions
+        mean_plot_path = plot_dir / "prediction_distributions.png"
+        fig, _ = plot_endpoint_distributions(
+            predictions,
+            columns=mean_cols,
+            title=f"Ensemble Mean Predictions ({split_name})",
+            save_path=mean_plot_path,
+        )
+        plt.close(fig)
+
+        # Plot standard error distributions
+        stderr_plot_path = plot_dir / "uncertainty_distributions.png"
+        fig, _ = plot_endpoint_distributions(
+            predictions,
+            columns=stderr_cols,
+            title=f"Ensemble Standard Errors ({split_name})",
+            save_path=stderr_plot_path,
+        )
+        plt.close(fig)
+
+        # Log plots to MLflow
+        if self._mlflow_client and self.parent_run_id:
+            for plot_file in plot_dir.iterdir():
+                if plot_file.is_file():
+                    self._mlflow_client.log_artifact(
+                        self.parent_run_id,
+                        str(plot_file),
+                        artifact_path=f"plots/{split_name}",
+                    )
+
+        logger.info("Generated unlabeled ensemble plots for %s", split_name)
 
     def _generate_ensemble_plots(self, predictions: pd.DataFrame, split_name: str) -> None:
         """

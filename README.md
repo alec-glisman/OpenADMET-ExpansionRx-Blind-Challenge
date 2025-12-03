@@ -130,7 +130,7 @@ Or use the convenience bash script:
 
 ```bash
 # Run HPO with default settings
-./scripts/run_chemprop_hpo.sh --config configs/hpo_chemprop.yaml --num-samples 50
+./scripts/train_chemprop_hpo.sh configs/hpo_chemprop.yaml
 ```
 
 Or programmatically in Python:

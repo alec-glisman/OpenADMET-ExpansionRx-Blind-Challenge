@@ -4,6 +4,7 @@ This module provides functions to convert HPO configuration dataclasses
 into Ray Tune search space dictionaries.
 """
 
+import random
 from typing import Any
 
 from ray import tune
@@ -115,13 +116,11 @@ def build_search_space(
             # Sample only when ffn_type is in conditional_values
             conditional_values = config.n_experts.conditional_values or ["moe"]
 
-            def sample_n_experts(spec: Any) -> int | None:
+            def sample_n_experts(config_dict: dict[str, Any]) -> int | None:
                 """Sample n_experts only for MoE FFN types."""
-                if spec.config.get("ffn_type") in conditional_values:
+                if config_dict.get("ffn_type") in conditional_values:
                     param = config.n_experts
                     if param is not None and param.low is not None and param.high is not None:
-                        import random
-
                         q = param.q if param.q is not None else 1
                         return int(random.randint(int(param.low), int(param.high)) // q * q)
                 return None
@@ -136,13 +135,11 @@ def build_search_space(
         if config.trunk_depth.conditional_on == "ffn_type":
             conditional_values = config.trunk_depth.conditional_values or ["branched"]
 
-            def sample_trunk_depth(spec: Any) -> int | None:
+            def sample_trunk_depth(config_dict: dict[str, Any]) -> int | None:
                 """Sample trunk_depth only for branched FFN types."""
-                if spec.config.get("ffn_type") in conditional_values:
+                if config_dict.get("ffn_type") in conditional_values:
                     param = config.trunk_depth
                     if param is not None and param.low is not None and param.high is not None:
-                        import random
-
                         q = param.q if param.q is not None else 1
                         return int(random.randint(int(param.low), int(param.high)) // q * q)
                 return None
@@ -155,13 +152,11 @@ def build_search_space(
         if config.trunk_hidden_dim.conditional_on == "ffn_type":
             conditional_values = config.trunk_hidden_dim.conditional_values or ["branched"]
 
-            def sample_trunk_hidden_dim(spec: Any) -> int | None:
+            def sample_trunk_hidden_dim(config_dict: dict[str, Any]) -> int | None:
                 """Sample trunk_hidden_dim only for branched FFN types."""
-                if spec.config.get("ffn_type") in conditional_values:
+                if config_dict.get("ffn_type") in conditional_values:
                     param = config.trunk_hidden_dim
                     if param is not None and param.values is not None:
-                        import random
-
                         return random.choice(param.values)
                 return None
 
