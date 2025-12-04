@@ -186,6 +186,9 @@ class HPOConfig:
     base_config_path: str | None = None
     ray_storage_path: str | None = None
 
+    # Fixed target weights (optional, overrides search space)
+    target_weights: list[float] | None = None
+
     # Sub-configurations
     search_space: SearchSpaceConfig = field(default_factory=SearchSpaceConfig)
     asha: ASHAConfig = field(default_factory=ASHAConfig)

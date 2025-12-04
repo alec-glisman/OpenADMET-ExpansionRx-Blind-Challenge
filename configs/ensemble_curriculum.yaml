@@ -59,15 +59,15 @@ data:
   # Per-task loss weights (optional, defaults to 1.0 for each)
   # Higher weights for tasks with fewer samples or higher importance
   target_weights:
-    - 0.5 # LogD - well represented
-    - 2.0 # Log KSOL
-    - 3.0 # Log HLM CLint
-    - 3.0 # Log MLM CLint
-    - 5.0 # Log Caco-2 Permeability Papp A>B - sparse
-    - 5.0 # Log Caco-2 Permeability Efflux - sparse
-    - 2.0 # Log MPPB
-    - 3.0 # Log MBPB
-    - 3.5 # Log MGMB
+    - 1.0310
+    - 1.0000
+    - 1.2252
+    - 1.1368
+    - 2.1227
+    - 2.1174
+    - 3.7877
+    - 5.2722
+    - 10.000
 
   # Optional: filter specific splits/folds (null = use all found)
   # splits: [0, 1, 2]  # Only use splits 0, 1, 2

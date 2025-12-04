@@ -158,7 +158,11 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     hyperparams = _build_hyperparams(config, max_epochs, seed)
 
     # Extract target weights from config
-    target_weights = _extract_target_weights(config, target_columns)
+    # Check for fixed weights first, then fall back to per-task weights
+    if "target_weights" in config and config["target_weights"] is not None:
+        target_weights = config["target_weights"]
+    else:
+        target_weights = _extract_target_weights(config, target_columns)
 
     # Create output directory in Ray's trial directory (Ray Tune / Ray Train session)
     trial_dir = None

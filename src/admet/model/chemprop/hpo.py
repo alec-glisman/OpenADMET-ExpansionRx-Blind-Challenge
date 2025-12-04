@@ -210,6 +210,10 @@ class ChempropHPO:
         space["metric"] = self.config.asha.metric
         space["seed"] = self.config.seed
 
+        # Pass fixed target weights if provided
+        if self.config.target_weights is not None:
+            space["target_weights"] = self.config.target_weights
+
         return space
 
     def _build_scheduler(self) -> ASHAScheduler:

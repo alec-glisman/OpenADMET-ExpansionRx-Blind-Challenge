@@ -96,21 +96,21 @@ class CriterionName(str, Enum):
     QUANTILE = "Quantile"
 
     @classmethod
-    def resolve(cls, name: str) -> Any:
+    def resolve(cls, name: str, **kwargs: Any) -> Any:
         try:
             key = cls(name)
         except ValueError as exc:
             raise ValueError(f"Unsupported criterion: {name}") from exc
-        return _criterion_from_enum(key)
+        return _criterion_from_enum(key, **kwargs)
 
 
-def _criterion_from_enum(criterion: CriterionName) -> Any:
+def _criterion_from_enum(criterion: CriterionName, **kwargs: Any) -> Any:
     attr = getattr(nn.metrics, criterion.value, None)
     if attr is None:
         raise ValueError(f"Criterion class not found for '{criterion.value}'")
     if callable(attr):
         try:
-            return attr()
+            return attr(**kwargs)
         except TypeError as exc:
             raise TypeError(f"Unable to instantiate criterion '{criterion.value}'") from exc
     return attr
@@ -830,7 +830,9 @@ class ChempropModel:
             If ``ffn_type`` is not one of 'regression', 'mixture_of_experts',
             or 'branched'.
         """
-        criterion = CriterionName.resolve(self.hyperparams.criterion)
+        task_weights = torch.tensor(self.target_weights) if self.target_weights else None
+        criterion = CriterionName.resolve(self.hyperparams.criterion, task_weights=task_weights)
+
         if self.hyperparams.ffn_type == "mixture_of_experts":
             self.ffn = MixtureOfExpertsRegressionFFN(
                 n_tasks=len(self.target_cols),
@@ -840,7 +842,7 @@ class ChempropModel:
                 n_layers=self.hyperparams.num_layers,
                 dropout=self.hyperparams.dropout,
                 criterion=criterion,
-                task_weights=torch.tensor(self.target_weights) if self.target_weights else None,
+                task_weights=task_weights,
                 output_transform=self.transform,
             )
         elif self.hyperparams.ffn_type == "branched":
@@ -853,7 +855,7 @@ class ChempropModel:
                 trunk_hidden_dim=self.hyperparams.trunk_hidden_dim,
                 trunk_dropout=self.hyperparams.dropout,
                 criterion=criterion,
-                task_weights=torch.tensor(self.target_weights) if self.target_weights else None,
+                task_weights=task_weights,
                 output_transform=self.transform,
             )
         elif self.hyperparams.ffn_type == "regression":
