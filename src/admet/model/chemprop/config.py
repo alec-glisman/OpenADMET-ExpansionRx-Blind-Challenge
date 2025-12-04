@@ -86,6 +86,8 @@ class ModelConfig:
         Hidden dimension for trunk layers in branched FFN.
     n_experts : int, default=4
         Number of experts for mixture of experts FFN.
+    aggregation : str, default="mean"
+        Aggregation method for message passing. Options: 'mean', 'sum', 'norm'.
     """
 
     depth: int = 5
@@ -98,6 +100,7 @@ class ModelConfig:
     trunk_n_layers: int = 2
     trunk_hidden_dim: int = 600
     n_experts: int = 4
+    aggregation: str = "mean"
 
 
 @dataclass

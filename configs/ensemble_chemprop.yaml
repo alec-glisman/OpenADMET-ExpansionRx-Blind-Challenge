@@ -73,6 +73,7 @@ model:
   trunk_n_layers: 2
   trunk_hidden_dim: 500
   n_experts: 4
+  aggregation: "mean"
 
 # Optimization configuration (shared across ensemble)
 optimization:

@@ -500,6 +500,8 @@ def generate_ensemble_configs(selected_df, output_dir):
         dropout = float(row["config/dropout"])
         batch_size = int(row["config/batch_size"])
         ffn_type = str(row["config/ffn_type"])
+        if ffn_type == "mlp":
+            ffn_type = "regression"
         aggregation = str(row["config/aggregation"])
 
         # Handle potential missing columns with defaults
@@ -561,6 +563,7 @@ def generate_ensemble_configs(selected_df, output_dir):
                     ordered_weights.append(1.0)
 
         config = {
+            "max_parallel": 5,
             "data": {
                 "data_dir": "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data",
                 "test_file": "assets/dataset/set/local_test.csv",
@@ -601,7 +604,7 @@ def generate_ensemble_configs(selected_df, output_dir):
             "mlflow": {
                 "tracking": True,
                 "tracking_uri": "http://127.0.0.1:8080",
-                "experiment_name": "ensemble_chemprop",
+                "experiment_name": "ensemble_chemprop_hpo",
                 "run_name": None,
                 "nested": True,
             },
