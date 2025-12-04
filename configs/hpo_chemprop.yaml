@@ -78,9 +78,6 @@ search_space:
     low: 1.0e-2
     high: 2.0e-1
 
-  # Regularization
-  # Note: weight_decay removed - not currently applied in ChempropHyperparams
-
   dropout:
     type: uniform
     low: 0.0
@@ -144,28 +141,6 @@ search_space:
   aggregation:
     type: choice
     values: [mean, sum, norm]
-
-  # Per-endpoint loss weights (one weight sampled per target column)
-  # Each endpoint gets its own weight uniformly sampled from this range
-  # Per-endpoint loss weights (one weight sampled per target column)
-  # Each endpoint gets its own weight uniformly sampled from this range
-  # target_weights:
-  #   type: uniform
-  #   low: 0.05
-  #   high: 10.0
-  # Message aggregation
-  aggregation:
-    type: choice
-    values: [mean, sum, norm]
-
-  # Per-endpoint loss weights (one weight sampled per target column)
-  # Each endpoint gets its own weight uniformly sampled from this range
-  # target_weights:
-  #   type: choice
-  #   values: [[1.0310, 1.0000, 1.2252, 1.1368, 2.1227, 2.1174, 3.7877, 5.2722, 31.6822]]
-
-# =============================================================================
-# ASHA Scheduler Configuration
 
 # =============================================================================
 # ASHA Scheduler Configuration
