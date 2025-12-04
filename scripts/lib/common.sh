@@ -35,18 +35,18 @@ get_data_dirs() {
   local dirs=(
     # High quality data
     "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
-    "assets/dataset/split_train_val/v3/quality_high/bitbirch/stratified_kfold/data"
-    "assets/dataset/split_train_val/v3/quality_high/bitbirch/group_kfold/data"
+    # "assets/dataset/split_train_val/v3/quality_high/bitbirch/stratified_kfold/data"
+    # "assets/dataset/split_train_val/v3/quality_high/bitbirch/group_kfold/data"
 
-    # High + Medium quality data
-    "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/multilabel_stratified_kfold/data"
-    "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/stratified_kfold/data"
-    "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/group_kfold/data"
+    # # High + Medium quality data
+    # "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/multilabel_stratified_kfold/data"
+    # "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/stratified_kfold/data"
+    # "assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/group_kfold/data"
 
-    # High + Medium + Low quality data
-    "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data"
-    "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/stratified_kfold/data"
-    "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/group_kfold/data"
+    # # High + Medium + Low quality data
+    # "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data"
+    # "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/stratified_kfold/data"
+    # "assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/group_kfold/data"
   )
   printf '%s\n' "${dirs[@]}"
 }
