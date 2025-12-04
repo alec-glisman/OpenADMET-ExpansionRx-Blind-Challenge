@@ -15,7 +15,6 @@ from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
 from ray.air import session
 import ray.tune
-from ray.train import Checkpoint
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
 
@@ -115,11 +114,11 @@ class RayTuneReportCallback(Callback):
 
         # Report to Ray Tune only if primary metric is available
         if self.metric in metrics:
-            # Save checkpoint for trial recovery
-            checkpoint = None
-            if self.checkpoint_dir is not None and self.checkpoint_dir.exists():
-                checkpoint = Checkpoint.from_directory(str(self.checkpoint_dir))
-            ray.tune.report(metrics, checkpoint=checkpoint)
+            # Note: We do NOT pass checkpoint here on every validation step.
+            # Lightning's ModelCheckpoint may delete/rename old best checkpoints,
+            # causing race conditions with Ray's async syncer (FileNotFoundError).
+            # Checkpoints are handled at the end of training instead.
+            ray.tune.report(metrics)
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:

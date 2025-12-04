@@ -109,6 +109,17 @@ class ChempropHPO:
         # Convert to absolute path if relative
         storage_path = str(Path(storage_path).resolve())
 
+        # Initialize Ray with custom temp dir if storage path is provided
+        # This helps avoid FileNotFoundError during sync when /tmp is cleaned
+        # Disable dashboard to avoid MetricsHead startup failures on some systems
+        import ray
+
+        if not ray.is_initialized():
+            ray.init(
+                _temp_dir=storage_path,
+                include_dashboard=False,  # Disable dashboard to avoid startup errors
+            )
+
         # Run HPO
         logger.info(
             "Starting HPO: %d trials, metric=%s, mode=%s",
@@ -142,10 +153,35 @@ class ChempropHPO:
             ),
         )
 
-        self.results = tuner.fit()
-
-        # Log results to MLflow
-        self._log_results()
+        try:
+            self.results = tuner.fit()
+        except Exception as e:
+            logger.error("HPO failed or interrupted: %s", e)
+            # Try to restore results if possible, or just log what we have
+            # Note: tuner.fit() might raise, but we might still have partial results on disk
+            # However, getting the ResultGrid object from a failed run is tricky without restoring.
+            # For now, we'll just log the error and try to proceed if self.results was set (unlikely)
+            # or if we can recover something.
+            # Actually, Ray Tune usually returns the ResultGrid even on failure if configured,
+            # but here it raises.
+            # We can try to restore the tuner to get results.
+            try:
+                logger.info("Attempting to restore Tuner to retrieve partial results...")
+                tuner = tune.Tuner.restore(
+                    path=str(Path(storage_path) / self.config.experiment_name),
+                    trainable=trainable,
+                )
+                self.results = tuner.get_results()
+            except Exception as restore_error:
+                logger.warning("Could not restore Tuner results: %s", restore_error)
+        finally:
+            # Log results to MLflow (best so far)
+            if self.results:
+                self._log_results()
+            else:
+                logger.warning("No results to log to MLflow.")
+                if self._mlflow_run_id:
+                    mlflow.end_run()
 
         return self.results
 
@@ -237,6 +273,28 @@ class ChempropHPO:
                     f"best.{k}": float(v) for k, v in best_result.metrics.items() if isinstance(v, (int, float))
                 }
                 mlflow.log_metrics(best_metrics)
+
+            # Log best model artifact
+            if best_result.checkpoint:
+                try:
+                    # Ray Tune Checkpoint is a directory or file
+                    # We want to log the best-*.ckpt file inside it
+                    with best_result.checkpoint.as_directory() as checkpoint_dir:
+                        checkpoint_path = Path(checkpoint_dir)
+                        best_checkpoints = list(checkpoint_path.glob("best-*.ckpt"))
+                        # Sort by modification time
+                        best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+                        if best_checkpoints:
+                            ckpt_file = best_checkpoints[0]
+                            logger.info("Logging best HPO model artifact: %s", ckpt_file.name)
+                            mlflow.log_artifact(str(ckpt_file), artifact_path="best_model")
+                        else:
+                            logger.warning("No best-*.ckpt found in best result checkpoint: %s", checkpoint_path)
+                except Exception as e:
+                    logger.warning("Failed to log best model artifact: %s", e)
+
+        # Save all results as artifact
 
         # Save all results as artifact
         results_df = self.results.get_dataframe()

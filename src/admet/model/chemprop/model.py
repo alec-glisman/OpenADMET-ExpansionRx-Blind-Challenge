@@ -1086,6 +1086,7 @@ class ChempropModel:
         else:
             logger.debug("MLflow tracking skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
 
+        completed = False
         try:
             logger.info("Starting training...")
             self.trainer.fit(
@@ -1099,19 +1100,31 @@ class ChempropModel:
             logger.warning("Training interrupted by user. Model state preserved.")
             logger.info("You can still use model.predict() with the current weights.")
             completed = False
+        except Exception as e:
+            logger.error("Training failed with error: %s", e)
+            completed = False
+            # Re-raise exception after logging artifacts
+            raise e
+        finally:
+            logger.info("Training finished: completed=%s", completed)
 
-        logger.info("Training finished: completed=%s", completed)
+            # Log evaluation metrics and final artifacts
+            if self.mlflow_tracking and self._mlflow_logger is not None:
+                logger.debug("Post-training: logging evaluation metrics and artifacts")
+                # Only log metrics if training completed or we have a best model
+                try:
+                    self._log_evaluation_metrics()
+                    self._log_training_artifacts(completed)
+                except Exception as log_err:
+                    logger.error("Failed to log artifacts after training: %s", log_err)
+            else:
+                logger.debug("Post-training skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
 
-        # Log evaluation metrics and final artifacts
-        if self.mlflow_tracking and self._mlflow_logger is not None:
-            logger.debug("Post-training: logging evaluation metrics and artifacts")
-            self._log_evaluation_metrics()
-            self._log_training_artifacts(completed)
-        else:
-            logger.debug("Post-training skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
-
-        # Generate evaluation plots for train and validation sets
-        self._generate_training_plots()
+            # Generate evaluation plots for train and validation sets
+            try:
+                self._generate_training_plots()
+            except Exception as plot_err:
+                logger.warning("Failed to generate training plots: %s", plot_err)
 
         return completed
 
@@ -1380,18 +1393,20 @@ class ChempropModel:
             # Log best checkpoint(s)
             best_checkpoints = list(checkpoint_dir.glob("best-*.ckpt"))
             logger.debug("Found %d best checkpoints", len(best_checkpoints))
-            for ckpt in best_checkpoints:
-                logger.debug("Logging checkpoint: %s", ckpt.name)
+
+            # Sort by modification time to get the most recent best checkpoint if multiple exist
+            best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+            if best_checkpoints:
+                # Only log the single best checkpoint
+                ckpt = best_checkpoints[0]
+                logger.debug("Logging best checkpoint: %s", ckpt.name)
                 self._mlflow_client.log_artifact(self.mlflow_run_id, str(ckpt), artifact_path="checkpoints")
 
-            # Log last checkpoint if exists
-            last_checkpoint = checkpoint_dir / "last.ckpt"
-            if last_checkpoint.exists():
-                self._mlflow_client.log_artifact(self.mlflow_run_id, str(last_checkpoint), artifact_path="checkpoints")
+                # Log best checkpoint path as param
+                self._mlflow_client.log_param(self.mlflow_run_id, "best_checkpoint_path", str(ckpt))
 
-            # Log best checkpoint path as param
-            if completed and best_checkpoints:
-                self._mlflow_client.log_param(self.mlflow_run_id, "best_checkpoint_path", str(best_checkpoints[0]))
+            # Note: We do not log 'last.ckpt' to save space and only keep the best model.
 
         # Save hyperparameters as YAML artifact
         import yaml

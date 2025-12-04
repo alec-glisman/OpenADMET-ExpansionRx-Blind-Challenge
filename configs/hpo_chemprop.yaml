@@ -31,7 +31,7 @@ target_columns:
 
 # Output configuration
 output_dir: assets/models/chemprop/hpo/chemprop_example
-ray_storage_path: null # Uses output_dir/ray_results if null
+ray_storage_path: /media/aglisman/Data/ray-tune/chemprop_hpo
 
 # Reproducibility
 seed: 12345
