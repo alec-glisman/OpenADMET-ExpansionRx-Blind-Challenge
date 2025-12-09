@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -66,6 +67,7 @@ class ChempropHPO:
         self.config = config
         self.results: tune.ResultGrid | None = None
         self._mlflow_run_id: str | None = None
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def run(self) -> tune.ResultGrid:
         """Run hyperparameter optimization.
@@ -233,26 +235,15 @@ class ChempropHPO:
         )
 
     def _setup_mlflow(self) -> None:
-        """Setup MLflow tracking for HPO experiment."""
+        """Configure MLflow tracking."""
+        if self.config.mlflow_tracking_uri:
+            mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
+
         mlflow.set_experiment(self.config.experiment_name)
 
-        # Start a parent run for the HPO experiment
-        run = mlflow.start_run(run_name=f"hpo_{self.config.experiment_name}")
-        self._mlflow_run_id = run.info.run_id
-
-        # Log HPO configuration
-        config_dict = OmegaConf.to_container(OmegaConf.structured(self.config))
-        if isinstance(config_dict, dict):
-            flat_config = _flatten_dict(cast(dict[str, Any], config_dict), sep=".")
-            mlflow.log_params(flat_config)
-
-        if self.config.data_path:
-            data_params = parse_data_dir_params(self.config.data_path)
-            for key, value in data_params.items():
-                if value is not None:
-                    mlflow.log_param(f"data.{key}", value)
-
-        logger.info("MLflow run started: %s", self._mlflow_run_id)
+        # Log run parameters
+        with mlflow.start_run(run_name=f"hpo_master_{self.timestamp}"):
+            pass
 
     def _log_results(self) -> None:
         """Log HPO results to MLflow."""
