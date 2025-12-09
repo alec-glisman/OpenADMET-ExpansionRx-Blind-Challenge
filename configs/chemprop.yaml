@@ -91,6 +91,7 @@ optimization:
   # Batch settings
   batch_size: 32
   num_workers: 0
+  task_sampling_alpha: 0.5
 
   # Reproducibility
   seed: 12345

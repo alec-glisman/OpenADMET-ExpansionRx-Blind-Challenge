@@ -55,6 +55,7 @@ from matplotlib import pyplot as plt
 from mlflow import MlflowClient
 from mlflow.tracking.fluent import ActiveRun
 from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import DataLoader
 
 from admet.data.smiles import parallel_canonicalize_smiles
 from admet.data.stats import correlation, distribution
@@ -72,6 +73,7 @@ from admet.model.chemprop.curriculum_sampler import (
     get_quality_indices,
 )
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
+from admet.model.chemprop.task_sampler import TaskAwareSampler
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
 
@@ -331,6 +333,7 @@ class ChempropHyperparams:
 
     # MPNN
     batch_norm: bool = True
+    task_sampling_alpha: Optional[float] = None
 
 
 class ChempropModel:
@@ -794,17 +797,36 @@ class ChempropModel:
                     num_samples=len(datasets[split]),
                     seed=seed,
                 )
-                self.dataloaders[split] = data.build_dataloader(
+                drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                self.dataloaders[split] = DataLoader(
                     datasets[split],
                     batch_size=self.hyperparams.batch_size,
-                    num_workers=self.hyperparams.num_workers,
-                    shuffle=False,  # Sampler handles this
                     sampler=sampler,
+                    num_workers=self.hyperparams.num_workers,
+                    collate_fn=data.collate_batch,
+                    drop_last=drop_last,
                 )
                 logger.info(
                     "Dynamic curriculum sampling enabled for training: phase=%s, qualities=%s",
                     self.curriculum_state.phase,
                     self.curriculum_state.qualities,
+                )
+            elif split == "train" and self.hyperparams.task_sampling_alpha is not None:
+                # Task-aware sampling for imbalanced multi-task learning
+                logger.info("Using TaskAwareSampler with alpha=%s", self.hyperparams.task_sampling_alpha)
+                sampler = TaskAwareSampler(
+                    targets=ys,
+                    alpha=self.hyperparams.task_sampling_alpha,
+                    seed=self.hyperparams.seed,
+                )
+                drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                self.dataloaders[split] = DataLoader(
+                    datasets[split],
+                    batch_size=self.hyperparams.batch_size,
+                    sampler=sampler,
+                    num_workers=self.hyperparams.num_workers,
+                    collate_fn=data.collate_batch,
+                    drop_last=drop_last,
                 )
             else:
                 # Standard dataloader (shuffle for train, no shuffle for val/test)

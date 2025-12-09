@@ -39,7 +39,12 @@ from ray.tune.schedulers import ASHAScheduler
 from admet.model.chemprop.hpo_config import HPOConfig
 from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
-from admet.util.utils import parse_data_dir_params
+
+
+def _trial_dirname_creator(trial) -> str:
+    """Create a short directory name for the trial to avoid filesystem limits."""
+    return f"trial_{trial.trial_id}"
+
 
 logger = logging.getLogger("admet.model.chemprop.hpo")
 
@@ -93,6 +98,7 @@ class ChempropHPO:
             scheduler=scheduler,
             num_samples=self.config.resources.num_samples,
             max_concurrent_trials=self.config.resources.max_concurrent_trials,
+            trial_dirname_creator=_trial_dirname_creator,
         )
 
         # Configure resources per trial
@@ -185,6 +191,9 @@ class ChempropHPO:
                 if self._mlflow_run_id:
                     mlflow.end_run()
 
+        if self.results is None:
+            raise RuntimeError("HPO failed to produce any results.")
+
         return self.results
 
     def _build_search_space(self) -> dict[str, Any]:
@@ -215,6 +224,9 @@ class ChempropHPO:
         # Pass fixed target weights if provided
         if self.config.target_weights is not None:
             space["target_weights"] = self.config.target_weights
+
+        if self.config.task_sampling_alpha is not None:
+            space["task_sampling_alpha"] = self.config.task_sampling_alpha
 
         return space
 

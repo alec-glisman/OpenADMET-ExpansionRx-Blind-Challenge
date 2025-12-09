@@ -49,6 +49,18 @@ def _build_parameter_space(param: ParameterSpace) -> Any:
             raise ValueError(msg)
         return tune.choice(param.values)
 
+    elif param.type == "randint":
+        if param.low is None or param.high is None:
+            msg = "randint distribution requires 'low' and 'high'"
+            raise ValueError(msg)
+        return tune.randint(int(param.low), int(param.high))
+
+    elif param.type == "qrandint":
+        if param.low is None or param.high is None or param.q is None:
+            msg = "qrandint distribution requires 'low', 'high', and 'q'"
+            raise ValueError(msg)
+        return tune.qrandint(int(param.low), int(param.high), int(param.q))
+
     else:
         msg = f"Unknown parameter type: {param.type}"
         raise ValueError(msg)
@@ -103,6 +115,7 @@ def build_search_space(
         "ffn_type",
         "aggregation",
         "aggregation_norm",
+        "task_sampling_alpha",
     ]
 
     for param_name in simple_params:

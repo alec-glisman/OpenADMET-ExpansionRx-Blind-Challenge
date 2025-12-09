@@ -17,11 +17,11 @@ class ParameterSpace:
     """Configuration for a single hyperparameter search space.
 
     Attributes:
-        type: Distribution type - one of "uniform", "loguniform", "choice", "quniform"
-        low: Lower bound for uniform/loguniform/quniform distributions
-        high: Upper bound for uniform/loguniform/quniform distributions
+        type: Distribution type - one of "uniform", "loguniform", "choice", "quniform", "randint", "qrandint"
+        low: Lower bound for uniform/loguniform/quniform/randint/qrandint distributions
+        high: Upper bound for uniform/loguniform/quniform/randint/qrandint distributions
         values: List of values for choice distribution
-        q: Quantization step for quniform distribution
+        q: Quantization step for quniform/qrandint distribution
         conditional_on: Parameter name this depends on (for conditional spaces)
         conditional_values: Parameter values that enable this space
     """
@@ -92,6 +92,7 @@ class SearchSpaceConfig:
 
     # Task weighting
     target_weights: ParameterSpace | None = None
+    task_sampling_alpha: ParameterSpace | None = None
 
     # Deprecated - kept for backward compatibility
     weight_decay: ParameterSpace | None = None
@@ -186,6 +187,7 @@ class HPOConfig:
     base_config_path: str | None = None
     ray_storage_path: str | None = None
     mlflow_tracking_uri: str | None = None
+    task_sampling_alpha: float | None = None
 
     # Fixed target weights (optional, overrides search space)
     target_weights: list[float] | None = None

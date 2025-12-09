@@ -331,6 +331,7 @@ class ChempropEnsemble:
                 num_workers=self.config.optimization.num_workers,
                 seed=self.config.optimization.seed,
                 progress_bar=self.config.optimization.progress_bar,
+                task_sampling_alpha=self.config.optimization.task_sampling_alpha,
             ),
             mlflow=MlflowConfig(
                 tracking=True,  # Enable MLflow tracking in model

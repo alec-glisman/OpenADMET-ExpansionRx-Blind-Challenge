@@ -133,6 +133,7 @@ class OptimizationConfig:
         Random seed for reproducibility.
     progress_bar : bool, default=False
         Whether to show training progress bar.
+    task_sampling_alpha: Optional[float] = None
     """
 
     criterion: str = "MAE"
@@ -146,6 +147,7 @@ class OptimizationConfig:
     num_workers: int = 0
     seed: int = 12345
     progress_bar: bool = False
+    task_sampling_alpha: Optional[float] = None
 
 
 @dataclass
