@@ -6,28 +6,12 @@
 #
 # Usage:
 #   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
-#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
 
 # Data configuration for ensemble
 data:
-  # Root directory containing split_*/fold_*/ subdirectories
-  # Expected structure:
-  #   data_dir/
-  #     split_0/
-  #       fold_0/
-  #         train.csv
-  #         validation.csv
-  #       fold_1/
-  #         ...
-  #     split_1/
-  #       ...
   data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
-
-  # Global test and blind files (same for all ensemble members)
   test_file: "assets/dataset/set/local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
-
-  # Output directory for ensemble results (null for temp directory)
   output_dir: null
 
   # Column configuration
@@ -45,15 +29,15 @@ data:
 
   # Per-task loss weights (optional, defaults to 1.0 for each)
   target_weights:
-    - 1.0310
-    - 1.0000
-    - 1.2252
-    - 1.1368
-    - 2.1227
-    - 2.1174
-    - 3.7877
-    - 5.2722
-    - 10.000
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 
   # Optional: filter specific splits/folds (null = use all found)
   # splits: [0, 1, 2]  # Only use splits 0, 1, 2
@@ -63,32 +47,32 @@ data:
 
 # Model architecture configuration (shared across ensemble)
 model:
-  depth: 5
-  message_hidden_dim: 500
+  depth: 4
+  message_hidden_dim: 1100
+  aggregation: "norm"
+  ffn_type: "regression"
   num_layers: 2
   hidden_dim: 500
-  dropout: 0.05
+  # trunk_n_layers: null
+  # trunk_hidden_dim: null
+  # n_experts: null
+  dropout: 0.25
   batch_norm: true
-  ffn_type: "regression"
-  trunk_n_layers: 2
-  trunk_hidden_dim: 500
-  n_experts: 4
-  aggregation: "mean"
 
 # Optimization configuration (shared across ensemble)
 optimization:
-  criterion: "MSE"
-  init_lr: 1.0e-4
-  max_lr: 1.0e-3
-  final_lr: 1.0e-4
+  criterion: "MAE"
+  init_lr: 1.04e-5
+  max_lr: 1.04e-4
+  final_lr: 2.09e-6
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
-  batch_size: 32
+  batch_size: 128
   num_workers: 0
-  task_sampling_alpha: 0.5
   seed: 12345
   progress_bar: false
+  task_sampling_alpha: 0.1
 
 # MLflow experiment tracking configuration
 mlflow:

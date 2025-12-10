@@ -319,16 +319,18 @@ def _build_hyperparams(
         ffn_type = config["ffn_type"]
         params["ffn_type"] = ffn_type_mapping.get(ffn_type, ffn_type)
 
-    # MoE-specific parameters
-    if "n_experts" in config and config["n_experts"] is not None:
-        params["n_experts"] = int(config["n_experts"])
+    # MoE-specific parameters (only if ffn_type is mixture_of_experts)
+    if params.get("ffn_type") == "mixture_of_experts":
+        if "n_experts" in config and config["n_experts"] is not None:
+            params["n_experts"] = int(config["n_experts"])
 
-    # Branched FFN parameters
-    if "trunk_depth" in config and config["trunk_depth"] is not None:
-        params["trunk_n_layers"] = int(config["trunk_depth"])
+    # Branched FFN parameters (only if ffn_type is branched)
+    if params.get("ffn_type") == "branched":
+        if "trunk_depth" in config and config["trunk_depth"] is not None:
+            params["trunk_n_layers"] = int(config["trunk_depth"])
 
-    if "trunk_hidden_dim" in config and config["trunk_hidden_dim"] is not None:
-        params["trunk_hidden_dim"] = int(config["trunk_hidden_dim"])
+        if "trunk_hidden_dim" in config and config["trunk_hidden_dim"] is not None:
+            params["trunk_hidden_dim"] = int(config["trunk_hidden_dim"])
 
     if "task_sampling_alpha" in config and config["task_sampling_alpha"] is not None:
         params["task_sampling_alpha"] = float(config["task_sampling_alpha"])

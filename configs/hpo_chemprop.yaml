@@ -12,7 +12,10 @@
 # =============================================================================
 
 # Experiment identification
-experiment_name: chemprop-hpo-2
+experiment_name: chemprop-hpo-4
+output_dir: /media/aglisman/Data/models/admet-chemprop-hpo-4
+ray_storage_path: /media/aglisman/Data/ray-tune-4
+mlflow_tracking_uri: "http://127.0.0.1:8080"
 
 # Data configuration
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
@@ -41,11 +44,6 @@ target_weights:
   - 1.0
   - 1.0
 
-# Output configuration
-output_dir: /media/aglisman/Data/models/admet-chemprop-hpo
-ray_storage_path: /media/aglisman/Data/ray-tune
-mlflow_tracking_uri: "http://127.0.0.1:8080"
-
 # Reproducibility
 seed: 12345
 
@@ -64,23 +62,32 @@ search_space:
   learning_rate:
     type: loguniform
     low: 1.0e-4
-    high: 1.0e-2
+    high: 3.0e-2
 
   # Learning rate schedule parameters
   # init_lr = max_lr * lr_warmup_ratio (warmup start)
   lr_warmup_ratio:
     type: choice
-    values: [0.1]
+    values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
 
   # final_lr = max_lr * lr_final_ratio (end of training)
   lr_final_ratio:
     type: choice
-    values: [0.1]
+    values: [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.08, 0.1, 0.2, 0.5, 1.0]
 
   dropout:
-    type: uniform
-    low: 0.0
-    high: 0.3
+    type: choice
+    values: [0.0, 0.05, 0.1, 0.15, 0.20, 0.25, 0.30]
+
+  # Training
+  batch_size:
+    type: choice
+    values: [32, 64, 128]
+
+  # Task sampling alpha (0=uniform, 1=inverse proportional)
+  task_sampling_alpha:
+    type: choice
+    values: [0.0, 0.02, 0.05, 0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.9, 1.0]
 
   # Message passing architecture
   depth:
@@ -90,9 +97,18 @@ search_space:
 
   # Message hidden dim (MPNN layer width) - can be different from FFN hidden_dim
   message_hidden_dim:
-    type: randint
-    low: 300
-    high: 1201
+    type: choice
+    values: [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+
+  # Message aggregation
+  aggregation:
+    type: choice
+    values: [norm]
+
+  # FFN type selection
+  ffn_type:
+    type: choice
+    values: [mlp, moe, branched]
 
   # FFN architecture
   ffn_num_layers:
@@ -101,19 +117,8 @@ search_space:
     high: 5
 
   ffn_hidden_dim:
-    type: randint
-    low: 200
-    high: 1201
-
-  # Training
-  batch_size:
     type: choice
-    values: [32]
-
-  # FFN type selection
-  ffn_type:
-    type: choice
-    values: [mlp, moe, branched]
+    values: [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
 
   # MoE-specific (only sampled when ffn_type=moe)
   n_experts:
@@ -133,22 +138,10 @@ search_space:
     conditional_values: [branched]
 
   trunk_hidden_dim:
-    type: randint
-    low: 300
-    high: 1201
+    type: choice
+    values: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
     conditional_on: ffn_type
     conditional_values: [branched]
-
-  # Message aggregation
-  aggregation:
-    type: choice
-    values: [norm]
-
-  # Task sampling alpha (0=uniform, 1=inverse proportional)
-  task_sampling_alpha:
-    type: uniform
-    low: 0.0
-    high: 1.0
 
 # =============================================================================
 # ASHA Scheduler Configuration
@@ -162,7 +155,7 @@ asha:
   mode: min # 'min' for loss metrics, 'max' for accuracy metrics
 
   # Training epochs
-  max_t: 100 # Maximum epochs for full training
+  max_t: 120 # Maximum epochs for full training
   grace_period: 15 # Minimum epochs before early stopping
 
   # Successive halving parameters

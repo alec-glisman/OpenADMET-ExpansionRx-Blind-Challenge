@@ -325,11 +325,11 @@ class ChempropHyperparams:
     ffn_type: str = "regression"  # options: 'regression', 'mixture_of_experts', 'branched'
 
     # Branched FFN
-    trunk_n_layers: int = 2
-    trunk_hidden_dim: int = 600
+    trunk_n_layers: Optional[int] = None
+    trunk_hidden_dim: Optional[int] = None
 
     # Mixture of Experts FFN
-    n_experts: int = 4
+    n_experts: Optional[int] = None
 
     # MPNN
     batch_norm: bool = True
@@ -711,9 +711,9 @@ class ChempropModel:
                 hidden_dim=self.hyperparams.hidden_dim,
                 batch_norm=self.hyperparams.batch_norm,
                 ffn_type=self.hyperparams.ffn_type,
-                trunk_n_layers=self.hyperparams.trunk_n_layers,
-                trunk_hidden_dim=self.hyperparams.trunk_hidden_dim,
-                n_experts=self.hyperparams.n_experts,
+                trunk_n_layers=self.hyperparams.trunk_n_layers or 2,
+                trunk_hidden_dim=self.hyperparams.trunk_hidden_dim or 600,
+                n_experts=self.hyperparams.n_experts or 4,
             ),
             optimization=OptimizationConfig(
                 criterion=self.hyperparams.criterion,
@@ -858,7 +858,7 @@ class ChempropModel:
         if self.hyperparams.ffn_type == "mixture_of_experts":
             self.ffn = MixtureOfExpertsRegressionFFN(
                 n_tasks=len(self.target_cols),
-                n_experts=self.hyperparams.n_experts,
+                n_experts=self.hyperparams.n_experts or 4,
                 input_dim=self.hyperparams.message_hidden_dim,
                 hidden_dim=self.hyperparams.hidden_dim,
                 n_layers=self.hyperparams.num_layers,
@@ -873,8 +873,8 @@ class ChempropModel:
                 n_tasks=len(self.target_cols),
                 input_dim=self.hyperparams.message_hidden_dim,
                 hidden_dim=self.hyperparams.hidden_dim,
-                trunk_n_layers=self.hyperparams.trunk_n_layers,
-                trunk_hidden_dim=self.hyperparams.trunk_hidden_dim,
+                trunk_n_layers=self.hyperparams.trunk_n_layers or 2,
+                trunk_hidden_dim=self.hyperparams.trunk_hidden_dim or 600,
                 trunk_dropout=self.hyperparams.dropout,
                 criterion=criterion,
                 task_weights=task_weights,
@@ -1201,6 +1201,11 @@ class ChempropModel:
         params["smiles_col"] = self.smiles_col
         params["target_cols"] = str(self.target_cols)
         params["n_targets"] = len(self.target_cols)
+
+        # Calculate and log total number of trainable parameters
+        if self.mpnn is not None:
+            total_params = sum(p.numel() for p in self.mpnn.parameters() if p.requires_grad)
+            params["total_parameters"] = total_params
 
         # Parse and log data_dir parameters if available
         if self.data_dir is not None:

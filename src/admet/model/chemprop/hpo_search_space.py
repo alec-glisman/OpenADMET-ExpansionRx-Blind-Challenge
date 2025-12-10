@@ -127,11 +127,11 @@ def build_search_space(
     if config.n_experts is not None:
         if config.n_experts.conditional_on == "ffn_type":
             # Sample only when ffn_type is in conditional_values
-            conditional_values = config.n_experts.conditional_values or ["moe"]
+            moe_conditional_values = config.n_experts.conditional_values or ["moe"]
 
             def sample_n_experts(config_dict: dict[str, Any]) -> int | None:
                 """Sample n_experts only for MoE FFN types."""
-                if config_dict.get("ffn_type") in conditional_values:
+                if config_dict.get("ffn_type") in moe_conditional_values:
                     param = config.n_experts
                     if param is not None and param.low is not None and param.high is not None:
                         q = param.q if param.q is not None else 1
@@ -146,11 +146,11 @@ def build_search_space(
     # Conditional parameters for Branched FFN
     if config.trunk_depth is not None:
         if config.trunk_depth.conditional_on == "ffn_type":
-            conditional_values = config.trunk_depth.conditional_values or ["branched"]
+            branched_depth_conditional_values = config.trunk_depth.conditional_values or ["branched"]
 
             def sample_trunk_depth(config_dict: dict[str, Any]) -> int | None:
                 """Sample trunk_depth only for branched FFN types."""
-                if config_dict.get("ffn_type") in conditional_values:
+                if config_dict.get("ffn_type") in branched_depth_conditional_values:
                     param = config.trunk_depth
                     if param is not None and param.low is not None and param.high is not None:
                         q = param.q if param.q is not None else 1
@@ -163,14 +163,19 @@ def build_search_space(
 
     if config.trunk_hidden_dim is not None:
         if config.trunk_hidden_dim.conditional_on == "ffn_type":
-            conditional_values = config.trunk_hidden_dim.conditional_values or ["branched"]
+            branched_dim_conditional_values = config.trunk_hidden_dim.conditional_values or ["branched"]
 
             def sample_trunk_hidden_dim(config_dict: dict[str, Any]) -> int | None:
                 """Sample trunk_hidden_dim only for branched FFN types."""
-                if config_dict.get("ffn_type") in conditional_values:
+                if config_dict.get("ffn_type") in branched_dim_conditional_values:
                     param = config.trunk_hidden_dim
-                    if param is not None and param.values is not None:
-                        return random.choice(param.values)
+                    if param is not None:
+                        # Handle both choice (values) and randint (low/high)
+                        if param.values is not None:
+                            return random.choice(param.values)
+                        elif param.low is not None and param.high is not None:
+                            q = param.q if param.q is not None else 1
+                            return int(random.randint(int(param.low), int(param.high)) // q * q)
                 return None
 
             space["trunk_hidden_dim"] = tune.sample_from(sample_trunk_hidden_dim)
