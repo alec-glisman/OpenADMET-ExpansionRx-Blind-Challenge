@@ -1,0 +1,113 @@
+# Advanced Task Affinity Configuration
+# =====================================
+# This configuration demonstrates all available task affinity parameters
+# for fine-tuning the grouping process.
+#
+# Usage:
+#   python -m admet.model.chemprop.model --config configs/chemprop_task_affinity_advanced.yaml
+
+# Data configuration
+data:
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+  output_dir: null
+
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+  target_weights:
+    - 1.0310
+    - 1.0000
+    - 1.2252
+    - 1.1368
+    - 2.1227
+    - 2.1174
+    - 3.7877
+    - 5.2722
+    - 10.000
+
+# Advanced Task Affinity Configuration
+# ------------------------------------
+# All parameters explicitly set for full control
+task_affinity:
+  # Core settings
+  enabled: true
+  n_groups: 4 # Try 4 groups for 9 tasks
+
+  # Affinity computation phase
+  affinity_epochs: 2 # More epochs for stable estimates
+  affinity_batch_size: 32 # Smaller batch for more gradient samples
+  affinity_lr: 0.0005 # Conservative learning rate
+
+  # Affinity scoring
+  affinity_type: "cosine" # Focuses on gradient direction
+  normalize_gradients: true # Additional normalization
+
+  # Clustering
+  clustering_method: "agglomerative" # Hierarchical clustering
+
+  # Advanced settings
+  encoder_param_patterns: [] # Use default: exclude predictor layers
+  device: "cuda" # Force GPU usage
+  seed: 42
+  log_affinity_matrix: true # Essential for analysis
+
+# Model architecture
+model:
+  # Larger model for complex task relationships
+  depth: 6
+  message_hidden_dim: 800
+
+  num_layers: 3
+  hidden_dim: 800
+  dropout: 0.15
+  batch_norm: true
+
+  ffn_type: "regression"
+
+# Optimization
+optimization:
+  criterion: "MSE"
+  epochs: 150 # Longer training
+  batch_size: 64
+  learning_rate: 0.001
+
+  scheduler: "cosine"
+  warmup_epochs: 10
+  max_lr: 0.001
+  final_lr: 0.00001
+
+  optimizer: "Adam"
+  weight_decay: 0.00001
+  gradient_clip: 1.0
+
+  patience: 30
+  min_delta: 0.00005
+
+# MLflow tracking
+mlflow:
+  experiment_name: "chemprop_task_affinity_advanced"
+  run_name: null
+  tracking_uri: "mlruns"
+  log_models: true
+  log_plots: true
+
+# Reproducibility
+seed: 42
+
+# Device
+device: "auto"
+
+# Logging
+log_level: "INFO"
+log_frequency: 10

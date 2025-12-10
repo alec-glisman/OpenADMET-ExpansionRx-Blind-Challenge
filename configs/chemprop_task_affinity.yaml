@@ -1,0 +1,136 @@
+# Chemprop Configuration with Task Affinity Grouping
+# ===================================================
+# This configuration enables Task Affinity Grouping (TAG) to automatically
+# discover which tasks benefit from joint training and group them accordingly.
+#
+# Usage:
+#   python -m admet.model.chemprop.model --config configs/chemprop_task_affinity.yaml
+#
+# See docs/guide/task_affinity.rst for detailed documentation.
+
+# Data configuration
+data:
+  # Directory containing train.csv and validation.csv (required)
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
+  # Optional test and blind files
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+
+  # Output directory (null for temp directory)
+  output_dir: null
+
+  # Column configuration
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+  # Per-task loss weights (optional, defaults to 1.0 for each)
+  target_weights:
+    - 1.0310
+    - 1.0000
+    - 1.2252
+    - 1.1368
+    - 2.1227
+    - 2.1174
+    - 3.7877
+    - 5.2722
+    - 10.000
+
+# Task Affinity Grouping Configuration
+# -------------------------------------
+# Automatically groups tasks based on gradient-based affinity scores
+task_affinity:
+  # Enable task affinity grouping
+  enabled: true
+
+  # Number of task groups to create
+  # Recommendation: Start with 3 for 8-10 tasks
+  n_groups: 3
+
+  # Affinity computation settings
+  affinity_epochs: 1 # Short training run to compute affinities
+  affinity_batch_size: 64
+  affinity_lr: 0.001
+
+  # Affinity scoring method
+  affinity_type: "cosine" # "cosine" or "dot_product"
+  normalize_gradients: true
+
+  # Clustering algorithm
+  clustering_method: "agglomerative" # "agglomerative" or "spectral"
+
+  # Advanced settings
+  encoder_param_patterns: [] # Empty = use default exclusion patterns
+  device: "auto" # "auto", "cpu", "cuda", or "cuda:N"
+  seed: 42
+  log_affinity_matrix: true # Log affinity matrix to console
+
+# Model architecture configuration
+model:
+  # Message passing network
+  depth: 5
+  message_hidden_dim: 600
+
+  # Feed-forward network
+  num_layers: 2
+  hidden_dim: 600
+  dropout: 0.1
+  batch_norm: true
+
+  # FFN type: 'regression', 'mixture_of_experts', 'branched'
+  ffn_type: "regression"
+
+  # Branched FFN settings (used when ffn_type='branched')
+  trunk_n_layers: 2
+  trunk_hidden_dim: 600
+
+  # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
+  n_experts: 4
+
+# Optimization configuration
+optimization:
+  criterion: "MSE"
+  epochs: 100
+  batch_size: 64
+  learning_rate: 0.001
+
+  # Learning rate scheduler
+  scheduler: "cosine" # "constant", "cosine", "exponential", "step"
+  warmup_epochs: 5
+  max_lr: 0.001
+  final_lr: 0.0001
+
+  # Optimizer settings
+  optimizer: "Adam"
+  weight_decay: 0.0
+  gradient_clip: null
+
+  # Early stopping
+  patience: 20
+  min_delta: 0.0001
+
+# MLflow tracking
+mlflow:
+  experiment_name: "chemprop_task_affinity"
+  run_name: null # Auto-generated if null
+  tracking_uri: "mlruns"
+  log_models: true
+  log_plots: true
+
+# Reproducibility
+seed: 42
+
+# Device configuration
+device: "auto" # "auto", "cpu", "cuda", or "cuda:N"
+
+# Logging
+log_level: "INFO" # "DEBUG", "INFO", "WARNING", "ERROR"
+log_frequency: 10 # Log every N batches

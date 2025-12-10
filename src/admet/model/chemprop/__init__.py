@@ -14,6 +14,7 @@ __all__ = [
     "hpo_search_space",
     "hpo_trainable",
     "model",
+    "task_affinity",
     # Config classes
     "ChempropConfig",
     "DataConfig",
@@ -41,10 +42,26 @@ __all__ = [
     "build_search_space",
     "get_default_search_space",
     "train_chemprop_trial",
+    # Task affinity classes
+    "TaskAffinityConfig",
+    "TaskAffinityComputer",
+    "TaskGrouper",
+    "compute_task_affinity",
 ]
 
 if TYPE_CHECKING:
-    from . import config, curriculum, ensemble, ffn, hpo, hpo_config, hpo_search_space, hpo_trainable, model
+    from . import (
+        config,
+        curriculum,
+        ensemble,
+        ffn,
+        hpo,
+        hpo_config,
+        hpo_search_space,
+        hpo_trainable,
+        model,
+        task_affinity,
+    )
     from .config import (
         ChempropConfig,
         DataConfig,
@@ -67,6 +84,12 @@ if TYPE_CHECKING:
     from .hpo_search_space import build_search_space, get_default_search_space
     from .hpo_trainable import RayTuneReportCallback, train_chemprop_trial
     from .model import ChempropHyperparams, ChempropModel
+    from .task_affinity import (
+        TaskAffinityComputer,
+        TaskAffinityConfig,
+        TaskGrouper,
+        compute_task_affinity,
+    )
 
 
 _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
@@ -80,6 +103,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "hpo_search_space": ("admet.model.chemprop.hpo_search_space", None),
     "hpo_trainable": ("admet.model.chemprop.hpo_trainable", None),
     "model": ("admet.model.chemprop.model", None),
+    "task_affinity": ("admet.model.chemprop.task_affinity", None),
     # Config classes
     "ChempropConfig": ("admet.model.chemprop.config", "ChempropConfig"),
     "DataConfig": ("admet.model.chemprop.config", "DataConfig"),
@@ -106,6 +130,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "build_search_space": ("admet.model.chemprop.hpo_search_space", "build_search_space"),
     "get_default_search_space": ("admet.model.chemprop.hpo_search_space", "get_default_search_space"),
     "train_chemprop_trial": ("admet.model.chemprop.hpo_trainable", "train_chemprop_trial"),
+    # Task affinity classes
+    "TaskAffinityConfig": ("admet.model.chemprop.task_affinity", "TaskAffinityConfig"),
+    "TaskAffinityComputer": ("admet.model.chemprop.task_affinity", "TaskAffinityComputer"),
+    "TaskGrouper": ("admet.model.chemprop.task_affinity", "TaskGrouper"),
+    "compute_task_affinity": ("admet.model.chemprop.task_affinity", "compute_task_affinity"),
 }
 
 

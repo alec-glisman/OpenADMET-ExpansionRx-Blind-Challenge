@@ -87,9 +87,11 @@ Documentation sections
    guide/data_sources
    guide/splitting
    guide/configuration
+   guide/config_reference
    guide/modeling
    guide/hpo
    guide/curriculum
+   guide/task_affinity
 
 
 To build the docs locally, follow one of these methods:

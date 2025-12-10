@@ -236,6 +236,50 @@ class CurriculumConfig:
 
 
 @dataclass
+class TaskAffinityConfig:
+    """
+    Configuration for task affinity grouping.
+
+    Task affinity grouping implements the TAG algorithm from
+    "Efficiently Identifying Task Groupings for Multi-Task Learning"
+    (Fifty et al., NeurIPS 2021). It computes inter-task affinity scores
+    by measuring gradient similarity between tasks during a short training
+    run, then clusters tasks into groups that benefit from being trained
+    together.
+
+    Parameters
+    ----------
+    enabled : bool, default=False
+        Whether to enable task affinity grouping. When enabled, a short
+        pre-training phase computes task affinities before the main
+        training loop.
+    affinity_epochs : int, default=1
+        Number of epochs for the affinity computation phase.
+    affinity_batch_size : int, default=64
+        Batch size during affinity computation.
+    affinity_lr : float, default=1e-3
+        Learning rate during affinity computation.
+    n_groups : int, default=3
+        Number of task groups to create via clustering.
+    clustering_method : str, default="agglomerative"
+        Clustering algorithm: "agglomerative" or "spectral".
+    affinity_type : str, default="cosine"
+        Type of affinity to compute: "cosine" or "dot_product".
+    seed : int, default=42
+        Random seed for reproducibility.
+    """
+
+    enabled: bool = False
+    affinity_epochs: int = 1
+    affinity_batch_size: int = 64
+    affinity_lr: float = 1.0e-3
+    n_groups: int = 3
+    clustering_method: str = "agglomerative"
+    affinity_type: str = "cosine"
+    seed: int = 42
+
+
+@dataclass
 class ChempropConfig:
     """
     Complete configuration for a Chemprop training run.
@@ -256,6 +300,8 @@ class ChempropConfig:
         MLflow tracking configuration.
     curriculum : CurriculumConfig
         Curriculum learning configuration for quality-aware sampling.
+    task_affinity : TaskAffinityConfig
+        Task affinity grouping configuration for multi-task learning.
 
     Examples
     --------
@@ -278,6 +324,7 @@ class ChempropConfig:
     ...     optimization=OptimizationConfig(max_epochs=100),
     ...     mlflow=MlflowConfig(experiment_name="my_experiment"),
     ...     curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
+    ...     task_affinity=TaskAffinityConfig(enabled=True, n_groups=2),
     ... )
     """
 
@@ -286,6 +333,7 @@ class ChempropConfig:
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
 
 
 @dataclass
@@ -377,6 +425,7 @@ class EnsembleConfig:
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     max_parallel: int = 1
     ray_num_cpus: Optional[int] = None
     ray_num_gpus: Optional[int] = None

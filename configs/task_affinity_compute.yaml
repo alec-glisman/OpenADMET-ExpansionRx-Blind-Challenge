@@ -1,0 +1,60 @@
+# Task Affinity Computation Only Configuration
+# =============================================
+# Configuration for computing task affinity matrix without full training.
+# Used for analysis and visualization of task relationships.
+#
+# Usage:
+#   python -m admet.cli.compute_task_affinity \
+#     --config configs/task_affinity_compute.yaml \
+#     --save-path results/task_affinity.npz \
+#     --plot-heatmap results/affinity_heatmap.png
+
+# Data configuration
+data:
+  # Training data file
+  train_file: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv"
+
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+# Task Affinity Computation Settings
+task_affinity:
+  # Affinity computation
+  affinity_epochs: 2 # More epochs for stable estimates
+  affinity_batch_size: 64
+  affinity_lr: 0.001
+
+  # Affinity scoring
+  affinity_type: "cosine"
+  normalize_gradients: true
+
+  # Clustering (for automatic grouping)
+  n_groups: 3
+  clustering_method: "agglomerative"
+
+  # System settings
+  device: "auto"
+  seed: 42
+  log_affinity_matrix: true
+
+# Output settings
+output:
+  # Save paths (can override via CLI)
+  affinity_matrix_path: "results/task_affinity_matrix.npz"
+  affinity_csv_path: "results/task_affinity_matrix.csv"
+  heatmap_path: "results/task_affinity_heatmap.png"
+  groups_json_path: "results/task_groups.json"
+
+  # Heatmap settings
+  heatmap_figsize: [10, 8]
+  heatmap_cmap: "RdBu_r"
+  heatmap_dpi: 150

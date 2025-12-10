@@ -1,0 +1,113 @@
+# Exploratory Task Affinity Configuration
+# ========================================
+# Optimized for exploring different task groupings and finding
+# the optimal number of groups through quick experiments.
+#
+# Usage:
+#   # Try different group numbers
+#   for n in 2 3 4 5; do
+#     python -m admet.model.chemprop.model \
+#       --config configs/chemprop_task_affinity_explore.yaml \
+#       --task-affinity.n-groups $n \
+#       --mlflow.run-name "explore_n${n}"
+#   done
+
+# Data configuration
+data:
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
+  test_file: "assets/dataset/set/local_test.csv"
+  blind_file: "assets/dataset/set/blind_test.csv"
+  output_dir: null
+
+  smiles_col: "SMILES"
+  target_cols:
+    - "LogD"
+    - "Log KSOL"
+    - "Log HLM CLint"
+    - "Log MLM CLint"
+    - "Log Caco-2 Permeability Papp A>B"
+    - "Log Caco-2 Permeability Efflux"
+    - "Log MPPB"
+    - "Log MBPB"
+    - "Log MGMB"
+
+  target_weights:
+    - 1.0310
+    - 1.0000
+    - 1.2252
+    - 1.1368
+    - 2.1227
+    - 2.1174
+    - 3.7877
+    - 5.2722
+    - 10.000
+
+# Task Affinity for Exploration
+# -----------------------------
+# Settings optimized for quick experiments
+task_affinity:
+  enabled: true
+  n_groups: 3 # Override with CLI for different values
+
+  # More epochs for stable affinity estimates
+  affinity_epochs: 2
+  affinity_batch_size: 64
+  affinity_lr: 0.001
+
+  affinity_type: "cosine"
+  normalize_gradients: true
+  clustering_method: "agglomerative"
+
+  encoder_param_patterns: []
+  device: "auto"
+  seed: 42
+  log_affinity_matrix: true # Critical for analysis
+
+# Model architecture - balanced for quick training
+model:
+  depth: 4
+  message_hidden_dim: 400
+
+  num_layers: 2
+  hidden_dim: 400
+  dropout: 0.1
+  batch_norm: true
+
+  ffn_type: "regression"
+
+# Optimization - shorter training for exploration
+optimization:
+  criterion: "MSE"
+  epochs: 30 # Quick experiments
+  batch_size: 64
+  learning_rate: 0.001
+
+  scheduler: "cosine"
+  warmup_epochs: 3
+  max_lr: 0.001
+  final_lr: 0.0001
+
+  optimizer: "Adam"
+  weight_decay: 0.0
+  gradient_clip: null
+
+  patience: 10
+  min_delta: 0.0001
+
+# MLflow tracking
+mlflow:
+  experiment_name: "chemprop_task_affinity_explore"
+  run_name: null # Set via CLI
+  tracking_uri: "mlruns"
+  log_models: true
+  log_plots: true
+
+# Reproducibility
+seed: 42
+
+# Device
+device: "auto"
+
+# Logging
+log_level: "INFO"
+log_frequency: 10

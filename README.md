@@ -113,6 +113,50 @@ data:
   # ...
 ```
 
+#### Task Affinity Grouping
+
+Use Task Affinity Grouping (TAG) to automatically discover which tasks benefit from joint training:
+
+```bash
+# Train with task affinity enabled
+python -m admet.model.chemprop.model --config configs/chemprop_task_affinity.yaml
+
+# Override number of task groups
+python -m admet.model.chemprop.model -c configs/chemprop.yaml \
+    --task-affinity.enabled true \
+    --task-affinity.n-groups 3
+
+# Compute affinity matrix only
+python -m admet.cli.compute_task_affinity \
+    --data-path data/admet_train.csv \
+    --smiles-column SMILES \
+    --target-columns LogD KSOL PAMPA hERG CLint \
+    --save-path results/task_affinity.npz \
+    --plot-heatmap results/affinity_heatmap.png
+```
+
+Configure task affinity in your YAML:
+
+```yaml
+# configs/chemprop_task_affinity.yaml
+task_affinity:
+  enabled: true
+  n_groups: 3                    # Number of task groups
+  affinity_epochs: 1             # Epochs for affinity computation
+  affinity_batch_size: 64
+  clustering_method: "agglomerative"
+
+data:
+  target_columns:
+    - "LogD"
+    - "KSOL"
+    - "PAMPA"
+    - "hERG"
+    - "CLint"
+```
+
+Task affinity automatically groups related tasks (e.g., solubility, permeability, metabolism) to improve multi-task learning. See [docs/guide/task_affinity.rst](./docs/guide/task_affinity.rst) for detailed usage.
+
 #### Hyperparameter Optimization
 
 Run hyperparameter optimization (HPO) for Chemprop models using Ray Tune with ASHA scheduler:
