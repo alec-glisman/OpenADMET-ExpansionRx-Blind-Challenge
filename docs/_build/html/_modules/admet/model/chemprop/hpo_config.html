@@ -220,9 +220,11 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/data_sources.html">Data Sources &amp; Curation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
 </ul>
 
 </div>
@@ -267,17 +269,19 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">MISSING</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">CurriculumConfig</span>
+
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ParameterSpace</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for a single hyperparameter search space.</span>
 
 <span class="sd">    Attributes:</span>
-<span class="sd">        type: Distribution type - one of &quot;uniform&quot;, &quot;loguniform&quot;, &quot;choice&quot;, &quot;quniform&quot;</span>
-<span class="sd">        low: Lower bound for uniform/loguniform/quniform distributions</span>
-<span class="sd">        high: Upper bound for uniform/loguniform/quniform distributions</span>
+<span class="sd">        type: Distribution type - one of &quot;uniform&quot;, &quot;loguniform&quot;, &quot;choice&quot;, &quot;quniform&quot;, &quot;randint&quot;, &quot;qrandint&quot;</span>
+<span class="sd">        low: Lower bound for uniform/loguniform/quniform/randint/qrandint distributions</span>
+<span class="sd">        high: Upper bound for uniform/loguniform/quniform/randint/qrandint distributions</span>
 <span class="sd">        values: List of values for choice distribution</span>
-<span class="sd">        q: Quantization step for quniform distribution</span>
+<span class="sd">        q: Quantization step for quniform/qrandint distribution</span>
 <span class="sd">        conditional_on: Parameter name this depends on (for conditional spaces)</span>
 <span class="sd">        conditional_values: Parameter values that enable this space</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -348,6 +352,7 @@
 
     <span class="c1"># Task weighting</span>
     <span class="n">target_weights</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">task_sampling_alpha</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Deprecated - kept for backward compatibility</span>
     <span class="n">weight_decay</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -427,6 +432,7 @@
 <span class="sd">        asha: ASHA scheduler configuration</span>
 <span class="sd">        resources: Resource allocation configuration</span>
 <span class="sd">        transfer_learning: Transfer learning configuration</span>
+<span class="sd">        curriculum: Curriculum learning configuration</span>
 <span class="sd">        base_config_path: Path to base Chemprop config YAML (optional)</span>
 <span class="sd">        seed: Random seed for reproducibility</span>
 <span class="sd">        ray_storage_path: Path for Ray Tune storage (optional)</span>
@@ -442,12 +448,18 @@
     <span class="n">val_data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">base_config_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ray_storage_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">mlflow_tracking_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">task_sampling_alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Fixed target weights (optional, overrides search space)</span>
+    <span class="n">target_weights</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Sub-configurations</span>
     <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpaceConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">SearchSpaceConfig</span><span class="p">)</span>
     <span class="n">asha</span><span class="p">:</span> <span class="n">ASHAConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ASHAConfig</span><span class="p">)</span>
     <span class="n">resources</span><span class="p">:</span> <span class="n">ResourceConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ResourceConfig</span><span class="p">)</span>
     <span class="n">transfer_learning</span><span class="p">:</span> <span class="n">TransferLearningConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TransferLearningConfig</span><span class="p">)</span>
+    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
 
     <span class="c1"># Reproducibility</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span></div>

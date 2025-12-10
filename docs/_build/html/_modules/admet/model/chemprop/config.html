@@ -220,9 +220,11 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/data_sources.html">Data Sources &amp; Curation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
 </ul>
 
 </div>
@@ -349,6 +351,8 @@
 <span class="sd">        Hidden dimension for trunk layers in branched FFN.</span>
 <span class="sd">    n_experts : int, default=4</span>
 <span class="sd">        Number of experts for mixture of experts FFN.</span>
+<span class="sd">    aggregation : str, default=&quot;mean&quot;</span>
+<span class="sd">        Aggregation method for message passing. Options: &#39;mean&#39;, &#39;sum&#39;, &#39;norm&#39;.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
@@ -360,7 +364,8 @@
     <span class="n">ffn_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;regression&quot;</span>
     <span class="n">trunk_n_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
     <span class="n">trunk_hidden_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span>
-    <span class="n">n_experts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span></div>
+    <span class="n">n_experts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">aggregation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span></div>
 
 
 
@@ -396,6 +401,7 @@
 <span class="sd">        Random seed for reproducibility.</span>
 <span class="sd">    progress_bar : bool, default=False</span>
 <span class="sd">        Whether to show training progress bar.</span>
+<span class="sd">    task_sampling_alpha: Optional[float] = None</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">criterion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MAE&quot;</span>
@@ -408,7 +414,8 @@
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12345</span>
-    <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+    <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">task_sampling_alpha</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 
@@ -500,6 +507,50 @@
     <span class="n">log_per_quality_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TaskAffinityConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for task affinity grouping.</span>
+
+<span class="sd">    Task affinity grouping implements the TAG algorithm from</span>
+<span class="sd">    &quot;Efficiently Identifying Task Groupings for Multi-Task Learning&quot;</span>
+<span class="sd">    (Fifty et al., NeurIPS 2021). It computes inter-task affinity scores</span>
+<span class="sd">    by measuring gradient similarity between tasks during a short training</span>
+<span class="sd">    run, then clusters tasks into groups that benefit from being trained</span>
+<span class="sd">    together.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    enabled : bool, default=False</span>
+<span class="sd">        Whether to enable task affinity grouping. When enabled, a short</span>
+<span class="sd">        pre-training phase computes task affinities before the main</span>
+<span class="sd">        training loop.</span>
+<span class="sd">    affinity_epochs : int, default=1</span>
+<span class="sd">        Number of epochs for the affinity computation phase.</span>
+<span class="sd">    affinity_batch_size : int, default=64</span>
+<span class="sd">        Batch size during affinity computation.</span>
+<span class="sd">    affinity_lr : float, default=1e-3</span>
+<span class="sd">        Learning rate during affinity computation.</span>
+<span class="sd">    n_groups : int, default=3</span>
+<span class="sd">        Number of task groups to create via clustering.</span>
+<span class="sd">    clustering_method : str, default=&quot;agglomerative&quot;</span>
+<span class="sd">        Clustering algorithm: &quot;agglomerative&quot; or &quot;spectral&quot;.</span>
+<span class="sd">    affinity_type : str, default=&quot;cosine&quot;</span>
+<span class="sd">        Type of affinity to compute: &quot;cosine&quot; or &quot;dot_product&quot;.</span>
+<span class="sd">    seed : int, default=42</span>
+<span class="sd">        Random seed for reproducibility.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">affinity_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">affinity_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span>
+    <span class="n">affinity_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0e-3</span>
+    <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">clustering_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;agglomerative&quot;</span>
+    <span class="n">affinity_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cosine&quot;</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+
+
 <div class="viewcode-block" id="ChempropConfig">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ChempropConfig">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -523,6 +574,8 @@
 <span class="sd">        MLflow tracking configuration.</span>
 <span class="sd">    curriculum : CurriculumConfig</span>
 <span class="sd">        Curriculum learning configuration for quality-aware sampling.</span>
+<span class="sd">    task_affinity : TaskAffinityConfig</span>
+<span class="sd">        Task affinity grouping configuration for multi-task learning.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -545,6 +598,7 @@
 <span class="sd">    ...     optimization=OptimizationConfig(max_epochs=100),</span>
 <span class="sd">    ...     mlflow=MlflowConfig(experiment_name=&quot;my_experiment&quot;),</span>
 <span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
+<span class="sd">    ...     task_affinity=TaskAffinityConfig(enabled=True, n_groups=2),</span>
 <span class="sd">    ... )</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -552,7 +606,8 @@
     <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">)</span>
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
-    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span></div>
+    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
+    <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span></div>
 
 
 
@@ -647,6 +702,7 @@
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
     <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
+    <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
     <span class="n">max_parallel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">ray_num_cpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ray_num_gpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>

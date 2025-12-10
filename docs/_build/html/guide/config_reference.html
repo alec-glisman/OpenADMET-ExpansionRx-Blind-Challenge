@@ -1,0 +1,1058 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="Configuration File Reference" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/guide/config_reference.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="Table of Contents: Overview, Available Configuration Files- Base Configurations, Task Affinity Configurations, Ensemble Configurations, Curriculum Learning Configurations, Hyperparameter Optimizati..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="Table of Contents: Overview, Available Configuration Files- Base Configurations, Task Affinity Configurations, Ensemble Configurations, Curriculum Learning Configurations, Hyperparameter Optimizati..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modeling Guide" href="modeling.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>Configuration File Reference - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/guide/config_reference.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="configuration-file-reference">
+<h1>Configuration File Reference<a class="headerlink" href="#configuration-file-reference" title="Link to this heading">¶</a></h1>
+<nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#overview" id="id1">Overview</a></p></li>
+<li><p><a class="reference internal" href="#available-configuration-files" id="id2">Available Configuration Files</a></p>
+<ul>
+<li><p><a class="reference internal" href="#base-configurations" id="id3">Base Configurations</a></p></li>
+<li><p><a class="reference internal" href="#task-affinity-configurations" id="id4">Task Affinity Configurations</a></p></li>
+<li><p><a class="reference internal" href="#ensemble-configurations" id="id5">Ensemble Configurations</a></p></li>
+<li><p><a class="reference internal" href="#curriculum-learning-configurations" id="id6">Curriculum Learning Configurations</a></p></li>
+<li><p><a class="reference internal" href="#hyperparameter-optimization" id="id7">Hyperparameter Optimization</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#configuration-structure" id="id8">Configuration Structure</a></p>
+<ul>
+<li><p><a class="reference internal" href="#data-section" id="id9">Data Section</a></p></li>
+<li><p><a class="reference internal" href="#model-section" id="id10">Model Section</a></p></li>
+<li><p><a class="reference internal" href="#optimization-section" id="id11">Optimization Section</a></p></li>
+<li><p><a class="reference internal" href="#task-affinity-section" id="id12">Task Affinity Section</a></p></li>
+<li><p><a class="reference internal" href="#curriculum-learning-section" id="id13">Curriculum Learning Section</a></p></li>
+<li><p><a class="reference internal" href="#mlflow-section" id="id14">MLflow Section</a></p></li>
+<li><p><a class="reference internal" href="#system-section" id="id15">System Section</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#usage-patterns" id="id16">Usage Patterns</a></p>
+<ul>
+<li><p><a class="reference internal" href="#loading-configurations" id="id17">Loading Configurations</a></p></li>
+<li><p><a class="reference internal" href="#overriding-parameters" id="id18">Overriding Parameters</a></p></li>
+<li><p><a class="reference internal" href="#merging-multiple-configs" id="id19">Merging Multiple Configs</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#configuration-best-practices" id="id20">Configuration Best Practices</a></p></li>
+<li><p><a class="reference internal" href="#quick-reference-config-selection" id="id21">Quick Reference: Config Selection</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id22">See Also</a></p></li>
+</ul>
+</nav>
+<section id="overview">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Overview</a><a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>This project uses YAML configuration files to define all aspects of model training,
+hyperparameter optimization, and evaluation. All configs are located in the <code class="docutils literal notranslate"><span class="pre">configs/</span></code>
+directory and can be loaded with OmegaConf.</p>
+<p>Configuration files are organized by purpose:</p>
+<ul class="simple">
+<li><p><strong>Base configs</strong>: <code class="docutils literal notranslate"><span class="pre">chemprop.yaml</span></code></p></li>
+<li><p><strong>Task affinity</strong>: <code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity*.yaml</span></code></p></li>
+<li><p><strong>Ensemble training</strong>: <code class="docutils literal notranslate"><span class="pre">ensemble_chemprop*.yaml</span></code></p></li>
+<li><p><strong>Curriculum learning</strong>: <code class="docutils literal notranslate"><span class="pre">*curriculum*.yaml</span></code></p></li>
+<li><p><strong>HPO</strong>: <code class="docutils literal notranslate"><span class="pre">hpo_chemprop.yaml</span></code></p></li>
+<li><p><strong>Utilities</strong>: <code class="docutils literal notranslate"><span class="pre">task_affinity_compute.yaml</span></code></p></li>
+</ul>
+</section>
+<section id="available-configuration-files">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Available Configuration Files</a><a class="headerlink" href="#available-configuration-files" title="Link to this heading">¶</a></h2>
+<section id="base-configurations">
+<h3><a class="toc-backref" href="#id3" role="doc-backlink">Base Configurations</a><a class="headerlink" href="#base-configurations" title="Link to this heading">¶</a></h3>
+<section id="chemprop-yaml">
+<h4>chemprop.yaml<a class="headerlink" href="#chemprop-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Standard single-model Chemprop training without task affinity or curriculum learning.</p>
+<p><strong>Use case</strong>: Baseline training, quick experiments, or when you want a simple multi-task setup.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>9 ADMET target columns</p></li>
+<li><p>Message passing depth: 5</p></li>
+<li><p>FFN layers: 2</p></li>
+<li><p>Hidden dimension: 600</p></li>
+<li><p>Per-target loss weights included</p></li>
+<li><p>100 epochs with cosine LR scheduling</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/chemprop.yaml
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;regression&quot;</span>
+
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="task-affinity-configurations">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">Task Affinity Configurations</a><a class="headerlink" href="#task-affinity-configurations" title="Link to this heading">¶</a></h3>
+<section id="chemprop-task-affinity-yaml">
+<h4>chemprop_task_affinity.yaml<a class="headerlink" href="#chemprop-task-affinity-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Standard task affinity training (recommended starting point).</p>
+<p><strong>Use case</strong>: Production training with automatic task grouping to improve multi-task learning.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>Task affinity enabled with 3 groups</p></li>
+<li><p>1 epoch for affinity computation</p></li>
+<li><p>Cosine similarity for gradient affinity</p></li>
+<li><p>Agglomerative clustering</p></li>
+<li><p>Same architecture as base config</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/chemprop_task_affinity.yaml
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">n_groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">affinity_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">affinity_batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">  </span><span class="nt">clustering_method</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;agglomerative&quot;</span>
+</pre></div>
+</div>
+<p><strong>See also</strong>: <a class="reference internal" href="task_affinity.html"><span class="doc">Task Affinity Grouping</span></a> for detailed documentation.</p>
+</section>
+<section id="chemprop-task-affinity-advanced-yaml">
+<h4>chemprop_task_affinity_advanced.yaml<a class="headerlink" href="#chemprop-task-affinity-advanced-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Advanced task affinity with all parameters explicitly configured.</p>
+<p><strong>Use case</strong>: Fine-tuning task grouping for complex datasets or when default settings are insufficient.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>4 task groups (more granular)</p></li>
+<li><p>2 epochs for affinity computation (more stable estimates)</p></li>
+<li><p>Smaller batch size (32) for more gradient samples</p></li>
+<li><p>Larger model (800 hidden dim)</p></li>
+<li><p>150 training epochs</p></li>
+<li><p>Conservative learning rate (0.0005 for affinity)</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/chemprop_task_affinity_advanced.yaml
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">n_groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">affinity_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">affinity_batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">  </span><span class="nt">affinity_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0005</span>
+
+<span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">800</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">800</span>
+</pre></div>
+</div>
+</section>
+<section id="chemprop-task-affinity-explore-yaml">
+<h4>chemprop_task_affinity_explore.yaml<a class="headerlink" href="#chemprop-task-affinity-explore-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Quick experiments to find optimal number of task groups.</p>
+<p><strong>Use case</strong>: Exploration phase before production training. Run with different <code class="docutils literal notranslate"><span class="pre">n_groups</span></code> values.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>30 epochs only (quick experiments)</p></li>
+<li><p>2 affinity epochs for stable estimates</p></li>
+<li><p>Moderate model size (400 hidden dim)</p></li>
+<li><p>Easy CLI override of <code class="docutils literal notranslate"><span class="pre">n_groups</span></code></p></li>
+<li><p>Separate MLflow experiment for exploration</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Try different group numbers</span>
+<span class="k">for</span><span class="w"> </span>n<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="m">5</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">  </span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/chemprop_task_affinity_explore.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--task-affinity.n-groups<span class="w"> </span><span class="nv">$n</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mlflow.run-name<span class="w"> </span><span class="s2">&quot;explore_n</span><span class="si">${</span><span class="nv">n</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="k">done</span>
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">n_groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">  </span><span class="c1"># Override via CLI</span>
+<span class="w">  </span><span class="nt">affinity_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">  </span><span class="c1"># Short for exploration</span>
+</pre></div>
+</div>
+</section>
+<section id="task-affinity-compute-yaml">
+<h4>task_affinity_compute.yaml<a class="headerlink" href="#task-affinity-compute-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Compute task affinity matrix without full training.</p>
+<p><strong>Use case</strong>: Analysis and visualization of task relationships before deciding on training strategy.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>Affinity computation only (no model training)</p></li>
+<li><p>Outputs: affinity matrix (NPZ), CSV, heatmap PNG, groups JSON</p></li>
+<li><p>2 epochs for stable affinity estimates</p></li>
+<li><p>Configurable output paths</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.cli.compute_task_affinity<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/task_affinity_compute.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--save-path<span class="w"> </span>results/task_affinity.npz<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--plot-heatmap<span class="w"> </span>results/affinity_heatmap.png
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">affinity_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">n_groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">log_affinity_matrix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="nt">output</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">affinity_matrix_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;results/task_affinity_matrix.npz&quot;</span>
+<span class="w">  </span><span class="nt">heatmap_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;results/task_affinity_heatmap.png&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ensemble-configurations">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Ensemble Configurations</a><a class="headerlink" href="#ensemble-configurations" title="Link to this heading">¶</a></h3>
+<section id="ensemble-chemprop-1-yaml">
+<h4>ensemble_chemprop_1.yaml<a class="headerlink" href="#ensemble-chemprop-1-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: First ensemble configuration variant.</p>
+<p><strong>Use case</strong>: Ensemble training across multiple data splits and folds.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>Discovers all split_*/fold_*/ directories automatically</p></li>
+<li><p>Parallel training with Ray</p></li>
+<li><p>Ensemble predictions with uncertainty estimates</p></li>
+<li><p>Nested MLflow runs (one parent, multiple children)</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.ensemble<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/ensemble_chemprop_1.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--max-parallel<span class="w"> </span><span class="m">2</span>
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ensemble</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/splits/data&quot;</span>
+<span class="w">  </span><span class="nt">splits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># null = use all</span>
+<span class="w">  </span><span class="nt">folds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">   </span><span class="c1"># null = use all</span>
+
+<span class="c1"># max_parallel set via CLI or in config</span>
+</pre></div>
+</div>
+</section>
+<section id="ensemble-chemprop-2-yaml-ensemble-chemprop-3-yaml">
+<h4>ensemble_chemprop_2.yaml, ensemble_chemprop_3.yaml<a class="headerlink" href="#ensemble-chemprop-2-yaml-ensemble-chemprop-3-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Alternative ensemble configurations with different hyperparameters.</p>
+<p><strong>Use case</strong>: Exploring different architectures or training strategies for ensemble diversity.</p>
+<p><strong>Key differences</strong>: Likely vary in model architecture, dropout rates, or other hyperparameters
+to increase ensemble diversity (specifics depend on file contents).</p>
+</section>
+<section id="ensemble-chemprop-production-yaml">
+<h4>ensemble_chemprop_production.yaml<a class="headerlink" href="#ensemble-chemprop-production-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Production-ready ensemble configuration.</p>
+<p><strong>Use case</strong>: Final training after hyperparameter optimization and validation.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>Optimized hyperparameters from HPO</p></li>
+<li><p>Full training epochs (100+)</p></li>
+<li><p>All splits and folds</p></li>
+<li><p>Production MLflow experiment name</p></li>
+</ul>
+</section>
+</section>
+<section id="curriculum-learning-configurations">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Curriculum Learning Configurations</a><a class="headerlink" href="#curriculum-learning-configurations" title="Link to this heading">¶</a></h3>
+<section id="chemprop-curriculum-yaml">
+<h4>chemprop_curriculum.yaml<a class="headerlink" href="#chemprop-curriculum-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Single model with curriculum learning enabled.</p>
+<p><strong>Use case</strong>: Training on datasets with quality annotations where gradual learning improves results.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>Curriculum learning based on data quality</p></li>
+<li><p>Pacing function to control difficulty progression</p></li>
+<li><p>Quality-based sample weighting</p></li>
+<li><p>Same base architecture as standard config</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/chemprop_curriculum.yaml
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">pacing_function</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;linear&quot;</span>
+<span class="w">  </span><span class="nt">quality_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">  </span><span class="nt">start_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">  </span><span class="nt">end_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+</pre></div>
+</div>
+<p><strong>See also</strong>: <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> for detailed documentation.</p>
+</section>
+<section id="ensemble-curriculum-yaml">
+<h4>ensemble_curriculum.yaml<a class="headerlink" href="#ensemble-curriculum-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Ensemble training with curriculum learning.</p>
+<p><strong>Use case</strong>: Combining benefits of ensemble diversity with curriculum learning’s gradual difficulty increase.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>Curriculum learning across all ensemble members</p></li>
+<li><p>Consistent pacing across splits/folds</p></li>
+<li><p>Ensemble predictions after curriculum training</p></li>
+</ul>
+</section>
+</section>
+<section id="hyperparameter-optimization">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Hyperparameter Optimization</a><a class="headerlink" href="#hyperparameter-optimization" title="Link to this heading">¶</a></h3>
+<section id="hpo-chemprop-yaml">
+<h4>hpo_chemprop.yaml<a class="headerlink" href="#hpo-chemprop-yaml" title="Link to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Ray Tune hyperparameter optimization with ASHA scheduler.</p>
+<p><strong>Use case</strong>: Finding optimal hyperparameters before production training.</p>
+<p><strong>Key features</strong>:</p>
+<ul class="simple">
+<li><p>ASHA scheduler for early stopping</p></li>
+<li><p>Conditional search spaces (MoE, branched FFN)</p></li>
+<li><p>Multiple trials in parallel</p></li>
+<li><p>Top-k config export</p></li>
+<li><p>Full MLflow integration</p></li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.hpo<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/hpo_chemprop.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num-samples<span class="w"> </span><span class="m">50</span>
+
+<span class="c1"># Or use the convenience script</span>
+./scripts/train_chemprop_hpo.sh<span class="w"> </span>configs/hpo_chemprop.yaml
+</pre></div>
+</div>
+<p><strong>Key parameters</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">hpo</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">  </span><span class="nt">max_concurrent_trials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">grace_period</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">  </span><span class="nt">reduction_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val_loss&quot;</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;min&quot;</span>
+
+<span class="nt">search_space</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">6</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">300</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">400</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">600</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">800</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">1e-4</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1e-3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5e-3</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.3</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+<p><strong>See also</strong>: <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> for detailed documentation.</p>
+</section>
+</section>
+</section>
+<section id="configuration-structure">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Configuration Structure</a><a class="headerlink" href="#configuration-structure" title="Link to this heading">¶</a></h2>
+<p>All configuration files share a common structure with these main sections:</p>
+<section id="data-section">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Data Section</a><a class="headerlink" href="#data-section" title="Link to this heading">¶</a></h3>
+<p>Controls data loading, column mapping, and file paths.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Single model</span>
+<span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;path/to/train_val&quot;</span><span class="w">  </span><span class="c1"># Contains train.csv, val.csv</span>
+
+<span class="w">  </span><span class="c1"># OR Ensemble</span>
+<span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;path/to/splits&quot;</span><span class="w">     </span><span class="c1"># Contains split_*/fold_*/</span>
+<span class="w">  </span><span class="nt">splits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                    </span><span class="c1"># null = all, or [0, 1, 2]</span>
+<span class="w">  </span><span class="nt">folds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                     </span><span class="c1"># null = all, or [0, 1, 2, 3, 4]</span>
+
+<span class="w">  </span><span class="c1"># Common</span>
+<span class="w">  </span><span class="nt">test_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;path/to/test.csv&quot;</span>
+<span class="w">  </span><span class="nt">blind_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;path/to/blind.csv&quot;</span>
+<span class="w">  </span><span class="nt">output_dir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                </span><span class="c1"># null = temp directory</span>
+
+<span class="w">  </span><span class="c1"># Columns</span>
+<span class="w">  </span><span class="nt">smiles_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
+<span class="w">  </span><span class="nt">target_cols</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;LogD&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">KSOL&quot;</span>
+<span class="w">    </span><span class="c1"># ... more targets</span>
+
+<span class="w">  </span><span class="c1"># Optional per-target weights</span>
+<span class="w">  </span><span class="nt">target_weights</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.5</span>
+<span class="w">    </span><span class="c1"># ... one per target</span>
+</pre></div>
+</div>
+</section>
+<section id="model-section">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Model Section</a><a class="headerlink" href="#model-section" title="Link to this heading">¶</a></h3>
+<p>Defines model architecture parameters.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Message Passing Network</span>
+<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                    </span><span class="c1"># Message passing iterations</span>
+<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">     </span><span class="c1"># MPNN hidden size</span>
+<span class="w">  </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># Batch normalization</span>
+
+<span class="w">  </span><span class="c1"># Feed-Forward Network</span>
+<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;regression&quot;</span><span class="w">      </span><span class="c1"># &quot;regression&quot;, &quot;mixture_of_experts&quot;, &quot;branched&quot;</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">               </span><span class="c1"># FFN layers</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">             </span><span class="c1"># FFN hidden size</span>
+<span class="w">  </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w">                </span><span class="c1"># Dropout probability</span>
+
+<span class="w">  </span><span class="c1"># Branched FFN (when ffn_type=&quot;branched&quot;)</span>
+<span class="w">  </span><span class="nt">trunk_n_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">trunk_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+
+<span class="w">  </span><span class="c1"># Mixture of Experts (when ffn_type=&quot;mixture_of_experts&quot;)</span>
+<span class="w">  </span><span class="nt">n_experts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</pre></div>
+</div>
+</section>
+<section id="optimization-section">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Optimization Section</a><a class="headerlink" href="#optimization-section" title="Link to this heading">¶</a></h3>
+<p>Training hyperparameters and learning rate schedule.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Loss and metrics</span>
+<span class="w">  </span><span class="nt">criterion</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;MSE&quot;</span><span class="w">            </span><span class="c1"># &quot;MAE&quot;, &quot;MSE&quot;, &quot;RMSE&quot;</span>
+
+<span class="w">  </span><span class="c1"># Training duration</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+
+<span class="w">  </span><span class="c1"># Learning rate</span>
+<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">scheduler</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cosine&quot;</span><span class="w">         </span><span class="c1"># &quot;constant&quot;, &quot;cosine&quot;, &quot;exponential&quot;, &quot;step&quot;</span>
+<span class="w">  </span><span class="nt">warmup_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">max_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">final_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+
+<span class="w">  </span><span class="c1"># Optimizer</span>
+<span class="w">  </span><span class="nt">optimizer</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Adam&quot;</span>
+<span class="w">  </span><span class="nt">weight_decay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">  </span><span class="nt">gradient_clip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">         </span><span class="c1"># null or float (e.g., 1.0)</span>
+
+<span class="w">  </span><span class="c1"># Early stopping</span>
+<span class="w">  </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">  </span><span class="nt">min_delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+</pre></div>
+</div>
+</section>
+<section id="task-affinity-section">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Task Affinity Section</a><a class="headerlink" href="#task-affinity-section" title="Link to this heading">¶</a></h3>
+<p>Task grouping for improved multi-task learning (optional).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># Set to true to enable</span>
+
+<span class="w">  </span><span class="c1"># Grouping</span>
+<span class="w">  </span><span class="nt">n_groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">clustering_method</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;agglomerative&quot;</span><span class="w">  </span><span class="c1"># &quot;agglomerative&quot; or &quot;spectral&quot;</span>
+
+<span class="w">  </span><span class="c1"># Affinity computation</span>
+<span class="w">  </span><span class="nt">affinity_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">affinity_batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="w">  </span><span class="nt">affinity_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+
+<span class="w">  </span><span class="c1"># Scoring</span>
+<span class="w">  </span><span class="nt">affinity_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cosine&quot;</span><span class="w">     </span><span class="c1"># &quot;cosine&quot; or &quot;dot_product&quot;</span>
+<span class="w">  </span><span class="nt">normalize_gradients</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="c1"># Advanced</span>
+<span class="w">  </span><span class="nt">encoder_param_patterns</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<span class="w">  </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;auto&quot;</span>
+<span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">  </span><span class="nt">log_affinity_matrix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</section>
+<section id="curriculum-learning-section">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Curriculum Learning Section</a><a class="headerlink" href="#curriculum-learning-section" title="Link to this heading">¶</a></h3>
+<p>Gradual learning based on sample difficulty (optional).</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># Set to true to enable</span>
+
+<span class="w">  </span><span class="c1"># Pacing</span>
+<span class="w">  </span><span class="nt">pacing_function</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;linear&quot;</span><span class="w">   </span><span class="c1"># &quot;linear&quot;, &quot;exponential&quot;, &quot;step&quot;</span>
+<span class="w">  </span><span class="nt">start_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">  </span><span class="nt">end_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+
+<span class="w">  </span><span class="c1"># Data</span>
+<span class="w">  </span><span class="nt">quality_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">  </span><span class="nt">sort_ascending</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">        </span><span class="c1"># true = easy to hard</span>
+
+<span class="w">  </span><span class="c1"># Weighting</span>
+<span class="w">  </span><span class="nt">use_sample_weights</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">min_weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">  </span><span class="nt">max_weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+</pre></div>
+</div>
+</section>
+<section id="mlflow-section">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">MLflow Section</a><a class="headerlink" href="#mlflow-section" title="Link to this heading">¶</a></h3>
+<p>Experiment tracking configuration.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Tracking</span>
+<span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_experiment&quot;</span>
+<span class="w">  </span><span class="nt">run_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">              </span><span class="c1"># Auto-generated if null</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mlruns&quot;</span><span class="w">      </span><span class="c1"># Local or &quot;http://host:port&quot;</span>
+
+<span class="w">  </span><span class="c1"># Logging</span>
+<span class="w">  </span><span class="nt">log_models</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">log_plots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">log_frequency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">           </span><span class="c1"># Log every N batches</span>
+
+<span class="w">  </span><span class="c1"># Ensemble-specific</span>
+<span class="w">  </span><span class="nt">nested</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                </span><span class="c1"># Use nested runs for ensemble</span>
+</pre></div>
+</div>
+</section>
+<section id="system-section">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">System Section</a><a class="headerlink" href="#system-section" title="Link to this heading">¶</a></h3>
+<p>Hardware and reproducibility settings.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Device</span>
+<span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;auto&quot;</span><span class="w">                </span><span class="c1"># &quot;auto&quot;, &quot;cpu&quot;, &quot;cuda&quot;, &quot;cuda:N&quot;</span>
+
+<span class="c1"># Reproducibility</span>
+<span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+
+<span class="c1"># Logging</span>
+<span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;INFO&quot;</span><span class="w">             </span><span class="c1"># &quot;DEBUG&quot;, &quot;INFO&quot;, &quot;WARNING&quot;, &quot;ERROR&quot;</span>
+<span class="nt">log_frequency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="usage-patterns">
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">Usage Patterns</a><a class="headerlink" href="#usage-patterns" title="Link to this heading">¶</a></h2>
+<section id="loading-configurations">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Loading Configurations</a><a class="headerlink" href="#loading-configurations" title="Link to this heading">¶</a></h3>
+<p><strong>Python</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropConfig</span><span class="p">,</span> <span class="n">ChempropModel</span>
+
+<span class="c1"># Load config</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">),</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Use config</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>CLI</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/chemprop.yaml
+</pre></div>
+</div>
+</section>
+<section id="overriding-parameters">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Overriding Parameters</a><a class="headerlink" href="#overriding-parameters" title="Link to this heading">¶</a></h3>
+<p><strong>Via CLI</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/chemprop.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model.depth<span class="w"> </span><span class="m">6</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--optimization.learning-rate<span class="w"> </span><span class="m">0</span>.0005<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task-affinity.enabled<span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task-affinity.n-groups<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
+<p><strong>Via Python</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span> <span class="o">=</span> <span class="mi">6</span>
+<span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">learning_rate</span> <span class="o">=</span> <span class="mf">0.0005</span>
+<span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">n_groups</span> <span class="o">=</span> <span class="mi">4</span>
+</pre></div>
+</div>
+</section>
+<section id="merging-multiple-configs">
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Merging Multiple Configs</a><a class="headerlink" href="#merging-multiple-configs" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="c1"># Load base and override configs</span>
+<span class="n">base</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">override</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/my_overrides.yaml&quot;</span><span class="p">)</span>
+
+<span class="c1"># Merge (override takes precedence)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">override</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="configuration-best-practices">
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Configuration Best Practices</a><a class="headerlink" href="#configuration-best-practices" title="Link to this heading">¶</a></h2>
+<ol class="arabic">
+<li><p><strong>Start Simple</strong>: Begin with <code class="docutils literal notranslate"><span class="pre">chemprop.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity.yaml</span></code></p></li>
+<li><p><strong>Version Control</strong>: Commit all config changes with meaningful messages</p></li>
+<li><p><strong>Naming Convention</strong>: Use descriptive names that indicate purpose:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">chemprop_</span><span class="o">&lt;</span><span class="n">feature</span><span class="o">&gt;</span><span class="n">_</span><span class="o">&lt;</span><span class="n">variant</span><span class="o">&gt;.</span><span class="n">yaml</span>
+<span class="n">ensemble_</span><span class="o">&lt;</span><span class="n">feature</span><span class="o">&gt;</span><span class="n">_</span><span class="o">&lt;</span><span class="n">variant</span><span class="o">&gt;.</span><span class="n">yaml</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Document Changes</strong>: Add comments explaining non-obvious parameter choices</p></li>
+<li><p><strong>Reproducibility</strong>: Always set <code class="docutils literal notranslate"><span class="pre">seed</span></code> and save config with results</p></li>
+<li><p><strong>Hyperparameters</strong>: Use HPO to find optimal values before production</p></li>
+<li><p><strong>Validation</strong>: Test configs on small data subset before full training</p></li>
+<li><p><strong>Modular Design</strong>: Keep reusable settings in base configs, override specifics</p></li>
+</ol>
+</section>
+<section id="quick-reference-config-selection">
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Quick Reference: Config Selection</a><a class="headerlink" href="#quick-reference-config-selection" title="Link to this heading">¶</a></h2>
+<p>Choose your configuration based on your goal:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 40.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Goal</p></th>
+<th class="head"><p>Config File</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Quick baseline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">chemprop.yaml</span></code></p></td>
+<td><p>Standard multi-task</p></td>
+</tr>
+<tr class="row-odd"><td><p>Task affinity (production)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity.yaml</span></code></p></td>
+<td><p>3 groups, 1 affinity epoch</p></td>
+</tr>
+<tr class="row-even"><td><p>Find optimal groups</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity_explore.yaml</span></code></p></td>
+<td><p>Try n=2,3,4,5</p></td>
+</tr>
+<tr class="row-odd"><td><p>Advanced task affinity</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity_advanced.yaml</span></code></p></td>
+<td><p>4 groups, 2 affinity epochs</p></td>
+</tr>
+<tr class="row-even"><td><p>Analyze task relationships</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">task_affinity_compute.yaml</span></code></p></td>
+<td><p>No training, just affinity</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ensemble training</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ensemble_chemprop_production.yaml</span></code></p></td>
+<td><p>All splits/folds</p></td>
+</tr>
+<tr class="row-even"><td><p>Curriculum learning</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">chemprop_curriculum.yaml</span></code></p></td>
+<td><p>Quality-based pacing</p></td>
+</tr>
+<tr class="row-odd"><td><p>Hyperparameter search</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hpo_chemprop.yaml</span></code></p></td>
+<td><p>Ray Tune + ASHA</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="see-also">
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> - General configuration guide</p></li>
+<li><p><a class="reference internal" href="task_affinity.html"><span class="doc">Task Affinity Grouping</span></a> - Task affinity detailed guide</p></li>
+<li><p><a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> - Curriculum learning guide</p></li>
+<li><p><a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> - Hyperparameter optimization guide</p></li>
+<li><p><a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> - Model training guide</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="modeling.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Modeling Guide</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="configuration.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Configuration Guide</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Configuration File Reference</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#available-configuration-files">Available Configuration Files</a><ul>
+<li><a class="reference internal" href="#base-configurations">Base Configurations</a><ul>
+<li><a class="reference internal" href="#chemprop-yaml">chemprop.yaml</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#task-affinity-configurations">Task Affinity Configurations</a><ul>
+<li><a class="reference internal" href="#chemprop-task-affinity-yaml">chemprop_task_affinity.yaml</a></li>
+<li><a class="reference internal" href="#chemprop-task-affinity-advanced-yaml">chemprop_task_affinity_advanced.yaml</a></li>
+<li><a class="reference internal" href="#chemprop-task-affinity-explore-yaml">chemprop_task_affinity_explore.yaml</a></li>
+<li><a class="reference internal" href="#task-affinity-compute-yaml">task_affinity_compute.yaml</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#ensemble-configurations">Ensemble Configurations</a><ul>
+<li><a class="reference internal" href="#ensemble-chemprop-1-yaml">ensemble_chemprop_1.yaml</a></li>
+<li><a class="reference internal" href="#ensemble-chemprop-2-yaml-ensemble-chemprop-3-yaml">ensemble_chemprop_2.yaml, ensemble_chemprop_3.yaml</a></li>
+<li><a class="reference internal" href="#ensemble-chemprop-production-yaml">ensemble_chemprop_production.yaml</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#curriculum-learning-configurations">Curriculum Learning Configurations</a><ul>
+<li><a class="reference internal" href="#chemprop-curriculum-yaml">chemprop_curriculum.yaml</a></li>
+<li><a class="reference internal" href="#ensemble-curriculum-yaml">ensemble_curriculum.yaml</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hyperparameter-optimization">Hyperparameter Optimization</a><ul>
+<li><a class="reference internal" href="#hpo-chemprop-yaml">hpo_chemprop.yaml</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-structure">Configuration Structure</a><ul>
+<li><a class="reference internal" href="#data-section">Data Section</a></li>
+<li><a class="reference internal" href="#model-section">Model Section</a></li>
+<li><a class="reference internal" href="#optimization-section">Optimization Section</a></li>
+<li><a class="reference internal" href="#task-affinity-section">Task Affinity Section</a></li>
+<li><a class="reference internal" href="#curriculum-learning-section">Curriculum Learning Section</a></li>
+<li><a class="reference internal" href="#mlflow-section">MLflow Section</a></li>
+<li><a class="reference internal" href="#system-section">System Section</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#usage-patterns">Usage Patterns</a><ul>
+<li><a class="reference internal" href="#loading-configurations">Loading Configurations</a></li>
+<li><a class="reference internal" href="#overriding-parameters">Overriding Parameters</a></li>
+<li><a class="reference internal" href="#merging-multiple-configs">Merging Multiple Configs</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-best-practices">Configuration Best Practices</a></li>
+<li><a class="reference internal" href="#quick-reference-config-selection">Quick Reference: Config Selection</a></li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>

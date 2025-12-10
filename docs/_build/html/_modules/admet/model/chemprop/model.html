@@ -220,9 +220,11 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/data_sources.html">Data Sources &amp; Curation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
 </ul>
 
 </div>
@@ -313,6 +315,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">mlflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">MlflowClient</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mlflow.tracking.fluent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActiveRun</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictConfig</span><span class="p">,</span> <span class="n">OmegaConf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.smiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">parallel_canonicalize_smiles</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">correlation</span><span class="p">,</span> <span class="n">distribution</span>
@@ -330,6 +333,7 @@
     <span class="n">get_quality_indices</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.ffn</span><span class="w"> </span><span class="kn">import</span> <span class="n">BranchedFFN</span><span class="p">,</span> <span class="n">MixtureOfExpertsRegressionFFN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.task_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaskAwareSampler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">METRIC_NAMES</span><span class="p">,</span> <span class="n">compute_metrics_df</span><span class="p">,</span> <span class="n">plot_metric_bar</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.parity</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_parity</span>
 
@@ -354,21 +358,21 @@
     <span class="n">QUANTILE</span> <span class="o">=</span> <span class="s2">&quot;Quantile&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">key</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported criterion: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-        <span class="k">return</span> <span class="n">_criterion_from_enum</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_criterion_from_enum</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_criterion_from_enum</span><span class="p">(</span><span class="n">criterion</span><span class="p">:</span> <span class="n">CriterionName</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_criterion_from_enum</span><span class="p">(</span><span class="n">criterion</span><span class="p">:</span> <span class="n">CriterionName</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
     <span class="n">attr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">criterion</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">attr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Criterion class not found for &#39;</span><span class="si">{</span><span class="n">criterion</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">attr</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">attr</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">attr</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to instantiate criterion &#39;</span><span class="si">{</span><span class="n">criterion</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
     <span class="k">return</span> <span class="n">attr</span>
@@ -581,14 +585,15 @@
     <span class="n">ffn_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;regression&quot;</span>  <span class="c1"># options: &#39;regression&#39;, &#39;mixture_of_experts&#39;, &#39;branched&#39;</span>
 
     <span class="c1"># Branched FFN</span>
-    <span class="n">trunk_n_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">trunk_hidden_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span>
+    <span class="n">trunk_n_layers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">trunk_hidden_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Mixture of Experts FFN</span>
-    <span class="n">n_experts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">n_experts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># MPNN</span>
     <span class="n">batch_norm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">task_sampling_alpha</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <div class="viewcode-block" id="ChempropModel">
@@ -973,9 +978,9 @@
                 <span class="n">hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
                 <span class="n">batch_norm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_norm</span><span class="p">,</span>
                 <span class="n">ffn_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">ffn_type</span><span class="p">,</span>
-                <span class="n">trunk_n_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_n_layers</span><span class="p">,</span>
-                <span class="n">trunk_hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_hidden_dim</span><span class="p">,</span>
-                <span class="n">n_experts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">n_experts</span><span class="p">,</span>
+                <span class="n">trunk_n_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_n_layers</span> <span class="ow">or</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">trunk_hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_hidden_dim</span> <span class="ow">or</span> <span class="mi">600</span><span class="p">,</span>
+                <span class="n">n_experts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">n_experts</span> <span class="ow">or</span> <span class="mi">4</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="n">optimization</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">(</span>
                 <span class="n">criterion</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">criterion</span><span class="p">,</span>
@@ -1060,17 +1065,36 @@
                     <span class="n">num_samples</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">]),</span>
                     <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
                 <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">build_dataloader</span><span class="p">(</span>
+                <span class="n">drop_last</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">])</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
                     <span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">],</span>
                     <span class="n">batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
-                    <span class="n">num_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
-                    <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Sampler handles this</span>
                     <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                    <span class="n">num_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
+                    <span class="n">collate_fn</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span>
+                    <span class="n">drop_last</span><span class="o">=</span><span class="n">drop_last</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="s2">&quot;Dynamic curriculum sampling enabled for training: phase=</span><span class="si">%s</span><span class="s2">, qualities=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">curriculum_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">curriculum_state</span><span class="o">.</span><span class="n">qualities</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">task_sampling_alpha</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Task-aware sampling for imbalanced multi-task learning</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using TaskAwareSampler with alpha=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">task_sampling_alpha</span><span class="p">)</span>
+                <span class="n">sampler</span> <span class="o">=</span> <span class="n">TaskAwareSampler</span><span class="p">(</span>
+                    <span class="n">targets</span><span class="o">=</span><span class="n">ys</span><span class="p">,</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">task_sampling_alpha</span><span class="p">,</span>
+                    <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">drop_last</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">])</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+                    <span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">],</span>
+                    <span class="n">batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+                    <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                    <span class="n">num_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
+                    <span class="n">collate_fn</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span>
+                    <span class="n">drop_last</span><span class="o">=</span><span class="n">drop_last</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># Standard dataloader (shuffle for train, no shuffle for val/test)</span>
@@ -1096,17 +1120,19 @@
 <span class="sd">            If ``ffn_type`` is not one of &#39;regression&#39;, &#39;mixture_of_experts&#39;,</span>
 <span class="sd">            or &#39;branched&#39;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">criterion</span> <span class="o">=</span> <span class="n">CriterionName</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">criterion</span><span class="p">)</span>
+        <span class="n">task_weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">criterion</span> <span class="o">=</span> <span class="n">CriterionName</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">criterion</span><span class="p">,</span> <span class="n">task_weights</span><span class="o">=</span><span class="n">task_weights</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">ffn_type</span> <span class="o">==</span> <span class="s2">&quot;mixture_of_experts&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ffn</span> <span class="o">=</span> <span class="n">MixtureOfExpertsRegressionFFN</span><span class="p">(</span>
                 <span class="n">n_tasks</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">),</span>
-                <span class="n">n_experts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">n_experts</span><span class="p">,</span>
+                <span class="n">n_experts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">n_experts</span> <span class="ow">or</span> <span class="mi">4</span><span class="p">,</span>
                 <span class="n">input_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">message_hidden_dim</span><span class="p">,</span>
                 <span class="n">hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
                 <span class="n">n_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span>
                 <span class="n">dropout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">dropout</span><span class="p">,</span>
                 <span class="n">criterion</span><span class="o">=</span><span class="n">criterion</span><span class="p">,</span>
-                <span class="n">task_weights</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">task_weights</span><span class="o">=</span><span class="n">task_weights</span><span class="p">,</span>
                 <span class="n">output_transform</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">ffn_type</span> <span class="o">==</span> <span class="s2">&quot;branched&quot;</span><span class="p">:</span>
@@ -1115,11 +1141,11 @@
                 <span class="n">n_tasks</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">),</span>
                 <span class="n">input_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">message_hidden_dim</span><span class="p">,</span>
                 <span class="n">hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
-                <span class="n">trunk_n_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_n_layers</span><span class="p">,</span>
-                <span class="n">trunk_hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_hidden_dim</span><span class="p">,</span>
+                <span class="n">trunk_n_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_n_layers</span> <span class="ow">or</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">trunk_hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">trunk_hidden_dim</span> <span class="ow">or</span> <span class="mi">600</span><span class="p">,</span>
                 <span class="n">trunk_dropout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">dropout</span><span class="p">,</span>
                 <span class="n">criterion</span><span class="o">=</span><span class="n">criterion</span><span class="p">,</span>
-                <span class="n">task_weights</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">task_weights</span><span class="o">=</span><span class="n">task_weights</span><span class="p">,</span>
                 <span class="n">output_transform</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">ffn_type</span> <span class="o">==</span> <span class="s2">&quot;regression&quot;</span><span class="p">:</span>
@@ -1357,6 +1383,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;MLflow tracking skipped: tracking=</span><span class="si">%s</span><span class="s2">, logger=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="p">)</span>
 
+        <span class="n">completed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting training...&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
@@ -1370,19 +1397,31 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Training interrupted by user. Model state preserved.&quot;</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;You can still use model.predict() with the current weights.&quot;</span><span class="p">)</span>
             <span class="n">completed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Training failed with error: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="n">completed</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># Re-raise exception after logging artifacts</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training finished: completed=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">completed</span><span class="p">)</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training finished: completed=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">completed</span><span class="p">)</span>
+            <span class="c1"># Log evaluation metrics and final artifacts</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Post-training: logging evaluation metrics and artifacts&quot;</span><span class="p">)</span>
+                <span class="c1"># Only log metrics if training completed or we have a best model</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_log_evaluation_metrics</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_log_training_artifacts</span><span class="p">(</span><span class="n">completed</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">log_err</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to log artifacts after training: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">log_err</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Post-training skipped: tracking=</span><span class="si">%s</span><span class="s2">, logger=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="p">)</span>
 
-        <span class="c1"># Log evaluation metrics and final artifacts</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Post-training: logging evaluation metrics and artifacts&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_log_evaluation_metrics</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_log_training_artifacts</span><span class="p">(</span><span class="n">completed</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Post-training skipped: tracking=</span><span class="si">%s</span><span class="s2">, logger=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="p">)</span>
-
-        <span class="c1"># Generate evaluation plots for train and validation sets</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_generate_training_plots</span><span class="p">()</span>
+            <span class="c1"># Generate evaluation plots for train and validation sets</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_generate_training_plots</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">plot_err</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate training plots: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">plot_err</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">completed</span></div>
 
@@ -1436,6 +1475,11 @@
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;smiles_col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">smiles_col</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;target_cols&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;n_targets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
+
+        <span class="c1"># Calculate and log total number of trainable parameters</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">total_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;total_parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_params</span>
 
         <span class="c1"># Parse and log data_dir parameters if available</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1652,18 +1696,20 @@
             <span class="c1"># Log best checkpoint(s)</span>
             <span class="n">best_checkpoints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;best-*.ckpt&quot;</span><span class="p">))</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> best checkpoints&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">best_checkpoints</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">ckpt</span> <span class="ow">in</span> <span class="n">best_checkpoints</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logging checkpoint: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ckpt</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+            <span class="c1"># Sort by modification time to get the most recent best checkpoint if multiple exist</span>
+            <span class="n">best_checkpoints</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">best_checkpoints</span><span class="p">:</span>
+                <span class="c1"># Only log the single best checkpoint</span>
+                <span class="n">ckpt</span> <span class="o">=</span> <span class="n">best_checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logging best checkpoint: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ckpt</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">ckpt</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span><span class="p">)</span>
 
-            <span class="c1"># Log last checkpoint if exists</span>
-            <span class="n">last_checkpoint</span> <span class="o">=</span> <span class="n">checkpoint_dir</span> <span class="o">/</span> <span class="s2">&quot;last.ckpt&quot;</span>
-            <span class="k">if</span> <span class="n">last_checkpoint</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">last_checkpoint</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span><span class="p">)</span>
+                <span class="c1"># Log best checkpoint path as param</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;best_checkpoint_path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">ckpt</span><span class="p">))</span>
 
-            <span class="c1"># Log best checkpoint path as param</span>
-            <span class="k">if</span> <span class="n">completed</span> <span class="ow">and</span> <span class="n">best_checkpoints</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;best_checkpoint_path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">best_checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="c1"># Note: We do not log &#39;last.ckpt&#39; to save space and only keep the best model.</span>
 
         <span class="c1"># Save hyperparameters as YAML artifact</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
