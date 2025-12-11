@@ -10,11 +10,13 @@
 # Data configuration for ensemble
 data:
   data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+  splits: null
+  folds: null
+
   test_file: "assets/dataset/set/local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
   output_dir: null
 
-  # Column configuration
   smiles_col: "SMILES"
   target_cols:
     - "LogD"
@@ -26,8 +28,6 @@ data:
     - "Log MPPB"
     - "Log MBPB"
     - "Log MGMB"
-
-  # Per-task loss weights (optional, defaults to 1.0 for each)
   target_weights:
     - 1.0
     - 1.0
@@ -39,13 +39,6 @@ data:
     - 1.0
     - 1.0
 
-  # Optional: filter specific splits/folds (null = use all found)
-  # splits: [0, 1, 2]  # Only use splits 0, 1, 2
-  # folds: [0, 1, 2, 3, 4]  # Only use folds 0-4
-  splits: null
-  folds: null
-
-# Model architecture configuration (shared across ensemble)
 model:
   depth: 4
   message_hidden_dim: 1100
@@ -59,7 +52,6 @@ model:
   dropout: 0.25
   batch_norm: true
 
-# Optimization configuration (shared across ensemble)
 optimization:
   criterion: "MAE"
   init_lr: 1.04e-5
@@ -74,7 +66,6 @@ optimization:
   progress_bar: false
   task_sampling_alpha: 0.1
 
-# MLflow experiment tracking configuration
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8080"
@@ -82,14 +73,7 @@ mlflow:
   run_name: null # Auto-generated parent run name
   nested: true
 
-# Ensemble-specific settings
-# Maximum models to train in parallel (adjust based on GPU memory)
-# Each model will get 1/max_parallel of the GPU
 max_parallel: 5
-
-# Ray cluster configuration (optional)
-# ray_num_cpus: 8  # Limit CPUs for Ray
-# ray_num_gpus: 1  # Number of GPUs available
 ray_num_cpus: null
 ray_num_gpus: null
 
@@ -113,3 +97,18 @@ curriculum:
   reset_early_stopping_on_phase_change: false
   # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
   log_per_quality_metrics: true
+
+# Task Affinity Configuration
+# ============================
+# Compute task affinity matrix during training to identify task relationships.
+# The affinity matrix and task groups are logged to MLflow for downstream
+# analysis and decision-making about task groupings for specialized models.
+task_affinity:
+  enabled: false
+  affinity_epochs: 2
+  affinity_batch_size: 64
+  affinity_lr: 0.001
+  affinity_type: "cosine"
+  n_groups: 3
+  clustering_method: "agglomerative"
+  seed: 42

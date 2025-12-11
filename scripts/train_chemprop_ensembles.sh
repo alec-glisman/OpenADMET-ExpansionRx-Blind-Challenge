@@ -21,7 +21,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 # Configuration
 PROJECT_ROOT="$(get_project_root "$SCRIPT_DIR")"
-CONFIG_FILE="${PROJECT_ROOT}/configs/ensemble_chemprop.yaml"
+CONFIG_FILE="${PROJECT_ROOT}/configs/ensemble_chemprop_1.yaml"
 
 # Default options
 DRY_RUN=false
@@ -61,15 +61,6 @@ done
 
 # Change to project root
 cd "$PROJECT_ROOT" || exit 1
-
-# Check for default ensemble config directory if not specified
-if [[ -z "$CONFIG_DIR" ]]; then
-  DEFAULT_ENSEMBLE_DIR="assets/eda/hpo_analysis/ensemble_configs"
-  if [[ -d "$DEFAULT_ENSEMBLE_DIR" ]]; then
-    CONFIG_DIR="$DEFAULT_ENSEMBLE_DIR"
-    log_info "Using default ensemble config directory: $CONFIG_DIR"
-  fi
-fi
 
 # Build command options
 CMD_OPTS="--log-level $LOG_LEVEL"

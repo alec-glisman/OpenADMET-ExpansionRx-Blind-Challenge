@@ -113,3 +113,18 @@ curriculum:
   reset_early_stopping_on_phase_change: false
   # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
   log_per_quality_metrics: true
+
+# Task Affinity Configuration
+# ============================
+# Compute task affinity matrix during training to identify task relationships.
+# The affinity matrix and task groups are logged to MLflow for downstream
+# analysis and decision-making about task groupings for specialized models.
+task_affinity:
+  enabled: false
+  affinity_epochs: 2
+  affinity_batch_size: 64
+  affinity_lr: 0.001
+  affinity_type: "cosine"
+  n_groups: 3
+  clustering_method: "agglomerative"
+  seed: 42

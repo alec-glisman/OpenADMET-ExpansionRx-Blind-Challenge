@@ -12,10 +12,11 @@
 # =============================================================================
 
 # Experiment identification
-experiment_name: chemprop-hpo-4
-output_dir: /media/aglisman/Data/models/admet-chemprop-hpo-4
-ray_storage_path: /media/aglisman/Data/ray-tune-4
+experiment_name: chemprop-hpo-5
+output_dir: /media/aglisman/Data/models/admet-chemprop-hpo-5
+ray_storage_path: /media/aglisman/Data/ray-tune-5
 mlflow_tracking_uri: "http://127.0.0.1:8080"
+# mlflow path: /media/aglisman/Data/models/admet-chemprop
 
 # Data configuration
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
@@ -31,8 +32,6 @@ target_columns:
   - "Log MPPB"
   - "Log MBPB"
   - "Log MGMB"
-
-# Per-endpoint loss weights (fixed for all trials)
 target_weights:
   - 1.0
   - 1.0
@@ -87,12 +86,12 @@ search_space:
   # Task sampling alpha (0=uniform, 1=inverse proportional)
   task_sampling_alpha:
     type: choice
-    values: [0.0, 0.02, 0.05, 0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.9, 1.0]
+    values: [0.0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9, 1.0]
 
   # Message passing architecture
   depth:
     type: randint
-    low: 3
+    low: 2
     high: 8
 
   # Message hidden dim (MPNN layer width) - can be different from FFN hidden_dim
@@ -113,7 +112,7 @@ search_space:
   # FFN architecture
   ffn_num_layers:
     type: randint
-    low: 1
+    low: 0
     high: 5
 
   ffn_hidden_dim:
@@ -132,7 +131,7 @@ search_space:
   # Branched-specific (only sampled when ffn_type=branched)
   trunk_depth:
     type: randint
-    low: 1
+    low: 0
     high: 5
     conditional_on: ffn_type
     conditional_values: [branched]
@@ -169,7 +168,7 @@ asha:
 # =============================================================================
 resources:
   # Number of HPO trials to run
-  num_samples: 2500
+  num_samples: 2000
 
   # Resources per trial
   cpus_per_trial: 4
@@ -219,3 +218,47 @@ curriculum:
 
   # Random seed for reproducible sampling
   seed: 12345
+
+# =============================================================================
+# Task Affinity Configuration
+# =============================================================================
+# Compute task affinity matrix during training to identify task relationships
+# and group related tasks. The affinity matrix is stored in the trained MPNN
+# for downstream use in ensemble models and transfer learning.
+#
+# Note: Task affinity computation adds overhead at the start of each trial.
+# For HPO, consider whether this overhead is acceptable for trial budget.
+# =============================================================================
+task_affinity:
+  # Enable/disable task affinity computation during HPO trials
+  enabled: false
+
+  # Number of epochs for affinity estimation
+  affinity_epochs: 2
+
+  # Batch size for affinity computation
+  affinity_batch_size: 64
+
+  # Learning rate for affinity estimation
+  affinity_lr: 0.001
+
+  # Affinity metric: "cosine" or "pearson"
+  affinity_type: "cosine"
+
+  # Normalize gradients before computing affinity
+  normalize_gradients: true
+
+  # Number of task groups to discover via clustering
+  n_groups: 3
+
+  # Clustering algorithm: "agglomerative", "kmeans", or "spectral"
+  clustering_method: "agglomerative"
+
+  # Device for computation: "auto", "cpu", or "cuda"
+  device: "auto"
+
+  # Random seed for reproducibility
+  seed: 42
+
+  # Log affinity matrix and task groups to MLflow
+  log_affinity_matrix: true
