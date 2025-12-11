@@ -11,7 +11,7 @@
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
 <meta name="description" content="This page explains how model hyperparameters, training options, and experiment settings are configured using OmegaConf dataclasses and YAML files. Configuration System: The package uses OmegaConf-b..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modeling Guide" href="modeling.html"><link rel="prev" title="Dataset Splitting Methodology" href="splitting.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration File Reference" href="config_reference.html"><link rel="prev" title="Dataset Splitting Methodology" href="splitting.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
@@ -229,9 +229,11 @@
 <li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
 </ul>
 
 </div>
@@ -343,7 +345,7 @@ with structured defaults.</p>
 <span class="c1"># MLflow tracking</span>
 <span class="nt">mlflow</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8080&quot;</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8084&quot;</span>
 <span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_single&quot;</span>
 </pre></div>
 </div>
@@ -434,12 +436,12 @@ with structured defaults.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="modeling.html">
+          <a class="next-page" href="config_reference.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Modeling Guide</div>
+                <div class="title">Configuration File Reference</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>

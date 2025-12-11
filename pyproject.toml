@@ -51,6 +51,8 @@ dependencies = [
     "ray[tune]>=2.4",
     "nvidia-ml-py==13.580.82",
     "psutil",
+    "psycopg2-binary",
+    "psycopg2",
     "transformers>=4.30",
     # visualization
     "matplotlib>=3.6",

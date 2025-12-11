@@ -77,7 +77,7 @@ All training runs log to MLflow automatically. Configure tracking in your YAML:
 
    mlflow:
      tracking: true
-     tracking_uri: "http://127.0.0.1:8080"
+     tracking_uri: "http://127.0.0.1:8084"
      experiment_name: "chemprop_admet"
 
 Start the MLflow server:

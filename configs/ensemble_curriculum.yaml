@@ -106,7 +106,7 @@ optimization:
 # MLflow experiment tracking configuration
 mlflow:
   tracking: true
-  tracking_uri: "http://127.0.0.1:8080"
+  tracking_uri: "http://127.0.0.1:8084"
   experiment_name: "ensemble_curriculum"
   run_name: null # Auto-generated parent run name
   nested: true # Enable nested runs for ensemble members

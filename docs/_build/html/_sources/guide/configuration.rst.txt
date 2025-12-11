@@ -77,7 +77,7 @@ Example ``configs/single_chemprop.yaml``:
    # MLflow tracking
    mlflow:
      tracking: true
-     tracking_uri: "http://127.0.0.1:8080"
+     tracking_uri: "http://127.0.0.1:8084"
      experiment_name: "chemprop_single"
 
 Ensemble Configuration

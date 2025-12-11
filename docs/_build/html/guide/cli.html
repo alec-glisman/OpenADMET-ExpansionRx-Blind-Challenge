@@ -229,9 +229,11 @@
 <li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
 </ul>
 
 </div>
@@ -332,7 +334,7 @@ than a CLI interface.</p>
 <p>All training runs log to MLflow automatically. Configure tracking in your YAML:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8080&quot;</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8084&quot;</span>
 <span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_admet&quot;</span>
 </pre></div>
 </div>

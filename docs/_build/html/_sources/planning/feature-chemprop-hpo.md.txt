@@ -257,7 +257,7 @@ optimization:
 # MLflow tracking
 mlflow:
   tracking: true
-  tracking_uri: "http://127.0.0.1:8080"
+  tracking_uri: "http://127.0.0.1:8084"
   experiment_name: "chemprop_hpo"
   run_name: null  # Auto-generated
 

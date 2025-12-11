@@ -313,6 +313,7 @@
     <span class="n">MlflowConfig</span><span class="p">,</span>
     <span class="n">ModelConfig</span><span class="p">,</span>
     <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">TaskAffinityConfig</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.latex</span><span class="w"> </span><span class="kn">import</span> <span class="n">latex_sanitize</span>
@@ -617,6 +618,16 @@
                 <span class="n">patience</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">patience</span><span class="p">,</span>
                 <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
             <span class="p">),</span>
+            <span class="n">task_affinity</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">(</span>
+                <span class="n">enabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">enabled</span><span class="p">,</span>
+                <span class="n">affinity_epochs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">affinity_epochs</span><span class="p">,</span>
+                <span class="n">affinity_batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">affinity_batch_size</span><span class="p">,</span>
+                <span class="n">affinity_lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">affinity_lr</span><span class="p">,</span>
+                <span class="n">n_groups</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">n_groups</span><span class="p">,</span>
+                <span class="n">clustering_method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">clustering_method</span><span class="p">,</span>
+                <span class="n">affinity_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">affinity_type</span><span class="p">,</span>
+                <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+            <span class="p">),</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="ChempropEnsemble.train_all">
@@ -676,11 +687,31 @@
 <span class="sd">            The model creates its own nested MLflow run under the parent run,</span>
 <span class="sd">            so all artifacts (checkpoints, metrics, plots) are logged directly.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
-            <span class="c1"># Reconstruct config from dict</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">)</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config_dict</span><span class="p">))</span>
+            <span class="c1"># Reconstruct config from dict - use deep merge to ensure nested values override defaults</span>
+            <span class="n">base_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">)</span>
+            <span class="n">override_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config_dict</span><span class="p">)</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">base_config</span><span class="p">,</span> <span class="n">override_config</span><span class="p">)</span>
+
+            <span class="c1"># Force resolve to ensure all values are concrete</span>
+            <span class="n">OmegaConf</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
             <span class="n">model_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;split_</span><span class="si">{</span><span class="n">split_idx</span><span class="si">}</span><span class="s2">_fold_</span><span class="si">{</span><span class="n">fold_idx</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="c1"># Debug: Log key config values to verify they match YAML</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+            <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.ensemble&quot;</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Config values - depth=</span><span class="si">%s</span><span class="s2">, dropout=</span><span class="si">%s</span><span class="s2">, hidden_dim=</span><span class="si">%s</span><span class="s2">, &quot;</span>
+                <span class="s2">&quot;batch_size=</span><span class="si">%s</span><span class="s2">, max_lr=</span><span class="si">%s</span><span class="s2">, task_sampling_alpha=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">model_key</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">dropout</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">task_sampling_alpha</span><span class="p">,</span>
+            <span class="p">)</span>
 
             <span class="c1"># Configure model to create a nested MLflow run</span>
             <span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">parent_run_id</span> <span class="o">=</span> <span class="n">parent_run_id</span>
@@ -761,11 +792,14 @@
         <span class="n">pending_tasks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">task_infos</span> <span class="o">=</span> <span class="p">[]</span>
 
+        <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span>
+
         <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_fold_infos</span><span class="p">:</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_single_model_config</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-            <span class="c1"># Convert dataclass to OmegaConf, then to dict for Ray serialization</span>
-            <span class="n">config_omega</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-            <span class="n">config_dict</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="n">config_omega</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Convert dataclass instance to plain dict for Ray serialization.</span>
+            <span class="c1"># Use asdict to preserve values from the dataclass instance</span>
+            <span class="c1"># (avoids accidentally using dataclass defaults via OmegaConf.structured).</span>
+            <span class="n">config_dict</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
             <span class="n">task</span> <span class="o">=</span> <span class="n">train_single_model</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
                 <span class="n">config_dict</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
@@ -830,6 +864,128 @@
 
         <span class="c1"># Log ensemble metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_log_ensemble_metrics</span><span class="p">()</span>
+
+        <span class="c1"># Aggregate and log task affinity data for downstream analysis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_task_affinity</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aggregate_task_affinity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Aggregate task affinity matrices from all ensemble models.</span>
+
+<span class="sd">        Computes mean and standard deviation of task affinity matrices across</span>
+<span class="sd">        all ensemble members and logs the aggregated data to MLflow for</span>
+<span class="sd">        downstream analysis and decision-making about task groupings.</span>
+
+<span class="sd">        The aggregated affinity matrix can be used to:</span>
+<span class="sd">        - Identify consistently related tasks across different data splits</span>
+<span class="sd">        - Make informed decisions about task grouping for specialized models</span>
+<span class="sd">        - Detect task relationships that are robust to data variations</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Task affinity aggregation skipped: disabled in config&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Collect affinity matrices from all trained models via MLflow artifacts</span>
+        <span class="n">affinity_matrices</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">task_groups_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Aggregating task affinity data from </span><span class="si">%d</span><span class="s2"> ensemble members&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_metrics</span><span class="p">))</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+            <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.task_affinity</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+                <span class="n">affinity_matrix_to_dataframe</span><span class="p">,</span>
+                <span class="n">plot_task_affinity_heatmap</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Download and collect affinity matrices from child runs</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Get all child runs</span>
+                <span class="n">child_runs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">search_runs</span><span class="p">(</span>
+                    <span class="n">experiment_ids</span><span class="o">=</span><span class="p">[</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_experiment_by_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">)</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">],</span>
+                    <span class="n">filter_string</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;tags.mlflow.parentRunId = &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">child_runs</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Download affinity matrix artifact</span>
+                        <span class="n">artifact_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span>
+                            <span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;task_affinity_matrix.csv&quot;</span>
+                        <span class="p">)</span>
+                        <span class="n">df_affinity</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">artifact_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                        <span class="n">affinity_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_affinity</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+                        <span class="c1"># Download task groups artifact</span>
+                        <span class="n">groups_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;task_groups.json&quot;</span><span class="p">)</span>
+                        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">groups_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                            <span class="n">groups_data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                            <span class="n">task_groups_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">groups_data</span><span class="p">[</span><span class="s2">&quot;task_groups&quot;</span><span class="p">])</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Could not load affinity data from run </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">affinity_matrices</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No task affinity matrices found in ensemble members&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="c1"># Compute aggregated statistics</span>
+            <span class="n">affinity_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">affinity_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">mean_affinity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">affinity_stack</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">std_affinity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">affinity_stack</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
+
+            <span class="c1"># Log aggregated affinity matrix to MLflow</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;ensemble_&quot;</span><span class="p">))</span>
+
+            <span class="c1"># Save mean affinity matrix</span>
+            <span class="n">df_mean_affinity</span> <span class="o">=</span> <span class="n">affinity_matrix_to_dataframe</span><span class="p">(</span><span class="n">mean_affinity</span><span class="p">,</span> <span class="n">target_cols</span><span class="p">)</span>
+            <span class="n">mean_csv_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">/</span> <span class="s2">&quot;ensemble_task_affinity_mean.csv&quot;</span>
+            <span class="n">df_mean_affinity</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">mean_csv_path</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">mean_csv_path</span><span class="p">))</span>
+
+            <span class="c1"># Save std affinity matrix</span>
+            <span class="n">df_std_affinity</span> <span class="o">=</span> <span class="n">affinity_matrix_to_dataframe</span><span class="p">(</span><span class="n">std_affinity</span><span class="p">,</span> <span class="n">target_cols</span><span class="p">)</span>
+            <span class="n">std_csv_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">/</span> <span class="s2">&quot;ensemble_task_affinity_std.csv&quot;</span>
+            <span class="n">df_std_affinity</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">std_csv_path</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">std_csv_path</span><span class="p">))</span>
+
+            <span class="c1"># Save task groups consensus</span>
+            <span class="n">groups_consensus_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">/</span> <span class="s2">&quot;ensemble_task_groups_all.json&quot;</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">groups_consensus_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;all_task_groups&quot;</span><span class="p">:</span> <span class="n">task_groups_list</span><span class="p">,</span>
+                        <span class="s2">&quot;n_ensemble_members&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">affinity_matrices</span><span class="p">),</span>
+                        <span class="s2">&quot;target_cols&quot;</span><span class="p">:</span> <span class="n">target_cols</span><span class="p">,</span>
+                    <span class="p">},</span>
+                    <span class="n">f</span><span class="p">,</span>
+                    <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">groups_consensus_path</span><span class="p">))</span>
+
+            <span class="c1"># Generate and save aggregated heatmap</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">heatmap_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">/</span> <span class="s2">&quot;ensemble_task_affinity_mean_heatmap.png&quot;</span>
+                <span class="n">plot_task_affinity_heatmap</span><span class="p">(</span>
+                    <span class="n">mean_affinity</span><span class="p">,</span>
+                    <span class="n">target_cols</span><span class="p">,</span>
+                    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Ensemble Mean Task Affinity Matrix&quot;</span><span class="p">,</span>
+                    <span class="n">save_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">heatmap_path</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">heatmap_path</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to create ensemble affinity heatmap: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Aggregated task affinity from </span><span class="si">%d</span><span class="s2"> ensemble members. &quot;</span>
+                <span class="s2">&quot;Mean affinity matrix and task groups logged to MLflow.&quot;</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">affinity_matrices</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to aggregate task affinity data: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_aggregate_predictions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predictions_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
