@@ -12,11 +12,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import ray.tune
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
 from ray.air import session
 from ray.train import Checkpoint
-import ray.tune
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
 
@@ -148,10 +148,7 @@ class RayTuneReportCallback(Callback):
                 if checkpoint is not None:
                     self._final_checkpoint_reported = True
 
-            if checkpoint is not None:
-                ray.tune.report(**metrics, checkpoint=checkpoint)
-            else:
-                ray.tune.report(**metrics)
+            self._submit_report(metrics, checkpoint)
             self._last_reported_epoch = epoch_index
 
     def _build_final_checkpoint(self, trainer: pl.Trainer) -> Checkpoint | None:
@@ -205,6 +202,23 @@ class RayTuneReportCallback(Callback):
             return Checkpoint.from_directory(str(export_dir))
         except Exception:
             return None
+
+    def _submit_report(self, metrics: dict[str, float], checkpoint: Checkpoint | None) -> None:
+        """Send metrics to Ray using the most compatible API available."""
+
+        try:
+            if checkpoint is not None:
+                session.report(metrics, checkpoint=checkpoint)
+            else:
+                session.report(metrics)
+            return
+        except Exception as exc:
+            logger.debug("session.report failed, falling back to tune.report: %s", exc)
+
+        if checkpoint is not None:
+            ray.tune.report(checkpoint=checkpoint, **metrics)
+        else:
+            ray.tune.report(**metrics)
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:
@@ -419,18 +433,16 @@ def _build_hyperparams(
         ffn_type = config["ffn_type"]
         params["ffn_type"] = ffn_type_mapping.get(ffn_type, ffn_type)
 
-    # MoE-specific parameters (only if ffn_type is mixture_of_experts)
-    if params.get("ffn_type") == "mixture_of_experts":
-        if "n_experts" in config and config["n_experts"] is not None:
-            params["n_experts"] = int(config["n_experts"])
+    # MoE-specific parameters
+    if "n_experts" in config and config["n_experts"] is not None:
+        params["n_experts"] = int(config["n_experts"])
 
-    # Branched FFN parameters (only if ffn_type is branched)
-    if params.get("ffn_type") == "branched":
-        if "trunk_depth" in config and config["trunk_depth"] is not None:
-            params["trunk_n_layers"] = int(config["trunk_depth"])
+    # Branched FFN parameters
+    if "trunk_depth" in config and config["trunk_depth"] is not None:
+        params["trunk_n_layers"] = int(config["trunk_depth"])
 
-        if "trunk_hidden_dim" in config and config["trunk_hidden_dim"] is not None:
-            params["trunk_hidden_dim"] = int(config["trunk_hidden_dim"])
+    if "trunk_hidden_dim" in config and config["trunk_hidden_dim"] is not None:
+        params["trunk_hidden_dim"] = int(config["trunk_hidden_dim"])
 
     if "task_sampling_alpha" in config and config["task_sampling_alpha"] is not None:
         params["task_sampling_alpha"] = float(config["task_sampling_alpha"])

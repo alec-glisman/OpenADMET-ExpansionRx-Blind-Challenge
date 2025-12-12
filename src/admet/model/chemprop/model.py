@@ -66,6 +66,7 @@ from admet.model.chemprop.config import (
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
+    TaskAffinityConfig,
 )
 from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
 from admet.model.chemprop.curriculum_sampler import (
@@ -421,6 +422,7 @@ class ChempropModel:
         mlflow_nested: bool = False,
         curriculum_config: CurriculumConfig | None = None,
         curriculum_state: CurriculumState | None = None,
+        task_affinity_config: TaskAffinityConfig | None = None,
         data_dir: Optional[str] = None,
     ) -> None:
         """
@@ -491,7 +493,15 @@ class ChempropModel:
                     qualities=list(self.curriculum_config.qualities),
                     patience=self.curriculum_config.patience,
                 )
-            # Store quality column for later use
+
+        # Task affinity configuration
+        self.task_affinity_config: TaskAffinityConfig | None = task_affinity_config
+        self.task_affinity_matrix: Optional[np.ndarray] = None
+        self.task_groups: Optional[List[List[str]]] = None
+        self.task_group_indices: Optional[List[List[int]]] = None
+
+        # Store quality column for later use
+        if self.curriculum_config is not None and self.curriculum_config.enabled:
             self.quality_col: str | None = self.curriculum_config.quality_col
         else:
             self.quality_col = None
@@ -638,6 +648,7 @@ class ChempropModel:
             num_workers=config.optimization.num_workers,
             seed=config.optimization.seed,
             criterion=config.optimization.criterion,
+            task_sampling_alpha=config.optimization.task_sampling_alpha,
             # Model architecture
             depth=config.model.depth,
             message_hidden_dim=config.model.message_hidden_dim,
@@ -673,6 +684,7 @@ class ChempropModel:
             mlflow_parent_run_id=config.mlflow.parent_run_id,
             mlflow_nested=config.mlflow.nested,
             curriculum_config=config.curriculum,
+            task_affinity_config=config.task_affinity,
             data_dir=config.data.data_dir,
         )
 
@@ -868,8 +880,13 @@ class ChempropModel:
                 output_transform=self.transform,
             )
         elif self.hyperparams.ffn_type == "branched":
+            # Use task groups from affinity if available, otherwise one task per group
+            if self.task_group_indices:
+                task_groups_to_use = self.task_group_indices
+            else:
+                task_groups_to_use = [[i] for i in range(len(self.target_cols))]
             self.ffn = BranchedFFN(
-                task_groups=[[i] for i in range(len(self.target_cols))],
+                task_groups=task_groups_to_use,
                 n_tasks=len(self.target_cols),
                 input_dim=self.hyperparams.message_hidden_dim,
                 hidden_dim=self.hyperparams.hidden_dim,
@@ -905,6 +922,14 @@ class ChempropModel:
             max_lr=self.hyperparams.max_lr,
             final_lr=self.hyperparams.final_lr,
         )
+
+        # Store task affinity info as MPNN attributes for downstream access
+        if self.task_affinity_matrix is not None:
+            self.mpnn.task_affinity_matrix = self.task_affinity_matrix
+        if self.task_groups is not None:
+            self.mpnn.task_groups = self.task_groups
+        if self.task_group_indices is not None:
+            self.mpnn.task_group_indices = self.task_group_indices
 
     def _init_mlflow(self) -> None:
         """
@@ -980,6 +1005,55 @@ class ChempropModel:
             self.close()
         except Exception:
             pass  # Ignore errors during cleanup
+
+    def _compute_task_affinity(self) -> None:
+        """
+        Compute task affinity matrix and cluster tasks into groups.
+
+        This method runs the TAG algorithm if task_affinity_config is enabled.
+        It computes gradient-based affinity scores between tasks and clusters
+        them into groups for multi-head training with BranchedFFN.
+
+        The computed affinity matrix and task groups are stored as instance
+        attributes for use in model preparation and logging.
+        """
+        if self.task_affinity_config is None or not self.task_affinity_config.enabled:
+            logger.debug("Task affinity computation disabled")
+            return
+
+        logger.info("Computing task affinity matrix...")
+        from admet.model.chemprop.task_affinity import (
+            TaskAffinityComputer,
+            TaskGrouper,
+            get_task_group_indices,
+        )
+
+        # Create affinity computer
+        computer = TaskAffinityComputer(self.task_affinity_config)
+
+        # Compute affinity from training data
+        df_train = self.dataframes["train"]
+        affinity_matrix, task_names = computer.compute_from_dataframe(
+            df=df_train,
+            smiles_col=self.smiles_col,
+            target_cols=self.target_cols,
+        )
+
+        # Cluster tasks into groups
+        grouper = TaskGrouper(
+            n_groups=self.task_affinity_config.n_groups,
+            method=self.task_affinity_config.clustering_method,
+            seed=self.task_affinity_config.seed,
+        )
+        groups = grouper.cluster(affinity_matrix, task_names)
+
+        # Store results
+        self.task_affinity_matrix = affinity_matrix
+        self.task_groups = groups
+        self.task_group_indices = get_task_group_indices(groups, self.target_cols)
+
+        logger.info("Task affinity computation complete")
+        logger.info("Task groups: %s", groups)
 
     def _prepare_trainer(self) -> None:
         """
@@ -1089,6 +1163,10 @@ class ChempropModel:
         interrupts gracefully, allowing the model to be used for
         prediction even if training is interrupted.
 
+        When task affinity is enabled, computes task affinity matrix
+        before model preparation to determine task groupings for
+        multi-head architectures.
+
         When MLflow tracking is enabled, logs hyperparameters at the
         start of training, and logs metrics, artifacts, and registers
         the model upon completion.
@@ -1098,6 +1176,9 @@ class ChempropModel:
         bool
             True if training completed normally, False if interrupted.
         """
+        # Compute task affinity before preparing model (if enabled)
+        self._compute_task_affinity()
+
         # Log hyperparameters and dataset info at start of training
         if self.mlflow_tracking and self._mlflow_logger is not None:
             logger.debug(
@@ -1389,6 +1470,94 @@ class ChempropModel:
             csv_path.unlink(missing_ok=True)
             temp_dir.rmdir()
 
+    def _log_task_affinity_artifacts(self) -> None:
+        """
+        Log task affinity matrix, groups, and heatmap to MLflow.
+
+        Creates and logs:
+        - Affinity matrix as CSV
+        - Task groups as JSON
+        - Affinity heatmap visualization
+        """
+        if not self.mlflow_tracking or self._mlflow_logger is None:
+            return
+
+        if self.task_affinity_matrix is None or self.task_groups is None:
+            return
+
+        logger.info("Logging task affinity artifacts to MLflow")
+
+        try:
+            import json
+            import tempfile
+
+            from admet.model.chemprop.task_affinity import (
+                affinity_matrix_to_dataframe,
+                plot_task_affinity_heatmap,
+            )
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+
+                # Save affinity matrix as CSV
+                df_affinity = affinity_matrix_to_dataframe(self.task_affinity_matrix, self.target_cols)
+                affinity_csv = tmpdir_path / "task_affinity_matrix.csv"
+                df_affinity.to_csv(affinity_csv)
+                self._mlflow_logger.experiment.log_artifact(self.mlflow_run_id, str(affinity_csv))
+                logger.debug("Logged affinity matrix CSV")
+
+                # Log affinity statistics as MLflow metrics
+                try:
+                    import numpy as np
+
+                    # Get upper triangle (excluding diagonal) for statistics
+                    triu_idx = np.triu_indices(self.task_affinity_matrix.shape[0], k=1)
+                    affinity_values = self.task_affinity_matrix[triu_idx]
+
+                    affinity_metrics = {
+                        "task_affinity/mean": float(np.mean(affinity_values)),
+                        "task_affinity/std": float(np.std(affinity_values)),
+                        "task_affinity/min": float(np.min(affinity_values)),
+                        "task_affinity/max": float(np.max(affinity_values)),
+                        "task_affinity/n_groups": len(self.task_groups),
+                    }
+                    self._mlflow_logger.experiment.log_metrics(self.mlflow_run_id, affinity_metrics)
+                    logger.debug("Logged affinity metrics: %s", affinity_metrics)
+                except Exception as e:
+                    logger.warning("Failed to log affinity metrics: %s", e)
+
+                # Save task groups as JSON
+                groups_json = tmpdir_path / "task_groups.json"
+                with open(groups_json, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "task_groups": self.task_groups,
+                            "n_groups": len(self.task_groups),
+                            "tasks_per_group": [len(g) for g in self.task_groups],
+                        },
+                        f,
+                        indent=2,
+                    )
+                self._mlflow_logger.experiment.log_artifact(self.mlflow_run_id, str(groups_json))
+                logger.debug("Logged task groups JSON")
+
+                # Create and save affinity heatmap
+                try:
+                    heatmap_path = tmpdir_path / "task_affinity_heatmap.png"
+                    plot_task_affinity_heatmap(
+                        self.task_affinity_matrix,
+                        self.target_cols,
+                        title="Task Affinity Matrix",
+                        save_path=str(heatmap_path),
+                    )
+                    self._mlflow_logger.experiment.log_artifact(self.mlflow_run_id, str(heatmap_path))
+                    logger.debug("Logged affinity heatmap")
+                except Exception as e:
+                    logger.warning("Failed to create affinity heatmap: %s", e)
+
+        except Exception as e:
+            logger.error("Failed to log task affinity artifacts: %s", e)
+
     def _log_training_artifacts(self, completed: bool) -> None:
         """
         Log training artifacts to MLflow.
@@ -1401,6 +1570,9 @@ class ChempropModel:
             Whether training completed normally (True) or was
             interrupted (False).
         """
+        # Log task affinity artifacts if available
+        self._log_task_affinity_artifacts()
+
         if self._mlflow_client is None or self.mlflow_run_id is None:
             logger.debug("_log_training_artifacts skipped: mlflow_client or run_id is None")
             return

@@ -6,11 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from admet.model.chemprop.hpo_trainable import (
-    RayTuneReportCallback,
-    _build_hyperparams,
-    _extract_target_weights,
-)
+from admet.model.chemprop.hpo_trainable import RayTuneReportCallback, _build_hyperparams, _extract_target_weights
 from admet.model.chemprop.model import ChempropHyperparams
 
 
