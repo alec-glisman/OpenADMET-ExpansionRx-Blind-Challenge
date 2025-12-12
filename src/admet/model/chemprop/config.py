@@ -238,7 +238,7 @@ class CurriculumConfig:
 @dataclass
 class TaskAffinityConfig:
     """
-    Configuration for task affinity grouping.
+    Configuration for task affinity grouping (legacy pre-training approach).
 
     Task affinity grouping implements the TAG algorithm from
     "Efficiently Identifying Task Groupings for Multi-Task Learning"
@@ -246,6 +246,12 @@ class TaskAffinityConfig:
     by measuring gradient similarity between tasks during a short training
     run, then clusters tasks into groups that benefit from being trained
     together.
+
+    .. deprecated::
+        This configuration uses the legacy gradient-cosine approach for
+        pre-training task grouping. For the paper-accurate lookahead-based
+        inter-task affinity computation during training, use
+        :class:`InterTaskAffinityConfig` instead.
 
     Parameters
     ----------
@@ -280,6 +286,60 @@ class TaskAffinityConfig:
 
 
 @dataclass
+class InterTaskAffinityConfig:
+    """
+    Configuration for inter-task affinity computation during training.
+
+    This implements the lookahead-based inter-task affinity from the TAG paper:
+
+        Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
+
+    Where θ^{t+1}_{s|i} = θ^t_s - η∇_{θ_s} L_i is the shared parameter update
+    from task i's gradient. This measures how task i's update affects task j.
+
+    Unlike the legacy :class:`TaskAffinityConfig`, this computes affinity
+    during the main training loop (not as a separate pre-training phase) and
+    logs per-step and epoch-level metrics to MLflow.
+
+    Parameters
+    ----------
+    enabled : bool, default=False
+        Whether to enable inter-task affinity computation during training.
+    compute_every_n_steps : int, default=1
+        Compute affinity every N training steps. Higher values reduce
+        computational overhead but provide less granular measurements.
+    log_every_n_steps : int, default=100
+        Log running average affinity to MLflow every N steps.
+    log_epoch_summary : bool, default=True
+        Log epoch-level summary statistics (mean, std) of affinity matrix.
+    log_step_matrices : bool, default=False
+        Log individual step affinity matrices. WARNING: High volume.
+    lookahead_lr : float, default=0.001
+        Learning rate η for computing the lookahead parameter update.
+    use_optimizer_lr : bool, default=True
+        If True, uses the current optimizer learning rate for lookahead.
+    exclude_param_patterns : List[str]
+        Patterns to exclude from shared parameters (task-specific layers).
+    log_to_mlflow : bool, default=True
+        Whether to log affinity metrics to MLflow.
+
+    See Also
+    --------
+    admet.model.chemprop.inter_task_affinity : Full implementation details.
+    """
+
+    enabled: bool = False
+    compute_every_n_steps: int = 1
+    log_every_n_steps: int = 100
+    log_epoch_summary: bool = True
+    log_step_matrices: bool = False
+    lookahead_lr: float = 0.001
+    use_optimizer_lr: bool = True
+    exclude_param_patterns: List[str] = field(default_factory=lambda: ["predictor", "ffn", "output", "head", "readout"])
+    log_to_mlflow: bool = True
+
+
+@dataclass
 class ChempropConfig:
     """
     Complete configuration for a Chemprop training run.
@@ -302,6 +362,8 @@ class ChempropConfig:
         Curriculum learning configuration for quality-aware sampling.
     task_affinity : TaskAffinityConfig
         Task affinity grouping configuration for multi-task learning.
+    inter_task_affinity : InterTaskAffinityConfig
+        Inter-task affinity computation during training (TAG paper lookahead).
 
     Examples
     --------
@@ -325,6 +387,7 @@ class ChempropConfig:
     ...     mlflow=MlflowConfig(experiment_name="my_experiment"),
     ...     curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
     ...     task_affinity=TaskAffinityConfig(enabled=True, n_groups=2),
+    ...     inter_task_affinity=InterTaskAffinityConfig(enabled=True),
     ... )
     """
 
@@ -334,6 +397,7 @@ class ChempropConfig:
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
+    inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
 
 
 @dataclass
@@ -426,6 +490,7 @@ class EnsembleConfig:
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
+    inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     max_parallel: int = 1
     ray_num_cpus: Optional[int] = None
     ray_num_gpus: Optional[int] = None

@@ -119,3 +119,46 @@ curriculum:
     - "low"
   patience: 5
   seed: 42
+
+# =============================================================================
+# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
+# =============================================================================
+# Computes inter-task affinity during training using the lookahead method from:
+# "Efficiently Identifying Task Groupings for Multi-Task Learning"
+# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
+#
+# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
+# This measures how task i's gradient update affects task j's loss.
+# =============================================================================
+inter_task_affinity:
+  # Enable/disable inter-task affinity computation during training
+  enabled: false
+
+  # Compute affinity every N training steps (1 = every step)
+  compute_every_n_steps: 10
+
+  # Log running average affinity to MLflow every N steps
+  log_every_n_steps: 100
+
+  # Log epoch-level summary statistics
+  log_epoch_summary: true
+
+  # Log individual step affinity matrices (WARNING: high volume)
+  log_step_matrices: false
+
+  # Learning rate for lookahead computation
+  lookahead_lr: 0.001
+
+  # Use current optimizer learning rate for lookahead
+  use_optimizer_lr: true
+
+  # Patterns to exclude from shared parameters (task-specific layers)
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+
+  # Log affinity metrics to MLflow
+  log_to_mlflow: true

@@ -64,9 +64,9 @@ def test_prepare_dataloaders_uses_sampler(monkeypatch, train_val_dataframes, ena
     assert model.dataloaders["validation"] is not None
 
     if enable_curriculum:
-        assert model._quality_labels["train"] is not None
+        assert model._quality_labels.get("train") is not None
         assert model.dataloaders["train"] is fake_dataloader
     else:
         # no sampler applied; dataloader is still fake_dataloader but quality not set
-        assert model._quality_labels["train"] is None
+        assert model._quality_labels.get("train") is None
         assert model.dataloaders["train"] is fake_dataloader

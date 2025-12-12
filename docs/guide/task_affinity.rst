@@ -27,10 +27,355 @@ Algorithm Overview
 3. **Task Clustering**: Group tasks using hierarchical or spectral clustering
 4. **Multi-Head Training**: Train a single model with separate prediction heads for each task group
 
+.. note::
+
+   There are two implementations of task affinity in this codebase:
+
+   1. **Inter-Task Affinity (Recommended)**: Paper-accurate implementation using the lookahead
+      loss ratio method from Fifty et al. (2021). This computes affinity *during training* by
+      measuring how each task's gradient update affects other tasks' losses. See
+      :ref:`inter-task-affinity-config` below.
+
+   2. **Task Affinity (Legacy)**: Pre-training approach using gradient cosine similarity.
+      This runs a separate affinity computation phase before training. See
+      :ref:`legacy-task-affinity-config` below.
+
+   We recommend using the **Inter-Task Affinity** approach for new projects.
+
+.. _inter-task-affinity-config:
+
+Inter-Task Affinity Configuration (Paper-Accurate)
+==================================================
+
+The ``InterTaskAffinityConfig`` class implements the lookahead-based inter-task affinity
+computation exactly as described in the TAG paper. This is the recommended approach for
+measuring task relationships.
+
+Mathematical Foundation
+-----------------------
+
+The inter-task affinity is computed using the following formula from Fifty et al. (2021):
+
+.. math::
+
+   Z^t_{ij} = 1 - \frac{L_j(X^t, \theta^{t+1}_{s|i}, \theta^t_j)}{L_j(X^t, \theta^t_s, \theta^t_j)}
+
+Where:
+
+* :math:`\theta^t_s`: Shared encoder parameters at training step :math:`t`
+* :math:`\theta^{t+1}_{s|i} = \theta^t_s - \eta \nabla_{\theta_s} L_i`: Updated shared parameters after task :math:`i`'s gradient step
+* :math:`L_j`: Loss function for task :math:`j`
+* :math:`X^t`: Input batch at step :math:`t`
+* :math:`\eta`: Learning rate
+
+**Interpretation**:
+
+* :math:`Z^t_{ij} > 0`: Task :math:`i`'s update **helps** task :math:`j` (positive transfer)
+* :math:`Z^t_{ij} < 0`: Task :math:`i`'s update **hurts** task :math:`j` (negative transfer)
+* :math:`Z^t_{ij} \approx 0`: Task :math:`i`'s update has **minimal effect** on task :math:`j`
+
+The training-level affinity matrix is the average over all steps:
+
+.. math::
+
+   \hat{Z}_{ij} = \frac{1}{T} \sum_{t=1}^{T} Z^t_{ij}
+
+Key Differences from Legacy Approach
+------------------------------------
+
+.. list-table:: Comparison of Affinity Approaches
+   :header-rows: 1
+   :widths: 25 37 38
+
+   * - Feature
+     - Inter-Task Affinity (Recommended)
+     - Legacy Task Affinity
+   * - Computation
+     - During training (per-step)
+     - Separate pre-training phase
+   * - Formula
+     - Lookahead loss ratio
+     - Gradient cosine similarity
+   * - Asymmetric
+     - Yes (:math:`Z_{ij} \neq Z_{ji}`)
+     - No (symmetric)
+   * - Measures
+     - Effect of i's update on j's loss
+     - Gradient direction similarity
+   * - Paper Reference
+     - Fifty et al. (2021) Eq. 1
+     - Inspired by TAG but simplified
+
+Inter-Task Affinity Parameters
+------------------------------
+
+enabled
+^^^^^^^
+
+:Type: ``bool``
+:Default: ``False``
+:Description:
+    Whether to enable inter-task affinity computation during training.
+    When enabled, affinity is computed at specified step intervals.
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      enabled: true
+
+compute_every_n_steps
+^^^^^^^^^^^^^^^^^^^^^
+
+:Type: ``int``
+:Default: ``1``
+:Description:
+    Compute affinity every N training steps. Setting this to 1 computes
+    affinity at every step (as in the paper). Higher values reduce
+    computational overhead but provide less granular measurements.
+
+:Guidance:
+    * ``1``: Full per-step computation (recommended for analysis)
+    * ``5-10``: Good balance for training with monitoring
+    * ``50-100``: Minimal overhead for production training
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      enabled: true
+      compute_every_n_steps: 10
+
+log_every_n_steps
+^^^^^^^^^^^^^^^^^
+
+:Type: ``int``
+:Default: ``100``
+:Description:
+    Log running average affinity metrics to MLflow every N steps.
+    Individual step matrices can be very noisy, so we aggregate them.
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      log_every_n_steps: 100
+
+log_epoch_summary
+^^^^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``True``
+:Description:
+    Log epoch-level summary statistics (mean, std, per-task-pair values).
+    Useful for monitoring affinity evolution during training.
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      log_epoch_summary: true
+
+log_step_matrices
+^^^^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``False``
+:Description:
+    Log individual step affinity matrices to MLflow.
+
+    .. warning::
+
+       This can generate a very large number of metrics.
+       Only enable for debugging or detailed analysis.
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      log_step_matrices: false  # Keep off unless debugging
+
+lookahead_lr
+^^^^^^^^^^^^
+
+:Type: ``float``
+:Default: ``0.001``
+:Description:
+    Learning rate :math:`\eta` for computing the lookahead parameter update.
+    This controls the step size in the lookahead computation:
+    :math:`\theta^{t+1}_{s|i} = \theta^t_s - \eta \nabla_{\theta_s} L_i`
+
+:Guidance:
+    * Should typically match the training learning rate
+    * If ``use_optimizer_lr=True``, this value is overridden
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      lookahead_lr: 0.001
+
+use_optimizer_lr
+^^^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``True``
+:Description:
+    If True, uses the current optimizer learning rate for lookahead
+    computation. This ensures the lookahead matches actual training dynamics.
+    Overrides ``lookahead_lr`` when enabled.
+
+:Guidance:
+    * **Recommended**: ``True`` for most cases
+    * Set ``False`` only if you want a fixed lookahead learning rate
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      use_optimizer_lr: true
+
+exclude_param_patterns
+^^^^^^^^^^^^^^^^^^^^^^
+
+:Type: ``List[str]``
+:Default: ``["predictor", "ffn", "output", "head", "readout"]``
+:Description:
+    Patterns to identify task-specific parameters that should be excluded
+    from shared parameter computation. Parameters matching these patterns
+    are not included in the gradient computation for affinity.
+
+:Default Exclusions:
+    * ``predictor``: Task prediction layers
+    * ``ffn``: Feed-forward network layers
+    * ``output``: Output projection layers
+    * ``head``: Task-specific heads
+    * ``readout``: Readout/aggregation layers
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      exclude_param_patterns:
+        - predictor
+        - ffn
+        - output
+        - head
+        - readout
+
+log_to_mlflow
+^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``True``
+:Description:
+    Whether to log affinity metrics to MLflow. Logs include:
+
+    * Per-step running averages
+    * Epoch summaries
+    * Final affinity matrix as artifact
+
+:Example:
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      log_to_mlflow: true
+
+Complete Inter-Task Affinity Example
+------------------------------------
+
+Production Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: yaml
+
+    # Enable paper-accurate inter-task affinity during training
+    inter_task_affinity:
+      enabled: true
+      compute_every_n_steps: 10
+      log_every_n_steps: 100
+      log_epoch_summary: true
+      log_step_matrices: false
+      lookahead_lr: 0.001
+      use_optimizer_lr: true
+      exclude_param_patterns:
+        - predictor
+        - ffn
+        - output
+        - head
+        - readout
+      log_to_mlflow: true
+
+Analysis Configuration
+^^^^^^^^^^^^^^^^^^^^^^
+
+For detailed affinity analysis (more overhead):
+
+.. code-block:: yaml
+
+    inter_task_affinity:
+      enabled: true
+      compute_every_n_steps: 1        # Every step for full analysis
+      log_every_n_steps: 50           # Frequent logging
+      log_epoch_summary: true
+      log_step_matrices: true         # Enable for debugging
+      use_optimizer_lr: true
+      log_to_mlflow: true
+
+Interpreting Inter-Task Affinity Results
+----------------------------------------
+
+The affinity matrix is **asymmetric**. Entry :math:`\hat{Z}_{ij}` represents:
+
+* **The effect of task i on task j**
+* NOT the symmetric relationship between them
+
+Example interpretation:
+
+.. code-block:: text
+
+    Final affinity matrix (excerpt):
+              LogD    KSOL    CLint
+    LogD      0.00    0.15   -0.08
+    KSOL      0.12    0.00    0.05
+    CLint    -0.05    0.08    0.00
+
+* LogD → KSOL: 0.15 (LogD updates help KSOL)
+* KSOL → LogD: 0.12 (KSOL updates help LogD)
+* LogD → CLint: -0.08 (LogD updates slightly hurt CLint)
+* CLint → LogD: -0.05 (CLint updates slightly hurt LogD)
+
+**Task Grouping Strategy**:
+
+1. Group tasks with positive mutual affinity (LogD, KSOL)
+2. Separate tasks with negative affinity from the group
+3. Consider creating single-task models for isolated tasks
+
+.. _legacy-task-affinity-config:
+
 Configuration Parameters
 ========================
 
-The ``TaskAffinityConfig`` class controls all aspects of task affinity computation and grouping.
+Legacy Task Affinity Configuration (Pre-Training Approach)
+----------------------------------------------------------
+
+.. deprecated::
+
+   The legacy ``TaskAffinityConfig`` uses gradient cosine similarity during a
+   separate pre-training phase. For paper-accurate implementation, use
+   ``InterTaskAffinityConfig`` instead (see :ref:`inter-task-affinity-config`).
+
+The ``TaskAffinityConfig`` class controls all aspects of legacy task affinity
+computation and grouping.
 
 Basic Parameters
 ----------------
@@ -1322,6 +1667,14 @@ API Reference
 =============
 
 For detailed API documentation, see:
+
+**Inter-Task Affinity (Recommended)**:
+
+* :class:`admet.model.chemprop.inter_task_affinity.InterTaskAffinityConfig`
+* :class:`admet.model.chemprop.inter_task_affinity.InterTaskAffinityComputer`
+* :class:`admet.model.chemprop.inter_task_affinity.InterTaskAffinityCallback`
+
+**Legacy Task Affinity (Deprecated)**:
 
 * :class:`admet.model.chemprop.task_affinity.TaskAffinityConfig`
 * :class:`admet.model.chemprop.task_affinity.TaskAffinityComputer`

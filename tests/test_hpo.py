@@ -117,7 +117,7 @@ class TestChempropHPO:
         assert space["smiles_column"] == "smiles"
         assert space["target_columns"] == ["target1", "target2"]
         assert space["max_epochs"] == 50
-        assert space["metric"] == "val_mae"
+        assert space["metric"] == "mae"
         assert space["seed"] == 42
 
     def test_build_scheduler(self, test_hpo_config) -> None:

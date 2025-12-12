@@ -13,6 +13,7 @@ __all__ = [
     "hpo_config",
     "hpo_search_space",
     "hpo_trainable",
+    "inter_task_affinity",
     "model",
     "task_affinity",
     # Config classes
@@ -23,6 +24,7 @@ __all__ = [
     "MlflowConfig",
     "EnsembleConfig",
     "EnsembleDataConfig",
+    "InterTaskAffinityConfig",
     # HPO config classes
     "HPOConfig",
     "SearchSpaceConfig",
@@ -47,6 +49,9 @@ __all__ = [
     "TaskAffinityComputer",
     "TaskGrouper",
     "compute_task_affinity",
+    # Inter-task affinity classes (paper-accurate)
+    "InterTaskAffinityCallback",
+    "InterTaskAffinityComputer",
 ]
 
 if TYPE_CHECKING:
@@ -59,6 +64,7 @@ if TYPE_CHECKING:
         hpo_config,
         hpo_search_space,
         hpo_trainable,
+        inter_task_affinity,
         model,
         task_affinity,
     )
@@ -67,6 +73,7 @@ if TYPE_CHECKING:
         DataConfig,
         EnsembleConfig,
         EnsembleDataConfig,
+        InterTaskAffinityConfig,
         MlflowConfig,
         ModelConfig,
         OptimizationConfig,
@@ -83,6 +90,7 @@ if TYPE_CHECKING:
     )
     from .hpo_search_space import build_search_space, get_default_search_space
     from .hpo_trainable import RayTuneReportCallback, train_chemprop_trial
+    from .inter_task_affinity import InterTaskAffinityCallback, InterTaskAffinityComputer
     from .model import ChempropHyperparams, ChempropModel
     from .task_affinity import (
         TaskAffinityComputer,
@@ -102,6 +110,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "hpo_config": ("admet.model.chemprop.hpo_config", None),
     "hpo_search_space": ("admet.model.chemprop.hpo_search_space", None),
     "hpo_trainable": ("admet.model.chemprop.hpo_trainable", None),
+    "inter_task_affinity": ("admet.model.chemprop.inter_task_affinity", None),
     "model": ("admet.model.chemprop.model", None),
     "task_affinity": ("admet.model.chemprop.task_affinity", None),
     # Config classes
@@ -112,6 +121,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "MlflowConfig": ("admet.model.chemprop.config", "MlflowConfig"),
     "EnsembleConfig": ("admet.model.chemprop.config", "EnsembleConfig"),
     "EnsembleDataConfig": ("admet.model.chemprop.config", "EnsembleDataConfig"),
+    "InterTaskAffinityConfig": ("admet.model.chemprop.config", "InterTaskAffinityConfig"),
     # HPO config classes
     "HPOConfig": ("admet.model.chemprop.hpo_config", "HPOConfig"),
     "SearchSpaceConfig": ("admet.model.chemprop.hpo_config", "SearchSpaceConfig"),
@@ -130,11 +140,14 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "build_search_space": ("admet.model.chemprop.hpo_search_space", "build_search_space"),
     "get_default_search_space": ("admet.model.chemprop.hpo_search_space", "get_default_search_space"),
     "train_chemprop_trial": ("admet.model.chemprop.hpo_trainable", "train_chemprop_trial"),
-    # Task affinity classes
+    # Task affinity classes (legacy pre-training approach)
     "TaskAffinityConfig": ("admet.model.chemprop.task_affinity", "TaskAffinityConfig"),
     "TaskAffinityComputer": ("admet.model.chemprop.task_affinity", "TaskAffinityComputer"),
     "TaskGrouper": ("admet.model.chemprop.task_affinity", "TaskGrouper"),
     "compute_task_affinity": ("admet.model.chemprop.task_affinity", "compute_task_affinity"),
+    # Inter-task affinity classes (paper-accurate during-training approach)
+    "InterTaskAffinityCallback": ("admet.model.chemprop.inter_task_affinity", "InterTaskAffinityCallback"),
+    "InterTaskAffinityComputer": ("admet.model.chemprop.inter_task_affinity", "InterTaskAffinityComputer"),
 }
 
 

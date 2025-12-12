@@ -26,7 +26,10 @@ data:
     - "Log MBPB"
     - "Log MGMB"
 
-# Task Affinity Computation Settings
+# Task Affinity Computation Settings (Legacy Pre-Training Approach)
+# ------------------------------------------------------------------
+# DEPRECATED: This uses gradient cosine similarity. For paper-accurate
+# implementation, use inter_task_affinity below instead.
 task_affinity:
   # Affinity computation
   affinity_epochs: 2 # More epochs for stable estimates
@@ -45,6 +48,52 @@ task_affinity:
   device: "auto"
   seed: 42
   log_affinity_matrix: true
+
+# =============================================================================
+# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
+# =============================================================================
+# Computes inter-task affinity during training using the lookahead method from:
+# "Efficiently Identifying Task Groupings for Multi-Task Learning"
+# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
+#
+# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
+#
+# For standalone affinity computation, you would typically:
+# 1. Enable this during a short training run
+# 2. Extract the final affinity matrix from MLflow artifacts
+# =============================================================================
+inter_task_affinity:
+  # Enable/disable inter-task affinity computation
+  enabled: true
+
+  # Compute affinity at every step for accurate measurement
+  compute_every_n_steps: 1
+
+  # Log running average frequently for analysis
+  log_every_n_steps: 50
+
+  # Log epoch-level summary statistics
+  log_epoch_summary: true
+
+  # Log individual step matrices for detailed analysis
+  log_step_matrices: true
+
+  # Learning rate for lookahead computation
+  lookahead_lr: 0.001
+
+  # Use current optimizer learning rate for lookahead
+  use_optimizer_lr: true
+
+  # Patterns to exclude from shared parameters (task-specific layers)
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+
+  # Log affinity metrics to MLflow
+  log_to_mlflow: true
 
 # Output settings
 output:

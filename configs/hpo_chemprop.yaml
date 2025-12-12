@@ -218,15 +218,67 @@ curriculum:
 
   # Random seed for reproducible sampling
   seed: 12345
+
+# =============================================================================
+# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
+# =============================================================================
+# Computes inter-task affinity during training using the lookahead method from:
+# "Efficiently Identifying Task Groupings for Multi-Task Learning"
+# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
+#
+# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
+#
+# This measures how task i's gradient update on shared parameters affects
+# task j's loss. Positive values indicate beneficial transfer; negative
+# values indicate harmful interference.
+#
+# Note: Computing affinity at every step adds overhead. Consider using
+# compute_every_n_steps > 1 for HPO trials to reduce computation.
+# =============================================================================
+inter_task_affinity:
+  # Enable/disable inter-task affinity computation during training
+  enabled: false
+
+  # Compute affinity every N training steps (1 = every step)
+  # Higher values reduce overhead but provide less granular measurements
+  compute_every_n_steps: 10
+
+  # Log running average affinity to MLflow every N steps
+  log_every_n_steps: 100
+
+  # Log epoch-level summary statistics
+  log_epoch_summary: true
+
+  # Log individual step affinity matrices (WARNING: high volume)
+  log_step_matrices: false
+
+  # Learning rate for lookahead computation
+  # If use_optimizer_lr is true, this is overridden by the current LR
+  lookahead_lr: 0.001
+
+  # Use current optimizer learning rate for lookahead
+  use_optimizer_lr: true
+
+  # Patterns to exclude from shared parameters (task-specific layers)
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+
+  # Log affinity metrics to MLflow
+  log_to_mlflow: true
 # # =============================================================================
-# # Task Affinity Configuration
+# # Task Affinity Configuration (Legacy Pre-Training Approach)
 # # =============================================================================
+# # DEPRECATED: This uses gradient cosine similarity during a separate
+# # pre-training phase. For paper-accurate implementation, use
+# # inter_task_affinity above instead.
+# #
 # # Compute task affinity matrix during training to identify task relationships
 # # and group related tasks. The affinity matrix is stored in the trained MPNN
 # # for downstream use in ensemble models and transfer learning.
-# #
-# # Note: Task affinity computation adds overhead at the start of each trial.
-# # For HPO, consider whether this overhead is acceptable for trial budget.
 # # =============================================================================
 # task_affinity:
 #   # Enable/disable task affinity computation during HPO trials
@@ -241,20 +293,14 @@ curriculum:
 #   # Learning rate for affinity estimation
 #   affinity_lr: 0.001
 
-#   # Affinity metric: "cosine" or "pearson"
+#   # Affinity metric: "cosine" or "dot_product"
 #   affinity_type: "cosine"
-
-#   # Normalize gradients before computing affinity
-#   normalize_gradients: true
 
 #   # Number of task groups to discover via clustering
 #   n_groups: 3
 
-#   # Clustering algorithm: "agglomerative", "kmeans", or "spectral"
+#   # Clustering algorithm: "agglomerative" or "spectral"
 #   clustering_method: "agglomerative"
-
-#   # Device for computation: "auto", "cpu", or "cuda"
-#   device: "auto"
 
 #   # Random seed for reproducibility
 #   seed: 42

@@ -435,16 +435,20 @@ class TaskAffinityComputer:
         """
         logger.info("Building dataset for task affinity computation...")
 
-        # Canonicalize SMILES
+        # Canonicalize SMILES and convert to Mol objects
+        from rdkit import Chem
+
         smiles_list = parallel_canonicalize_smiles(df[smiles_col].tolist())
         targets = df[target_cols].values.astype(float).tolist()
 
-        # Build chemprop dataset
+        # Build chemprop dataset with Mol objects
         datapoints = []
         for smi, y in zip(smiles_list, targets):
             if smi is not None:  # Skip invalid SMILES
-                dp = data.MoleculeDatapoint(smi, y)
-                datapoints.append(dp)
+                mol = Chem.MolFromSmiles(smi)
+                if mol is not None:
+                    dp = data.MoleculeDatapoint(mol, y)
+                    datapoints.append(dp)
 
         featurizer = featurizers.SimpleMoleculeMolGraphFeaturizer()
         dataset = data.MoleculeDataset(datapoints, featurizer=featurizer)

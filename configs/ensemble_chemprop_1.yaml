@@ -98,8 +98,11 @@ curriculum:
   # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
   log_per_quality_metrics: true
 
-# Task Affinity Configuration
-# ============================
+# Task Affinity Configuration (Legacy Pre-Training Approach)
+# ============================================================
+# DEPRECATED: This uses gradient cosine similarity. For paper-accurate
+# implementation, use inter_task_affinity below instead.
+#
 # Compute task affinity matrix during training to identify task relationships.
 # The affinity matrix and task groups are logged to MLflow for downstream
 # analysis and decision-making about task groupings for specialized models.
@@ -112,3 +115,28 @@ task_affinity:
   n_groups: 3
   clustering_method: "agglomerative"
   seed: 42
+
+# =============================================================================
+# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
+# =============================================================================
+# Computes inter-task affinity during training using the lookahead method from:
+# "Efficiently Identifying Task Groupings for Multi-Task Learning"
+# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
+#
+# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
+# =============================================================================
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 10
+  log_every_n_steps: 100
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+  log_to_mlflow: true

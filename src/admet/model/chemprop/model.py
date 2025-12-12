@@ -63,6 +63,7 @@ from admet.model.chemprop.config import (
     ChempropConfig,
     CurriculumConfig,
     DataConfig,
+    InterTaskAffinityConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
@@ -423,6 +424,7 @@ class ChempropModel:
         curriculum_config: CurriculumConfig | None = None,
         curriculum_state: CurriculumState | None = None,
         task_affinity_config: TaskAffinityConfig | None = None,
+        inter_task_affinity_config: InterTaskAffinityConfig | None = None,
         data_dir: Optional[str] = None,
     ) -> None:
         """
@@ -494,11 +496,14 @@ class ChempropModel:
                     patience=self.curriculum_config.patience,
                 )
 
-        # Task affinity configuration
+        # Task affinity configuration (legacy pre-training approach)
         self.task_affinity_config: TaskAffinityConfig | None = task_affinity_config
         self.task_affinity_matrix: Optional[np.ndarray] = None
         self.task_groups: Optional[List[List[str]]] = None
         self.task_group_indices: Optional[List[List[int]]] = None
+
+        # Inter-task affinity configuration (paper-accurate during-training approach)
+        self.inter_task_affinity_config: InterTaskAffinityConfig | None = inter_task_affinity_config
 
         # Store quality column for later use
         if self.curriculum_config is not None and self.curriculum_config.enabled:
@@ -685,6 +690,7 @@ class ChempropModel:
             mlflow_nested=config.mlflow.nested,
             curriculum_config=config.curriculum,
             task_affinity_config=config.task_affinity,
+            inter_task_affinity_config=getattr(config, "inter_task_affinity", None),
             data_dir=config.data.data_dir,
         )
 
@@ -747,6 +753,8 @@ class ChempropModel:
                 run_name=self.mlflow_run_name,
             ),
             curriculum=self.curriculum_config or CurriculumConfig(),
+            task_affinity=self.task_affinity_config or TaskAffinityConfig(),
+            inter_task_affinity=self.inter_task_affinity_config or InterTaskAffinityConfig(),
         )
 
     def _prepare_dataloaders(self) -> None:
@@ -1142,6 +1150,21 @@ class ChempropModel:
                 "Curriculum callback added: monitoring 'val_loss', " "reset_early_stopping=%s, log_per_quality=%s",
                 reset_es,
                 log_per_quality,
+            )
+
+        # Add inter-task affinity callback if enabled
+        if self.inter_task_affinity_config is not None and self.inter_task_affinity_config.enabled:
+            from admet.model.chemprop.inter_task_affinity import InterTaskAffinityCallback
+
+            inter_task_affinity_callback = InterTaskAffinityCallback(
+                config=self.inter_task_affinity_config,
+                target_cols=self.target_cols,
+            )
+            callbacks_list.append(inter_task_affinity_callback)
+            logger.info(
+                "Inter-task affinity callback added: compute_every_n_steps=%d, log_every_n_steps=%d",
+                self.inter_task_affinity_config.compute_every_n_steps,
+                self.inter_task_affinity_config.log_every_n_steps,
             )
 
         self.trainer = pl.Trainer(

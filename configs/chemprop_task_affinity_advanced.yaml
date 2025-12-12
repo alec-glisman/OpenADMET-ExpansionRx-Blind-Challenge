@@ -36,8 +36,12 @@ data:
     - 5.2722
     - 10.000
 
-# Advanced Task Affinity Configuration
-# ------------------------------------
+# Advanced Task Affinity Configuration (Legacy Pre-Training Approach)
+# --------------------------------------------------------------------
+# DEPRECATED: This uses gradient cosine similarity during a separate
+# pre-training phase. For paper-accurate implementation, use
+# inter_task_affinity below instead.
+#
 # All parameters explicitly set for full control
 task_affinity:
   # Core settings
@@ -61,6 +65,54 @@ task_affinity:
   device: "cuda" # Force GPU usage
   seed: 42
   log_affinity_matrix: true # Essential for analysis
+
+# =============================================================================
+# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
+# =============================================================================
+# Computes inter-task affinity during training using the lookahead method from:
+# "Efficiently Identifying Task Groupings for Multi-Task Learning"
+# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
+#
+# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
+#
+# This measures how task i's gradient update affects task j's loss.
+# Positive values indicate beneficial transfer; negative values indicate
+# harmful interference (negative transfer).
+# =============================================================================
+inter_task_affinity:
+  # Enable/disable inter-task affinity computation during training
+  enabled: false
+
+  # Compute affinity every N training steps (1 = every step)
+  # Lower values give more granular measurements but higher overhead
+  compute_every_n_steps: 1
+
+  # Log running average affinity to MLflow every N steps
+  log_every_n_steps: 25
+
+  # Log epoch-level summary statistics
+  log_epoch_summary: true
+
+  # Log individual step affinity matrices (WARNING: high volume)
+  log_step_matrices: true # Enable for detailed analysis
+
+  # Learning rate for lookahead computation
+  # If use_optimizer_lr is true, this is overridden by the current LR
+  lookahead_lr: 0.0005
+
+  # Use current optimizer learning rate for lookahead
+  use_optimizer_lr: true
+
+  # Patterns to exclude from shared parameters (task-specific layers)
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+
+  # Log affinity metrics to MLflow
+  log_to_mlflow: true
 
 # Model architecture
 model:
