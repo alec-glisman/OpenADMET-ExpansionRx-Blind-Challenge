@@ -15,8 +15,6 @@
         "**/.mypy_cache": true,
         "**/.pytest_cache": true,
         "**/.venv": true,
-        "**/assets": true,
-        "**/mlruns": true
     },
     "search.exclude": {
         "**/.mypy_cache": true,

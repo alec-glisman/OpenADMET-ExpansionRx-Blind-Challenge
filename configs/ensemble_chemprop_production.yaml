@@ -99,25 +99,6 @@ curriculum:
   # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
   log_per_quality_metrics: true
 
-# Task Affinity Configuration (Legacy Pre-Training Approach)
-# ============================================================
-# DEPRECATED: This uses gradient cosine similarity. For paper-accurate
-# implementation, use inter_task_affinity below instead.
-#
-# Compute task affinity matrix during training to identify task relationships.
-# The affinity matrix and task groups are logged to MLflow for downstream
-# analysis and decision-making about task groupings for specialized models.
-task_affinity:
-  enabled: false
-  affinity_epochs: 2
-  affinity_batch_size: 64
-  affinity_lr: 0.001
-  affinity_type: "cosine"
-  n_groups: 3
-  clustering_method: "agglomerative"
-  seed: 42
-  log_affinity_matrix: true
-
 # =============================================================================
 # Inter-Task Affinity Configuration (Paper-Accurate Implementation)
 # =============================================================================
@@ -129,8 +110,8 @@ task_affinity:
 # =============================================================================
 inter_task_affinity:
   enabled: false
-  compute_every_n_steps: 10
-  log_every_n_steps: 100
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
   log_epoch_summary: true
   log_step_matrices: false
   lookahead_lr: 0.001
