@@ -360,6 +360,27 @@ Example interpretation:
 2. Separate tasks with negative affinity from the group
 3. Consider creating single-task models for isolated tasks
 
+Visualization
+-------------
+
+The repository includes utilities to visualize the affinity matrix and clustering.
+For example, to plot a heatmap or clustermap:
+
+.. code-block:: python
+
+  from admet.model.chemprop.task_affinity import (
+    compute_task_affinity,
+    plot_task_affinity_heatmap,
+    plot_task_affinity_clustermap,
+  )
+
+  affinity, tasks, groups = compute_task_affinity(df_train, "SMILES", target_cols)
+  # Heatmap
+  plot_task_affinity_heatmap(affinity, tasks, save_path="affinity_heatmap.png")
+
+  # Clustermap with dendrogram and optional task-group colors
+  plot_task_affinity_clustermap(affinity, tasks, groups=groups, save_path="affinity_clustermap.png")
+
 .. _legacy-task-affinity-config:
 
 Configuration Parameters

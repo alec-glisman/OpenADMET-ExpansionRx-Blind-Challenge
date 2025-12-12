@@ -230,6 +230,8 @@ class CurriculumConfig:
     qualities: List[str] = field(default_factory=lambda: ["high", "medium", "low"])
     patience: int = 5
     seed: int = 42
+    save_plots: bool = False
+    plot_dpi: int = 150
     strategy: str = "sampled"
     reset_early_stopping_on_phase_change: bool = False
     log_per_quality_metrics: bool = True
@@ -337,6 +339,8 @@ class InterTaskAffinityConfig:
     use_optimizer_lr: bool = True
     exclude_param_patterns: List[str] = field(default_factory=lambda: ["predictor", "ffn", "output", "head", "readout"])
     log_to_mlflow: bool = True
+    save_plots: bool = False
+    plot_dpi: int = 150
 
 
 @dataclass

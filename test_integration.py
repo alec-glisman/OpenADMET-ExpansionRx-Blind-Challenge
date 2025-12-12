@@ -1,8 +1,9 @@
 """Test task affinity integration with ChempropModel."""
 
 import logging
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from omegaconf import OmegaConf
 
 from admet.model.chemprop.config import ChempropConfig, TaskAffinityConfig

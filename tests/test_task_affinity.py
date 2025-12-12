@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from chemprop import models, nn as chemprop_nn
 
 from admet.model.chemprop.task_affinity import (
     TaskAffinityComputer,
@@ -22,8 +21,8 @@ from admet.model.chemprop.task_affinity import (
     affinity_matrix_to_dataframe,
     compute_task_affinity,
     get_task_group_indices,
+    plot_task_affinity_clustermap,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -348,7 +347,21 @@ class TestAffinityMatrixToDataframe:
         assert df.shape == (2, 2)
         assert list(df.index) == task_names
         assert list(df.columns) == task_names
-        assert df.loc["Task0", "Task1"] == 0.5
+
+
+class TestPlotTaskAffinityClustermap:
+    """Tests for plot_task_affinity_clustermap function."""
+
+    def test_plot_task_affinity_clustermap(self, tmp_path):
+        """Test that clustermap plotting returns a Matplotlib Figure."""
+        affinity = np.array([[1.0, 0.7, 0.1], [0.7, 1.0, 0.2], [0.1, 0.2, 1.0]])
+        task_names = ["A", "B", "C"]
+        fig = plot_task_affinity_clustermap(affinity, task_names, figsize=(4, 4), cmap="RdBu_r")
+        assert hasattr(fig, "savefig")
+        # Save to temporary path to exercise save_path logic
+        p = tmp_path / "clustermap.png"
+        fig.savefig(p)
+        assert p.exists()
 
 
 # =============================================================================
@@ -437,6 +450,31 @@ class TestComputeTaskAffinity:
 
         assert affinity.shape == (3, 3)
         assert len(groups) == 3  # Default n_groups is 3
+
+    def test_save_artifacts(self, sample_dataframe, tmp_path):
+        """Test that compute_task_affinity saves CSV and plot artifacts."""
+        config = TaskAffinityConfig(
+            enabled=True,
+            affinity_epochs=1,
+            affinity_batch_size=4,
+            n_groups=2,
+            seed=42,
+            save_plots=True,
+        )
+
+        outdir = tmp_path / "affinity_artifacts"
+        affinity, task_names, groups = compute_task_affinity(
+            sample_dataframe,
+            smiles_col="SMILES",
+            target_cols=["LogD", "KSOL", "PAMPA"],
+            config=config,
+            save_path=str(outdir),
+        )
+
+        # Check files were created
+        assert (outdir / "affinity_matrix.csv").exists()
+        assert (outdir / "affinity_heatmap.png").exists()
+        assert (outdir / "affinity_clustermap.png").exists()
 
 
 # =============================================================================

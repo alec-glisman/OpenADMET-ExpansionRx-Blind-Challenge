@@ -190,6 +190,7 @@ import logging
 import math
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -256,6 +257,8 @@ class TaskAffinityConfig:
     device: str = "auto"
     seed: int = 42
     log_affinity_matrix: bool = True
+    save_plots: bool = False
+    plot_dpi: int = 150
 
 
 def _get_device(device_str: str) -> torch.device:
@@ -543,7 +546,8 @@ class TaskAffinityComputer:
             for batch in dataloader:
                 # Move batch to device
                 bmg, _, _, targets, *_ = batch
-                bmg = bmg.to(self.device)
+                # BatchMolGraph.to mutates in-place and returns None, avoid reassigning
+                bmg.to(self.device)
                 targets = targets.to(self.device).float()
 
                 # Forward pass
@@ -717,6 +721,10 @@ class TaskGrouper:
         """
         n_tasks = len(task_names)
 
+        # Validate clustering method early to ensure invalid methods raise
+        if self.method not in ("agglomerative", "spectral"):
+            raise ValueError("Unknown clustering method")
+
         # Handle edge cases
         if n_tasks <= self.n_groups:
             logger.warning(
@@ -778,6 +786,7 @@ def compute_task_affinity(
     smiles_col: str,
     target_cols: List[str],
     config: Optional[TaskAffinityConfig] = None,
+    save_path: Optional[str] = None,
 ) -> Tuple[np.ndarray, List[str], List[List[str]]]:
     """
     Compute task affinity and cluster tasks into groups.
@@ -791,8 +800,9 @@ def compute_task_affinity(
         Training data with SMILES and target columns.
     smiles_col : str
         Name of the SMILES column.
-    target_cols : List[str]
-        List of target column names.
+    save_path: Optional[str] = None
+        Optional directory path to save affinity artifacts.
+    List of target column names.
     config : Optional[TaskAffinityConfig]
         Configuration for affinity computation. If None, uses defaults.
 
@@ -824,6 +834,39 @@ def compute_task_affinity(
         seed=config.seed,
     )
     groups = grouper.cluster(affinity_matrix, task_names)
+    # Optionally save affinity artifacts
+    if config is not None and getattr(config, "save_plots", False) and save_path:
+        try:
+            import matplotlib.pyplot as plt
+
+            outdir = Path(save_path)
+            outdir.mkdir(parents=True, exist_ok=True)
+            # plotting functions are available in this module
+
+            df = affinity_matrix_to_dataframe(affinity_matrix, task_names)
+            csv_path = outdir / "affinity_matrix.csv"
+            df.to_csv(csv_path)
+
+            heat_path = outdir / "affinity_heatmap.png"
+            fig_hm = plot_task_affinity_heatmap(
+                affinity_matrix,
+                task_names,
+                save_path=str(heat_path),
+                dpi=config.plot_dpi,
+            )
+            plt.close(fig_hm)
+
+            clus_path = outdir / "affinity_clustermap.png"
+            fig_cm = plot_task_affinity_clustermap(
+                affinity_matrix,
+                task_names,
+                groups=groups,
+                save_path=str(clus_path),
+                dpi=config.plot_dpi,
+            )
+            plt.close(fig_cm)
+        except Exception as e:
+            logger.warning("Failed to save affinity artifacts: %s", e)
 
     return affinity_matrix, task_names, groups
 
@@ -896,6 +939,7 @@ def plot_task_affinity_heatmap(
     figsize: Tuple[int, int] = (10, 8),
     cmap: str = "RdBu_r",
     save_path: Optional[str] = None,
+    dpi: int = 150,
 ) -> Any:
     """
     Plot task affinity matrix as a heatmap.
@@ -942,7 +986,88 @@ def plot_task_affinity_heatmap(
     plt.tight_layout()
 
     if save_path:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
         logger.info("Saved task affinity heatmap to %s", save_path)
 
     return fig
+
+
+def plot_task_affinity_clustermap(
+    affinity_matrix: np.ndarray,
+    task_names: List[str],
+    groups: Optional[List[List[str]]] = None,
+    title: str = "Task Affinity Clustermap",
+    figsize: Tuple[int, int] = (10, 10),
+    cmap: str = "RdBu_r",
+    save_path: Optional[str] = None,
+    dpi: int = 150,
+    method: str = "average",
+    metric: str = "euclidean",
+) -> Any:
+    """
+    Plot a clustermap with dendrogram for the affinity matrix.
+
+    Parameters
+    ----------
+    affinity_matrix : np.ndarray
+        Task affinity matrix (T x T).
+    task_names : List[str]
+        Names of the tasks.
+    groups : Optional[List[List[str]]]
+        Optional precomputed task groups used to color rows/cols.
+    title : str
+        Plot title.
+    figsize : Tuple[int, int]
+        Figure size.
+    cmap : str
+        Colormap.
+    save_path : Optional[str]
+        Path to save the figure. If None, displays the figure.
+    method : str
+        Linkage method for hierarchical clustering.
+    metric : str
+        Distance metric for hierarchical clustering.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The matplotlib figure.
+    """
+    import seaborn as sns
+
+    # Create a DataFrame for labels
+    df = pd.DataFrame(affinity_matrix, index=task_names, columns=task_names)
+
+    # Create a color mapping for groups if provided
+    row_colors = None
+    if groups is not None:
+        # Create a label -> color mapping
+        label_to_group = {}
+        for idx, group in enumerate(groups):
+            for t in group:
+                label_to_group[t] = idx
+
+        palette = sns.color_palette("tab10", n_colors=max(1, len(groups)))
+        row_colors = [palette[label_to_group[t]] for t in task_names]
+
+    g = sns.clustermap(
+        df,
+        cmap=cmap,
+        figsize=figsize,
+        row_cluster=True,
+        col_cluster=True,
+        method=method,
+        metric=metric,
+        row_colors=row_colors,
+        col_colors=row_colors,
+        center=0,
+        annot=True,
+        fmt=".2f",
+    )
+
+    g.fig.suptitle(title)
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
+        logger.info("Saved task affinity clustermap to %s", save_path)
+
+    return g.fig

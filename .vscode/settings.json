@@ -3,5 +3,33 @@
         "tests"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "files.watcherExclude": {
+        "**/.mypy_cache/**": true,
+        "**/.pytest_cache/**": true,
+        "**/.venv/**": true,
+        "**/assets/**": true,
+        "**/mlruns/**": true
+    },
+    "files.exclude": {
+        "**/.mypy_cache": true,
+        "**/.pytest_cache": true,
+        "**/.venv": true,
+        "**/assets": true,
+        "**/mlruns": true
+    },
+    "search.exclude": {
+        "**/.mypy_cache": true,
+        "**/.pytest_cache": true,
+        "**/.venv": true,
+        "**/assets": true,
+        "**/mlruns": true
+    },
+    "search.followSymlinks": false,
+    "search.useIgnoreFiles": true,
+    "workbench.editor.limit.enabled": true,
+    "workbench.startupEditor": "none",
+    "extensions.ignoreRecommendations": true,
+    "python.languageServer": "Pylance",
+    "telemetry.telemetryLevel": "off"
 }

@@ -45,7 +45,7 @@ MLFLOW_ARTIFACTS_PATH="/media/aglisman/Data/models"
 
 - `start` - Start PostgreSQL and MLflow server (default)
 - `stop` - Stop both services
-- `restart` - Restart both services  
+- `restart` - Restart both services
 - `status` - Show service status
 - `logs [postgres|mlflow|all]` - Show service logs
 

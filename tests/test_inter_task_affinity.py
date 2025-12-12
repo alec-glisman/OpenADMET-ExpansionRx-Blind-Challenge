@@ -115,7 +115,8 @@ def simple_mpnn(target_cols):
     """Create a simple MPNN model for testing."""
     mp = chemprop_nn.BondMessagePassing(d_h=64, depth=2)
     agg = chemprop_nn.MeanAggregation()
-    ffn = chemprop_nn.RegressionFFN(n_tasks=len(target_cols), hidden_dim=64, n_layers=1)
+    # Ensure predictor input_dim matches message passing output dimension
+    ffn = chemprop_nn.RegressionFFN(n_tasks=len(target_cols), input_dim=mp.output_dim, hidden_dim=64, n_layers=1)
     return models.MPNN(mp, agg, ffn)
 
 
@@ -709,6 +710,21 @@ class TestMLflowLogging:
 
         # Verify MLflow artifact was logged
         assert mock_mlflow.log_artifact.called
+
+    @patch("admet.model.chemprop.inter_task_affinity.mlflow")
+    def test_log_final_matrix_saves_plots(self, mock_mlflow, target_cols):
+        """Ensure that heatmap and clustermap images are saved when save_plots=True."""
+        config = InterTaskAffinityConfig(enabled=True, log_to_mlflow=True, save_plots=True)
+        callback = InterTaskAffinityCallback(config, target_cols)
+
+        # Simulate some accumulated data
+        callback.computer.affinity_sum = np.array([[0.1, 0.2, 0.3], [0.2, 0.1, 0.4], [0.3, 0.4, 0.1]])
+        callback.computer.step_count = 100
+
+        callback._log_final_matrix()
+
+        # Should have logged artifacts: CSV and at least two images
+        assert mock_mlflow.log_artifact.call_count >= 3
 
 
 # =============================================================================

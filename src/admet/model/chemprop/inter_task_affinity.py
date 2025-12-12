@@ -114,6 +114,9 @@ class InterTaskAffinityConfig:
     exclude_param_patterns: List[str] = field(default_factory=lambda: ["predictor", "ffn", "output", "head", "readout"])
     device: str = "auto"
     log_to_mlflow: bool = True
+    save_plots: bool = False
+    plot_formats: List[str] = field(default_factory=lambda: ["png"])
+    plot_dpi: int = 150
 
 
 def _get_device(device_str: str) -> torch.device:
@@ -333,7 +336,9 @@ class InterTaskAffinityComputer:
             Step affinity matrix Z^t of shape (n_tasks, n_tasks).
         """
         # Unpack batch - use named attributes from TrainingBatch
-        bmg = batch.bmg.to(self.device)
+        # BatchMolGraph.to mutates in-place and returns None, so don't reassign
+        batch.bmg.to(self.device)
+        bmg = batch.bmg
         targets = batch.Y.to(self.device).float()
 
         model = model.to(self.device)
@@ -399,35 +404,36 @@ class InterTaskAffinityComputer:
             # Apply lookahead: θ^{t+1}_{s|i} = θ^t_s - η * ∇_{θ_s} L_i
             # We temporarily modify the parameters, compute losses, then restore
             original_params: Dict[str, torch.Tensor] = {}
-            for name, param in shared_params.items():
-                original_params[name] = param.data.clone()
-                param.data = param.data - learning_rate * task_i_grads[name]
+            try:
+                for name, param in shared_params.items():
+                    original_params[name] = param.data.clone()
+                    param.data = param.data - learning_rate * task_i_grads[name]
 
-            # Compute L_j(θ^{t+1}_{s|i}) for all tasks j
-            model.eval()
-            with torch.no_grad():
-                preds_lookahead = model(bmg)
-                for j in range(self.n_tasks):
-                    loss_j_before_val = baseline_losses[j]
-                    if loss_j_before_val is None:
-                        continue
+                # Compute L_j(θ^{t+1}_{s|i}) for all tasks j
+                model.eval()
+                with torch.no_grad():
+                    preds_lookahead = model(bmg)
+                    for j in range(self.n_tasks):
+                        loss_j_before_val = baseline_losses[j]
+                        if loss_j_before_val is None:
+                            continue
 
-                    loss_j_after = _masked_task_loss(preds_lookahead, targets, j)
-                    if loss_j_after is None:
-                        continue
+                        loss_j_after = _masked_task_loss(preds_lookahead, targets, j)
+                        if loss_j_after is None:
+                            continue
 
-                    loss_j_after_val = float(loss_j_after.item())
+                        loss_j_after_val = float(loss_j_after.item())
 
-                    # Avoid division by zero
-                    if abs(loss_j_before_val) < 1e-10:
-                        Z_t[i, j] = 0.0
-                    else:
-                        # Z^t_{ij} = 1 - L_j_after / L_j_before
-                        Z_t[i, j] = 1.0 - (loss_j_after_val / loss_j_before_val)
-
-            # Restore original parameters
-            for name, param in shared_params.items():
-                param.data = original_params[name]
+                        # Avoid division by zero
+                        if abs(loss_j_before_val) < 1e-10:
+                            Z_t[i, j] = 0.0
+                        else:
+                            # Z^t_{ij} = 1 - L_j_after / L_j_before
+                            Z_t[i, j] = 1.0 - (loss_j_after_val / loss_j_before_val)
+            finally:
+                # Restore original parameters no matter what
+                for name, param in shared_params.items():
+                    param.data = original_params.get(name, param.data)
 
         # Update running statistics
         self.affinity_sum += Z_t
@@ -670,6 +676,34 @@ class InterTaskAffinityCallback(Callback):
                 df.to_csv(f.name)
                 mlflow.log_artifact(f.name, "inter_task_affinity")
 
+            # Optionally save heatmap and clustermap plots
+            if self.config.save_plots:
+                try:
+                    import tempfile
+
+                    import matplotlib.pyplot as plt
+
+                    from admet.model.chemprop.task_affinity import (
+                        plot_task_affinity_clustermap,
+                        plot_task_affinity_heatmap,
+                    )
+
+                    # Heatmap
+                    with tempfile.NamedTemporaryFile(mode="wb", suffix="_affinity_heatmap.png", delete=False) as hf:
+                        fig_hm = plot_task_affinity_heatmap(Z_final, self.target_cols, figsize=(8, 6))
+                        fig_hm.savefig(hf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
+                        mlflow.log_artifact(hf.name, "inter_task_affinity")
+                        plt.close(fig_hm)
+
+                    # Clustermap
+                    with tempfile.NamedTemporaryFile(mode="wb", suffix="_affinity_clustermap.png", delete=False) as cf:
+                        fig_cm = plot_task_affinity_clustermap(Z_final, self.target_cols, groups=None, figsize=(8, 8))
+                        fig_cm.savefig(cf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
+                        mlflow.log_artifact(cf.name, "inter_task_affinity")
+                        plt.close(fig_cm)
+                except Exception as e:
+                    logger.debug("Failed to create/save plot artifacts: %s", e)
+
             # Log final metrics
             mlflow.log_metric("affinity/final/mean", float(np.mean(Z_final)))
             mlflow.log_metric("affinity/final/std", float(np.std(Z_final)))
@@ -737,7 +771,7 @@ def _sanitize(name: str) -> str:
     """
     # Replace problematic characters
     replacements = {
-        ">": "_",
+        ">": "",
         "<": "_",
         ":": "_",
         ";": "_",
