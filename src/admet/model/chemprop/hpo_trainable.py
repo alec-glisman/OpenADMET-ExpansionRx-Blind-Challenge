@@ -7,6 +7,7 @@ Chemprop training with Ray Tune's ASHA scheduler.
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ import pandas as pd
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
 from ray.air import session
+from ray.train import Checkpoint
 import ray.tune
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
@@ -33,6 +35,7 @@ class RayTuneReportCallback(Callback):
     Attributes:
         metric: Name of the primary metric for ASHA scheduling (default: "val_mae")
         checkpoint_dir: Directory to save checkpoints for recovery
+        report_every_n_epochs: Epoch cadence for Ray reporting (default: 5)
     """
 
     # All metrics to report to Ray Tune for tracking
@@ -49,16 +52,27 @@ class RayTuneReportCallback(Callback):
         "lr",  # Current learning rate
     )
 
-    def __init__(self, metric: str = "val_mae", checkpoint_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        metric: str = "val_mae",
+        checkpoint_dir: Path | None = None,
+        report_every_n_epochs: int = 5,
+    ) -> None:
         """Initialize the callback.
 
         Args:
             metric: Name of the primary validation metric for ASHA scheduling.
             checkpoint_dir: Directory for saving checkpoints. If None, no checkpoints saved.
+            report_every_n_epochs: Number of epochs between Ray reports. Must be >= 1.
         """
         super().__init__()
         self.metric = metric
         self.checkpoint_dir = checkpoint_dir
+        if report_every_n_epochs < 1:
+            raise ValueError("report_every_n_epochs must be >= 1")
+        self.report_every_n_epochs = report_every_n_epochs
+        self._last_reported_epoch: int | None = None
+        self._final_checkpoint_reported = False
 
     def on_validation_end(
         self,
@@ -76,6 +90,20 @@ class RayTuneReportCallback(Callback):
         """
         # Skip if no logged metrics
         if not trainer.callback_metrics:
+            return
+
+        epoch_index = int(trainer.current_epoch) + 1
+        if self._last_reported_epoch == epoch_index:
+            return
+
+        max_epochs = getattr(trainer, "max_epochs", None)
+        should_stop = bool(getattr(trainer, "should_stop", False))
+        is_last_epoch = max_epochs is not None and epoch_index >= int(max_epochs)
+        is_final_event = should_stop or is_last_epoch
+
+        should_report = epoch_index == 1 or (epoch_index % self.report_every_n_epochs == 0) or is_final_event
+
+        if not should_report:
             return
 
         # Extract all available metrics
@@ -114,11 +142,69 @@ class RayTuneReportCallback(Callback):
 
         # Report to Ray Tune only if primary metric is available
         if self.metric in metrics:
-            # Note: We do NOT pass checkpoint here on every validation step.
-            # Lightning's ModelCheckpoint may delete/rename old best checkpoints,
-            # causing race conditions with Ray's async syncer (FileNotFoundError).
-            # Checkpoints are handled at the end of training instead.
-            ray.tune.report(metrics)
+            checkpoint: Checkpoint | None = None
+            if is_final_event and not self._final_checkpoint_reported:
+                checkpoint = self._build_final_checkpoint(trainer)
+                if checkpoint is not None:
+                    self._final_checkpoint_reported = True
+
+            if checkpoint is not None:
+                ray.tune.report(**metrics, checkpoint=checkpoint)
+            else:
+                ray.tune.report(**metrics)
+            self._last_reported_epoch = epoch_index
+
+    def _build_final_checkpoint(self, trainer: pl.Trainer) -> Checkpoint | None:
+        """Package the latest checkpoint directory for Ray Tune reporting.
+
+        Prefers the best-*.ckpt file if available, then falls back to
+        last.ckpt, and finally triggers a manual checkpoint save if
+        neither exists. The selected checkpoint is copied into a
+        dedicated ray_checkpoint directory to keep uploads minimal.
+
+        Args:
+            trainer: Active Lightning trainer (used for manual checkpointing).
+
+        Returns:
+            Ray AIR Checkpoint instance or None if no checkpoint could be created.
+        """
+
+        if self.checkpoint_dir is None:
+            return None
+
+        ckpt_dir = Path(self.checkpoint_dir)
+        if not ckpt_dir.exists():
+            return None
+
+        # Find preferred checkpoint file
+        best_checkpoints = sorted(ckpt_dir.glob("best-*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
+        checkpoint_file: Path | None = best_checkpoints[0] if best_checkpoints else None
+
+        if checkpoint_file is None:
+            last_ckpt = ckpt_dir / "last.ckpt"
+            if last_ckpt.exists():
+                checkpoint_file = last_ckpt
+
+        if checkpoint_file is None:
+            # Create a final checkpoint manually as a last resort
+            try:
+                final_ckpt = ckpt_dir / "ray-final.ckpt"
+                trainer.save_checkpoint(str(final_ckpt))
+                checkpoint_file = final_ckpt
+            except Exception:
+                return None
+
+        export_dir = ckpt_dir / "ray_checkpoint"
+        if export_dir.exists():
+            shutil.rmtree(export_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        shutil.copy2(checkpoint_file, export_dir / checkpoint_file.name)
+
+        try:
+            return Checkpoint.from_directory(str(export_dir))
+        except Exception:
+            return None
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:
@@ -140,6 +226,7 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
                 - max_epochs: Maximum training epochs
                 - metric: Metric to report (default: val_mae)
                 - seed: Random seed
+                    - report_every_n_epochs: Epoch cadence for Ray reports (default: 5)
     """
     # Extract fixed parameters
     data_path = config.get("data_path")
@@ -148,6 +235,15 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     target_columns = config.get("target_columns", [])
     max_epochs = config.get("max_epochs", 150)
     metric = config.get("metric", "val_mae")
+    report_every_n_epochs_raw = config.get("report_every_n_epochs", 5)
+    try:
+        report_every_n_epochs = max(1, int(report_every_n_epochs_raw))
+    except (TypeError, ValueError):
+        logger.warning(
+            "Invalid report_every_n_epochs value %s, defaulting to 5",
+            report_every_n_epochs_raw,
+        )
+        report_every_n_epochs = 5
     seed = config.get("seed", 42)
 
     # Load data
@@ -207,8 +303,12 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     )
 
     # Add Ray Tune callback with checkpoint directory for trial recovery
-    ray_callback = RayTuneReportCallback(metric=metric, checkpoint_dir=output_dir)
-    model.trainer.callbacks.append(ray_callback)
+    ray_callback = RayTuneReportCallback(
+        metric=metric,
+        checkpoint_dir=output_dir,
+        report_every_n_epochs=report_every_n_epochs,
+    )
+    model.trainer.callbacks.append(ray_callback)  # type: ignore[attr-defined]
 
     # Train the model
     model.fit()

@@ -1,6 +1,9 @@
 """Unit tests for HPO trainable module."""
 
+from pathlib import Path
+
 import numpy as np
+import pytest
 import torch
 
 from admet.model.chemprop.hpo_trainable import (
@@ -15,20 +18,26 @@ class TestRayTuneReportCallback:
     """Tests for RayTuneReportCallback class."""
 
     def test_init_default_metric(self) -> None:
-        """Test default metric is val_mae."""
+        """Test default metric and report cadence values."""
         callback = RayTuneReportCallback()
         assert callback.metric == "val_mae"
+        assert callback.report_every_n_epochs == 5
 
     def test_init_custom_metric(self) -> None:
         """Test custom metric initialization."""
-        callback = RayTuneReportCallback(metric="val_loss")
+        callback = RayTuneReportCallback(metric="val_loss", report_every_n_epochs=3)
         assert callback.metric == "val_loss"
+        assert callback.report_every_n_epochs == 3
+
+    def test_init_invalid_report_interval(self) -> None:
+        """Test invalid report interval raises ValueError."""
+        with pytest.raises(ValueError):
+            RayTuneReportCallback(report_every_n_epochs=0)
 
     def test_on_validation_end_reports_metrics(self, mocker) -> None:
         """Test that validation end reports metrics to Ray Tune."""
-        mock_report = mocker.patch("admet.model.chemprop.hpo_trainable.train.report")
-
-        callback = RayTuneReportCallback(metric="val_mae")
+        callback = RayTuneReportCallback(metric="val_mae", report_every_n_epochs=1)
+        mock_submit = mocker.patch.object(callback, "_submit_report")
 
         # Create mock trainer
         mock_trainer = mocker.MagicMock()
@@ -37,6 +46,8 @@ class TestRayTuneReportCallback:
             "train_loss": torch.tensor(0.3),
         }
         mock_trainer.current_epoch = 10
+        mock_trainer.max_epochs = 20
+        mock_trainer.should_stop = False
 
         # Create mock pl_module
         mock_pl_module = mocker.MagicMock()
@@ -45,24 +56,168 @@ class TestRayTuneReportCallback:
         callback.on_validation_end(mock_trainer, mock_pl_module)
 
         # Verify report was called
-        mock_report.assert_called_once()
-        call_args = mock_report.call_args[0][0]
-        assert "val_mae" in call_args
-        assert np.isclose(call_args["val_mae"], 0.5, atol=1e-6)
-        assert call_args["epoch"] == 10
-        assert np.isclose(call_args["train_loss"], 0.3, atol=1e-6)
+        mock_submit.assert_called_once()
+        reported, checkpoint = mock_submit.call_args[0]
+        assert checkpoint is None
+        assert "val_mae" in reported
+        assert np.isclose(reported["val_mae"], 0.5, atol=1e-6)
+        assert reported["epoch"] == 10
+        assert np.isclose(reported["train_loss"], 0.3, atol=1e-6)
 
     def test_on_validation_end_skips_empty_metrics(self, mocker) -> None:
         """Test that empty metrics are skipped."""
-        mock_report = mocker.patch("admet.model.chemprop.hpo_trainable.train.report")
-
         callback = RayTuneReportCallback()
+        mock_submit = mocker.patch.object(callback, "_submit_report")
 
         mock_trainer = mocker.MagicMock()
         mock_trainer.callback_metrics = {}
+        mock_trainer.current_epoch = 0
+        mock_trainer.max_epochs = 10
+        mock_trainer.should_stop = False
 
         callback.on_validation_end(mock_trainer, mocker.MagicMock())
-        mock_report.assert_not_called()
+        mock_submit.assert_not_called()
+
+    def test_on_validation_end_respects_interval(self, mocker) -> None:
+        """Test that metrics are throttled by report cadence."""
+        callback = RayTuneReportCallback(report_every_n_epochs=5)
+        mock_submit = mocker.patch.object(callback, "_submit_report")
+
+        mock_trainer = mocker.MagicMock()
+        mock_trainer.callback_metrics = {"val_mae": torch.tensor(0.4)}
+        mock_trainer.max_epochs = 20
+        mock_trainer.should_stop = False
+
+        # Epoch 2 (1-indexed) should not report yet
+        mock_trainer.current_epoch = 1
+        callback.on_validation_end(mock_trainer, mocker.MagicMock())
+        mock_submit.assert_not_called()
+
+        # Epoch 5 (1-indexed) triggers report
+        mock_trainer.current_epoch = 4
+        callback.on_validation_end(mock_trainer, mocker.MagicMock())
+        mock_submit.assert_called_once()
+
+    def test_on_validation_end_reports_on_final_epoch(self, mocker) -> None:
+        """Test that final epoch always reports even if not on interval."""
+        callback = RayTuneReportCallback(report_every_n_epochs=7)
+        mock_submit = mocker.patch.object(callback, "_submit_report")
+
+        mocker.patch.object(callback, "_build_final_checkpoint", return_value=None)
+
+        mock_trainer = mocker.MagicMock()
+        mock_trainer.callback_metrics = {"val_mae": torch.tensor(0.2)}
+        mock_trainer.max_epochs = 7
+        mock_trainer.should_stop = False
+
+        # Epoch index 7 -> current_epoch = 6 should trigger final report
+        mock_trainer.current_epoch = 6
+        callback.on_validation_end(mock_trainer, mocker.MagicMock())
+        mock_submit.assert_called_once()
+
+    def test_on_validation_end_reports_when_stopping(self, mocker) -> None:
+        """Test that forced stops still report metrics."""
+        callback = RayTuneReportCallback(report_every_n_epochs=5)
+        mock_submit = mocker.patch.object(callback, "_submit_report")
+
+        mocker.patch.object(callback, "_build_final_checkpoint", return_value=None)
+
+        mock_trainer = mocker.MagicMock()
+        mock_trainer.callback_metrics = {"val_mae": torch.tensor(0.6)}
+        mock_trainer.current_epoch = 2
+        mock_trainer.max_epochs = 20
+        mock_trainer.should_stop = True
+
+        callback.on_validation_end(mock_trainer, mocker.MagicMock())
+        mock_submit.assert_called_once()
+
+    def test_final_epoch_includes_checkpoint(self, mocker) -> None:
+        """Test that checkpoint is attached exactly once at the end."""
+        callback = RayTuneReportCallback(report_every_n_epochs=3)
+        mock_checkpoint = object()
+        checkpoint_spy = mocker.patch.object(callback, "_build_final_checkpoint", return_value=mock_checkpoint)
+        mock_submit = mocker.patch.object(callback, "_submit_report")
+
+        mock_trainer = mocker.MagicMock()
+        mock_trainer.callback_metrics = {"val_mae": torch.tensor(0.1)}
+        mock_trainer.current_epoch = 2
+        mock_trainer.max_epochs = 3
+        mock_trainer.should_stop = False
+
+        callback.on_validation_end(mock_trainer, mocker.MagicMock())
+
+        mock_submit.assert_called_once()
+        call_args = mock_submit.call_args[0]
+        assert call_args[1] is mock_checkpoint
+        checkpoint_spy.assert_called_once_with(mock_trainer)
+
+    def test_final_checkpoint_optional_when_creation_fails(self, mocker) -> None:
+        """Test that training still reports if checkpoint creation fails."""
+        callback = RayTuneReportCallback(report_every_n_epochs=2)
+        mocker.patch.object(callback, "_build_final_checkpoint", return_value=None)
+        mock_submit = mocker.patch.object(callback, "_submit_report")
+
+        mock_trainer = mocker.MagicMock()
+        mock_trainer.callback_metrics = {"val_mae": torch.tensor(0.3)}
+        mock_trainer.current_epoch = 1
+        mock_trainer.max_epochs = 2
+        mock_trainer.should_stop = False
+
+        callback.on_validation_end(mock_trainer, mocker.MagicMock())
+
+        mock_submit.assert_called_once()
+        call_args = mock_submit.call_args[0]
+        assert call_args[1] is None
+
+    def test_build_final_checkpoint_uses_best_file(self, mocker, tmp_path) -> None:
+        """Ensure best checkpoint is copied into Ray export directory."""
+        ckpt_dir = tmp_path / "ckpts"
+        ckpt_dir.mkdir()
+        old_best = ckpt_dir / "best-0001-0.30.ckpt"
+        old_best.write_text("old")
+        best_ckpt = ckpt_dir / "best-0002-0.10.ckpt"
+        best_ckpt.write_text("new")
+
+        callback = RayTuneReportCallback(checkpoint_dir=ckpt_dir)
+        fake_checkpoint = object()
+        mocker.patch(
+            "admet.model.chemprop.hpo_trainable.Checkpoint.from_directory",
+            return_value=fake_checkpoint,
+        )
+
+        trainer = mocker.MagicMock()
+
+        result = callback._build_final_checkpoint(trainer)
+
+        assert result is fake_checkpoint
+        exported = ckpt_dir / "ray_checkpoint" / best_ckpt.name
+        assert exported.exists()
+        trainer.save_checkpoint.assert_not_called()
+
+    def test_build_final_checkpoint_creates_manual_save(self, mocker, tmp_path) -> None:
+        """Ensure manual checkpoint is generated when no files exist."""
+        ckpt_dir = tmp_path / "ckpts"
+        ckpt_dir.mkdir()
+
+        callback = RayTuneReportCallback(checkpoint_dir=ckpt_dir)
+        fake_checkpoint = object()
+        mocker.patch(
+            "admet.model.chemprop.hpo_trainable.Checkpoint.from_directory",
+            return_value=fake_checkpoint,
+        )
+
+        trainer = mocker.MagicMock()
+
+        def _save_checkpoint(path: str) -> None:
+            Path(path).write_text("final")
+
+        trainer.save_checkpoint.side_effect = _save_checkpoint
+
+        result = callback._build_final_checkpoint(trainer)
+
+        assert result is fake_checkpoint
+        exported = ckpt_dir / "ray_checkpoint" / "ray-final.ckpt"
+        assert exported.exists()
 
 
 class TestBuildHyperparams:

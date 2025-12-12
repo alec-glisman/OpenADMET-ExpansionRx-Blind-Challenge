@@ -172,7 +172,7 @@ resources:
 
   # Resources per trial
   cpus_per_trial: 5
-  gpus_per_trial: 0.20 # 4 concurrent trials per GPU
+  gpus_per_trial: 0.25 # 4 concurrent trials per GPU
 
   # Concurrency limit (null = auto based on resources)
   max_concurrent_trials: null

@@ -158,6 +158,7 @@ class ChempropHPO:
                 storage_path=storage_path,
                 verbose=1,
                 callbacks=[mlflow_callback],
+                sync_config=tune.SyncConfig(),
             ),
         )
 
