@@ -1,16 +1,19 @@
-# Ensemble ChempropModel Configuration
+# Ensemble ChempropModel Configuration (HPO Rank 85)
 # =====================================
+# Generated from top_k_configs.json rank 85
+# Validation MAE: 0.4866543114185333
+#
 # This YAML file configures ensemble training across multiple splits and folds.
 # The script will automatically discover split_*/fold_*/ subdirectories and
 # train a model on each, then aggregate predictions with uncertainty estimates.
 #
 # Usage:
-#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
-#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
+#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop_hpo_085.yaml
+#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop_hpo_085.yaml --max-parallel 2
 
 # Data configuration for ensemble
 data:
-  data_dir: "assets/dataset/split_train_val_local_test/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data"
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
   splits: null
   folds: null
 
@@ -41,40 +44,37 @@ data:
     - 1.0
 
 model:
-  depth: 4
-  message_hidden_dim: 1100
+  depth: 7
+  message_hidden_dim: 700
   aggregation: "norm"
   ffn_type: "regression"
   num_layers: 2
-  hidden_dim: 500
-  # trunk_n_layers: null
-  # trunk_hidden_dim: null
-  # n_experts: null
-  dropout: 0.25
+  hidden_dim: 800
+  dropout: 0.0
   batch_norm: true
 
 optimization:
   criterion: "MAE"
-  init_lr: 1.04e-5
-  max_lr: 1.04e-4
-  final_lr: 2.09e-6
+  init_lr: 1.34e-04
+  max_lr: 1.34e-03
+  final_lr: 1.34e-05
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
-  batch_size: 128
+  batch_size: 32
   num_workers: 0
   seed: 12345
   progress_bar: false
-  task_sampling_alpha: 0.1
+  task_sampling_alpha: 1.0
 
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_chemprop"
-  run_name: null # Auto-generated parent run name
+  experiment_name: "ensemble_chemprop_hpo_topk"
+  run_name: "rank_085"
   nested: true
 
-max_parallel: 5
+max_parallel: 1
 ray_num_cpus: null
 ray_num_gpus: null
 

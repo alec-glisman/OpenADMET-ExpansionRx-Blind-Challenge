@@ -14,15 +14,18 @@
 set -euo pipefail
 
 # Configuration
+BASE_DIR="/media/aglisman/Data/models"
+mkdir -p "$BASE_DIR"
+
 POSTGRES_CONTAINER="mlflow-postgres"
 POSTGRES_DB="mlflow"
 POSTGRES_USER="mlflow"
 POSTGRES_PASSWORD="mlflow_password_2024"
 POSTGRES_PORT="5434"
-POSTGRES_DATA_DIR="/media/aglisman/Data/models/mlflow-postgres"
+POSTGRES_DATA_DIR="${BASE_DIR}/mlflow-postgres"
 
 MLFLOW_PORT="8084"
-MLFLOW_ARTIFACTS_PATH="/media/aglisman/Data/models/mlflow-artifacts"
+MLFLOW_ARTIFACTS_PATH="${BASE_DIR}/mlflow-artifacts"
 MLFLOW_PID_FILE="/tmp/mlflow_server.pid"
 
 # Colors for output

@@ -1,11 +1,15 @@
-# Ensemble ChempropModel Configuration
+# Ensemble ChempropModel Configuration (HPO Rank 8)
 # =====================================
+# Generated from top_k_configs.json rank 8
+# Validation MAE: 0.46477046608924866
+#
 # This YAML file configures ensemble training across multiple splits and folds.
 # The script will automatically discover split_*/fold_*/ subdirectories and
 # train a model on each, then aggregate predictions with uncertainty estimates.
 #
 # Usage:
-#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop_hpo_008.yaml
+#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop_hpo_008.yaml --max-parallel 2
 
 # Data configuration for ensemble
 data:
@@ -40,27 +44,24 @@ data:
     - 1.0
 
 model:
-  depth: 4
-  message_hidden_dim: 1100
+  depth: 3
+  message_hidden_dim: 1000
   aggregation: "norm"
   ffn_type: "regression"
-  num_layers: 2
-  hidden_dim: 500
-  # trunk_n_layers: null
-  # trunk_hidden_dim: null
-  # n_experts: null
-  dropout: 0.25
+  num_layers: 4
+  hidden_dim: 400
+  dropout: 0.1
   batch_norm: true
 
 optimization:
   criterion: "MAE"
-  init_lr: 1.04e-5
-  max_lr: 1.04e-4
-  final_lr: 2.09e-6
+  init_lr: 1.30e-04
+  max_lr: 2.60e-04
+  final_lr: 5.21e-05
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
-  batch_size: 128
+  batch_size: 32
   num_workers: 0
   seed: 12345
   progress_bar: false
@@ -69,11 +70,11 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_chemprop"
-  run_name: null # Auto-generated parent run name
+  experiment_name: "ensemble_chemprop_hpo_topk"
+  run_name: "rank_008"
   nested: true
 
-max_parallel: 5
+max_parallel: 1
 ray_num_cpus: null
 ray_num_gpus: null
 
@@ -109,8 +110,8 @@ curriculum:
 # =============================================================================
 inter_task_affinity:
   enabled: false
-  compute_every_n_steps: 10
-  log_every_n_steps: 100
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
   log_epoch_summary: true
   log_step_matrices: false
   lookahead_lr: 0.001

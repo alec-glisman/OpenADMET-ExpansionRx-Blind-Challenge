@@ -225,8 +225,17 @@ class ChempropEnsemble:
         split_pattern = re.compile(r"split_(\d+)")
         fold_pattern = re.compile(r"fold_(\d+)")
 
-        # Find all split directories
-        for split_dir in sorted(data_dir.iterdir()):
+        # Find all split directories and sort by numeric split index
+        split_dirs = []
+        for p in data_dir.iterdir():
+            if not p.is_dir():
+                continue
+            m = split_pattern.match(p.name)
+            if not m:
+                continue
+            split_dirs.append((int(m.group(1)), p))
+        split_dirs.sort(key=lambda x: x[0])
+        for split_idx, split_dir in split_dirs:
             if not split_dir.is_dir():
                 continue
             split_match = split_pattern.match(split_dir.name)
@@ -240,13 +249,20 @@ class ChempropEnsemble:
                     continue
 
             # Find all fold directories within this split
-            for fold_dir in sorted(split_dir.iterdir()):
+            # Find all fold directories and sort by numeric fold index
+            fold_dirs = []
+            for p in split_dir.iterdir():
+                if not p.is_dir():
+                    continue
+                m = fold_pattern.match(p.name)
+                if not m:
+                    continue
+                fold_dirs.append((int(m.group(1)), p))
+            fold_dirs.sort(key=lambda x: x[0])
+            for fold_idx, fold_dir in fold_dirs:
                 if not fold_dir.is_dir():
                     continue
-                fold_match = fold_pattern.match(fold_dir.name)
-                if not fold_match:
-                    continue
-                fold_idx = int(fold_match.group(1))
+                # fold_idx and fold_dir are set from fold_dirs (see above)
 
                 # Filter by specified folds
                 if self.config.data.folds is not None:

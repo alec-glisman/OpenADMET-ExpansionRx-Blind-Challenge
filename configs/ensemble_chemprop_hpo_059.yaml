@@ -1,20 +1,26 @@
-# Ensemble ChempropModel Configuration
+# Ensemble ChempropModel Configuration (HPO Rank 59)
 # =====================================
+# Generated from top_k_configs.json rank 59
+# Validation MAE: 0.48145800828933716
+#
 # This YAML file configures ensemble training across multiple splits and folds.
 # The script will automatically discover split_*/fold_*/ subdirectories and
 # train a model on each, then aggregate predictions with uncertainty estimates.
 #
 # Usage:
-#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop_hpo_059.yaml
+#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop_hpo_059.yaml --max-parallel 2
 
 # Data configuration for ensemble
 data:
   data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+  splits: null
+  folds: null
+
   test_file: "assets/dataset/set/local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
   output_dir: null
 
-  # Column configuration
   smiles_col: "SMILES"
   target_cols:
     - "LogD"
@@ -26,8 +32,6 @@ data:
     - "Log MPPB"
     - "Log MBPB"
     - "Log MGMB"
-
-  # Per-task loss weights (optional, defaults to 1.0 for each)
   target_weights:
     - 1.0
     - 1.0
@@ -39,57 +43,39 @@ data:
     - 1.0
     - 1.0
 
-  # Optional: filter specific splits/folds (null = use all found)
-  # splits: [0, 1, 2]  # Only use splits 0, 1, 2
-  # folds: [0, 1, 2, 3, 4]  # Only use folds 0-4
-  splits: null
-  folds: null
-
-# Model architecture configuration (shared across ensemble)
 model:
-  depth: 4
-  message_hidden_dim: 1100
+  depth: 7
+  message_hidden_dim: 800
   aggregation: "norm"
-  ffn_type: "regression"
-  num_layers: 2
-  hidden_dim: 500
-  # trunk_n_layers: null
-  # trunk_hidden_dim: null
-  # n_experts: null
-  dropout: 0.25
-  batch_norm: false
+  ffn_type: "moe"
+  num_layers: 1
+  hidden_dim: 200
+  n_experts: 8
+  dropout: 0.3
+  batch_norm: true
 
-# Optimization configuration (shared across ensemble)
 optimization:
   criterion: "MAE"
-  init_lr: 1.04e-5
-  max_lr: 1.04e-4
-  final_lr: 2.09e-6
+  init_lr: 2.90e-04
+  max_lr: 2.90e-04
+  final_lr: 2.32e-05
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
-  batch_size: 128
+  batch_size: 32
   num_workers: 0
   seed: 12345
   progress_bar: false
-  task_sampling_alpha: 0.1
+  task_sampling_alpha: 0.0
 
-# MLflow experiment tracking configuration
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_chemprop" # mlflow path: /media/aglisman/Data/models/admet-chemprop
-  run_name: null # Auto-generated parent run name
+  experiment_name: "ensemble_chemprop_hpo_topk"
+  run_name: "rank_059"
   nested: true
 
-# Ensemble-specific settings
-# Maximum models to train in parallel (adjust based on GPU memory)
-# Each model will get 1/max_parallel of the GPU
-max_parallel: 5
-
-# Ray cluster configuration (optional)
-# ray_num_cpus: 8  # Limit CPUs for Ray
-# ray_num_gpus: 1  # Number of GPUs available
+max_parallel: 1
 ray_num_cpus: null
 ray_num_gpus: null
 
@@ -114,24 +100,6 @@ curriculum:
   # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
   log_per_quality_metrics: true
 
-# Task Affinity Configuration (Legacy Pre-Training Approach)
-# ============================================================
-# DEPRECATED: This uses gradient cosine similarity. For paper-accurate
-# implementation, use inter_task_affinity below instead.
-#
-# Compute task affinity matrix during training to identify task relationships.
-# The affinity matrix and task groups are logged to MLflow for downstream
-# analysis and decision-making about task groupings for specialized models.
-task_affinity:
-  enabled: false
-  affinity_epochs: 2
-  affinity_batch_size: 64
-  affinity_lr: 0.001
-  affinity_type: "cosine"
-  n_groups: 3
-  clustering_method: "agglomerative"
-  seed: 42
-
 # =============================================================================
 # Inter-Task Affinity Configuration (Paper-Accurate Implementation)
 # =============================================================================
@@ -143,8 +111,8 @@ task_affinity:
 # =============================================================================
 inter_task_affinity:
   enabled: false
-  compute_every_n_steps: 10
-  log_every_n_steps: 100
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
   log_epoch_summary: true
   log_step_matrices: false
   lookahead_lr: 0.001

@@ -21,7 +21,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 # Configuration
 PROJECT_ROOT="$(get_project_root "$SCRIPT_DIR")"
-CONFIG_FILE="${PROJECT_ROOT}/configs/ensemble_chemprop_1.yaml"
+CONFIG_FILE="${PROJECT_ROOT}/configs/ensemble_chemprop_tag.yaml"
 
 # Default options
 DRY_RUN=false

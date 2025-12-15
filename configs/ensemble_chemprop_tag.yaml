@@ -6,11 +6,10 @@
 #
 # Usage:
 #   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
-#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
 
 # Data configuration for ensemble
 data:
-  data_dir: "assets/dataset/split_train_val_local_test/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data"
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
   splits: null
   folds: null
 
@@ -42,15 +41,15 @@ data:
 
 model:
   depth: 4
-  message_hidden_dim: 1100
+  message_hidden_dim: 200
   aggregation: "norm"
   ffn_type: "regression"
   num_layers: 2
-  hidden_dim: 500
+  hidden_dim: 100
   # trunk_n_layers: null
   # trunk_hidden_dim: null
   # n_experts: null
-  dropout: 0.25
+  dropout: 0.0
   batch_norm: true
 
 optimization:
@@ -59,8 +58,8 @@ optimization:
   max_lr: 1.04e-4
   final_lr: 2.09e-6
   warmup_epochs: 5
-  max_epochs: 150
-  patience: 15
+  max_epochs: 20
+  patience: 2
   batch_size: 128
   num_workers: 0
   seed: 12345
@@ -70,11 +69,11 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_chemprop"
+  experiment_name: "task_affinity"
   run_name: null # Auto-generated parent run name
   nested: true
 
-max_parallel: 5
+max_parallel: 1
 ray_num_cpus: null
 ray_num_gpus: null
 
@@ -109,17 +108,25 @@ curriculum:
 # Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
 # =============================================================================
 inter_task_affinity:
-  enabled: false
+  enabled: true
   compute_every_n_steps: 2
-  log_every_n_steps: 10
+  log_every_n_steps: 1
   log_epoch_summary: true
-  log_step_matrices: false
+  log_step_matrices: true
   lookahead_lr: 0.001
   use_optimizer_lr: true
+  n_groups: 3
+  clustering_method: agglomerative
+  clustering_linkage: average
+  shared_param_patterns: []
   exclude_param_patterns:
     - predictor
-    - ffn
     - output
     - head
-    - readout
+  #   - ffn
+  #   - readout
   log_to_mlflow: true
+  save_plots: true
+  plot_formats:
+    - png
+  plot_dpi: 150
