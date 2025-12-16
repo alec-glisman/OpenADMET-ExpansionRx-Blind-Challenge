@@ -548,6 +548,8 @@ class ChempropEnsemble:
                     cols.insert(0, cols.pop(cols.index(smiles_col)))
                     pred_df = pred_df[cols]
 
+                blind_preds = pred_df.copy()
+
             # Close model (ends nested MLflow run)
             model.close()
 

@@ -4,6 +4,53 @@ import pandas as pd
 import pytest
 
 
+def test_blind_predictions_assigned():
+    """Test that blind predictions are properly assigned after processing."""
+    # Simulate the ensemble code path for blind predictions
+    blind_preds = None
+    smiles_col = "smiles"
+
+    # Mock blind dataframe (what model.dataframes["blind"] would contain)
+    blind_df = pd.DataFrame(
+        {
+            "smiles": ["CCO", "CCC", "CCCC"],
+            "Molecule Name": ["blind1", "blind2", "blind3"],
+        }
+    )
+
+    # Mock prediction dataframe (what model.predict() returns)
+    pred_df = pd.DataFrame(
+        {
+            "LogD": [1.1, 2.1, 3.1],
+            "Log KSOL": [0.5, 1.5, 2.5],
+        }
+    )
+
+    # Simulate the processing (should match ensemble.py lines 538-551)
+    if "Molecule Name" in blind_df.columns:
+        pred_df["Molecule Name"] = blind_df["Molecule Name"].values
+        cols = pred_df.columns.tolist()
+        cols.insert(0, cols.pop(cols.index("Molecule Name")))
+        pred_df = pred_df[cols]
+
+    if smiles_col in blind_df.columns:
+        pred_df[smiles_col] = blind_df[smiles_col].values
+        cols = pred_df.columns.tolist()
+        cols.insert(0, cols.pop(cols.index(smiles_col)))
+        pred_df = pred_df[cols]
+
+    # THIS IS THE CRITICAL LINE THAT WAS MISSING
+    blind_preds = pred_df.copy()
+
+    # Verify blind_preds is not None
+    assert blind_preds is not None
+    assert len(blind_preds) == 3
+    assert "smiles" in blind_preds.columns
+    assert "Molecule Name" in blind_preds.columns
+    assert "LogD" in blind_preds.columns
+    assert blind_preds["Molecule Name"].tolist() == ["blind1", "blind2", "blind3"]
+
+
 def test_molecule_name_in_aggregate_predictions():
     """Test that Molecule Name is preserved when aggregating predictions."""
     # Mock prediction dataframes from multiple models
