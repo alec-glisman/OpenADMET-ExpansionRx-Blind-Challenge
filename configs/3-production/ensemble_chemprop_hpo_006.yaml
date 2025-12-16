@@ -13,7 +13,7 @@
 
 # Data configuration for ensemble
 data:
-  data_dir: "assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+  data_dir: "assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data"
   splits: null
   folds: null
 
@@ -72,7 +72,7 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_chemprop_hpo_topk"
+  experiment_name: "production_ensemble_chemprop_hpo_topk"
   run_name: "rank_006"
   nested: true
 

@@ -138,6 +138,29 @@ Integration tests for task affinity with ChempropModel.
 python scripts/training/test_integration.py
 ```
 
+### `train_production_ensembles.sh`
+
+Train all production ensemble models from `configs/3-production/`. These are the final selected configurations for production deployment.
+
+**Usage:**
+
+```bash
+# Train all production configs
+./scripts/training/train_production_ensembles.sh
+
+# Train specific config
+./scripts/training/train_production_ensembles.sh --config ensemble_chemprop_hpo_001.yaml
+
+# Continue from a specific config (useful after failures)
+./scripts/training/train_production_ensembles.sh --continue-from 19
+
+# With custom parallelization
+./scripts/training/train_production_ensembles.sh --max-parallel 2
+
+# Dry run to see what would be executed
+./scripts/training/train_production_ensembles.sh --dry-run
+```
+
 ## Data Processing Scripts (`data/`)
 
 ### `run_data_splits.sh`
