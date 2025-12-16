@@ -40,6 +40,7 @@ https://arxiv.org/abs/2109.04617
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,10 +48,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import mlflow
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
+from sklearn.cluster import AgglomerativeClustering, SpectralClustering
 
 # Module logger
 logger = logging.getLogger("admet.model.chemprop.inter_task_affinity")
@@ -97,6 +100,13 @@ class InterTaskAffinityConfig:
     exclude_param_patterns : List[str], default=["predictor", "ffn", "output", "head"]
         Patterns to exclude from shared parameters. These are task-specific
         parameters that should not be included in the affinity computation.
+    n_groups : Optional[int], default=None
+        If provided, cluster tasks into this many groups using the final
+        affinity matrix (TAG grouping step).
+    clustering_method : str, default="agglomerative"
+        Clustering algorithm for grouping: "agglomerative" or "spectral".
+    clustering_linkage : str, default="average"
+        Linkage criterion for agglomerative clustering.
     device : str, default="auto"
         Device for computation: "auto", "cpu", or "cuda".
     log_to_mlflow : bool, default=True
@@ -112,6 +122,9 @@ class InterTaskAffinityConfig:
     use_optimizer_lr: bool = True
     shared_param_patterns: List[str] = field(default_factory=list)
     exclude_param_patterns: List[str] = field(default_factory=lambda: ["predictor", "ffn", "output", "head", "readout"])
+    n_groups: Optional[int] = None
+    clustering_method: str = "agglomerative"
+    clustering_linkage: str = "average"
     device: str = "auto"
     log_to_mlflow: bool = True
     save_plots: bool = False
@@ -208,6 +221,137 @@ def _masked_task_loss(
     return (diff**2).mean()
 
 
+def _order_tasks_by_groups(task_names: List[str], groups: Optional[List[List[str]]]) -> List[int]:
+    """Return task indices ordered by provided groups (or identity if None)."""
+    if not groups:
+        return list(range(len(task_names)))
+    name_to_idx = {name: i for i, name in enumerate(task_names)}
+    ordered: List[int] = []
+    for group in groups:
+        for name in group:
+            if name in name_to_idx:
+                ordered.append(name_to_idx[name])
+    # Add any missing tasks in original order
+    missing = [i for i in range(len(task_names)) if i not in ordered]
+    ordered.extend(missing)
+    return ordered
+
+
+def _cluster_tasks_from_affinity(
+    affinity_matrix: np.ndarray,
+    task_names: List[str],
+    n_groups: Optional[int],
+    method: str = "agglomerative",
+    linkage: str = "average",
+) -> Tuple[Optional[List[List[str]]], Optional[np.ndarray]]:
+    """
+    Cluster tasks into groups from an affinity matrix using TAG grouping logic.
+
+    Returns a list of task-name groups and the numeric labels array.
+    """
+    if n_groups is None or n_groups <= 0:
+        return None, None
+
+    n_tasks = len(task_names)
+    if n_tasks == 0:
+        return None, None
+
+    if n_tasks <= n_groups:
+        labels = np.arange(n_tasks)
+        groups = [[task] for task in task_names]
+        return groups, labels
+
+    max_abs = float(np.max(np.abs(affinity_matrix))) if affinity_matrix.size else 1.0
+    norm_aff = affinity_matrix / (max_abs + 1e-12)
+    distance_matrix = 1.0 - norm_aff
+    np.fill_diagonal(distance_matrix, 0.0)
+    distance_matrix = np.maximum(distance_matrix, 0.0)
+    distance_matrix = (distance_matrix + distance_matrix.T) / 2
+
+    if method == "agglomerative":
+        clustering = AgglomerativeClustering(
+            n_clusters=n_groups,
+            metric="precomputed",
+            linkage=linkage,
+        )
+        labels = clustering.fit_predict(distance_matrix)
+    elif method == "spectral":
+        affinity_shifted = norm_aff - norm_aff.min() + 1e-6
+        clustering = SpectralClustering(
+            n_clusters=n_groups,
+            affinity="precomputed",
+            random_state=42,
+        )
+        labels = clustering.fit_predict(affinity_shifted)
+    else:
+        raise ValueError(f"Unknown clustering method: {method}")
+
+    groups_dict: Dict[int, List[str]] = {}
+    for task_name, label in zip(task_names, labels):
+        groups_dict.setdefault(int(label), []).append(task_name)
+
+    groups = [groups_dict[k] for k in sorted(groups_dict.keys())]
+    return groups, labels
+
+
+def _plot_affinity_heatmap(
+    affinity_matrix: np.ndarray,
+    task_names: List[str],
+    groups: Optional[List[List[str]]],
+    dpi: int,
+    title: str,
+):
+    """Create a simple heatmap (ordered by groups if provided)."""
+    import matplotlib.pyplot as plt
+
+    order = _order_tasks_by_groups(task_names, groups)
+    ordered_matrix = affinity_matrix[np.ix_(order, order)]
+    ordered_names = [task_names[i] for i in order]
+
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
+    im = ax.imshow(ordered_matrix, cmap="RdBu_r", vmin=-1, vmax=1)
+    ax.set_xticks(range(len(ordered_names)))
+    ax.set_yticks(range(len(ordered_names)))
+    ax.set_xticklabels(ordered_names, rotation=45, ha="right")
+    ax.set_yticklabels(ordered_names)
+    ax.set_title(title)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    return fig
+
+
+def _plot_affinity_clustermap(
+    affinity_matrix: np.ndarray,
+    task_names: List[str],
+    groups: Optional[List[List[str]]],
+    dpi: int,
+    title: str,
+):
+    """Plot affinity heatmap with group separators for visual grouping."""
+    import matplotlib.pyplot as plt
+
+    order = _order_tasks_by_groups(task_names, groups)
+    ordered_matrix = affinity_matrix[np.ix_(order, order)]
+    ordered_names = [task_names[i] for i in order]
+
+    fig, ax = plt.subplots(figsize=(8, 8), dpi=dpi)
+    im = ax.imshow(ordered_matrix, cmap="RdBu_r", vmin=-1, vmax=1)
+    ax.set_xticks(range(len(ordered_names)))
+    ax.set_yticks(range(len(ordered_names)))
+    ax.set_xticklabels(ordered_names, rotation=90)
+    ax.set_yticklabels(ordered_names)
+    ax.set_title(title)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    if groups:
+        idx = 0
+        for group in groups:
+            idx += len(group)
+            ax.axhline(idx - 0.5, color="gray", linestyle="--", linewidth=0.7)
+            ax.axvline(idx - 0.5, color="gray", linestyle="--", linewidth=0.7)
+
+    return fig
+
+
 class InterTaskAffinityComputer:
     """
     Core computation logic for inter-task affinity.
@@ -277,6 +421,9 @@ class InterTaskAffinityComputer:
         # Epoch statistics
         self.epoch_affinity_sum = np.zeros((self.n_tasks, self.n_tasks), dtype=np.float64)
         self.epoch_step_count = 0
+        self._shared_param_cache: Dict[int, Dict[str, nn.Parameter]] = {}
+        self._param_audit_cache: Dict[int, Dict[str, List[str]]] = {}
+        self._last_param_audit: Dict[str, List[str]] = {}
 
     def reset_epoch_stats(self) -> None:
         """Reset epoch-level statistics."""
@@ -342,17 +489,12 @@ class InterTaskAffinityComputer:
         targets = batch.Y.to(self.device).float()
 
         model = model.to(self.device)
+        prev_training_mode = model.training
         model.eval()  # Use eval mode for consistent forward passes
 
-        # Identify shared parameters
-        shared_params: Dict[str, nn.Parameter] = {}
-        for name, param in model.named_parameters():
-            if _is_shared_param(
-                name,
-                self.config.shared_param_patterns,
-                self.config.exclude_param_patterns,
-            ):
-                shared_params[name] = param
+        # Identify shared parameters (cached for runtime efficiency)
+        shared_params, audit = self._get_shared_parameters(model)
+        self._last_param_audit = audit
 
         if len(shared_params) == 0:
             logger.warning(
@@ -376,6 +518,7 @@ class InterTaskAffinityComputer:
         Z_t = np.zeros((self.n_tasks, self.n_tasks), dtype=np.float64)
 
         # Step 2: For each task i, compute lookahead and measure effect on all j
+        shared_items = list(shared_params.items())
         for i in range(self.n_tasks):
             # Skip if task i has no valid samples in this batch
             task_i_mask = ~torch.isnan(targets[:, i])
@@ -395,7 +538,7 @@ class InterTaskAffinityComputer:
             task_i_grads: Dict[str, torch.Tensor] = {}
             loss_i.backward(retain_graph=False)
 
-            for name, param in shared_params.items():
+            for name, param in shared_items:
                 if param.grad is not None:
                     task_i_grads[name] = param.grad.clone()
                 else:
@@ -405,7 +548,7 @@ class InterTaskAffinityComputer:
             # We temporarily modify the parameters, compute losses, then restore
             original_params: Dict[str, torch.Tensor] = {}
             try:
-                for name, param in shared_params.items():
+                for name, param in shared_items:
                     original_params[name] = param.data.clone()
                     param.data = param.data - learning_rate * task_i_grads[name]
 
@@ -432,7 +575,7 @@ class InterTaskAffinityComputer:
                             Z_t[i, j] = 1.0 - (loss_j_after_val / loss_j_before_val)
             finally:
                 # Restore original parameters no matter what
-                for name, param in shared_params.items():
+                for name, param in shared_items:
                     param.data = original_params.get(name, param.data)
 
         # Update running statistics
@@ -441,7 +584,41 @@ class InterTaskAffinityComputer:
         self.epoch_affinity_sum += Z_t
         self.epoch_step_count += 1
 
+        if prev_training_mode:
+            model.train()
+        else:
+            model.eval()
+
         return Z_t
+
+    def _get_shared_parameters(
+        self,
+        model: nn.Module,
+    ) -> Tuple[Dict[str, nn.Parameter], Dict[str, List[str]]]:
+        """Return shared parameter dict and audit info for a model (cached)."""
+        model_id = id(model)
+        if model_id in self._shared_param_cache:
+            return self._shared_param_cache[model_id], self._param_audit_cache[model_id]
+
+        shared: Dict[str, nn.Parameter] = {}
+        shared_names: List[str] = []
+        non_shared_names: List[str] = []
+
+        for name, param in model.named_parameters():
+            if _is_shared_param(name, self.config.shared_param_patterns, self.config.exclude_param_patterns):
+                shared[name] = param
+                shared_names.append(name)
+            else:
+                non_shared_names.append(name)
+
+        audit = {"shared": shared_names, "non_shared": non_shared_names}
+        self._shared_param_cache[model_id] = shared
+        self._param_audit_cache[model_id] = audit
+        return shared, audit
+
+    def get_param_audit(self) -> Dict[str, List[str]]:
+        """Return the latest classification of shared vs non-shared params."""
+        return self._last_param_audit
 
 
 class InterTaskAffinityCallback(Callback):
@@ -675,32 +852,80 @@ class InterTaskAffinityCallback(Callback):
             with tempfile.NamedTemporaryFile(mode="w", suffix="_affinity_matrix.csv", delete=False) as f:
                 df.to_csv(f.name)
                 mlflow.log_artifact(f.name, "inter_task_affinity")
+            # Log parameter classification (shared vs non-shared)
+            param_audit = self.computer.get_param_audit()
+            if param_audit:
+                try:
+                    mlflow.log_param("affinity/shared_param_count", str(len(param_audit.get("shared", []))))
+                    mlflow.log_param("affinity/non_shared_param_count", str(len(param_audit.get("non_shared", []))))
+                except Exception:
+                    logger.debug("Failed to log parameter counts")
+                with tempfile.NamedTemporaryFile(mode="w", suffix="_param_audit.json", delete=False) as pf:
+                    json.dump(param_audit, pf, indent=2)
+                    mlflow.log_artifact(pf.name, "inter_task_affinity")
+
+            # Cluster tasks using TAG affinity (if requested)
+            groups: Optional[List[List[str]]] = None
+            labels: Optional[np.ndarray] = None
+            if self.config.n_groups is not None:
+                try:
+                    groups, labels = _cluster_tasks_from_affinity(
+                        Z_final,
+                        self.target_cols,
+                        self.config.n_groups,
+                        method=self.config.clustering_method,
+                        linkage=self.config.clustering_linkage,
+                    )
+                    if groups:
+                        # Log group assignments as parameters for quick visibility
+                        for group_idx, group in enumerate(groups):
+                            for task in group:
+                                mlflow.log_param(f"affinity/group/{_sanitize(task)}", str(group_idx))
+
+                        # Save grouping artifact
+                        with tempfile.NamedTemporaryFile(mode="w", suffix="_task_groups.json", delete=False) as gf:
+                            json.dump(
+                                {
+                                    "task_groups": groups,
+                                    "labels": labels.tolist() if labels is not None else None,
+                                    "n_groups": len(groups),
+                                    "tasks": self.target_cols,
+                                },
+                                gf,
+                                indent=2,
+                            )
+                            mlflow.log_artifact(gf.name, "inter_task_affinity")
+                except Exception as e:
+                    logger.warning("Failed to cluster tasks from affinity matrix: %s", e)
 
             # Optionally save heatmap and clustermap plots
             if self.config.save_plots:
                 try:
-                    import tempfile
+                    for fmt in self.config.plot_formats:
+                        fmt = fmt.lstrip(".")
+                        with tempfile.NamedTemporaryFile(mode="wb", suffix=f"_affinity_heatmap.{fmt}", delete=False) as hf:
+                            fig_hm = _plot_affinity_heatmap(
+                                Z_final,
+                                self.target_cols,
+                                groups,
+                                dpi=self.config.plot_dpi,
+                                title="Inter-Task Affinity (TAG)",
+                            )
+                            fig_hm.savefig(hf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
+                            mlflow.log_artifact(hf.name, "inter_task_affinity")
+                            plt.close(fig_hm)
 
-                    import matplotlib.pyplot as plt
-
-                    from admet.model.chemprop.task_affinity import (
-                        plot_task_affinity_clustermap,
-                        plot_task_affinity_heatmap,
-                    )
-
-                    # Heatmap
-                    with tempfile.NamedTemporaryFile(mode="wb", suffix="_affinity_heatmap.png", delete=False) as hf:
-                        fig_hm = plot_task_affinity_heatmap(Z_final, self.target_cols, figsize=(8, 6))
-                        fig_hm.savefig(hf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
-                        mlflow.log_artifact(hf.name, "inter_task_affinity")
-                        plt.close(fig_hm)
-
-                    # Clustermap
-                    with tempfile.NamedTemporaryFile(mode="wb", suffix="_affinity_clustermap.png", delete=False) as cf:
-                        fig_cm = plot_task_affinity_clustermap(Z_final, self.target_cols, groups=None, figsize=(8, 8))
-                        fig_cm.savefig(cf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
-                        mlflow.log_artifact(cf.name, "inter_task_affinity")
-                        plt.close(fig_cm)
+                        with tempfile.NamedTemporaryFile(mode="wb", suffix=f"_affinity_clustermap.{fmt}", delete=False) as cf:
+                            fig_cm = _plot_affinity_clustermap(
+                                Z_final,
+                                self.target_cols,
+                                groups,
+                                dpi=self.config.plot_dpi,
+                                title="Inter-Task Affinity (TAG) - Grouped",
+                            )
+                            fig_cm.savefig(cf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
+                            mlflow.log_artifact(cf.name, "inter_task_affinity")
+                            plt.close(fig_cm)
                 except Exception as e:
                     logger.debug("Failed to create/save plot artifacts: %s", e)
 

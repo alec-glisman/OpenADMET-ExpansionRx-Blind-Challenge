@@ -105,7 +105,7 @@ data:
   # Optional: filter specific splits/folds (null = use all)
   splits: null
   folds: null
-  
+
   test_file: "assets/dataset/set/local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
   # ...

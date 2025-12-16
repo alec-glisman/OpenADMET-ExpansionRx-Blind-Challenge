@@ -1029,39 +1029,10 @@ class ChempropModel:
             logger.debug("Task affinity computation disabled")
             return
 
-        logger.info("Computing task affinity matrix...")
-        from admet.model.chemprop.task_affinity import (
-            TaskAffinityComputer,
-            TaskGrouper,
-            get_task_group_indices,
+        raise RuntimeError(
+            "Legacy task_affinity pre-training has been removed. "
+            "Enable inter_task_affinity in the config to compute and log TAG affinity/groupings during training."
         )
-
-        # Create affinity computer
-        computer = TaskAffinityComputer(self.task_affinity_config)
-
-        # Compute affinity from training data
-        df_train = self.dataframes["train"]
-        affinity_matrix, task_names = computer.compute_from_dataframe(
-            df=df_train,
-            smiles_col=self.smiles_col,
-            target_cols=self.target_cols,
-        )
-
-        # Cluster tasks into groups
-        grouper = TaskGrouper(
-            n_groups=self.task_affinity_config.n_groups,
-            method=self.task_affinity_config.clustering_method,
-            seed=self.task_affinity_config.seed,
-        )
-        groups = grouper.cluster(affinity_matrix, task_names)
-
-        # Store results
-        self.task_affinity_matrix = affinity_matrix
-        self.task_groups = groups
-        self.task_group_indices = get_task_group_indices(groups, self.target_cols)
-
-        logger.info("Task affinity computation complete")
-        logger.info("Task groups: %s", groups)
 
     def _prepare_trainer(self) -> None:
         """

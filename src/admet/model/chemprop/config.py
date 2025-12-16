@@ -320,10 +320,27 @@ class InterTaskAffinityConfig:
         Learning rate η for computing the lookahead parameter update.
     use_optimizer_lr : bool, default=True
         If True, uses the current optimizer learning rate for lookahead.
+    shared_param_patterns : List[str], optional
+        Patterns that explicitly mark encoder parameters as shared.
     exclude_param_patterns : List[str]
         Patterns to exclude from shared parameters (task-specific layers).
+    n_groups : Optional[int], default=None
+        If provided, cluster tasks into this many groups using the final
+        affinity matrix (TAG paper grouping step).
+    clustering_method : str, default="agglomerative"
+        Clustering algorithm for grouping: "agglomerative" or "spectral".
+    clustering_linkage : str, default="average"
+        Linkage for agglomerative clustering when grouping tasks.
+    device : str, default="auto"
+        Device hint for affinity computation. "auto" selects CUDA if available.
     log_to_mlflow : bool, default=True
         Whether to log affinity metrics to MLflow.
+    save_plots : bool, default=False
+        Save affinity matrix plots as MLflow artifacts when enabled.
+    plot_formats : List[str], default=["png"]
+        Image formats to emit when saving affinity plots.
+    plot_dpi : int, default=150
+        DPI for any saved plots.
 
     See Also
     --------
@@ -337,9 +354,15 @@ class InterTaskAffinityConfig:
     log_step_matrices: bool = False
     lookahead_lr: float = 0.001
     use_optimizer_lr: bool = True
+    shared_param_patterns: List[str] = field(default_factory=list)
     exclude_param_patterns: List[str] = field(default_factory=lambda: ["predictor", "ffn", "output", "head", "readout"])
+    n_groups: Optional[int] = None
+    clustering_method: str = "agglomerative"
+    clustering_linkage: str = "average"
+    device: str = "auto"
     log_to_mlflow: bool = True
     save_plots: bool = False
+    plot_formats: List[str] = field(default_factory=lambda: ["png"])
     plot_dpi: int = 150
 
 

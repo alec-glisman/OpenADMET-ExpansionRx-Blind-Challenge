@@ -54,6 +54,7 @@ from admet.model.chemprop.config import (
     ModelConfig,
     OptimizationConfig,
     TaskAffinityConfig,
+    InterTaskAffinityConfig,
 )
 from admet.model.chemprop.model import ChempropModel
 from admet.plot.latex import latex_sanitize
@@ -376,6 +377,25 @@ class ChempropEnsemble:
                 affinity_type=self.config.task_affinity.affinity_type,
                 seed=self.config.task_affinity.seed,
             ),
+            inter_task_affinity=InterTaskAffinityConfig(
+                enabled=self.config.inter_task_affinity.enabled,
+                compute_every_n_steps=self.config.inter_task_affinity.compute_every_n_steps,
+                log_every_n_steps=self.config.inter_task_affinity.log_every_n_steps,
+                log_epoch_summary=self.config.inter_task_affinity.log_epoch_summary,
+                log_step_matrices=self.config.inter_task_affinity.log_step_matrices,
+                lookahead_lr=self.config.inter_task_affinity.lookahead_lr,
+                use_optimizer_lr=self.config.inter_task_affinity.use_optimizer_lr,
+                shared_param_patterns=list(self.config.inter_task_affinity.shared_param_patterns),
+                exclude_param_patterns=list(self.config.inter_task_affinity.exclude_param_patterns),
+                n_groups=self.config.inter_task_affinity.n_groups,
+                clustering_method=self.config.inter_task_affinity.clustering_method,
+                clustering_linkage=self.config.inter_task_affinity.clustering_linkage,
+                device=self.config.inter_task_affinity.device,
+                log_to_mlflow=self.config.inter_task_affinity.log_to_mlflow,
+                save_plots=self.config.inter_task_affinity.save_plots,
+                plot_formats=list(self.config.inter_task_affinity.plot_formats),
+                plot_dpi=self.config.inter_task_affinity.plot_dpi,
+            ),
         )
 
     def train_all(self, max_parallel: Optional[int] = None) -> None:
@@ -609,128 +629,6 @@ class ChempropEnsemble:
 
         # Log ensemble metrics
         self._log_ensemble_metrics()
-
-        # Aggregate and log task affinity data for downstream analysis
-        self._aggregate_task_affinity()
-
-    def _aggregate_task_affinity(self) -> None:
-        """
-        Aggregate task affinity matrices from all ensemble models.
-
-        Computes mean and standard deviation of task affinity matrices across
-        all ensemble members and logs the aggregated data to MLflow for
-        downstream analysis and decision-making about task groupings.
-
-        The aggregated affinity matrix can be used to:
-        - Identify consistently related tasks across different data splits
-        - Make informed decisions about task grouping for specialized models
-        - Detect task relationships that are robust to data variations
-        """
-        if not self.config.task_affinity.enabled:
-            logger.debug("Task affinity aggregation skipped: disabled in config")
-            return
-
-        # Collect affinity matrices from all trained models via MLflow artifacts
-        affinity_matrices: List[np.ndarray] = []
-        task_groups_list: List[List[List[str]]] = []
-
-        logger.info("Aggregating task affinity data from %d ensemble members", len(self._all_metrics))
-
-        try:
-            import json
-
-            from admet.model.chemprop.task_affinity import (
-                affinity_matrix_to_dataframe,
-                plot_task_affinity_heatmap,
-            )
-
-            # Download and collect affinity matrices from child runs
-            if self._mlflow_client is not None and self.parent_run_id is not None:
-                # Get all child runs
-                child_runs = self._mlflow_client.search_runs(
-                    experiment_ids=[mlflow.get_experiment_by_name(self.config.mlflow.experiment_name).experiment_id],
-                    filter_string=f"tags.mlflow.parentRunId = '{self.parent_run_id}'",
-                )
-
-                for run in child_runs:
-                    try:
-                        # Download affinity matrix artifact
-                        artifact_path = self._mlflow_client.download_artifacts(
-                            run.info.run_id, "task_affinity_matrix.csv"
-                        )
-                        df_affinity = pd.read_csv(artifact_path, index_col=0)
-                        affinity_matrices.append(df_affinity.values)
-
-                        # Download task groups artifact
-                        groups_path = self._mlflow_client.download_artifacts(run.info.run_id, "task_groups.json")
-                        with open(groups_path, "r", encoding="utf-8") as f:
-                            groups_data = json.load(f)
-                            task_groups_list.append(groups_data["task_groups"])
-                    except Exception as e:
-                        logger.debug("Could not load affinity data from run %s: %s", run.info.run_id, e)
-
-            if not affinity_matrices:
-                logger.warning("No task affinity matrices found in ensemble members")
-                return
-
-            # Compute aggregated statistics
-            affinity_stack = np.stack(affinity_matrices, axis=0)
-            mean_affinity = np.mean(affinity_stack, axis=0)
-            std_affinity = np.std(affinity_stack, axis=0, ddof=1)
-
-            target_cols = list(self.config.data.target_cols)
-
-            # Log aggregated affinity matrix to MLflow
-            if self._temp_dir is None:
-                self._temp_dir = Path(tempfile.mkdtemp(prefix="ensemble_"))
-
-            # Save mean affinity matrix
-            df_mean_affinity = affinity_matrix_to_dataframe(mean_affinity, target_cols)
-            mean_csv_path = self._temp_dir / "ensemble_task_affinity_mean.csv"
-            df_mean_affinity.to_csv(mean_csv_path)
-            mlflow.log_artifact(str(mean_csv_path))
-
-            # Save std affinity matrix
-            df_std_affinity = affinity_matrix_to_dataframe(std_affinity, target_cols)
-            std_csv_path = self._temp_dir / "ensemble_task_affinity_std.csv"
-            df_std_affinity.to_csv(std_csv_path)
-            mlflow.log_artifact(str(std_csv_path))
-
-            # Save task groups consensus
-            groups_consensus_path = self._temp_dir / "ensemble_task_groups_all.json"
-            with open(groups_consensus_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    {
-                        "all_task_groups": task_groups_list,
-                        "n_ensemble_members": len(affinity_matrices),
-                        "target_cols": target_cols,
-                    },
-                    f,
-                    indent=2,
-                )
-            mlflow.log_artifact(str(groups_consensus_path))
-
-            # Generate and save aggregated heatmap
-            try:
-                heatmap_path = self._temp_dir / "ensemble_task_affinity_mean_heatmap.png"
-                plot_task_affinity_heatmap(
-                    mean_affinity,
-                    target_cols,
-                    title="Ensemble Mean Task Affinity Matrix",
-                    save_path=str(heatmap_path),
-                )
-                mlflow.log_artifact(str(heatmap_path))
-            except Exception as e:
-                logger.warning("Failed to create ensemble affinity heatmap: %s", e)
-
-            logger.info(
-                "Aggregated task affinity from %d ensemble members. "
-                "Mean affinity matrix and task groups logged to MLflow.",
-                len(affinity_matrices),
-            )
-
-        except Exception as e:
-            logger.error("Failed to aggregate task affinity data: %s", e)
 
     def _aggregate_predictions(self, predictions_list: List[pd.DataFrame], split_name: str) -> pd.DataFrame:
         """
