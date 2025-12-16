@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -291,7 +292,7 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load configuration from YAML</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/single_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
 
 <span class="c1"># Create and train model</span>
@@ -310,7 +311,7 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load ensemble configuration</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/ensemble_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/ensemble_chemprop_production.yaml&quot;</span><span class="p">)</span>
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
 
 <span class="c1"># Train ensemble (parallelized with Ray)</span>
@@ -403,6 +404,11 @@ quality tiers:</p>
 <li><p>Configuration YAML</p></li>
 <li><p>Learning curves</p></li>
 </ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>For detailed information about MLflow artifact organization, file formats,
+and how to access predictions and submission files, see <a class="reference internal" href="mlflow_artifacts.html"><span class="doc">MLflow Artifacts Guide</span></a>.</p>
+</div>
 </section>
 <section id="classical-ml-models">
 <h2>Classical ML Models<a class="headerlink" href="#classical-ml-models" title="Link to this heading">¶</a></h2>
@@ -434,6 +440,7 @@ quality tiers:</p>
 <li><p>See <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> for hyperparameter optimization guide</p></li>
 <li><p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for detailed configuration options</p></li>
 <li><p>See <a class="reference internal" href="splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> for dataset partitioning methodology</p></li>
+<li><p>See <a class="reference internal" href="mlflow_artifacts.html"><span class="doc">MLflow Artifacts Guide</span></a> for MLflow artifact structure and accessing predictions</p></li>
 </ul>
 </section>
 </section>

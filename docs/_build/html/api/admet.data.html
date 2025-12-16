@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -599,6 +600,549 @@ output list matches the input ordering exactly.</p>
 <section id="split">
 <h3>split<a class="headerlink" href="#split" title="Link to this heading">¶</a></h3>
 <p>Cluster-based data splitting with stratification support.</p>
+<section id="cluster-based-data-splitting-utilities">
+<span id="module-admet.data.split"></span><h4>Cluster-based data splitting utilities<a class="headerlink" href="#cluster-based-data-splitting-utilities" title="Link to this heading">¶</a></h4>
+<p>This module implements clustering and cluster-aware cross-validation for
+ADMET datasets. It provides:</p>
+<section id="design-notes">
+<h5>Design notes<a class="headerlink" href="#design-notes" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>For regression endpoints, stratification uses presence/coverage indicators (non-NaN counts), not target values.</p></li>
+<li><p>Clusters are never split across folds; assignments are performed at the cluster level then mapped to molecules.</p></li>
+<li><p>Diagnostics optionally include Matplotlib figures but are decoupled from splitting logic.</p></li>
+</ul>
+</section>
+<section id="stratification-descriptors">
+<h5>Stratification descriptors<a class="headerlink" href="#stratification-descriptors" title="Link to this heading">¶</a></h5>
+<p>The splitting methods rely on cluster-level descriptors derived from molecule-level data:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Task presence (coverage): For each endpoint in <code class="docutils literal notranslate"><span class="pre">task_cols</span></code>, a binary flag per cluster indicating</dt><dd><p>whether the cluster contains at least <code class="docutils literal notranslate"><span class="pre">coverage_threshold</span></code> non-NaN observations for that endpoint.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Quality one-hot (optional): If <code class="docutils literal notranslate"><span class="pre">quality_col</span></code> is provided, one binary column per unique quality category</dt><dd><p>indicating whether any molecule in the cluster has that quality level.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Cluster size bins (optional): If <code class="docutils literal notranslate"><span class="pre">add_cluster_size=True</span></code>, one-hot bins representing the cluster size</dt><dd><p>(quantile-based). These provide an additional label dimension to balance fold sizes.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="usage-in-splitters">
+<h5>Usage in splitters<a class="headerlink" href="#usage-in-splitters" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">MultilabelStratifiedKFold</span></code>: Uses the full multi-label matrix constructed from the descriptors above</dt><dd><p>(task presence + optional quality + optional size bins). Each column is treated as an independent label
+and the splitter balances the marginal label distributions across folds.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">StratifiedKFold</span></code>: Requires a single label per sample. We bit-pack the multi-label row into an integer</dt><dd><p>code using weights <code class="docutils literal notranslate"><span class="pre">2**i</span></code> for column <code class="docutils literal notranslate"><span class="pre">i</span></code>. This preserves the joint label combination per cluster, allowing
+<code class="docutils literal notranslate"><span class="pre">StratifiedKFold</span></code> to balance those combinations across folds.</p>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GroupKFold</span></code>: Does not use stratification; clusters are simply assigned to folds to balance fold sizes.</p></li>
+</ul>
+</section>
+<section id="clustering-methods">
+<h5>Clustering methods<a class="headerlink" href="#clustering-methods" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>BitBirch (default): scalable hierarchical clustering using RDKit fingerprints.</p></li>
+<li><p>Other methods (random, scaffold, kmeans, umap, butina) are available via useful_rdkit_utils.</p></li>
+</ul>
+</section>
+<section id="splitting-methods">
+<h5>Splitting methods<a class="headerlink" href="#splitting-methods" title="Link to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>GroupKFold: splits by clusters without stratification.</p></li>
+<li><p>StratifiedKFold: stratifies on single-label cluster presence vectors.</p></li>
+<li><p>MultilabelStratifiedKFold: stratifies on multi-label cluster presence vectors.</p></li>
+</ul>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">ClusterCVDiagnostics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_sizes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fold_train_cluster_sizes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hist_fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boxplot_fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bar_fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">endpoint_figs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#ClusterCVDiagnostics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Diagnostics &amp; optional plots for cluster-based CV.</p>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p><cite>cluster_ids</cite> and <cite>cluster_sizes</cite> describe all clusters.</p></li>
+<li><p><cite>fold_train_cluster_sizes[fold_id]</cite> = cluster sizes for training set of that fold.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cluster_ids</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>cluster_sizes</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>fold_train_cluster_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a><em>]</em>)</p></li>
+<li><p><strong>hist_fig</strong> (<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><em>Figure</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>boxplot_fig</strong> (<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><em>Figure</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>bar_fig</strong> (<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><em>Figure</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>endpoint_figs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><em>Figure</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.bar_fig">
+<span class="sig-name descname"><span class="pre">bar_fig</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a><span class="pre">[</span><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Figure</span></code></a><span class="pre">]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.bar_fig" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.boxplot_fig">
+<span class="sig-name descname"><span class="pre">boxplot_fig</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a><span class="pre">[</span><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Figure</span></code></a><span class="pre">]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.boxplot_fig" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.cluster_ids">
+<span class="sig-name descname"><span class="pre">cluster_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.cluster_ids" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.cluster_sizes">
+<span class="sig-name descname"><span class="pre">cluster_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.cluster_sizes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.endpoint_figs">
+<span class="sig-name descname"><span class="pre">endpoint_figs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a><span class="pre">,</span> <a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Figure</span></code></a><span class="pre">]]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.endpoint_figs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.fold_train_cluster_sizes">
+<span class="sig-name descname"><span class="pre">fold_train_cluster_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a><span class="pre">,</span> <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a><span class="pre">]</span></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.fold_train_cluster_sizes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVDiagnostics.hist_fig">
+<span class="sig-name descname"><span class="pre">hist_fig</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a><span class="pre">[</span><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Figure</span></code></a><span class="pre">]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#admet.data.split.ClusterCVDiagnostics.hist_fig" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">ClusterCVFold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fold_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_clusters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_clusters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_train_mols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_val_mols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_train_clusters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_val_clusters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#ClusterCVFold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.ClusterCVFold" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Container for a single fold of cluster-based CV.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fold_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>train_indices</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>val_indices</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>train_clusters</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>val_clusters</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>n_train_mols</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>n_val_mols</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>n_train_clusters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>n_val_clusters</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.fold_id">
+<span class="sig-name descname"><span class="pre">fold_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.fold_id" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.n_train_clusters">
+<span class="sig-name descname"><span class="pre">n_train_clusters</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.n_train_clusters" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.n_train_mols">
+<span class="sig-name descname"><span class="pre">n_train_mols</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.n_train_mols" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.n_val_clusters">
+<span class="sig-name descname"><span class="pre">n_val_clusters</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.n_val_clusters" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.n_val_mols">
+<span class="sig-name descname"><span class="pre">n_val_mols</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.n_val_mols" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.train_clusters">
+<span class="sig-name descname"><span class="pre">train_clusters</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.train_clusters" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.train_indices">
+<span class="sig-name descname"><span class="pre">train_indices</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.train_indices" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.val_clusters">
+<span class="sig-name descname"><span class="pre">val_clusters</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.val_clusters" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.data.split.ClusterCVFold.val_indices">
+<span class="sig-name descname"><span class="pre">val_indices</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a></em><a class="headerlink" href="#admet.data.split.ClusterCVFold.val_indices" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.build_cluster_label_matrix">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">build_cluster_label_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coverage_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_cluster_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_size_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#build_cluster_label_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.build_cluster_label_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>Collapse molecule-level regression targets into cluster-level
+multi-label availability vectors.</p>
+<p>For regression tasks, we stratify based on which tasks are present
+(non-NaN) in each cluster, NOT on the regression values themselves.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)"><em>pandas.DataFrame</em></a>) – Molecule-level dataframe containing at least the <cite>cluster_col</cite> and
+<cite>task_cols</cite>. Each row is an assay for a molecule with possibly NaN
+target entries.</p></li>
+<li><p><strong>cluster_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Column name in <code class="docutils literal notranslate"><span class="pre">df</span></code> that contains cluster assignments per row.
+Returned <code class="docutils literal notranslate"><span class="pre">cluster_ids</span></code> are sorted unique values from this column.</p></li>
+<li><p><strong>task_cols</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – Columns in <code class="docutils literal notranslate"><span class="pre">df</span></code> representing regression targets (endpoints). For
+each cluster, the function will compute whether each task is
+“present” by counting non-NaN entries per cluster and comparing the
+count to <code class="docutils literal notranslate"><span class="pre">coverage_threshold</span></code>.</p></li>
+<li><p><strong>coverage_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=1</em>) – Minimum number of non-NaN observations in a cluster required to mark a
+task as present (1 =&gt; any non-NaN in the cluster marks presence for
+that task).</p></li>
+<li><p><strong>add_cluster_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – If set to True, append additional one-hot columns to the right of the
+<code class="docutils literal notranslate"><span class="pre">task_cols</span></code> in the returned <code class="docutils literal notranslate"><span class="pre">cluster_labels</span></code> representing cluster
+size bins (quantile-based). These additional columns are suitable for
+use as additional label dimensions in stratified splitting.</p></li>
+<li><p><strong>cluster_size_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=5</em>) – Number of quantile bins to create for cluster sizes when
+<code class="docutils literal notranslate"><span class="pre">add_cluster_size=True</span></code>. If <code class="docutils literal notranslate"><span class="pre">cluster_size_bins==1</span></code> a single
+constant column of ones is appended. If <code class="docutils literal notranslate"><span class="pre">cluster_size_bins&gt;1</span></code>
+quantile edges are computed across clusters.</p></li>
+<li><p><strong>quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>cluster_ids</strong> (<em>numpy.ndarray</em>) – 1D array of sorted unique cluster identifiers corresponding to the
+rows of the returned <code class="docutils literal notranslate"><span class="pre">cluster_labels</span></code> and <code class="docutils literal notranslate"><span class="pre">cluster_sizes</span></code>.</p></li>
+<li><p><strong>cluster_labels</strong> (<em>numpy.ndarray</em>) – 2-D integer array of shape <code class="docutils literal notranslate"><span class="pre">(n_clusters,</span> <span class="pre">n_task_cols</span> <span class="pre">+</span> <span class="pre">n_quality_cols</span> <span class="pre">+</span> <span class="pre">n_size_bins)</span></code>,
+containing 0/1 indicators. The first <code class="docutils literal notranslate"><span class="pre">len(task_cols)</span></code> columns
+correspond in order to <code class="docutils literal notranslate"><span class="pre">task_cols</span></code> and contain <code class="docutils literal notranslate"><span class="pre">1</span></code> when the task
+is present in a cluster (&gt;= <code class="docutils literal notranslate"><span class="pre">coverage_threshold</span></code> non-NaN values).
+If <code class="docutils literal notranslate"><span class="pre">quality_col</span></code> is provided, the next columns after the task columns
+will be one-hot presence flags for each unique level in <code class="docutils literal notranslate"><span class="pre">quality_col</span></code>.
+If <code class="docutils literal notranslate"><span class="pre">add_cluster_size=True</span></code> additional columns are appended for
+size bins (one-hot encoded) with <code class="docutils literal notranslate"><span class="pre">cluster_size_bins</span></code> columns.</p></li>
+<li><p><strong>cluster_sizes</strong> (<em>numpy.ndarray</em>) – 1-D array of integer cluster sizes (number of rows per cluster), with
+length equal to <code class="docutils literal notranslate"><span class="pre">len(cluster_ids)</span></code>.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">cluster_col</span></code> or any <code class="docutils literal notranslate"><span class="pre">task_cols</span></code> are not present in <code class="docutils literal notranslate"><span class="pre">df</span></code>.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">cluster_ids</span><span class="p">,</span> <span class="n">cluster_labels</span><span class="p">,</span> <span class="n">cluster_sizes</span> <span class="o">=</span> <span class="n">build_cluster_label_matrix</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">df</span><span class="p">,</span> <span class="n">cluster_col</span><span class="o">=</span><span class="s2">&quot;cluster&quot;</span><span class="p">,</span> <span class="n">task_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">],</span> <span class="n">quality_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">add_cluster_size</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cluster_labels</span><span class="o">.</span><span class="n">shape</span>
+<span class="go">(n_clusters, 2 + n_size_bins)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.cluster_data">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">cluster_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'SMILES'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bitbirch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#cluster_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.cluster_data" title="Link to this definition">¶</a></dt>
+<dd><p>Cluster data using the specified method and return cluster→molecule index mapping.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)"><em>pandas.DataFrame</em></a>) – Input dataframe containing a SMILES column.</p></li>
+<li><p><strong>smiles_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;SMILES&quot;</em>) – Column with SMILES strings.</p></li>
+<li><p><strong>cluster_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;bitbirch&quot;</em>) – One of <code class="docutils literal notranslate"><span class="pre">DEFAULT_CLUSTER_METHODS</span></code>: random, scaffold, kmeans, umap, butina, bitbirch.</p></li>
+<li><p><strong>cluster_params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em><em>, </em><em>optional</em>) – Extra keyword arguments passed to the clustering function.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Mapping from cluster id to list of molecule indices belonging to that cluster.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a>, List[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.cluster_group_kfold">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">cluster_group_kfold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_folds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagnostics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#cluster_group_kfold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.cluster_group_kfold" title="Link to this definition">¶</a></dt>
+<dd><p>Baseline: K-fold CV that ONLY respects clusters as groups,
+with no multi-task stratification.</p>
+<p>Optionally computes/plots the same cluster-size diagnostics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Molecule-level dataframe with column <cite>cluster_col</cite>.</p></li>
+<li><p><strong>cluster_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Cluster ID column.</p></li>
+<li><p><strong>endpoint_cols</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – Regression target column names (for plotting only).</p></li>
+<li><p><strong>n_folds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=5</em>) – Number of folds.</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em><em>, </em><em>default=None</em>) – If provided, shuffle input order before splitting to get reproducible fold assignments.</p></li>
+<li><p><strong>diagnostics</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – If True, return a <cite>ClusterCVDiagnostics</cite> object alongside folds.</p></li>
+<li><p><strong>make_plots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – If True, also create matplotlib figures and attach to diagnostics.
+Requires matplotlib to be installed.</p></li>
+<li><p><strong>task_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>_quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics" title="admet.data.split.ClusterCVDiagnostics"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVDiagnostics</span></code></a>]]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>folds</strong> (<em>List[ClusterCVFold]</em>)</p></li>
+<li><p><em>If diagnostics=True</em> – (folds, diag) where diag is <cite>ClusterCVDiagnostics</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.cluster_kfold">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">cluster_kfold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'multilabel_stratified_kfold'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_folds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coverage_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_cluster_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_size_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagnostics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#cluster_kfold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.cluster_kfold" title="Link to this definition">¶</a></dt>
+<dd><p>Unified entry point for cluster-aware K-fold CV.</p>
+<p>Dispatches to GroupKFold, StratifiedKFold, or MultilabelStratifiedKFold
+while keeping a single surface for diagnostics/plotting knobs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics" title="admet.data.split.ClusterCVDiagnostics"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVDiagnostics</span></code></a>]]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>df</strong> (<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)"><em>DataFrame</em></a>)</p></li>
+<li><p><strong>cluster_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>task_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>split_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>n_folds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>shuffle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>coverage_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>add_cluster_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>cluster_size_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>diagnostics</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>make_plots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.cluster_multilabel_stratified_kfold">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">cluster_multilabel_stratified_kfold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_folds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coverage_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_cluster_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_size_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagnostics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#cluster_multilabel_stratified_kfold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.cluster_multilabel_stratified_kfold" title="Link to this definition">¶</a></dt>
+<dd><p>Perform K-fold cross-validation over clusters, preserving:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Cluster integrity (clusters never split across folds)</p></li>
+<li><p>Multi-task assay coverage balance across folds (for regression)</p></li>
+<li><p>Approximate balance of cluster sizes across folds</p></li>
+</ul>
+</div></blockquote>
+<p>Additionally (optionally):</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Compute diagnostics on cluster sizes and per-fold training sizes</p></li>
+<li><dl class="simple">
+<dt>Automatically generate:</dt><dd><ul>
+<li><p>Histogram of global cluster sizes</p></li>
+<li><p>Boxplots of training cluster sizes across folds</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Molecule-level dataframe with columns:
+- cluster_col
+- task_cols (regression targets, may have NaNs)</p></li>
+<li><p><strong>cluster_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Cluster ID column (e.g., BitBirch output).</p></li>
+<li><p><strong>task_cols</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – Regression target column names.</p></li>
+<li><p><strong>n_folds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=5</em>) – Number of folds.</p></li>
+<li><p><strong>shuffle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to shuffle clusters before splitting.</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em><em>, </em><em>default=42</em>) – Random seed for reproducibility.</p></li>
+<li><p><strong>coverage_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=1</em>) – Min # assayed molecules in a cluster to treat a task as present.</p></li>
+<li><p><strong>add_cluster_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to include binned cluster size as extra labels.</p></li>
+<li><p><strong>cluster_size_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=3</em>) – Number of size bins (only if add_cluster_size=True).</p></li>
+<li><p><strong>diagnostics</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – If True, return a <cite>ClusterCVDiagnostics</cite> object alongside folds.</p></li>
+<li><p><strong>make_plots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – If True, also create matplotlib figures and attach to diagnostics.
+Requires matplotlib to be installed.</p></li>
+<li><p><strong>quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics" title="admet.data.split.ClusterCVDiagnostics"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVDiagnostics</span></code></a>]]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>folds</strong> (<em>List[ClusterCVFold]</em>) – One entry per fold with molecule- and cluster-level assignments.</p></li>
+<li><p><em>If diagnostics=True</em> – (folds, diag) where diag is <cite>ClusterCVDiagnostics</cite>.</p></li>
+<li><p><strong>quality_col</strong> (<em>str, optional</em>) – Optional column name in <code class="docutils literal notranslate"><span class="pre">df</span></code> to include quality categorical presence
+as additional one-hot columns used for stratification.</p></li>
+<li><p><strong>quality_col</strong> (<em>str, optional</em>) – Optional column name in <code class="docutils literal notranslate"><span class="pre">df</span></code> to include quality categorical presence
+as additional one-hot columns used for stratification.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.cluster_stratified_kfold">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">cluster_stratified_kfold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_folds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coverage_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_cluster_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_size_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagnostics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#cluster_stratified_kfold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.cluster_stratified_kfold" title="Link to this definition">¶</a></dt>
+<dd><p>Cluster-aware StratifiedKFold based on collapsed cluster-level labels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#admet.data.split.ClusterCVFold" title="admet.data.split.ClusterCVFold"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a>], <a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics" title="admet.data.split.ClusterCVDiagnostics"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClusterCVDiagnostics</span></code></a>]]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>df</strong> (<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)"><em>DataFrame</em></a>)</p></li>
+<li><p><strong>cluster_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>task_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>n_folds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>shuffle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>random_state</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>coverage_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>add_cluster_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>cluster_size_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>diagnostics</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>make_plots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.diameter_prune_tolerance_reassign">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">diameter_prune_tolerance_reassign</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">branching_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.65</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#diameter_prune_tolerance_reassign"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.diameter_prune_tolerance_reassign" title="Link to this definition">¶</a></dt>
+<dd><p>Diameter + Prune + Tolerance + Reassign refinement procedure for BitBirch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fps</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><em>numpy.ndarray</em></a>) – Binary fingerprint matrix of shape <code class="docutils literal notranslate"><span class="pre">(n_molecules,</span> <span class="pre">n_bits)</span></code> with dtype <code class="docutils literal notranslate"><span class="pre">int64</span></code>.</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>default=0.05</em>) – Tolerance parameter used during the tolerance merge phase.</p></li>
+<li><p><strong>branching_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=50</em>) – BitBirch branching factor controlling tree growth.</p></li>
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>default=0.65</em>) – Similarity threshold used by BitBirch.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured and refined BitBirch instance after prune and reassign.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bb.BitBirch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.example_default_pipeline">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">example_default_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bitbirch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'multilabel_stratified_kfold'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Quality'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'SMILES'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#example_default_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.example_default_pipeline" title="Link to this definition">¶</a></dt>
+<dd><p>Example usage of the pipeline function with default parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_file</strong> (<em>Path</em>) – Path to input CSV file containing sample data.</p></li>
+<li><p><strong>output_dir</strong> (<em>Path</em>) – Directory to save output clustered splits CSV.</p></li>
+<li><p><strong>quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;Quality&quot;</em>) – Column name containing quality values.</p></li>
+<li><p><strong>quality_values</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em><em>, </em><em>optional</em>) – Acceptable quality values to include. Rows with other values are filtered out.
+If None, defaults to [“high”, “medium”, “low”].</p></li>
+<li><p><strong>smiles_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;SMILES&quot;</em>) – Column name containing SMILES strings.</p></li>
+<li><p><strong>target_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em><em>, </em><em>optional</em>) – Target columns for stratification.</p></li>
+<li><p><strong>cluster_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>split_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.get_bitbirch_clusters">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">get_bitbirch_clusters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smiles_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#get_bitbirch_clusters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.get_bitbirch_clusters" title="Link to this definition">¶</a></dt>
+<dd><p>Cluster SMILES using BitBirch on RDKit fingerprints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>smiles_list</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – List or sequence of SMILES strings to cluster.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Cluster label per input molecule index (length equals <code class="docutils literal notranslate"><span class="pre">len(smiles_list)</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a>]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If RDKit is not available in the environment.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If fingerprints are not binary or not dtype <code class="docutils literal notranslate"><span class="pre">int64</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.parse_args">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#parse_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.parse_args" title="Link to this definition">¶</a></dt>
+<dd><p>Parse CLI arguments</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/argparse.html#argparse.Namespace" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Namespace</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.data.split.pipeline">
+<span class="sig-prename descclassname"><span class="pre">admet.data.split.</span></span><span class="sig-name descname"><span class="pre">pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'SMILES'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Quality'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bitbirch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'multilabel_stratified_kfold'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_splits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_folds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/split.html#pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.split.pipeline" title="Link to this definition">¶</a></dt>
+<dd><p>High-level pipeline to cluster molecules, perform repeated cluster-aware splits,
+and attach per-fold train/validation assignments to the dataframe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)"><em>pandas.DataFrame</em></a>) – Input dataframe containing SMILES and target columns.</p></li>
+<li><p><strong>smiles_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;SMILES&quot;</em>) – Column name containing SMILES strings.</p></li>
+<li><p><strong>quality_col</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;Quality&quot;</em>) – Column name containing quality categories; used for additional stratification.</p></li>
+<li><p><strong>target_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em><em>, </em><em>optional</em>) – Target (endpoint) column names used to compute presence labels for stratification.
+If None, defaults to a predefined list of endpoints.</p></li>
+<li><p><strong>cluster_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;bitbirch&quot;</em>) – Clustering method to use; see <code class="docutils literal notranslate"><span class="pre">DEFAULT_CLUSTER_METHODS</span></code>.</p></li>
+<li><p><strong>split_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;multilabel_stratified_kfold&quot;</em>) – Splitting method; one of group_kfold, stratified_kfold, multilabel_stratified_kfold.</p></li>
+<li><p><strong>n_splits</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=5</em>) – Number of repeated splits to generate.</p></li>
+<li><p><strong>n_folds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=5</em>) – Number of folds per split.</p></li>
+<li><p><strong>fig_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em><em>, </em><em>optional</em>) – Directory path to save diagnostic figures if provided.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Copy of the input dataframe augmented with per-split, per-fold assignment columns
+where values are “train” or “validation”.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)">pandas.DataFrame</a></p>
+</dd>
+</dl>
+</dd></dl>
+
 <section id="key-classes-and-functions">
 <h4>Key Classes and Functions<a class="headerlink" href="#key-classes-and-functions" title="Link to this heading">¶</a></h4>
 <p>The <code class="docutils literal notranslate"><span class="pre">split</span></code> module provides sophisticated cluster-aware cross-validation:</p>
@@ -865,6 +1409,47 @@ pseudo-endpoint) to ensure numeric parity with training evaluation.</p>
 </ul>
 </li>
 <li><a class="reference internal" href="#split">split</a><ul>
+<li><a class="reference internal" href="#cluster-based-data-splitting-utilities">Cluster-based data splitting utilities</a><ul>
+<li><a class="reference internal" href="#design-notes">Design notes</a></li>
+<li><a class="reference internal" href="#stratification-descriptors">Stratification descriptors</a></li>
+<li><a class="reference internal" href="#usage-in-splitters">Usage in splitters</a></li>
+<li><a class="reference internal" href="#clustering-methods">Clustering methods</a></li>
+<li><a class="reference internal" href="#splitting-methods">Splitting methods</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics</span></code></a><ul>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.bar_fig"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.bar_fig</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.boxplot_fig"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.boxplot_fig</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.cluster_ids"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.cluster_ids</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.cluster_sizes"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.cluster_sizes</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.endpoint_figs"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.endpoint_figs</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.fold_train_cluster_sizes"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.fold_train_cluster_sizes</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVDiagnostics.hist_fig"><code class="docutils literal notranslate"><span class="pre">ClusterCVDiagnostics.hist_fig</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold</span></code></a><ul>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.fold_id"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.fold_id</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.n_train_clusters"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.n_train_clusters</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.n_train_mols"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.n_train_mols</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.n_val_clusters"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.n_val_clusters</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.n_val_mols"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.n_val_mols</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.train_clusters"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.train_clusters</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.train_indices"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.train_indices</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.val_clusters"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.val_clusters</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.ClusterCVFold.val_indices"><code class="docutils literal notranslate"><span class="pre">ClusterCVFold.val_indices</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.data.split.build_cluster_label_matrix"><code class="docutils literal notranslate"><span class="pre">build_cluster_label_matrix()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.cluster_data"><code class="docutils literal notranslate"><span class="pre">cluster_data()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.cluster_group_kfold"><code class="docutils literal notranslate"><span class="pre">cluster_group_kfold()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.cluster_kfold"><code class="docutils literal notranslate"><span class="pre">cluster_kfold()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.cluster_multilabel_stratified_kfold"><code class="docutils literal notranslate"><span class="pre">cluster_multilabel_stratified_kfold()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.cluster_stratified_kfold"><code class="docutils literal notranslate"><span class="pre">cluster_stratified_kfold()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.diameter_prune_tolerance_reassign"><code class="docutils literal notranslate"><span class="pre">diameter_prune_tolerance_reassign()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.example_default_pipeline"><code class="docutils literal notranslate"><span class="pre">example_default_pipeline()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.get_bitbirch_clusters"><code class="docutils literal notranslate"><span class="pre">get_bitbirch_clusters()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.parse_args"><code class="docutils literal notranslate"><span class="pre">parse_args()</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.split.pipeline"><code class="docutils literal notranslate"><span class="pre">pipeline()</span></code></a></li>
 <li><a class="reference internal" href="#key-classes-and-functions">Key Classes and Functions</a></li>
 </ul>
 </li>

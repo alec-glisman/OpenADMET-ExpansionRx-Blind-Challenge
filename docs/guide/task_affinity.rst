@@ -389,7 +389,7 @@ Configuration Parameters
 Legacy Task Affinity Configuration (Pre-Training Approach)
 ----------------------------------------------------------
 
-.. deprecated::
+.. deprecated:: 1.0
 
    The legacy ``TaskAffinityConfig`` uses gradient cosine similarity during a
    separate pre-training phase. For paper-accurate implementation, use

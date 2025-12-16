@@ -21,7 +21,7 @@ Available Configurations
 Single Model Configuration
 --------------------------
 
-Example ``configs/single_chemprop.yaml``:
+Example ``configs/0-experiment/chemprop.yaml``:
 
 .. code-block:: yaml
 
@@ -83,7 +83,7 @@ Example ``configs/single_chemprop.yaml``:
 Ensemble Configuration
 ----------------------
 
-Example ``configs/ensemble_chemprop.yaml``:
+Example ``configs/0-experiment/ensemble_chemprop_production.yaml``:
 
 .. code-block:: yaml
 
@@ -116,7 +116,7 @@ Programmatic Loading
    # Load and merge configuration
    config = OmegaConf.merge(
        OmegaConf.structured(ChempropConfig),
-       OmegaConf.load("configs/single_chemprop.yaml")
+       OmegaConf.load("configs/0-experiment/chemprop.yaml")
    )
 
    # Access nested settings

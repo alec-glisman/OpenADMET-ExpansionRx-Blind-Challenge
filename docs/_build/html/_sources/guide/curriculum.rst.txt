@@ -70,7 +70,7 @@ Then train normally:
    from admet.model.chemprop import ChempropModel
    from omegaconf import OmegaConf
 
-   config = OmegaConf.load("configs/chemprop_curriculum.yaml")
+   config = OmegaConf.load("configs/curriculum/chemprop_curriculum.yaml")
    model = ChempropModel.from_config(config)
    model.fit()
 

@@ -225,6 +225,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -422,6 +423,7 @@
                 <span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">,</span>
                 <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                 <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">mlflow_callback</span><span class="p">],</span>
+                <span class="n">sync_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">SyncConfig</span><span class="p">(),</span>
             <span class="p">),</span>
         <span class="p">)</span>
 

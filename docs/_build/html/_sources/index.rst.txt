@@ -92,6 +92,7 @@ Documentation sections
    guide/hpo
    guide/curriculum
    guide/task_affinity
+   guide/mlflow_artifacts
 
 
 To build the docs locally, follow one of these methods:

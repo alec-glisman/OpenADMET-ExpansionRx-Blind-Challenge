@@ -234,6 +234,7 @@
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -291,14 +292,14 @@ configurations to find optimal hyperparameters for your ADMET prediction tasks.<
 <section id="quick-start">
 <h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
 <p>Run HPO using the CLI:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.hpo<span class="w"> </span>--config<span class="w"> </span>configs/hpo_chemprop.yaml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.hpo<span class="w"> </span>--config<span class="w"> </span>configs/1-hpo-single/hpo_chemprop.yaml
 </pre></div>
 </div>
 <p>Or programmatically:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropHPO</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/hpo_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/1-hpo-single/hpo_chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="n">hpo</span> <span class="o">=</span> <span class="n">ChempropHPO</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 <span class="n">best_config</span><span class="p">,</span> <span class="n">results</span> <span class="o">=</span> <span class="n">hpo</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 
@@ -746,7 +747,7 @@ to balance learning across endpoints with different scales and difficulties.</p>
 </section>
 <section id="production-hpo-configuration">
 <h3>Production HPO Configuration<a class="headerlink" href="#production-hpo-configuration" title="Link to this heading">¶</a></h3>
-<p>See <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code> for a complete production configuration
+<p>See <code class="docutils literal notranslate"><span class="pre">configs/1-hpo-single/hpo_chemprop.yaml</span></code> for a complete production configuration
 with all available parameters.</p>
 </section>
 </section>

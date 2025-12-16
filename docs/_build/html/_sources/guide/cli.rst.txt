@@ -20,7 +20,7 @@ Train a single Chemprop model using a configuration file:
    # Load configuration
    config = OmegaConf.merge(
        OmegaConf.structured(ChempropConfig),
-       OmegaConf.load("configs/single_chemprop.yaml")
+       OmegaConf.load("configs/0-experiment/chemprop.yaml")
    )
 
    # Train model
@@ -33,7 +33,7 @@ Train an ensemble of models across multiple data splits:
 
 .. code-block:: bash
 
-   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+   python -m admet.model.chemprop.ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml
 
 Or programmatically:
 
@@ -44,7 +44,7 @@ Or programmatically:
 
    config = OmegaConf.merge(
        OmegaConf.structured(EnsembleConfig),
-       OmegaConf.load("configs/ensemble_chemprop.yaml")
+       OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
    )
 
    ensemble = ChempropEnsemble.from_config(config)

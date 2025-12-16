@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -593,7 +594,7 @@
 <h3>Phase 6: YAML Configuration Support<a class="headerlink" href="#phase-6-yaml-configuration-support" title="Link to this heading">¶</a></h3>
 <section id="example-single-model-config">
 <h4>6.1 Example single model config<a class="headerlink" href="#example-single-model-config" title="Link to this heading">¶</a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/single_chemprop_curriculum.yaml</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/curriculum/chemprop_curriculum.yaml</span>
 <span class="nt">data</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">train_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;train.csv&quot;</span>
 <span class="w">  </span><span class="c1"># ...</span>
@@ -612,7 +613,7 @@
 </section>
 <section id="example-hpo-config">
 <h4>6.2 Example HPO config<a class="headerlink" href="#example-hpo-config" title="Link to this heading">¶</a></h4>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/hpo_chemprop_curriculum.yaml</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/curriculum/hpo_chemprop_curriculum.yaml</span>
 <span class="nt">search_space</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># ... existing params ...</span>
 <span class="w">  </span>
@@ -753,8 +754,8 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_curriculum_config.py</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_curriculum_data.py</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_curriculum_model.py</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">configs/single_chemprop_curriculum.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop_curriculum.yaml</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">configs/curriculum/chemprop_curriculum.yaml</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">configs/curriculum/hpo_chemprop_curriculum.yaml</span></code></p></li>
 </ul>
 </section>
 <section id="modified-files">

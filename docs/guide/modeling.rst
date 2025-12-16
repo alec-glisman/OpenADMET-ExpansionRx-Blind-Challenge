@@ -144,6 +144,10 @@ Logged artifacts include:
 - Configuration YAML
 - Learning curves
 
+.. seealso::
+   For detailed information about MLflow artifact organization, file formats,
+   and how to access predictions and submission files, see :doc:`mlflow_artifacts`.
+
 Classical ML Models
 -------------------
 
@@ -178,3 +182,4 @@ Cross-References
 - See :doc:`hpo` for hyperparameter optimization guide
 - See :doc:`configuration` for detailed configuration options
 - See :doc:`splitting` for dataset partitioning methodology
+- See :doc:`mlflow_artifacts` for MLflow artifact structure and accessing predictions

@@ -224,6 +224,7 @@
 <li class="toctree-l1"><a class="reference internal" href="guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -310,6 +311,13 @@
 
         <ul>
           <li><a href="api/admet.data.html#module-admet.data.smiles">module</a>
+</li>
+        </ul></li>
+        <li>
+    admet.data.split
+
+        <ul>
+          <li><a href="api/admet.data.html#module-admet.data.split">module</a>
 </li>
         </ul></li>
         <li>
@@ -402,17 +410,23 @@
   <h2>B</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.bar_fig">bar_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.base_config_path">base_config_path (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.batch_norm">batch_norm (admet.model.chemprop.ModelConfig attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.batch_size">batch_size (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.blind_file">blind_file (admet.model.chemprop.DataConfig attribute)</a>
 </li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.boxplot_fig">boxplot_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN">BranchedFFN (class in admet.model.chemprop.ffn)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.build_cluster_label_matrix">build_cluster_label_matrix() (in module admet.data.split)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -440,14 +454,32 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.close">(admet.model.chemprop.ChempropModel method)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.data.html#admet.data.split.cluster_data">cluster_data() (in module admet.data.split)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.cluster_group_kfold">cluster_group_kfold() (in module admet.data.split)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.cluster_ids">cluster_ids (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.cluster_kfold">cluster_kfold() (in module admet.data.split)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.cluster_multilabel_stratified_kfold">cluster_multilabel_stratified_kfold() (in module admet.data.split)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.cluster_sizes">cluster_sizes (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.cluster_stratified_kfold">cluster_stratified_kfold() (in module admet.data.split)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics">ClusterCVDiagnostics (class in admet.data.split)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold">ClusterCVFold (class in admet.data.split)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.constant.COLS_WITH_UNITS">COLS_WITH_UNITS (in module admet.data.constant)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.compute_metrics_by_split">compute_metrics_by_split() (in module admet.plot.metrics)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.compute_metrics_df">compute_metrics_df() (in module admet.plot.metrics)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.property.compute_molecular_properties">compute_molecular_properties() (in module admet.data.property)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropEnsemble.config">config (admet.model.chemprop.ChempropEnsemble attribute)</a>
@@ -498,6 +530,8 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.depth">depth (admet.model.chemprop.ModelConfig attribute)</a>
 </li>
+        <li><a href="api/admet.data.html#admet.data.split.diameter_prune_tolerance_reassign">diameter_prune_tolerance_reassign() (in module admet.data.split)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropEnsemble.discover_splits_folds">discover_splits_folds() (admet.model.chemprop.ChempropEnsemble method)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.distribution">distribution() (in module admet.data.stats)</a>
@@ -520,9 +554,13 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.encode">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN method)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.endpoint_figs">endpoint_figs (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig">EnsembleConfig (class in admet.model.chemprop)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.example_default_pipeline">example_default_pipeline() (in module admet.data.split)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.experiment_name">experiment_name (admet.model.chemprop.HPOConfig attribute)</a>
 
@@ -548,8 +586,12 @@
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.fit">fit() (admet.model.chemprop.ChempropModel method)</a>
 </li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.fold_id">fold_id (admet.data.split.ClusterCVFold attribute)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.fold_train_cluster_sizes">fold_train_cluster_sizes (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
         <li><a href="api/admet.util.html#admet.util.logging.JsonFormatter.format">format() (admet.util.logging.JsonFormatter method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.forward">forward() (admet.model.chemprop.ffn.BranchedFFN method)</a>
@@ -574,6 +616,8 @@
   <h2>G</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.get_bitbirch_clusters">get_bitbirch_clusters() (in module admet.data.split)</a>
+</li>
         <li><a href="api/admet.util.html#admet.util.utils.get_git_commit_hash">get_git_commit_hash() (in module admet.util.utils)</a>
 </li>
     </ul></td>
@@ -594,6 +638,8 @@
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.hist_fig">hist_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig">HPOConfig (class in admet.model.chemprop)</a>
 </li>
     </ul></td>
@@ -608,12 +654,18 @@
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.init_lr">init_lr (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.input_dim">input_dim (admet.model.chemprop.ffn.BranchedFFN property)</a>
 
         <ul>
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.input_dim">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN property)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.model.html#admet.model.chemprop.ChempropConfig.inter_task_affinity">inter_task_affinity (admet.model.chemprop.ChempropConfig attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.inter_task_affinity">(admet.model.chemprop.EnsembleConfig attribute)</a>
 </li>
         </ul></li>
     </ul></td>
@@ -724,6 +776,8 @@
 </li>
           <li><a href="api/admet.data.html#module-admet.data.smiles">admet.data.smiles</a>
 </li>
+          <li><a href="api/admet.data.html#module-admet.data.split">admet.data.split</a>
+</li>
           <li><a href="api/admet.data.html#module-admet.data.stats">admet.data.stats</a>
 </li>
           <li><a href="api/admet.plot.html#module-admet.plot.density">admet.plot.density</a>
@@ -767,14 +821,22 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.n_targets">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.n_tasks">n_tasks (admet.model.chemprop.ffn.BranchedFFN property)</a>
 
         <ul>
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.n_tasks">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN property)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_train_clusters">n_train_clusters (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_train_mols">n_train_mols (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_val_clusters">n_val_clusters (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_val_mols">n_val_mols (admet.data.split.ClusterCVFold attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.MlflowConfig.nested">nested (admet.model.chemprop.MlflowConfig attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.num_layers">num_layers (admet.model.chemprop.ModelConfig attribute)</a>
@@ -829,11 +891,15 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.MlflowConfig.parent_run_id">(admet.model.chemprop.MlflowConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.data.html#admet.data.split.parse_args">parse_args() (in module admet.data.split)</a>
+</li>
         <li><a href="api/admet.util.html#admet.util.utils.parse_data_dir_params">parse_data_dir_params() (in module admet.util.utils)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.patience">patience (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.CorrelationMetrics.pearson_r">pearson_r (admet.data.stats.CorrelationMetrics attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.pipeline">pipeline() (in module admet.data.split)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.plot_all_metrics">plot_all_metrics() (in module admet.plot.metrics)</a>
 </li>
@@ -843,10 +909,10 @@
 </li>
         <li><a href="api/admet.plot.html#admet.plot.heatmap.plot_correlation_matrix">plot_correlation_matrix() (in module admet.plot.heatmap)</a>
 </li>
-        <li><a href="api/admet.plot.html#admet.plot.density.plot_endpoint_distributions">plot_endpoint_distributions() (in module admet.plot.density)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.plot.html#admet.plot.density.plot_endpoint_distributions">plot_endpoint_distributions() (in module admet.plot.density)</a>
+</li>
         <li><a href="api/admet.plot.html#admet.plot.split.plot_endpoint_finite_value_counts">plot_endpoint_finite_value_counts() (in module admet.plot.split)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.plot_metric_bar">plot_metric_bar() (in module admet.plot.metrics)</a>
@@ -979,10 +1045,10 @@
 </li>
         <li><a href="api/admet.plot.html#admet.plot.latex.text_distribution">text_distribution() (in module admet.plot.latex)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.to_config">to_config() (admet.model.chemprop.ChempropModel method)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.fingerprint.FingerprintConfig.to_dict">to_dict() (admet.data.fingerprint.FingerprintConfig method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.MlflowConfig.tracking">tracking (admet.model.chemprop.MlflowConfig attribute)</a>
@@ -990,6 +1056,10 @@
         <li><a href="api/admet.model.html#admet.model.chemprop.MlflowConfig.tracking_uri">tracking_uri (admet.model.chemprop.MlflowConfig attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropEnsemble.train_all">train_all() (admet.model.chemprop.ChempropEnsemble method)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.train_clusters">train_clusters (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.train_indices">train_indices (admet.data.split.ClusterCVFold attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.train_step">train_step() (admet.model.chemprop.ffn.BranchedFFN method)</a>
 
@@ -1029,7 +1099,13 @@
   <h2>V</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.val_clusters">val_clusters (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.val_data_path">val_data_path (admet.model.chemprop.HPOConfig attribute)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.val_indices">val_indices (admet.data.split.ClusterCVFold attribute)</a>
 </li>
     </ul></td>
   </tr></table>

@@ -1,0 +1,871 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="MLflow Artifacts Guide" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/guide/mlflow_artifacts.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="This document describes the complete MLflow artifacts structure generated during ensemble training for the OpenADMET ExpansionRx Challenge. Overview: The ensemble training creates a hierarchical ML..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="This document describes the complete MLflow artifacts structure generated during ensemble training for the OpenADMET ExpansionRx Challenge. Overview: The ensemble training creates a hierarchical ML..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="prev" title="Task Affinity Grouping" href="task_affinity.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>MLflow Artifacts Guide - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">MLflow Artifacts Guide</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/guide/mlflow_artifacts.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="mlflow-artifacts-guide">
+<span id="mlflow-artifacts"></span><h1>MLflow Artifacts Guide<a class="headerlink" href="#mlflow-artifacts-guide" title="Link to this heading">¶</a></h1>
+<p>This document describes the complete MLflow artifacts structure generated during ensemble training for the OpenADMET ExpansionRx Challenge.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>The ensemble training creates a hierarchical MLflow run structure:</p>
+<ul class="simple">
+<li><p><strong>1 Parent Run</strong>: Ensemble-level aggregated results</p></li>
+<li><p><strong>25 Nested Runs</strong>: Individual model results (5 splits × 5 folds)</p></li>
+</ul>
+</section>
+<section id="artifact-organization">
+<h2>Artifact Organization<a class="headerlink" href="#artifact-organization" title="Link to this heading">¶</a></h2>
+<section id="parent-run-ensemble-level">
+<h3>Parent Run (Ensemble Level)<a class="headerlink" href="#parent-run-ensemble-level" title="Link to this heading">¶</a></h3>
+<p>The parent run contains aggregated predictions and metrics across all 25 models.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Parent Run: production_ensemble_chemprop_hpo_topk/rank_001
+│
+├── predictions/
+│   ├── test_ensemble_predictions.csv         # Detailed test predictions
+│   └── blind_ensemble_predictions.csv        # Detailed blind predictions
+│
+├── submissions/
+│   ├── test_ensemble_submissions.csv         # Test submission format
+│   └── blind_ensemble_submissions.csv        # Blind submission format (FINAL)
+│
+├── plots/
+│   ├── test/
+│   │   ├── prediction_distributions.png      # Test prediction distributions
+│   │   ├── uncertainty_distributions.png     # Test uncertainty distributions
+│   │   ├── parity_LogD.png                   # Parity plots for each endpoint
+│   │   ├── parity_Log_KSOL.png
+│   │   └── ... (one per endpoint)
+│   │
+│   └── blind/
+│       ├── prediction_distributions.png      # Blind prediction distributions
+│       └── uncertainty_distributions.png     # Blind uncertainty distributions
+│
+└── metrics/
+    └── (ensemble-level metrics logged as MLflow metrics)
+</pre></div>
+</div>
+</section>
+<section id="nested-runs-individual-models">
+<h3>Nested Runs (Individual Models)<a class="headerlink" href="#nested-runs-individual-models" title="Link to this heading">¶</a></h3>
+<p>Each of the 25 models (5 splits × 5 folds) has its own nested run.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Nested Run: split_0_fold_0
+│
+├── predictions/
+│   ├── train_predictions.csv                 # Training set predictions
+│   ├── train_submissions.csv                 # Training submissions
+│   ├── train_distribution_stats.csv          # Training distribution stats
+│   │
+│   ├── val_predictions.csv                   # Validation set predictions
+│   ├── val_submissions.csv                   # Validation submissions
+│   ├── val_distribution_stats.csv            # Validation distribution stats
+│   │
+│   ├── test_predictions.csv                  # Test set predictions
+│   ├── test_submissions.csv                  # Test submissions
+│   ├── test_distribution_stats.csv           # Test distribution stats
+│   │
+│   ├── blind_predictions.csv                 # Blind set predictions
+│   ├── blind_submissions.csv                 # Blind submissions
+│   └── blind_distribution_stats.csv          # Blind distribution stats
+│
+├── plots/
+│   ├── train/
+│   │   ├── parity_LogD.png                   # Parity plots per endpoint
+│   │   └── ... (one per endpoint)
+│   │
+│   ├── val/
+│   │   ├── parity_LogD.png
+│   │   └── ... (one per endpoint)
+│   │
+│   └── test/
+│       ├── parity_LogD.png
+│       └── ... (one per endpoint)
+│
+├── checkpoints/
+│   └── best_model.ckpt                       # Best model checkpoint
+│
+└── metrics/
+    └── (per-model metrics logged as MLflow metrics)
+</pre></div>
+</div>
+</section>
+</section>
+<section id="file-formats">
+<h2>File Formats<a class="headerlink" href="#file-formats" title="Link to this heading">¶</a></h2>
+<section id="predictions-csv-detailed-format">
+<h3>Predictions CSV (Detailed Format)<a class="headerlink" href="#predictions-csv-detailed-format" title="Link to this heading">¶</a></h3>
+<section id="ensemble-level">
+<h4>Ensemble Level<a class="headerlink" href="#ensemble-level" title="Link to this heading">¶</a></h4>
+<p>File: <code class="docutils literal notranslate"><span class="pre">*_ensemble_predictions.csv</span></code></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SMILES</span></code></p></td>
+<td><p>Canonical SMILES string</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code></p></td>
+<td><p>Molecule identifier (if present in input)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_mean</span></code></p></td>
+<td><p>Mean prediction across 25 models</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_std</span></code></p></td>
+<td><p>Standard deviation across models</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_stderr</span></code></p></td>
+<td><p>Standard error (std / √25)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_transformed_mean</span></code></p></td>
+<td><p>10^mean for “Log “ columns</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_transformed_stderr</span></code></p></td>
+<td><p>Propagated stderr through 10^x</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_actual</span></code></p></td>
+<td><p>Ground truth (test set only)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="individual-model-level">
+<h4>Individual Model Level<a class="headerlink" href="#individual-model-level" title="Link to this heading">¶</a></h4>
+<p>File: <code class="docutils literal notranslate"><span class="pre">*_predictions.csv</span></code></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SMILES</span></code></p></td>
+<td><p>Canonical SMILES string</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{endpoint}</span></code></p></td>
+<td><p>Raw prediction in log space</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="submissions-csv-challenge-format">
+<h3>Submissions CSV (Challenge Format)<a class="headerlink" href="#submissions-csv-challenge-format" title="Link to this heading">¶</a></h3>
+<section id="id1">
+<h4>Ensemble Level<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h4>
+<p>File: <code class="docutils literal notranslate"><span class="pre">*_ensemble_submissions.csv</span></code></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SMILES</span></code></p></td>
+<td><p>Canonical SMILES string</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code></p></td>
+<td><p>Molecule identifier (if present)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LogD</span></code></p></td>
+<td><p>Direct mean prediction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">KSOL</span></code></p></td>
+<td><p>10^(Log KSOL mean) - transformed to μM</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">HLM</span> <span class="pre">CLint</span></code></p></td>
+<td><p>10^(Log HLM CLint mean) - transformed</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MLM</span> <span class="pre">CLint</span></code></p></td>
+<td><p>10^(Log MLM CLint mean) - transformed</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B</span></code></p></td>
+<td><p>10^(Log Caco-2 Papp mean)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux</span></code></p></td>
+<td><p>10^(Log Caco-2 Efflux mean)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MPPB</span></code></p></td>
+<td><p>10^(Log MPPB mean) - % unbound</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MBPB</span></code></p></td>
+<td><p>10^(Log MBPB mean) - % unbound</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MGMB</span></code></p></td>
+<td><p>10^(Log MGMB mean) - % unbound</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id2">
+<h4>Individual Model Level<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
+<p>Same format but contains single model predictions instead of ensemble mean.</p>
+</section>
+</section>
+<section id="distribution-stats-csv">
+<h3>Distribution Stats CSV<a class="headerlink" href="#distribution-stats-csv" title="Link to this heading">¶</a></h3>
+<p>Statistical summaries for each endpoint.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 80.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">split</span></code></p></td>
+<td><p>Dataset split (train/val/test/blind)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">target</span></code></p></td>
+<td><p>Endpoint name</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">transform</span></code></p></td>
+<td><p>“raw” (log space) or “10^x” (linear space)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">statistic</span></code></p></td>
+<td><p>Stat name (mean, median, std, min, max, etc.)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>Statistic value</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="accessing-artifacts">
+<h2>Accessing Artifacts<a class="headerlink" href="#accessing-artifacts" title="Link to this heading">¶</a></h2>
+<section id="via-mlflow-ui">
+<h3>Via MLflow UI<a class="headerlink" href="#via-mlflow-ui" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start MLflow server</span>
+mlflow<span class="w"> </span>ui<span class="w"> </span>--backend-store-uri<span class="w"> </span>sqlite:///mlflow.db<span class="w"> </span>--port<span class="w"> </span><span class="m">8084</span>
+
+<span class="c1"># Navigate to http://localhost:8084</span>
+<span class="c1"># Select experiment: production_ensemble_chemprop_hpo_topk</span>
+<span class="c1"># Select run: rank_001</span>
+<span class="c1"># Click &quot;Artifacts&quot; tab</span>
+</pre></div>
+</div>
+</section>
+<section id="via-mlflow-client-python">
+<h3>Via MLflow Client (Python)<a class="headerlink" href="#via-mlflow-client-python" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+
+<span class="c1"># Connect to tracking server</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">set_tracking_uri</span><span class="p">(</span><span class="s2">&quot;http://127.0.0.1:8084&quot;</span><span class="p">)</span>
+
+<span class="c1"># Get run</span>
+<span class="n">run</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span>
+
+<span class="c1"># Download artifact</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">artifacts</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span>
+    <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;submissions/blind_ensemble_submissions.csv&quot;</span><span class="p">,</span>
+    <span class="n">dst_path</span><span class="o">=</span><span class="s2">&quot;./downloads&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="via-command-line">
+<h3>Via Command Line<a class="headerlink" href="#via-command-line" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Download all artifacts from a run</span>
+mlflow<span class="w"> </span>artifacts<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--run-id<span class="w"> </span>&lt;run_id&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dst-path<span class="w"> </span>./artifacts
+
+<span class="c1"># Download specific artifact</span>
+mlflow<span class="w"> </span>artifacts<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--run-id<span class="w"> </span>&lt;run_id&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--artifact-path<span class="w"> </span>submissions/blind_ensemble_submissions.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dst-path<span class="w"> </span>./submissions
+</pre></div>
+</div>
+</section>
+</section>
+<section id="key-files-for-challenge-submission">
+<h2>Key Files for Challenge Submission<a class="headerlink" href="#key-files-for-challenge-submission" title="Link to this heading">¶</a></h2>
+<section id="final-submission-file">
+<h3>Final Submission File<a class="headerlink" href="#final-submission-file" title="Link to this heading">¶</a></h3>
+<p><strong>Primary:</strong> <code class="docutils literal notranslate"><span class="pre">submissions/blind_ensemble_submissions.csv</span></code> from the <strong>parent run</strong></p>
+<p>This file contains:</p>
+<ul class="simple">
+<li><p>Mean predictions aggregated across all 25 models</p></li>
+<li><p>Transformed values (10^x for Log columns)</p></li>
+<li><p>Proper units for all endpoints</p></li>
+<li><p>Molecule Name column (if present in blind_test.csv)</p></li>
+</ul>
+</section>
+<section id="validation">
+<h3>Validation<a class="headerlink" href="#validation" title="Link to this heading">¶</a></h3>
+<p><strong>For local validation:</strong> <code class="docutils literal notranslate"><span class="pre">submissions/test_ensemble_submissions.csv</span></code> from the <strong>parent run</strong></p>
+<p>Compare this against the held-out test set to verify model performance.</p>
+</section>
+<section id="uncertainty-estimates">
+<h3>Uncertainty Estimates<a class="headerlink" href="#uncertainty-estimates" title="Link to this heading">¶</a></h3>
+<p><strong>For confidence intervals:</strong> <code class="docutils literal notranslate"><span class="pre">predictions/blind_ensemble_predictions.csv</span></code> from the <strong>parent run</strong></p>
+<p>This file includes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_mean</span></code>: Point estimate</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{endpoint}_stderr</span></code>: Standard error for confidence intervals</p></li>
+<li><p>Example: 95% CI = mean ± 1.96 × stderr</p></li>
+</ul>
+</section>
+</section>
+<section id="workflow-example">
+<h2>Workflow Example<a class="headerlink" href="#workflow-example" title="Link to this heading">¶</a></h2>
+<section id="train-ensemble">
+<h3>1. Train Ensemble<a class="headerlink" href="#train-ensemble" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.ensemble<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/3-production/ensemble_chemprop_hpo_001.yaml
+</pre></div>
+</div>
+</section>
+<section id="locate-parent-run">
+<h3>2. Locate Parent Run<a class="headerlink" href="#locate-parent-run" title="Link to this heading">¶</a></h3>
+<p>Check MLflow UI for the parent run ID, or find it in logs:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>INFO - Parent MLflow run: 7a3f8e9c1d2b4a5e6f7g8h9i0j1k2l3m
+</pre></div>
+</div>
+</section>
+<section id="download-final-submission">
+<h3>3. Download Final Submission<a class="headerlink" href="#download-final-submission" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlflow<span class="w"> </span>artifacts<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--run-id<span class="w"> </span>7a3f8e9c1d2b4a5e6f7g8h9i0j1k2l3m<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--artifact-path<span class="w"> </span>submissions/blind_ensemble_submissions.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dst-path<span class="w"> </span>./final_submission
+</pre></div>
+</div>
+</section>
+<section id="verify-format">
+<h3>4. Verify Format<a class="headerlink" href="#verify-format" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="c1"># Load submission</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;final_submission/blind_ensemble_submissions.csv&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check required columns</span>
+<span class="n">required</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;SMILES&quot;</span><span class="p">,</span> <span class="s2">&quot;LogD&quot;</span><span class="p">,</span> <span class="s2">&quot;KSOL&quot;</span><span class="p">,</span> <span class="s2">&quot;HLM CLint&quot;</span><span class="p">,</span> <span class="s2">&quot;MLM CLint&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Caco-2 Permeability Papp A&gt;B&quot;</span><span class="p">,</span> <span class="s2">&quot;Caco-2 Permeability Efflux&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPPB&quot;</span><span class="p">,</span> <span class="s2">&quot;MBPB&quot;</span><span class="p">,</span> <span class="s2">&quot;MGMB&quot;</span><span class="p">]</span>
+
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">required</span><span class="p">),</span> <span class="s2">&quot;Missing required columns&quot;</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Submission file is empty&quot;</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Submission file valid with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="si">}</span><span class="s2"> molecules&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>
+<section id="molecule-name-preservation">
+<h3>Molecule Name Preservation<a class="headerlink" href="#molecule-name-preservation" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">Molecule</span> <span class="pre">Name</span></code> column is automatically preserved if present in:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">test_file</span></code> → appears in test predictions</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_file</span></code> → appears in blind predictions</p></li>
+</ul>
+<p>This column is included in both <code class="docutils literal notranslate"><span class="pre">*_predictions.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">*_submissions.csv</span></code> files.</p>
+</section>
+<section id="missing-values">
+<h3>Missing Values<a class="headerlink" href="#missing-values" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Individual model predictions may contain NaN for specific endpoints</p></li>
+<li><p>Ensemble predictions handle NaN by computing statistics over available (non-NaN) values</p></li>
+<li><p>If all 25 models predict NaN for a molecule/endpoint, the ensemble will also be NaN</p></li>
+</ul>
+</section>
+<section id="temporary-files">
+<h3>Temporary Files<a class="headerlink" href="#temporary-files" title="Link to this heading">¶</a></h3>
+<p>The ensemble creates a temporary directory (<code class="docutils literal notranslate"><span class="pre">/tmp/ensemble_*</span></code>) during training. Artifacts are:</p>
+<ol class="arabic simple">
+<li><p>Saved to temp directory</p></li>
+<li><p>Logged to MLflow</p></li>
+<li><p>Temp directory is cleaned up</p></li>
+</ol>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Always retrieve artifacts from MLflow, not the temp directory.</p>
+</div>
+</section>
+<section id="parallelization">
+<h3>Parallelization<a class="headerlink" href="#parallelization" title="Link to this heading">¶</a></h3>
+<p>Artifacts are logged from Ray workers to MLflow. The parent run aggregates all results after all workers complete. Ensure the MLflow tracking server is accessible from all Ray worker nodes.</p>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<section id="missing-blind-predictions">
+<h3>Missing Blind Predictions<a class="headerlink" href="#missing-blind-predictions" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong> Only test predictions appear, no blind predictions</p>
+<p><strong>Solution:</strong> Ensure <code class="docutils literal notranslate"><span class="pre">blind_file</span></code> is specified in the ensemble config:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">blind_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/set/blind_test.csv&quot;</span>
+</pre></div>
+</div>
+<p><strong>Verification:</strong> Check that line 551 in <code class="docutils literal notranslate"><span class="pre">ensemble.py</span></code> assigns <code class="docutils literal notranslate"><span class="pre">blind_preds</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">blind_preds</span> <span class="o">=</span> <span class="n">pred_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># This line must be present</span>
+</pre></div>
+</div>
+</section>
+<section id="empty-submission-files">
+<h3>Empty Submission Files<a class="headerlink" href="#empty-submission-files" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong> Submission CSV files have no data rows</p>
+<p><strong>Causes:</strong></p>
+<ol class="arabic simple">
+<li><p>All molecules failed SMILES canonicalization</p></li>
+<li><p>All predictions returned NaN</p></li>
+<li><p>Input file path incorrect</p></li>
+</ol>
+<p><strong>Debug:</strong></p>
+<ul class="simple">
+<li><p>Check logs for SMILES parsing errors</p></li>
+<li><p>Verify input file exists and is readable</p></li>
+<li><p>Check individual model predictions for NaN patterns</p></li>
+</ul>
+</section>
+<section id="mlflow-artifact-upload-failures">
+<h3>MLflow Artifact Upload Failures<a class="headerlink" href="#mlflow-artifact-upload-failures" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong> <code class="docutils literal notranslate"><span class="pre">MlflowException:</span> <span class="pre">Failed</span> <span class="pre">to</span> <span class="pre">log</span> <span class="pre">artifact</span></code></p>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic simple">
+<li><p>Verify MLflow server is running: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">http://127.0.0.1:8084/health</span></code></p></li>
+<li><p>Check disk space on MLflow artifact store</p></li>
+<li><p>Ensure Ray workers can reach MLflow server</p></li>
+<li><p>Verify MLflow version compatibility (≥2.0)</p></li>
+</ol>
+</section>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> - Model training and evaluation guide</p></li>
+<li><p><a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> - Hyperparameter optimization guide</p></li>
+<li><p><a class="reference internal" href="config_reference.html"><span class="doc">Configuration File Reference</span></a> - Configuration file reference</p></li>
+<li><p><a class="reference internal" href="../genindex.html"><span class="std std-ref">Index</span></a> - Complete API index</p></li>
+</ul>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://mlflow.org/docs/latest/tracking.html">MLflow Tracking Documentation</a></p></li>
+<li><p><a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> - Ensemble training guide</p></li>
+<li><p><a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> - Hyperparameter optimization guide</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          <a class="prev-page" href="task_affinity.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Task Affinity Grouping</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">MLflow Artifacts Guide</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#artifact-organization">Artifact Organization</a><ul>
+<li><a class="reference internal" href="#parent-run-ensemble-level">Parent Run (Ensemble Level)</a></li>
+<li><a class="reference internal" href="#nested-runs-individual-models">Nested Runs (Individual Models)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#file-formats">File Formats</a><ul>
+<li><a class="reference internal" href="#predictions-csv-detailed-format">Predictions CSV (Detailed Format)</a><ul>
+<li><a class="reference internal" href="#ensemble-level">Ensemble Level</a></li>
+<li><a class="reference internal" href="#individual-model-level">Individual Model Level</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#submissions-csv-challenge-format">Submissions CSV (Challenge Format)</a><ul>
+<li><a class="reference internal" href="#id1">Ensemble Level</a></li>
+<li><a class="reference internal" href="#id2">Individual Model Level</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#distribution-stats-csv">Distribution Stats CSV</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#accessing-artifacts">Accessing Artifacts</a><ul>
+<li><a class="reference internal" href="#via-mlflow-ui">Via MLflow UI</a></li>
+<li><a class="reference internal" href="#via-mlflow-client-python">Via MLflow Client (Python)</a></li>
+<li><a class="reference internal" href="#via-command-line">Via Command Line</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#key-files-for-challenge-submission">Key Files for Challenge Submission</a><ul>
+<li><a class="reference internal" href="#final-submission-file">Final Submission File</a></li>
+<li><a class="reference internal" href="#validation">Validation</a></li>
+<li><a class="reference internal" href="#uncertainty-estimates">Uncertainty Estimates</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#workflow-example">Workflow Example</a><ul>
+<li><a class="reference internal" href="#train-ensemble">1. Train Ensemble</a></li>
+<li><a class="reference internal" href="#locate-parent-run">2. Locate Parent Run</a></li>
+<li><a class="reference internal" href="#download-final-submission">3. Download Final Submission</a></li>
+<li><a class="reference internal" href="#verify-format">4. Verify Format</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#notes">Notes</a><ul>
+<li><a class="reference internal" href="#molecule-name-preservation">Molecule Name Preservation</a></li>
+<li><a class="reference internal" href="#missing-values">Missing Values</a></li>
+<li><a class="reference internal" href="#temporary-files">Temporary Files</a></li>
+<li><a class="reference internal" href="#parallelization">Parallelization</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#missing-blind-predictions">Missing Blind Predictions</a></li>
+<li><a class="reference internal" href="#empty-submission-files">Empty Submission Files</a></li>
+<li><a class="reference internal" href="#mlflow-artifact-upload-failures">MLflow Artifact Upload Failures</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
+<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>

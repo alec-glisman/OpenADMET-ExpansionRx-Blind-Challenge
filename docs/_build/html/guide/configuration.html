@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -292,7 +293,7 @@ with structured defaults.</p>
 </section>
 <section id="single-model-configuration">
 <h2>Single Model Configuration<a class="headerlink" href="#single-model-configuration" title="Link to this heading">¶</a></h2>
-<p>Example <code class="docutils literal notranslate"><span class="pre">configs/single_chemprop.yaml</span></code>:</p>
+<p>Example <code class="docutils literal notranslate"><span class="pre">configs/0-experiment/chemprop.yaml</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Data configuration</span>
 <span class="nt">data</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0&quot;</span>
@@ -352,7 +353,7 @@ with structured defaults.</p>
 </section>
 <section id="ensemble-configuration">
 <h2>Ensemble Configuration<a class="headerlink" href="#ensemble-configuration" title="Link to this heading">¶</a></h2>
-<p>Example <code class="docutils literal notranslate"><span class="pre">configs/ensemble_chemprop.yaml</span></code>:</p>
+<p>Example <code class="docutils literal notranslate"><span class="pre">configs/0-experiment/ensemble_chemprop_production.yaml</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Data root containing split_*/fold_*/ subdirectories</span>
 <span class="nt">data</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data&quot;</span>
@@ -381,7 +382,7 @@ with structured defaults.</p>
 <span class="c1"># Load and merge configuration</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/single_chemprop.yaml&quot;</span><span class="p">)</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
 <span class="c1"># Access nested settings</span>

@@ -82,7 +82,7 @@ The package uses OmegaConf dataclasses for configuration management:
    from omegaconf import OmegaConf
 
    # Load from YAML
-   config = OmegaConf.load("configs/ensemble_chemprop.yaml")
+   config = OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
    cfg = OmegaConf.structured(EnsembleConfig(**config))
 
    # Access nested configuration

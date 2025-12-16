@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -370,7 +371,7 @@
 <td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>TASK-006</p></td>
-<td><p>Create <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code> example configuration file</p></td>
+<td><p>Create <code class="docutils literal notranslate"><span class="pre">configs/1-hpo-single/hpo_chemprop.yaml</span></code> example configuration file</p></td>
 <td><p></p></td>
 <td><p></p></td>
 </tr>
@@ -485,13 +486,13 @@
 </pre></div>
 </div>
 <p><strong>TASK-006 Details: Example YAML Configuration</strong></p>
-<p>Create <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code>:</p>
+<p>Create <code class="docutils literal notranslate"><span class="pre">configs/1-hpo-single/hpo_chemprop.yaml</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Hyperparameter Optimization Configuration for Chemprop</span>
 <span class="c1"># ======================================================</span>
 <span class="c1"># This YAML configures Ray Tune HPO with ASHA scheduler.</span>
 <span class="c1">#</span>
 <span class="c1"># Usage:</span>
-<span class="c1">#   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml</span>
+<span class="c1">#   python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml</span>
 
 <span class="c1"># Data configuration (fixed during HPO)</span>
 <span class="nt">data</span><span class="p">:</span>
@@ -1068,7 +1069,7 @@
 
 <span class="sd">Usage</span>
 <span class="sd">-----</span>
-<span class="sd">python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml</span>
+<span class="sd">python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
@@ -1448,8 +1449,8 @@
         <span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawDescriptionHelpFormatter</span><span class="p">,</span>
         <span class="n">epilog</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
 <span class="s2">Examples:</span>
-<span class="s2">  python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml</span>
-<span class="s2">  python -m admet.model.chemprop.hpo -c configs/hpo.yaml --log-level DEBUG</span>
+<span class="s2">  python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml</span>
+<span class="s2">  python -m admet.model.chemprop.hpo -c configs/1-hpo-single/hpo_chemprop.yaml --log-level DEBUG</span>
 <span class="s2">        &quot;&quot;&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
@@ -1526,7 +1527,7 @@
 <span class="c1">#</span>
 <span class="c1"># Options:</span>
 <span class="c1">#   --dry-run     Print commands without executing</span>
-<span class="c1">#   --config      Path to HPO config (default: configs/hpo_chemprop.yaml)</span>
+<span class="c1">#   --config      Path to HPO config (default: configs/1-hpo-single/hpo_chemprop.yaml)</span>
 <span class="c1">#   --log-level   Set logging level (DEBUG, INFO, WARNING, ERROR)</span>
 <span class="c1">#</span>
 <span class="c1"># =============================================================================</span>
@@ -1539,7 +1540,7 @@
 
 <span class="c1"># Configuration</span>
 <span class="nv">PROJECT_ROOT</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>get_project_root<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SCRIPT_DIR</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span>
-<span class="nv">DEFAULT_CONFIG</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PROJECT_ROOT</span><span class="si">}</span><span class="s2">/configs/hpo_chemprop.yaml&quot;</span>
+<span class="nv">DEFAULT_CONFIG</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PROJECT_ROOT</span><span class="si">}</span><span class="s2">/configs/1-hpo-single/hpo_chemprop.yaml&quot;</span>
 
 <span class="c1"># Default options</span>
 <span class="nv">DRY_RUN</span><span class="o">=</span><span class="nb">false</span>
@@ -1666,7 +1667,7 @@ log_info<span class="w"> </span><span class="s2">&quot;Config file: </span><span
 <li><p><strong>FILE-002</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_search_space.py</span></code> - Search space builder</p></li>
 <li><p><strong>FILE-003</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo_trainable.py</span></code> - Ray Tune trainable function</p></li>
 <li><p><strong>FILE-004</strong>: <code class="docutils literal notranslate"><span class="pre">src/admet/model/chemprop/hpo.py</span></code> - Main HPO runner</p></li>
-<li><p><strong>FILE-005</strong>: <code class="docutils literal notranslate"><span class="pre">configs/hpo_chemprop.yaml</span></code> - Example HPO configuration</p></li>
+<li><p><strong>FILE-005</strong>: <code class="docutils literal notranslate"><span class="pre">configs/1-hpo-single/hpo_chemprop.yaml</span></code> - Example HPO configuration</p></li>
 <li><p><strong>FILE-006</strong>: <code class="docutils literal notranslate"><span class="pre">scripts/run_chemprop_hpo.sh</span></code> - Bash runner script</p></li>
 <li><p><strong>FILE-007</strong>: <code class="docutils literal notranslate"><span class="pre">scripts/README.md</span></code> - Updated with HPO documentation</p></li>
 <li><p><strong>FILE-008</strong>: <code class="docutils literal notranslate"><span class="pre">tests/admet/model/chemprop/test_hpo_config.py</span></code> - Config tests</p></li>

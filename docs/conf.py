@@ -45,7 +45,10 @@ napoleon_use_rtype = True
 # MyST parser options
 myst_enable_extensions = ["deflist", "fieldlist", "colon_fence"]
 # Suppress heading level warnings for planning docs (draft content)
-suppress_warnings = ["myst.header"]
+suppress_warnings = ["myst.header", "autodoc.import_object"]
+
+# Mock imports for modules that require compiled extensions or are not available during doc build
+autodoc_mock_imports = ["bitbirch.pruning"]
 
 # Type hints
 autodoc_typehints = "description"

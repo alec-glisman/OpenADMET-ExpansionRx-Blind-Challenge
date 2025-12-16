@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -350,7 +351,7 @@ metric visualizations, and dataset exploration plots.</p></li>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load from YAML</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/ensemble_chemprop.yaml&quot;</span><span class="p">)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/ensemble_chemprop_production.yaml&quot;</span><span class="p">)</span>
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
 
 <span class="c1"># Access nested configuration</span>

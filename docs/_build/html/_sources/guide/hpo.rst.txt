@@ -23,7 +23,7 @@ Run HPO using the CLI:
 
 .. code-block:: bash
 
-   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
+   python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
 
 Or programmatically:
 
@@ -32,7 +32,7 @@ Or programmatically:
    from admet.model.chemprop.hpo import ChempropHPO
    from omegaconf import OmegaConf
 
-   config = OmegaConf.load("configs/hpo_chemprop.yaml")
+   config = OmegaConf.load("configs/1-hpo-single/hpo_chemprop.yaml")
    hpo = ChempropHPO(config)
    best_config, results = hpo.run()
 
@@ -441,7 +441,7 @@ Minimal HPO Configuration
 Production HPO Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-See ``configs/hpo_chemprop.yaml`` for a complete production configuration
+See ``configs/1-hpo-single/hpo_chemprop.yaml`` for a complete production configuration
 with all available parameters.
 
 API Reference

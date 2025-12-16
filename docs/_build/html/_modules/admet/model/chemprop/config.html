@@ -225,6 +225,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -502,6 +503,8 @@
     <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">])</span>
     <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+    <span class="n">save_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">plot_dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
     <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sampled&quot;</span>
     <span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">log_per_quality_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -510,7 +513,7 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">TaskAffinityConfig</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for task affinity grouping.</span>
+<span class="sd">    Configuration for task affinity grouping (legacy pre-training approach).</span>
 
 <span class="sd">    Task affinity grouping implements the TAG algorithm from</span>
 <span class="sd">    &quot;Efficiently Identifying Task Groupings for Multi-Task Learning&quot;</span>
@@ -518,6 +521,12 @@
 <span class="sd">    by measuring gradient similarity between tasks during a short training</span>
 <span class="sd">    run, then clusters tasks into groups that benefit from being trained</span>
 <span class="sd">    together.</span>
+
+<span class="sd">    .. deprecated::</span>
+<span class="sd">        This configuration uses the legacy gradient-cosine approach for</span>
+<span class="sd">        pre-training task grouping. For the paper-accurate lookahead-based</span>
+<span class="sd">        inter-task affinity computation during training, use</span>
+<span class="sd">        :class:`InterTaskAffinityConfig` instead.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -551,6 +560,85 @@
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
 
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InterTaskAffinityConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for inter-task affinity computation during training.</span>
+
+<span class="sd">    This implements the lookahead-based inter-task affinity from the TAG paper:</span>
+
+<span class="sd">        Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)</span>
+
+<span class="sd">    Where θ^{t+1}_{s|i} = θ^t_s - η∇_{θ_s} L_i is the shared parameter update</span>
+<span class="sd">    from task i&#39;s gradient. This measures how task i&#39;s update affects task j.</span>
+
+<span class="sd">    Unlike the legacy :class:`TaskAffinityConfig`, this computes affinity</span>
+<span class="sd">    during the main training loop (not as a separate pre-training phase) and</span>
+<span class="sd">    logs per-step and epoch-level metrics to MLflow.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    enabled : bool, default=False</span>
+<span class="sd">        Whether to enable inter-task affinity computation during training.</span>
+<span class="sd">    compute_every_n_steps : int, default=1</span>
+<span class="sd">        Compute affinity every N training steps. Higher values reduce</span>
+<span class="sd">        computational overhead but provide less granular measurements.</span>
+<span class="sd">    log_every_n_steps : int, default=100</span>
+<span class="sd">        Log running average affinity to MLflow every N steps.</span>
+<span class="sd">    log_epoch_summary : bool, default=True</span>
+<span class="sd">        Log epoch-level summary statistics (mean, std) of affinity matrix.</span>
+<span class="sd">    log_step_matrices : bool, default=False</span>
+<span class="sd">        Log individual step affinity matrices. WARNING: High volume.</span>
+<span class="sd">    lookahead_lr : float, default=0.001</span>
+<span class="sd">        Learning rate η for computing the lookahead parameter update.</span>
+<span class="sd">    use_optimizer_lr : bool, default=True</span>
+<span class="sd">        If True, uses the current optimizer learning rate for lookahead.</span>
+<span class="sd">    shared_param_patterns : List[str], optional</span>
+<span class="sd">        Patterns that explicitly mark encoder parameters as shared.</span>
+<span class="sd">    exclude_param_patterns : List[str]</span>
+<span class="sd">        Patterns to exclude from shared parameters (task-specific layers).</span>
+<span class="sd">    n_groups : Optional[int], default=None</span>
+<span class="sd">        If provided, cluster tasks into this many groups using the final</span>
+<span class="sd">        affinity matrix (TAG paper grouping step).</span>
+<span class="sd">    clustering_method : str, default=&quot;agglomerative&quot;</span>
+<span class="sd">        Clustering algorithm for grouping: &quot;agglomerative&quot; or &quot;spectral&quot;.</span>
+<span class="sd">    clustering_linkage : str, default=&quot;average&quot;</span>
+<span class="sd">        Linkage for agglomerative clustering when grouping tasks.</span>
+<span class="sd">    device : str, default=&quot;auto&quot;</span>
+<span class="sd">        Device hint for affinity computation. &quot;auto&quot; selects CUDA if available.</span>
+<span class="sd">    log_to_mlflow : bool, default=True</span>
+<span class="sd">        Whether to log affinity metrics to MLflow.</span>
+<span class="sd">    save_plots : bool, default=False</span>
+<span class="sd">        Save affinity matrix plots as MLflow artifacts when enabled.</span>
+<span class="sd">    plot_formats : List[str], default=[&quot;png&quot;]</span>
+<span class="sd">        Image formats to emit when saving affinity plots.</span>
+<span class="sd">    plot_dpi : int, default=150</span>
+<span class="sd">        DPI for any saved plots.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    admet.model.chemprop.inter_task_affinity : Full implementation details.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">compute_every_n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">log_every_n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">log_epoch_summary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">log_step_matrices</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">lookahead_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.001</span>
+    <span class="n">use_optimizer_lr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">shared_param_patterns</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">exclude_param_patterns</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">,</span> <span class="s2">&quot;ffn&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="s2">&quot;readout&quot;</span><span class="p">])</span>
+    <span class="n">n_groups</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">clustering_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;agglomerative&quot;</span>
+    <span class="n">clustering_linkage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;average&quot;</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
+    <span class="n">log_to_mlflow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">save_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">plot_formats</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;png&quot;</span><span class="p">])</span>
+    <span class="n">plot_dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
+
+
 <div class="viewcode-block" id="ChempropConfig">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ChempropConfig">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -576,6 +664,8 @@
 <span class="sd">        Curriculum learning configuration for quality-aware sampling.</span>
 <span class="sd">    task_affinity : TaskAffinityConfig</span>
 <span class="sd">        Task affinity grouping configuration for multi-task learning.</span>
+<span class="sd">    inter_task_affinity : InterTaskAffinityConfig</span>
+<span class="sd">        Inter-task affinity computation during training (TAG paper lookahead).</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -599,6 +689,7 @@
 <span class="sd">    ...     mlflow=MlflowConfig(experiment_name=&quot;my_experiment&quot;),</span>
 <span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
 <span class="sd">    ...     task_affinity=TaskAffinityConfig(enabled=True, n_groups=2),</span>
+<span class="sd">    ...     inter_task_affinity=InterTaskAffinityConfig(enabled=True),</span>
 <span class="sd">    ... )</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -607,7 +698,8 @@
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
     <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
-    <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span></div>
+    <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
+    <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span></div>
 
 
 
@@ -703,6 +795,7 @@
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
     <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
     <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
+    <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span>
     <span class="n">max_parallel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">ray_num_cpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ray_num_gpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>

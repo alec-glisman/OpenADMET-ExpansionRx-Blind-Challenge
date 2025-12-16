@@ -234,6 +234,7 @@
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
 </ul>
 
 </div>
@@ -287,7 +288,7 @@ than a CLI interface.</p>
 <span class="c1"># Load configuration</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/single_chemprop.yaml&quot;</span><span class="p">)</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
 <span class="c1"># Train model</span>
@@ -297,7 +298,7 @@ than a CLI interface.</p>
 </div>
 <p><strong>Ensemble Training</strong></p>
 <p>Train an ensemble of models across multiple data splits:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.ensemble<span class="w"> </span>--config<span class="w"> </span>configs/ensemble_chemprop.yaml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.ensemble<span class="w"> </span>--config<span class="w"> </span>configs/0-experiment/ensemble_chemprop_production.yaml
 </pre></div>
 </div>
 <p>Or programmatically:</p>
@@ -306,7 +307,7 @@ than a CLI interface.</p>
 
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/ensemble_chemprop.yaml&quot;</span><span class="p">)</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/ensemble_chemprop_production.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
 <span class="n">ensemble</span> <span class="o">=</span> <span class="n">ChempropEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
