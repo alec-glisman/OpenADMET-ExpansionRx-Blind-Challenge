@@ -148,3 +148,119 @@ def test_create_single_model_config_includes_inter_task_affinity(tmp_path):
     assert cfg.inter_task_affinity.enabled is True
     assert cfg.inter_task_affinity.log_to_mlflow is True
     assert cfg.inter_task_affinity.compute_every_n_steps == 2
+
+
+# Tests for plot metrics logging functionality
+
+
+def test_sanitize_metric_label():
+    """Test label sanitization utility function."""
+    from admet.model.chemprop.ensemble import _sanitize_metric_label
+
+    assert _sanitize_metric_label("LogD") == "logd"
+    assert _sanitize_metric_label("Log KSOL") == "log_ksol"
+    assert _sanitize_metric_label("Spearman $\\rho$") == "spearman_rho"
+    assert _sanitize_metric_label("Kendall $\\tau$") == "kendall_tau"
+    assert _sanitize_metric_label("$R^2$") == "r2"
+    assert _sanitize_metric_label("Clearance > 5") == "clearance_gt_5"
+    assert _sanitize_metric_label("Dose-Response") == "dose_response"
+
+
+@pytest.mark.no_mlflow_runs
+def test_log_plot_metrics_batch_logging(tmp_path):
+    """Test that _log_plot_metrics uses batch logging correctly."""
+    from unittest.mock import MagicMock, patch
+
+    import numpy as np
+
+    # Create minimal config
+    config = EnsembleConfig()
+    config.data.data_dir = str(tmp_path)
+    config.data.target_cols = ["LogD", "KSOL"]
+    config.mlflow.tracking = False
+
+    ensemble = ChempropEnsemble(config)
+
+    # Mock MLflow client and parent run
+    ensemble._mlflow_client = MagicMock()
+    ensemble.parent_run_id = "test_run_123"
+
+    # Mock mlflow.log_metrics
+    with patch("admet.model.chemprop.ensemble.mlflow.log_metrics") as mock_log_metrics:
+        # Call the method
+        labels = ["logd", "ksol", "mean"]
+        means = [0.45, 0.52, 0.485]
+        errors = [0.03, 0.04, 0.05]
+
+        ensemble._log_plot_metrics(
+            split_name="test",
+            metric_type="MAE",
+            safe_metric="MAE",
+            labels=labels,
+            means=means,
+            errors=errors,
+            n_models=12,
+        )
+
+        # Verify batch logging was called once
+        assert mock_log_metrics.call_count == 1
+
+        # Verify the metrics dictionary
+        call_args = mock_log_metrics.call_args[0][0]
+        assert isinstance(call_args, dict)
+
+        # Check expected keys
+        assert "plots/test/MAE/logd" in call_args
+        assert "plots/test/MAE/logd_stderr" in call_args
+        assert "plots/test/MAE/ksol" in call_args
+        assert "plots/test/MAE/ksol_stderr" in call_args
+        assert "plots/test/MAE/mean" in call_args
+        assert "plots/test/MAE/mean_stderr" in call_args
+        assert "plots/test/MAE/n_models" in call_args
+
+        # Check values
+        assert call_args["plots/test/MAE/logd"] == 0.45
+        assert call_args["plots/test/MAE/logd_stderr"] == 0.03
+        assert call_args["plots/test/MAE/n_models"] == 12.0
+
+
+@pytest.mark.no_mlflow_runs
+def test_log_plot_metrics_handles_nan(tmp_path):
+    """Test that NaN values are skipped with warnings."""
+    from unittest.mock import MagicMock, patch
+
+    import numpy as np
+
+    config = EnsembleConfig()
+    config.data.data_dir = str(tmp_path)
+    config.data.target_cols = ["LogD"]
+    config.mlflow.tracking = False
+
+    ensemble = ChempropEnsemble(config)
+    ensemble._mlflow_client = MagicMock()
+    ensemble.parent_run_id = "test_run_123"
+
+    with patch("admet.model.chemprop.ensemble.mlflow.log_metrics") as mock_log_metrics:
+        # Include a NaN value
+        labels = ["logd", "ksol", "mean"]
+        means = [0.45, np.nan, 0.485]
+        errors = [0.03, 0.04, 0.05]
+
+        ensemble._log_plot_metrics(
+            split_name="test",
+            metric_type="MAE",
+            safe_metric="MAE",
+            labels=labels,
+            means=means,
+            errors=errors,
+            n_models=3,
+        )
+
+        # Verify batch logging was still called
+        assert mock_log_metrics.call_count == 1
+
+        # Verify NaN value was skipped
+        call_args = mock_log_metrics.call_args[0][0]
+        assert "plots/test/MAE/logd" in call_args
+        assert "plots/test/MAE/ksol" not in call_args  # Skipped due to NaN
+        assert "plots/test/MAE/mean" in call_args

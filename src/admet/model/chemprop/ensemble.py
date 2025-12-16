@@ -66,6 +66,47 @@ from admet.util.utils import parse_data_dir_params
 logger = logging.getLogger("admet.model.chemprop.ensemble")
 
 
+def _sanitize_metric_label(label: str) -> str:
+    """
+    Sanitize label for use in MLflow metric names.
+
+    Converts labels to lowercase and replaces special characters with underscores
+    to ensure valid MLflow metric names.
+
+    Parameters
+    ----------
+    label : str
+        Raw label (e.g., "Log KSOL", "Spearman $\\rho$")
+
+    Returns
+    -------
+    str
+        Sanitized label (e.g., "log_ksol", "spearman_rho")
+
+    Examples
+    --------
+    >>> _sanitize_metric_label("Log KSOL")
+    'log_ksol'
+    >>> _sanitize_metric_label("Spearman $\\rho$")
+    'spearman_rho'
+    >>> _sanitize_metric_label("$R^2$")
+    'r2'
+    """
+    return (
+        label.lower()
+        .replace(" ", "_")
+        .replace(">", "gt")
+        .replace("<", "lt")
+        .replace("-", "_")
+        .replace("$", "")
+        .replace("^", "")
+        .replace("\\", "")
+        .replace("ρ", "rho")
+        .replace("τ", "tau")
+        .replace("²", "2")
+    )
+
+
 @dataclass
 class SplitFoldInfo:
     """Information about a single split/fold combination."""
@@ -796,6 +837,79 @@ class ChempropEnsemble:
 
         logger.info("Generated unlabeled ensemble plots for %s", split_name)
 
+    def _log_plot_metrics(
+        self,
+        split_name: str,
+        metric_type: str,
+        safe_metric: str,
+        labels: List[str],
+        means: List[float],
+        errors: List[float],
+        n_models: int,
+    ) -> None:
+        """
+        Log bar plot data as MLflow metrics under plots/ prefix using batch API.
+
+        This method logs all bar values and standard errors in a single batch operation
+        for better performance. It also includes metadata about the ensemble size.
+
+        Parameters
+        ----------
+        split_name : str
+            Split name (e.g., "test", "blind")
+        metric_type : str
+            Display metric type (e.g., "MAE", r"$R^2$")
+        safe_metric : str
+            Sanitized metric name for MLflow (e.g., "MAE", "R2")
+        labels : List[str]
+            Bar labels (target names + "Mean")
+        means : List[float]
+            Bar values (metric means across models)
+        errors : List[float]
+            Error bar values (standard errors)
+        n_models : int
+            Number of models in the ensemble
+
+        Notes
+        -----
+        Metrics are logged under the hierarchical structure:
+        - plots/{split_name}/{safe_metric}/{target}
+        - plots/{split_name}/{safe_metric}/{target}_stderr
+        - plots/{split_name}/{safe_metric}/n_models
+
+        NaN values are skipped with a warning. All metrics are logged in a single
+        batch call for performance.
+        """
+        if not self._mlflow_client or not self.parent_run_id:
+            return
+
+        # Prepare batch metrics dictionary
+        metrics_dict = {}
+
+        # Log each bar's value and stderr
+        for label, mean_val, stderr_val in zip(labels, means, errors):
+            # Handle NaN values
+            if np.isnan(mean_val):
+                logger.warning(f"Skipping NaN metric for {label} in {metric_type} ({split_name})")
+                continue
+
+            # Sanitize label using shared utility
+            safe_label = _sanitize_metric_label(label)
+
+            # Add to batch
+            metrics_dict[f"plots/{split_name}/{safe_metric}/{safe_label}"] = float(mean_val)
+            metrics_dict[f"plots/{split_name}/{safe_metric}/{safe_label}_stderr"] = float(stderr_val)
+
+        # Add metadata: number of models
+        metrics_dict[f"plots/{split_name}/{safe_metric}/n_models"] = float(n_models)
+
+        # Log all metrics in a single batch
+        try:
+            mlflow.log_metrics(metrics_dict)
+            logger.debug(f"Logged {len(metrics_dict)} plot metrics for {safe_metric} ({split_name})")
+        except Exception as e:
+            logger.warning(f"Failed to log plot metrics for {safe_metric} ({split_name}): {e}")
+
     def _generate_ensemble_plots(self, predictions: pd.DataFrame, split_name: str) -> None:
         """
         Generate ensemble visualizations with error bars.
@@ -1050,6 +1164,19 @@ class ChempropEnsemble:
             )
             plot_path = plot_dir / f"ensemble_{safe_metric_name.lower()}.png"
             fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+
+            # Log plot data as MLflow metrics under plots/ prefix
+            safe_metric = metric_name_map.get(metric_type, metric_type)
+            self._log_plot_metrics(
+                split_name=split_name,
+                metric_type=metric_type,
+                safe_metric=safe_metric,
+                labels=labels,
+                means=means,
+                errors=errors,
+                n_models=len(model_predictions),
+            )
+
             plt.close(fig)
 
     def _log_ensemble_metrics(self) -> None:

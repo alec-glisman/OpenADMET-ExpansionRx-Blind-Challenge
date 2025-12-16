@@ -7,6 +7,8 @@
 
 > 📋 **For Challenge Reviewers:** See the **[Model Card](./MODEL_CARD.md)** for complete methodology documentation, including model architecture, training procedures, HPO results, and performance metrics.
 
+> 📋 **For Others:** See the **[Submission History Statistics](./SUBMISSIONS.md)** for detailed leaderboard rankings and performance summaries.
+
 ---
 
 ## Quick Overview
@@ -14,11 +16,11 @@
 ```mermaid
 flowchart LR
     A[SMILES] --> B[Molecular Graph]
+
+    subgraph Ensemble["25-Model Ensemble"]
     B --> C[Chemprop MPNN<br/>3-7 layers]
     C --> D[FFN<br/>1-4 layers]
     D --> E[9 ADMET<br/>Endpoints]
-
-    subgraph Ensemble["25-Model Ensemble"]
     E
     end
 ```
