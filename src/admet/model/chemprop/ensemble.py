@@ -659,6 +659,10 @@ class ChempropEnsemble:
         result = pd.DataFrame()
         result[smiles_col] = predictions_list[0][smiles_col].copy()
 
+        # Preserve Molecule Name if present
+        if "Molecule Name" in predictions_list[0].columns:
+            result["Molecule Name"] = predictions_list[0]["Molecule Name"].copy()
+
         # Also preserve any actual values if present
         for col in predictions_list[0].columns:
             if col.endswith("_actual"):
@@ -705,6 +709,10 @@ class ChempropEnsemble:
         submissions = pd.DataFrame()
         smiles_col = self.config.data.smiles_col
         submissions[smiles_col] = predictions[smiles_col]
+
+        # Include Molecule Name if present in predictions
+        if "Molecule Name" in predictions.columns:
+            submissions["Molecule Name"] = predictions["Molecule Name"]
 
         target_cols = list(self.config.data.target_cols)
         for target in target_cols:
