@@ -50,11 +50,11 @@ from admet.model.chemprop.config import (
     CurriculumConfig,
     DataConfig,
     EnsembleConfig,
+    InterTaskAffinityConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
     TaskAffinityConfig,
-    InterTaskAffinityConfig,
 )
 from admet.model.chemprop.model import ChempropModel
 from admet.plot.latex import latex_sanitize

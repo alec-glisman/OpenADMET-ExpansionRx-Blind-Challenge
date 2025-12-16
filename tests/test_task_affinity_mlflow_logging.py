@@ -5,8 +5,8 @@ Tests for MLflow logging from task affinity computation.
 import numpy as np
 import pytest
 
-from admet.model.chemprop.task_affinity import TaskAffinityConfig
 from admet.model.chemprop.model import ChempropModel
+from admet.model.chemprop.task_affinity import TaskAffinityConfig
 
 
 @pytest.mark.no_mlflow_runs

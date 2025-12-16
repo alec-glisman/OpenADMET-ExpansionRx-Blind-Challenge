@@ -45,10 +45,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from lightning import pytorch as pl
@@ -903,7 +903,9 @@ class InterTaskAffinityCallback(Callback):
                 try:
                     for fmt in self.config.plot_formats:
                         fmt = fmt.lstrip(".")
-                        with tempfile.NamedTemporaryFile(mode="wb", suffix=f"_affinity_heatmap.{fmt}", delete=False) as hf:
+                        with tempfile.NamedTemporaryFile(
+                            mode="wb", suffix=f"_affinity_heatmap.{fmt}", delete=False
+                        ) as hf:
                             fig_hm = _plot_affinity_heatmap(
                                 Z_final,
                                 self.target_cols,
@@ -915,7 +917,9 @@ class InterTaskAffinityCallback(Callback):
                             mlflow.log_artifact(hf.name, "inter_task_affinity")
                             plt.close(fig_hm)
 
-                        with tempfile.NamedTemporaryFile(mode="wb", suffix=f"_affinity_clustermap.{fmt}", delete=False) as cf:
+                        with tempfile.NamedTemporaryFile(
+                            mode="wb", suffix=f"_affinity_clustermap.{fmt}", delete=False
+                        ) as cf:
                             fig_cm = _plot_affinity_clustermap(
                                 Z_final,
                                 self.target_cols,

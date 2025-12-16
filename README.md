@@ -17,7 +17,7 @@ flowchart LR
     B --> C[Chemprop MPNN<br/>3-7 layers]
     C --> D[FFN<br/>1-4 layers]
     D --> E[9 ADMET<br/>Endpoints]
-    
+
     subgraph Ensemble["25-Model Ensemble"]
     E
     end
@@ -413,13 +413,13 @@ flowchart TB
         D1[ExpansionRx Data] --> D3[Butina Clustering]
         D3 --> D4[5 Splits × 5 Folds]
     end
-    
+
     subgraph Training["Training Pipeline"]
         D4 --> T1[HPO: ~2000 Trials]
         T1 --> T2[Top Configs]
         T2 --> T3[25 Model Ensemble]
     end
-    
+
     subgraph Eval["Evaluation"]
         T3 --> E1[Mean Predictions]
         T3 --> E2[Uncertainty Estimates]

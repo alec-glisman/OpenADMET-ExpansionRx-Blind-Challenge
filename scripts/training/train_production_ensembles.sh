@@ -56,7 +56,7 @@ Options:
   --log-level L     Set logging level (DEBUG, INFO, WARNING, ERROR)
   --config FILE     Train specific config file only (e.g., ensemble_chemprop_hpo_001.yaml)
   --continue-from N Continue from config number N (useful after failures)
-  --data-dir DIR    Override `data.data_dir` in each config with this path
+  --data-dir DIR    Override $(data.data_dir) in each config with this path
   --skip-ranks L    Comma-separated list of rank numbers to skip (e.g. 1 or 001,6)
   -h, --help        Show this help message
 
@@ -143,48 +143,48 @@ log_info "Dry run: $DRY_RUN"
 if [[ -n "$SPECIFIC_CONFIG" ]]; then
   # Train specific config only
   CONFIG_PATH="${PRODUCTION_CONFIG_DIR}/${SPECIFIC_CONFIG}"
-  
+
   if [[ ! -f "$CONFIG_PATH" ]]; then
     log_error "Config file not found: $CONFIG_PATH"
     exit 1
   fi
-  
+
   CONFIG_FILES=("$CONFIG_PATH")
   log_info "Training single config: $SPECIFIC_CONFIG"
 else
   # Get all config files, sorted numerically
   mapfile -t CONFIG_FILES < <(find "$PRODUCTION_CONFIG_DIR" -maxdepth 1 -name "ensemble_chemprop_hpo_*.yaml" | sort -V)
-  
+
   if [[ ${#CONFIG_FILES[@]} -eq 0 ]]; then
     log_error "No config files found in $PRODUCTION_CONFIG_DIR"
     exit 1
   fi
-  
+
   log_info "Found ${#CONFIG_FILES[@]} production config files"
-  
+
   # Filter by continue-from if specified
   if [[ -n "$CONTINUE_FROM" ]]; then
     FILTERED_FILES=()
     for config_file in "${CONFIG_FILES[@]}"; do
       # Extract config number (e.g., 001, 006, 010, etc.)
       config_num=$(basename "$config_file" | grep -oP '\d{3}')
-      
+
       # Convert to integer for comparison
       config_num_int=$((10#$config_num))
       continue_from_int=$((10#$CONTINUE_FROM))
-      
+
       if [[ $config_num_int -ge $continue_from_int ]]; then
         FILTERED_FILES+=("$config_file")
       fi
     done
-    
+
     CONFIG_FILES=("${FILTERED_FILES[@]}")
     log_info "Continuing from config $CONTINUE_FROM: ${#CONFIG_FILES[@]} configs to train"
   fi
 
   # Filter out any skipped ranks if provided (e.g., --skip-ranks 1,6)
   if [[ -n "$SKIP_RANKS" ]]; then
-    IFS=',' read -ra SKIP_ARR <<< "$SKIP_RANKS"
+    IFS=',' read -ra SKIP_ARR <<<"$SKIP_RANKS"
     FILTERED2=()
     for config_file in "${CONFIG_FILES[@]}"; do
       config_num=$(basename "$config_file" | grep -oP '\d{3}')
@@ -236,12 +236,12 @@ for i in "${!CONFIG_FILES[@]}"; do
   config_file="${CONFIG_FILES[$i]}"
   config_name=$(basename "$config_file")
   config_num=$((i + 1))
-  
+
   print_header "Training Config $config_num/$TOTAL: $config_name"
-  
+
   # Record config start time
   CONFIG_START=$(date +%s)
-  
+
   # Build command (optionally override data_dir by creating a temporary config)
   TEMP_CONFIG=""
   CMD_CONFIG="$config_file"
@@ -272,13 +272,13 @@ for i in "${!CONFIG_FILES[@]}"; do
   if eval "$CMD"; then
     CONFIG_END=$(date +%s)
     CONFIG_DURATION=$((CONFIG_END - CONFIG_START))
-    
+
     log_success "✓ Completed: $config_name (${CONFIG_DURATION}s)"
     ((SUCCESS++))
   else
     CONFIG_END=$(date +%s)
     CONFIG_DURATION=$((CONFIG_END - CONFIG_START))
-    
+
     log_error "✗ Failed: $config_name (${CONFIG_DURATION}s)"
     ((FAILED++))
     FAILED_CONFIGS+=("$config_name")
@@ -287,7 +287,7 @@ for i in "${!CONFIG_FILES[@]}"; do
   if [[ -n "$TEMP_CONFIG" && -f "$TEMP_CONFIG" ]]; then
     cleanup_temp_config "$TEMP_CONFIG"
   fi
-  
+
   echo ""
 done
 
