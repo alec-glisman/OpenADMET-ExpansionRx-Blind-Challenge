@@ -108,7 +108,6 @@ def build_search_space(
         "dropout",
         "depth",
         "message_hidden_dim",
-        "hidden_dim",  # Deprecated: use message_hidden_dim + ffn_hidden_dim
         "ffn_num_layers",
         "ffn_hidden_dim",
         "batch_size",

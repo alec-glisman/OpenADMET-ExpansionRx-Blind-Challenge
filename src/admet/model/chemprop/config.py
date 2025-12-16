@@ -249,12 +249,6 @@ class TaskAffinityConfig:
     run, then clusters tasks into groups that benefit from being trained
     together.
 
-    .. deprecated::
-        This configuration uses the legacy gradient-cosine approach for
-        pre-training task grouping. For the paper-accurate lookahead-based
-        inter-task affinity computation during training, use
-        :class:`InterTaskAffinityConfig` instead.
-
     Parameters
     ----------
     enabled : bool, default=False

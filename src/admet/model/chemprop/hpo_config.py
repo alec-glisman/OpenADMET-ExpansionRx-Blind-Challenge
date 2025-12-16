@@ -94,10 +94,6 @@ class SearchSpaceConfig:
     target_weights: ParameterSpace | None = None
     task_sampling_alpha: ParameterSpace | None = None
 
-    # Deprecated - kept for backward compatibility
-    weight_decay: ParameterSpace | None = None
-    hidden_dim: ParameterSpace | None = None  # Use message_hidden_dim + ffn_hidden_dim instead
-
 
 @dataclass
 class ASHAConfig:
