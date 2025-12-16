@@ -10,7 +10,7 @@
 #
 # Arguments:
 #   CONFIG_FILE   Path to HPO configuration YAML file
-#                 (default: configs/hpo_chemprop.yaml)
+#                 (default: configs/1-hpo-single/hpo_chemprop.yaml)
 #
 # Options:
 #   --dry-run     Print commands without executing
@@ -19,7 +19,7 @@
 #   --num-cpus    Number of CPUs to use (default: auto-detect)
 #
 # Example:
-#   ./scripts/run_chemprop_hpo.sh configs/hpo_chemprop.yaml --num-gpus 2
+#   ./scripts/run_chemprop_hpo.sh configs/1-hpo-single/hpo_chemprop.yaml --num-gpus 2
 #
 # =============================================================================
 
@@ -27,11 +27,11 @@ set -euo pipefail
 
 # Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/../lib/common.sh"
 
 # Configuration
 PROJECT_ROOT="$(get_project_root "$SCRIPT_DIR")"
-DEFAULT_CONFIG="${PROJECT_ROOT}/configs/hpo_chemprop.yaml"
+DEFAULT_CONFIG="${PROJECT_ROOT}/configs/1-hpo-single/hpo_chemprop.yaml"
 
 # Default options
 CONFIG_FILE=""

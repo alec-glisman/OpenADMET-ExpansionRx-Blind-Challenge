@@ -4,7 +4,7 @@
 # discover which tasks benefit from joint training and group them accordingly.
 #
 # Usage:
-#   python -m admet.model.chemprop.model --config configs/chemprop_task_affinity.yaml
+#   python -m admet.model.chemprop.model --config configs/task-affinity/chemprop_task_affinity.yaml
 #
 # See docs/guide/task_affinity.rst for detailed documentation.
 

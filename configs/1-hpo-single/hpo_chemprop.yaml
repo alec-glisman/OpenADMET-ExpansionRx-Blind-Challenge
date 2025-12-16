@@ -5,10 +5,10 @@
 # for Chemprop models using Ray Tune with ASHA scheduler.
 #
 # Usage:
-#   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
+#   python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
 #
 # Or using the bash script:
-#   ./scripts/run_chemprop_hpo.sh configs/hpo_chemprop.yaml
+#   ./scripts/training/train_chemprop_hpo.sh configs/1-hpo-single/hpo_chemprop.yaml
 # =============================================================================
 
 # Experiment identification

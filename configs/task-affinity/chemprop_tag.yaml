@@ -4,7 +4,7 @@
 # the TAG inter-task affinity matrix and clustering tasks into groups.
 #
 # Usage:
-#   python -m admet.model.chemprop.model --config configs/chemprop_tag.yaml
+#   python -m admet.model.chemprop.model --config configs/task-affinity/chemprop_tag.yaml
 
 data:
   data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"

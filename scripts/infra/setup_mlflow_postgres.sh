@@ -6,7 +6,7 @@
 # server to use it as the backend store for experiment tracking.
 #
 # Usage:
-#   ./scripts/setup_mlflow_postgres.sh [start|stop|restart|status|logs]
+#   ./scripts/infra/setup_mlflow_postgres.sh [start|stop|restart|status|logs]
 #
 # Default action is 'start' if no argument provided.
 # =============================================================================

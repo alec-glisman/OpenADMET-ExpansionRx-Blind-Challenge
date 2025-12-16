@@ -1,41 +1,24 @@
-# Curriculum Learning Configuration for ChempropModel (Single Model)
-# ====================================================================
-# This YAML file demonstrates curriculum learning configuration for quality-aware
-# training of a single model. For ensemble training with curriculum learning,
-# see configs/ensemble_curriculum.yaml.
-#
-# Curriculum learning progressively adjusts sampling from high-quality
-# to lower-quality data based on validation loss improvements.
-#
-# Curriculum Phases:
-#   1. warmup: Focus on high-quality data (e.g., 90% high, 10% medium, 0% low)
-#   2. expand: Gradually include medium-quality data (e.g., 60% high, 35% medium, 5% low)
-#   3. robust: Include low-quality data for robustness (e.g., 40% high, 40% medium, 20% low)
-#   4. polish: Return focus to high-quality data (e.g., 100% high)
-#
-# Phase transitions occur when overall validation loss stops improving for
-# `patience` epochs.
+# Example ChempropModel Configuration
+# ====================================
+# This YAML file demonstrates the full configuration structure for training
+# a Chemprop MPNN model. Load it with OmegaConf and pass to ChempropModel.from_config()
 #
 # Usage:
-#   python -m admet.model.chemprop.model --config configs/chemprop_curriculum.yaml
-#
-# Or programmatically:
 #   from omegaconf import OmegaConf
 #   from admet.model.chemprop.config import ChempropConfig
 #   from admet.model.chemprop.model import ChempropModel
 #
 #   config = OmegaConf.merge(
 #       OmegaConf.structured(ChempropConfig),
-#       OmegaConf.load("configs/chemprop_curriculum.yaml")
+#       OmegaConf.load("configs/0-experiment/chemprop.yaml")
 #   )
 #   model = ChempropModel.from_config(config)
 #   model.fit()
 
 # Data configuration
 data:
-  # Directory containing train.csv and validation.csv with Quality column
-  data_dir: "assets/dataset/split_train_val/v3/all_quality/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
-
+  # Directory containing train.csv and validation.csv (required)
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
   # Optional test and blind files
   test_file: "assets/dataset/set/local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
@@ -70,81 +53,72 @@ data:
 
 # Model architecture configuration
 model:
-  depth: 5
-  message_hidden_dim: 600
-  num_layers: 2
-  hidden_dim: 600
-  dropout: 0.1
-  batch_norm: true
+  # Message passing network
+  depth: 5 # Number of message passing iterations
+  message_hidden_dim: 600 # Hidden dimension for message passing
+
+  # Feed-forward network
+  num_layers: 2 # Number of FFN layers
+  hidden_dim: 600 # FFN hidden dimension
+  dropout: 0.1 # Dropout probability
+  batch_norm: true # Use batch normalization in MPNN
+
+  # FFN type: 'regression', 'mixture_of_experts', 'branched'
   ffn_type: "regression"
+
+  # Branched FFN settings (used when ffn_type='branched')
   trunk_n_layers: 2
   trunk_hidden_dim: 600
+
+  # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
   n_experts: 4
 
 # Optimization configuration
 optimization:
+  # Loss function: "MAE", "MSE", "RMSE", "BCE", "CrossEntropy", etc.
   criterion: "MSE"
-  init_lr: 1.0e-4
-  max_lr: 1.0e-3
-  final_lr: 1.0e-4
-  warmup_epochs: 5
-  max_epochs: 150
-  patience: 15
+
+  # Learning rate schedule (OneCycleLR)
+  init_lr: 1.0e-4 # Initial learning rate
+  max_lr: 1.0e-3 # Peak learning rate
+  final_lr: 1.0e-4 # Final learning rate
+
+  # Training epochs
+  warmup_epochs: 5 # Warmup epochs
+  max_epochs: 150 # Maximum training epochs
+  patience: 15 # Early stopping patience
+
+  # Batch settings
   batch_size: 32
   num_workers: 0
   task_sampling_alpha: 0.5
+
+  # Reproducibility
   seed: 12345
+
+  # Display
   progress_bar: true
 
 # MLflow experiment tracking configuration
 mlflow:
   tracking: true
   tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "chemprop_curriculum"
-  run_name: null
+  experiment_name: "single_chemprop"
+  run_name: null # Auto-generated if null
 
 # Curriculum learning configuration
 # =================================
-# Enable quality-aware curriculum learning to progressively train on
-# data from high to low quality levels.
+# Quality-aware curriculum learning is disabled by default.
+# Enable it when training on mixed-quality datasets with a Quality column.
 curriculum:
-  # Enable/disable curriculum learning
-  enabled: true
-
-  # Column in train/validation CSV containing quality labels
-  # Values should match the qualities list below
+  enabled: false
   quality_col: "Quality"
-
-  # Quality levels ordered from highest to lowest quality
-  # The curriculum adapts to the number of qualities provided:
-  #   - 1 quality: warmup → polish
-  #   - 2 qualities: warmup → expand → polish
-  #   - 3+ qualities: warmup → expand → robust → polish
   qualities:
     - "high"
     - "medium"
     - "low"
-
-  # Number of epochs without improvement in overall validation loss
-  # before advancing to the next curriculum phase
   patience: 5
-
-  # Random seed for reproducible curriculum sampling
   seed: 42
-
-  # Curriculum strategy:
-  #   - "sampled": Use weighted random sampling (recommended)
-  #   - "weighted": Apply quality-based loss weights (not yet implemented)
-  strategy: "sampled"
-
-  # Whether to reset early stopping patience when advancing to a new
-  # curriculum phase. This allows the model more time to adapt to
-  # the new data distribution after phase transitions.
-  reset_early_stopping_on_phase_change: false
-
-  # Whether to log per-quality validation metrics (e.g., val_loss_high,
-  # val_loss_medium) in addition to overall metrics.
-  log_per_quality_metrics: true
 
 # =============================================================================
 # Inter-Task Affinity Configuration (Paper-Accurate Implementation)

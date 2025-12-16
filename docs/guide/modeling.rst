@@ -23,7 +23,7 @@ Single Model Training
    from omegaconf import OmegaConf
 
    # Load configuration from YAML
-   config = OmegaConf.load("configs/single_chemprop.yaml")
+   config = OmegaConf.load("configs/0-experiment/chemprop.yaml")
    cfg = OmegaConf.structured(ChempropConfig(**config))
 
    # Create and train model
@@ -44,7 +44,7 @@ For production use, train multiple models across different data splits:
    from omegaconf import OmegaConf
 
    # Load ensemble configuration
-   config = OmegaConf.load("configs/ensemble_chemprop.yaml")
+   config = OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
    cfg = OmegaConf.structured(EnsembleConfig(**config))
 
    # Train ensemble (parallelized with Ray)

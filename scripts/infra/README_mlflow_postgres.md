@@ -6,16 +6,16 @@ This directory contains scripts for setting up MLflow with PostgreSQL backend us
 
 ```bash
 # Start services
-./scripts/setup_mlflow_postgres.sh
+./scripts/infra/setup_mlflow_postgres.sh
 
 # Check status
-./scripts/setup_mlflow_postgres.sh status
+./scripts/infra/setup_mlflow_postgres.sh status
 
 # View logs
-./scripts/setup_mlflow_postgres.sh logs
+./scripts/infra/setup_mlflow_postgres.sh logs
 
 # Stop services
-./scripts/setup_mlflow_postgres.sh stop
+./scripts/infra/setup_mlflow_postgres.sh stop
 ```
 
 ## What the Script Does
@@ -63,7 +63,7 @@ mlflow_tracking_uri: "http://127.0.0.1:8084"
 
 ```bash
 # Check PostgreSQL logs
-./scripts/setup_mlflow_postgres.sh logs postgres
+./scripts/infra/setup_mlflow_postgres.sh logs postgres
 
 # Connect to database directly
 docker exec -it mlflow-postgres psql -U mlflow -d mlflow
@@ -73,7 +73,7 @@ docker exec -it mlflow-postgres psql -U mlflow -d mlflow
 
 ```bash
 # Check MLflow logs
-./scripts/setup_mlflow_postgres.sh logs mlflow
+./scripts/infra/setup_mlflow_postgres.sh logs mlflow
 
 # Manual start (for debugging)
 mlflow server --backend-store-uri postgresql://mlflow:mlflow_password_2024@localhost:5432/mlflow \

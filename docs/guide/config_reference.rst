@@ -353,7 +353,7 @@ hpo_chemprop.yaml
       --num-samples 50
 
     # Or use the convenience script
-    ./scripts/train_chemprop_hpo.sh configs/hpo_chemprop.yaml
+    ./scripts/training/train_chemprop_hpo.sh configs/hpo_chemprop.yaml
 
 **Key parameters**:
 

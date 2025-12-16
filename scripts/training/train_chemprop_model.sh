@@ -7,7 +7,7 @@
 # Ray parallelization.
 #
 # Usage:
-#   ./scripts/train_chemprop_model.sh [--dry-run] [--log-level LEVEL] [--splits N] [--folds N]
+#   ./scripts/training/train_chemprop_model.sh [--dry-run] [--log-level LEVEL] [--splits N] [--folds N]
 #
 # Options:
 #   --dry-run     Print commands without executing
@@ -21,11 +21,11 @@ set -euo pipefail
 
 # Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/../lib/common.sh"
 
 # Configuration
 PROJECT_ROOT="$(get_project_root "$SCRIPT_DIR")"
-CONFIG_FILE="${PROJECT_ROOT}/configs/single_chemprop.yaml"
+CONFIG_FILE="${PROJECT_ROOT}/configs/0-experiment/chemprop.yaml"
 
 # Default options
 DRY_RUN=false

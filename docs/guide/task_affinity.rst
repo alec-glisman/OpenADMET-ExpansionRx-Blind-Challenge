@@ -794,7 +794,7 @@ YAML Configuration Files
 Basic Configuration (Recommended Starting Point)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create ``configs/chemprop_task_affinity.yaml``:
+Create ``configs/task-affinity/chemprop_task_affinity.yaml``:
 
 .. code-block:: yaml
 
@@ -838,7 +838,7 @@ Create ``configs/chemprop_task_affinity.yaml``:
 Advanced Configuration with All Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create ``configs/chemprop_task_affinity_advanced.yaml``:
+Create ``configs/task-affinity/chemprop_task_affinity_advanced.yaml``:
 
 .. code-block:: yaml
 
@@ -905,7 +905,7 @@ Create ``configs/chemprop_task_affinity_advanced.yaml``:
 Exploratory Configuration (Finding Optimal Groups)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create ``configs/chemprop_explore_affinity.yaml`` to try different group numbers:
+Create ``configs/task-affinity/chemprop_task_affinity_explore.yaml`` to try different group numbers:
 
 .. code-block:: yaml
 
@@ -958,7 +958,7 @@ Train a model with task affinity enabled:
 
     # Using a config file
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --data-path data/admet_train.csv \
       --save-dir models/chemprop_task_affinity
 
@@ -971,7 +971,7 @@ Start with a base config and override specific parameters:
 
     # Override task affinity parameters via CLI
     python -m admet.cli.train \
-      --config configs/chemprop.yaml \
+      --config configs/0-experiment/chemprop.yaml \
       --task-affinity.enabled true \
       --task-affinity.n-groups 3 \
       --task-affinity.affinity-epochs 2 \
@@ -988,25 +988,25 @@ Run multiple experiments to find optimal grouping:
 
     # Try 2 groups
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.n-groups 2 \
       --save-dir models/affinity_2groups
 
     # Try 3 groups
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.n-groups 3 \
       --save-dir models/affinity_3groups
 
     # Try 4 groups
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.n-groups 4 \
       --save-dir models/affinity_4groups
 
     # Try 5 groups
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.n-groups 5 \
       --save-dir models/affinity_5groups
 
@@ -1019,13 +1019,13 @@ Test different clustering algorithms:
 
     # Agglomerative clustering (hierarchical)
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.clustering-method agglomerative \
       --save-dir models/affinity_agglomerative
 
     # Spectral clustering (graph-based)
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.clustering-method spectral \
       --save-dir models/affinity_spectral
 
@@ -1055,7 +1055,7 @@ After determining optimal grouping, train production model:
 
     # Production training with task affinity
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --task-affinity.enabled true \
       --task-affinity.n-groups 3 \
       --task-affinity.affinity-epochs 1 \
@@ -1198,7 +1198,7 @@ Extracting and Examining the Affinity Matrix
 
     # Run training with affinity computation
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --data-path data/admet_train.csv \
       --save-dir models/affinity_analysis \
       --task-affinity.log-affinity-matrix true
@@ -1331,7 +1331,7 @@ Run quick experiments with different group numbers:
         echo "Training with $n_groups groups..."
         
         python -m admet.cli.train \
-          --config configs/chemprop_task_affinity.yaml \
+          --config configs/task-affinity/chemprop_task_affinity.yaml \
           --data-path data/admet_train.csv \
           --task-affinity.n-groups $n_groups \
           --training.epochs 30 \
@@ -1370,7 +1370,7 @@ Once optimal grouping is determined, train the final model:
 
     # Train production model with optimal grouping (e.g., 3 groups)
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity_production.yaml \
+      --config configs/3-production/chemprop_task_affinity.yaml \
       --data-path data/admet_full_train.csv \
       --task-affinity.enabled true \
       --task-affinity.n-groups 3 \
@@ -1389,20 +1389,20 @@ Compare task affinity model against standard approaches:
 
     # Single-task baseline
     python -m admet.cli.train \
-      --config configs/chemprop_single_task.yaml \
+      --config configs/0-experiment/chemprop.yaml \
       --data-path data/admet_train.csv \
       --save-dir models/baseline/single_task
     
     # Standard multi-task (no affinity)
     python -m admet.cli.train \
-      --config configs/chemprop.yaml \
+      --config configs/0-experiment/chemprop.yaml \
       --data-path data/admet_train.csv \
       --task-affinity.enabled false \
       --save-dir models/baseline/multi_task
     
     # Task affinity multi-task
     python -m admet.cli.train \
-      --config configs/chemprop_task_affinity.yaml \
+      --config configs/task-affinity/chemprop_task_affinity.yaml \
       --data-path data/admet_train.csv \
       --task-affinity.enabled true \
       --task-affinity.n-groups 3 \

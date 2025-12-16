@@ -8,9 +8,9 @@
 # - Quality filters (high, medium, low combinations)
 #
 # Usage:
-#   ./scripts/run_data_splits.sh --input data.csv --output-dir outputs/
-#   ./scripts/run_data_splits.sh -i data.csv -o outputs/ --cluster-methods bitbirch scaffold
-#   ./scripts/run_data_splits.sh -i data.csv -o outputs/ --qualities "high" "high,medium"
+#   ./scripts/data/run_data_splits.sh --input data.csv --output-dir outputs/
+#   ./scripts/data/run_data_splits.sh -i data.csv -o outputs/ --cluster-methods bitbirch scaffold
+#   ./scripts/data/run_data_splits.sh -i data.csv -o outputs/ --qualities "high" "high,medium"
 #
 # =============================================================================
 

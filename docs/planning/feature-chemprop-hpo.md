@@ -71,7 +71,7 @@ This implementation plan describes adding hyperparameter optimization (HPO) capa
 | TASK-003 | Define `ASHAConfig` dataclass for scheduler configuration | | |
 | TASK-004 | Define `ResourceConfig` dataclass for GPU/CPU allocation | | |
 | TASK-005 | Define `TransferLearningConfig` dataclass for top-k ensemble training | | |
-| TASK-006 | Create `configs/hpo_chemprop.yaml` example configuration file | | |
+| TASK-006 | Create `configs/1-hpo-single/hpo_chemprop.yaml` example configuration file | | |
 | TASK-007 | Add unit tests for configuration loading and validation | | |
 
 **TASK-001 Details: HPOConfig Dataclass**
@@ -188,7 +188,7 @@ class TransferLearningConfig:
 
 **TASK-006 Details: Example YAML Configuration**
 
-Create `configs/hpo_chemprop.yaml`:
+Create `configs/1-hpo-single/hpo_chemprop.yaml`:
 
 ```yaml
 # Hyperparameter Optimization Configuration for Chemprop
@@ -196,7 +196,7 @@ Create `configs/hpo_chemprop.yaml`:
 # This YAML configures Ray Tune HPO with ASHA scheduler.
 #
 # Usage:
-#   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
+#   python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
 
 # Data configuration (fixed during HPO)
 data:
@@ -675,7 +675,7 @@ using ASHA scheduler for efficient trial pruning.
 
 Usage
 -----
-python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
+python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
 """
 
 from __future__ import annotations
@@ -1055,8 +1055,8 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
-  python -m admet.model.chemprop.hpo -c configs/hpo.yaml --log-level DEBUG
+  python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
+  python -m admet.model.chemprop.hpo -c configs/1-hpo-single/hpo_chemprop.yaml --log-level DEBUG
         """,
     )
     parser.add_argument(
@@ -1107,7 +1107,7 @@ if __name__ == "__main__":
 #
 # Options:
 #   --dry-run     Print commands without executing
-#   --config      Path to HPO config (default: configs/hpo_chemprop.yaml)
+#   --config      Path to HPO config (default: configs/1-hpo-single/hpo_chemprop.yaml)
 #   --log-level   Set logging level (DEBUG, INFO, WARNING, ERROR)
 #
 # =============================================================================
@@ -1120,7 +1120,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 # Configuration
 PROJECT_ROOT="$(get_project_root "$SCRIPT_DIR")"
-DEFAULT_CONFIG="${PROJECT_ROOT}/configs/hpo_chemprop.yaml"
+DEFAULT_CONFIG="${PROJECT_ROOT}/configs/1-hpo-single/hpo_chemprop.yaml"
 
 # Default options
 DRY_RUN=false
@@ -1208,7 +1208,7 @@ fi
 - **FILE-002**: `src/admet/model/chemprop/hpo_search_space.py` - Search space builder
 - **FILE-003**: `src/admet/model/chemprop/hpo_trainable.py` - Ray Tune trainable function
 - **FILE-004**: `src/admet/model/chemprop/hpo.py` - Main HPO runner
-- **FILE-005**: `configs/hpo_chemprop.yaml` - Example HPO configuration
+- **FILE-005**: `configs/1-hpo-single/hpo_chemprop.yaml` - Example HPO configuration
 - **FILE-006**: `scripts/run_chemprop_hpo.sh` - Bash runner script
 - **FILE-007**: `scripts/README.md` - Updated with HPO documentation
 - **FILE-008**: `tests/admet/model/chemprop/test_hpo_config.py` - Config tests

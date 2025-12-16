@@ -6,7 +6,6 @@ import json
 import math
 from pathlib import Path
 
-
 ENSEMBLE_DATA_DIR = "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
 
 
@@ -31,7 +30,7 @@ def generate_ensemble_config(hpo_config: dict, rank: int) -> str:
     ffn_hidden_dim = hpo_config["ffn_hidden_dim"]
     batch_size = hpo_config["batch_size"]
     ffn_type = hpo_config["ffn_type"]
-    
+
     # Map "mlp" to "regression" as the model doesn't support "mlp"
     if ffn_type == "mlp":
         ffn_type = "regression"
@@ -63,8 +62,10 @@ def generate_ensemble_config(hpo_config: dict, rank: int) -> str:
         "# train a model on each, then aggregate predictions with uncertainty estimates.",
         "#",
         "# Usage:",
-        f"#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop_hpo_{rank:03d}.yaml",
-        f"#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop_hpo_{rank:03d}.yaml --max-parallel 2",
+        "#   python -m admet.model.chemprop.ensemble --config \\",
+        f"#       configs/2-hpo-ensemble/ensemble_chemprop_hpo_{rank:03d}.yaml",
+        "#   python -m admet.model.chemprop.ensemble -c \\",
+        f"#       configs/2-hpo-ensemble/ensemble_chemprop_hpo_{rank:03d}.yaml --max-parallel 2",
         "",
         "# Data configuration for ensemble",
         "data:",

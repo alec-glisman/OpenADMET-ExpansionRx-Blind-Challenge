@@ -18,10 +18,10 @@ Train a single Chemprop model using a YAML configuration file:
 
 ```bash
 # Train from command line
-python -m admet.model.chemprop.model --config configs/example_chemprop.yaml
+python -m admet.model.chemprop.model --config configs/0-experiment/chemprop.yaml
 
 # With debug logging
-python -m admet.model.chemprop.model -c configs/example_chemprop.yaml --log-level DEBUG
+python -m admet.model.chemprop.model -c configs/0-experiment/chemprop.yaml --log-level DEBUG
 ```
 
 Or programmatically in Python:
@@ -33,7 +33,7 @@ from admet.model.chemprop import ChempropConfig, ChempropModel
 # Load configuration from YAML
 config = OmegaConf.merge(
     OmegaConf.structured(ChempropConfig),
-    OmegaConf.load("configs/example_chemprop.yaml")
+    OmegaConf.load("configs/0-experiment/chemprop.yaml")
 )
 
 # Create and train model
@@ -53,10 +53,10 @@ Train an ensemble of models across multiple splits and folds with Ray-based para
 
 ```bash
 # Train ensemble from command line
-python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop.yaml
+python -m admet.model.chemprop.ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml
 
 # Limit parallel models to prevent OOM
-python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop.yaml --max-parallel 2
+python -m admet.model.chemprop.ensemble -c configs/0-experiment/ensemble_chemprop_production.yaml --max-parallel 2
 ```
 
 Or programmatically:
@@ -68,7 +68,7 @@ from admet.model.chemprop import EnsembleConfig, ChempropEnsemble
 # Load ensemble configuration
 config = OmegaConf.merge(
     OmegaConf.structured(EnsembleConfig),
-    OmegaConf.load("configs/ensemble_chemprop.yaml")
+    OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
 )
 
 # Create ensemble trainer
@@ -98,16 +98,14 @@ ensemble.close()
 The ensemble configuration extends the single-model config with additional options:
 
 ```yaml
-# configs/ensemble_chemprop.yaml
-ensemble:
+# configs/0-experiment/ensemble_chemprop_production.yaml
+data:
   # Root directory containing split_*/fold_*/ subdirectories
-  data_dir: "assets/dataset/splits/data"
+  data_dir: "assets/dataset/split_train_val_local_test/quality_high/bitbirch/multilabel_stratified_kfold/data"
   # Optional: filter specific splits/folds (null = use all)
   splits: null
   folds: null
-
-# Rest of config same as single model...
-data:
+  
   test_file: "assets/dataset/set/local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
   # ...
@@ -119,10 +117,10 @@ Use Task Affinity Grouping (TAG) to automatically discover which tasks benefit f
 
 ```bash
 # Train with task affinity enabled
-python -m admet.model.chemprop.model --config configs/chemprop_task_affinity.yaml
+python -m admet.model.chemprop.model --config configs/task-affinity/chemprop_task_affinity.yaml
 
 # Override number of task groups
-python -m admet.model.chemprop.model -c configs/chemprop.yaml \
+python -m admet.model.chemprop.model -c configs/0-experiment/chemprop.yaml \
     --task-affinity.enabled true \
     --task-affinity.n-groups 3
 
@@ -138,7 +136,7 @@ python -m admet.cli.compute_task_affinity \
 Configure task affinity in your YAML:
 
 ```yaml
-# configs/chemprop_task_affinity.yaml
+# configs/task-affinity/chemprop_task_affinity.yaml
 task_affinity:
   enabled: true
   n_groups: 3                    # Number of task groups
@@ -163,10 +161,10 @@ Run hyperparameter optimization (HPO) for Chemprop models using Ray Tune with AS
 
 ```bash
 # Run HPO from command line
-python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml --num-samples 50
+python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
 
 # With custom resource allocation
-python -m admet.model.chemprop.hpo -c configs/hpo_chemprop.yaml \
+python -m admet.model.chemprop.hpo -c configs/1-hpo-single/hpo_chemprop.yaml \
     --gpus-per-trial 0.5 --cpus-per-trial 4 --output-dir hpo_results/
 ```
 
@@ -174,7 +172,7 @@ Or use the convenience bash script:
 
 ```bash
 # Run HPO with default settings
-./scripts/train_chemprop_hpo.sh configs/hpo_chemprop.yaml
+./scripts/training/train_chemprop_hpo.sh configs/1-hpo-single/hpo_chemprop.yaml
 ```
 
 Or programmatically in Python:
@@ -186,7 +184,7 @@ from admet.model.chemprop import ChempropHPO, HPOConfig
 # Load HPO configuration
 config = OmegaConf.merge(
     OmegaConf.structured(HPOConfig),
-    OmegaConf.load("configs/hpo_chemprop.yaml")
+    OmegaConf.load("configs/1-hpo-single/hpo_chemprop.yaml")
 )
 
 # Create HPO runner
@@ -244,7 +242,7 @@ python -m admet.data.split --input data.csv --output outputs/ \
     --cluster-method bitbirch --split-method multilabel_stratified_kfold
 
 # Or use the batch script for all configurations
-./scripts/run_data_splits.sh --input data.csv --output-dir assets/dataset/splits/
+./scripts/data/run_data_splits.sh --input data.csv --output-dir assets/dataset/splits/
 ```
 
 Or programmatically in Python:

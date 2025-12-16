@@ -7,7 +7,7 @@
 #   # Try different group numbers
 #   for n in 2 3 4 5; do
 #     python -m admet.model.chemprop.model \
-#       --config configs/chemprop_task_affinity_explore.yaml \
+#       --config configs/task-affinity/chemprop_task_affinity_explore.yaml \
 #       --task-affinity.n-groups $n \
 #       --mlflow.run-name "explore_n${n}"
 #   done

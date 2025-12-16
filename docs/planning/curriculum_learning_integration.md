@@ -292,7 +292,7 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
 #### 6.1 Example single model config
 
 ```yaml
-# configs/single_chemprop_curriculum.yaml
+# configs/curriculum/chemprop_curriculum.yaml
 data:
   train_file: "train.csv"
   # ...
@@ -311,7 +311,7 @@ model:
 #### 6.2 Example HPO config
 
 ```yaml
-# configs/hpo_chemprop_curriculum.yaml
+# configs/curriculum/hpo_chemprop_curriculum.yaml
 search_space:
   # ... existing params ...
   
@@ -395,8 +395,8 @@ curriculum:
 - `tests/test_curriculum_config.py`
 - `tests/test_curriculum_data.py`
 - `tests/test_curriculum_model.py`
-- `configs/single_chemprop_curriculum.yaml`
-- `configs/hpo_chemprop_curriculum.yaml`
+- `configs/curriculum/chemprop_curriculum.yaml`
+- `configs/curriculum/hpo_chemprop_curriculum.yaml`
 
 ### Modified Files
 

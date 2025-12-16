@@ -5,7 +5,7 @@
 #
 # Usage:
 #   python -m admet.cli.compute_task_affinity \
-#     --config configs/task_affinity_compute.yaml \
+#     --config configs/task-affinity/task_affinity_compute.yaml \
 #     --save-path results/task_affinity.npz \
 #     --plot-heatmap results/affinity_heatmap.png
 

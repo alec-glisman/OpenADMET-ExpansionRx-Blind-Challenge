@@ -6,7 +6,7 @@
 # It iterates through all data directories and trains an ensemble for each.
 #
 # Usage:
-#   ./scripts/train_chemprop_ensembles.sh [--dry-run] [--max-parallel N] [--log-level LEVEL]
+#   ./scripts/training/train_chemprop_ensembles.sh [--dry-run] [--max-parallel N] [--log-level LEVEL]
 #
 # Options:
 #   --dry-run       Print commands without executing
@@ -17,11 +17,11 @@
 
 # Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/../lib/common.sh"
 
 # Configuration
 PROJECT_ROOT="$(get_project_root "$SCRIPT_DIR")"
-CONFIG_FILE="${PROJECT_ROOT}/configs/ensemble_chemprop_tag.yaml"
+CONFIG_FILE="${PROJECT_ROOT}/configs/task-affinity/ensemble_chemprop_tag.yaml"
 
 # Default options
 DRY_RUN=false
