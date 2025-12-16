@@ -27,7 +27,7 @@
 import numpy as np
 from scipy import sparse
 
-from bitbirch.pruning import lazyPrune
+from bitbirch.bitbirch.pruning import lazyPrune
 
 
 def set_merge(merge_criterion, tolerance=0.05):

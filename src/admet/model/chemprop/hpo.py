@@ -254,9 +254,9 @@ class ChempropHPO:
 
         mlflow.set_experiment(self.config.experiment_name)
 
-        # Log run parameters
-        with mlflow.start_run(run_name=f"hpo_master_{self.timestamp}"):
-            pass
+        # Log run parameters and capture run_id
+        with mlflow.start_run(run_name=f"hpo_master_{self.timestamp}") as run:
+            self._mlflow_run_id = run.info.run_id
 
     def _log_results(self) -> None:
         """Log HPO results to MLflow."""

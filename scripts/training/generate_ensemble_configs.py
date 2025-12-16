@@ -5,6 +5,7 @@ Generate 100 ensemble configuration files from top HPO results.
 import json
 import math
 from pathlib import Path
+from typing import Optional
 
 ENSEMBLE_DATA_DIR = "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
 
@@ -37,10 +38,26 @@ def generate_ensemble_config(hpo_config: dict, rank: int) -> str:
     aggregation = hpo_config["aggregation"]
     task_sampling_alpha = hpo_config["task_sampling_alpha"]
 
-    # Handle NaN values for conditional parameters
-    n_experts = hpo_config.get("n_experts")
-    trunk_depth = hpo_config.get("trunk_depth")
-    trunk_hidden_dim = hpo_config.get("trunk_hidden_dim")
+    # Handle NaN or missing values for conditional parameters
+    n_experts: Optional[float] = hpo_config.get("n_experts")
+    trunk_depth: Optional[float] = hpo_config.get("trunk_depth")
+    trunk_hidden_dim: Optional[float] = hpo_config.get("trunk_hidden_dim")
+
+    # Compute safe defaults for integer-valued hyperparameters
+    if n_experts is not None and not math.isnan(n_experts):
+        n_experts_val = int(n_experts)
+    else:
+        n_experts_val = 4
+
+    if trunk_depth is not None and not math.isnan(trunk_depth):
+        trunk_n_layers_val = int(trunk_depth)
+    else:
+        trunk_n_layers_val = 2
+
+    if trunk_hidden_dim is not None and not math.isnan(trunk_hidden_dim):
+        trunk_hidden_dim_val = int(trunk_hidden_dim)
+    else:
+        trunk_hidden_dim_val = 500
 
     # Calculate derived learning rates
     init_lr = learning_rate * lr_warmup_ratio
@@ -109,7 +126,7 @@ def generate_ensemble_config(hpo_config: dict, rank: int) -> str:
     if ffn_type == "mlp":
         yaml_lines.extend(
             [
-                f'  ffn_type: "mlp"',
+                '  ffn_type: "mlp"',
                 f"  num_layers: {ffn_num_layers}",
                 f"  hidden_dim: {ffn_hidden_dim}",
             ]
@@ -117,26 +134,26 @@ def generate_ensemble_config(hpo_config: dict, rank: int) -> str:
     elif ffn_type == "moe":
         yaml_lines.extend(
             [
-                f'  ffn_type: "moe"',
+                '  ffn_type: "moe"',
                 f"  num_layers: {ffn_num_layers}",
                 f"  hidden_dim: {ffn_hidden_dim}",
-                f"  n_experts: {int(n_experts) if not math.isnan(n_experts) else 4}",
+                f"  n_experts: {n_experts_val}",
             ]
         )
     elif ffn_type == "branched":
         yaml_lines.extend(
             [
-                f'  ffn_type: "branched"',
+                '  ffn_type: "branched"',
                 f"  num_layers: {ffn_num_layers}",
                 f"  hidden_dim: {ffn_hidden_dim}",
-                f"  trunk_n_layers: {int(trunk_depth) if not math.isnan(trunk_depth) else 2}",
-                f"  trunk_hidden_dim: {int(trunk_hidden_dim) if not math.isnan(trunk_hidden_dim) else 500}",
+                f"  trunk_n_layers: {trunk_n_layers_val}",
+                f"  trunk_hidden_dim: {trunk_hidden_dim_val}",
             ]
         )
     else:  # regression (legacy)
         yaml_lines.extend(
             [
-                f'  ffn_type: "regression"',
+                '  ffn_type: "regression"',
                 f"  num_layers: {ffn_num_layers}",
                 f"  hidden_dim: {ffn_hidden_dim}",
             ]
@@ -242,7 +259,7 @@ def main():
 
         print(f"Generated {output_path}")
 
-    print(f"\nSuccessfully generated 100 ensemble configuration files")
+    print("\nSuccessfully generated 100 ensemble configuration files")
 
 
 if __name__ == "__main__":

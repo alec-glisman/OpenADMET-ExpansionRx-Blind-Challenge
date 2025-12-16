@@ -20,8 +20,8 @@ try:
     df = pd.read_csv(data_path)
     print(f"Loaded data with {len(df)} rows.")
 
-    weights = []
-    counts = []
+    weights: list[float] = []
+    counts: list[int] = []
     print("\nCalculating Counts and Weights (Max(Count) / Count):")
 
     # First pass: get counts

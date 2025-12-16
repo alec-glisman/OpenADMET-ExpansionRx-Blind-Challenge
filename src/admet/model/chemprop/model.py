@@ -804,6 +804,8 @@ class ChempropModel:
                 datasets[split].normalize_targets(self.scaler)
 
             # Build dataloader with curriculum sampling for training if enabled
+            # Declare sampler with a permissive type to avoid incompatible assignments
+            sampler: Any = None
             if split == "train" and self.curriculum_state is not None and self._quality_labels["train"] is not None:
                 # Use dynamic curriculum-aware sampling that updates with phase changes
                 seed = (
@@ -1604,7 +1606,7 @@ class ChempropModel:
             # Note: We do not log 'last.ckpt' to save space and only keep the best model.
 
         # Save hyperparameters as YAML artifact
-        import yaml
+        import yaml  # type: ignore[import]
 
         temp_dir = Path(tempfile.mkdtemp())
         yaml_path = temp_dir / "hyperparameters.yaml"

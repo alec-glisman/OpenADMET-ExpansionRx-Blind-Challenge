@@ -41,6 +41,21 @@ This file documents how to contribute to this machine-learning project. It cover
 - Add fast unit tests for deterministic code paths. Heavy model training should not run in CI unless it is a short smoke test.
 - Use `pytest` for tests. Keep CI jobs fast by running only unit tests and linters; reserve longer integration tests for scheduled pipelines.
 
+Testing the CLI
+
+- The Typer app is available as ``admet.cli.app`` and subcommands are registered at import time. When writing CLI tests, prefer invoking the top-level app with Typer's ``CliRunner`` to ensure parsing matches the installed console script:
+
+```python
+from typer.testing import CliRunner
+from admet.cli import app as main_app
+
+runner = CliRunner()
+result = runner.invoke(main_app, ["data", "split", "--output", "./out", "data.csv"])
+assert result.exit_code == 0
+```
+
+- Avoid invoking sub-``Typer`` instances (for example ``data_app``) directly in tests because argument parsing behavior may differ.
+
 Note: Tests that require MLflow (e.g., start MLflow runs) are marked with `no_mlflow_runs` and are excluded by default from CI and standard `pytest` runs. To run them explicitly, use:
 
 ```bash

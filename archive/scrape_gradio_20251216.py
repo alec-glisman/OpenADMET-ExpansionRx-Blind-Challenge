@@ -20,9 +20,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from gradio_client import Client
 
-plt: Any = None
-sns: Any = None
-np: Any = None
+plt: Any
+sns: Any
+np: Any
 
 # Import plotting configuration from project
 try:
@@ -874,7 +874,7 @@ def _generate_plots(
                 results_df["task"].str.lower() == (label if label != "Overall (MA-RAE)" else "overall").lower()
             ]
             if not user_row.empty:
-                user_val_raw = user_row.iloc[0].get(colname, None)
+                user_val_raw: Any = user_row.iloc[0].get(colname, None)
                 uv, ue = extract_value_uncertainty(user_val_raw)
                 if uv is not None:
                     ax.axvline(uv, color="#E63946", linewidth=2, linestyle="--")
@@ -934,7 +934,7 @@ def _generate_plots(
                 key = label if label != "Overall (Spearman R)" else "OVERALL"
                 user_row = results_df[results_df["task"].str.lower() == key.lower()]
                 if not user_row.empty:
-                    user_val_raw = user_row.iloc[0].get("spearman r", None)
+                    user_val_raw: Any = user_row.iloc[0].get("spearman r", None)
                     uv, ue = extract_value_uncertainty(user_val_raw)
                     if uv is not None:
                         ax.axvline(uv, color="#E63946", linewidth=2, linestyle="--")
@@ -994,7 +994,7 @@ def _generate_plots(
                 key = label if label != "Overall (Kendall's tau)" else "OVERALL"
                 user_row = results_df[results_df["task"].str.lower() == key.lower()]
                 if not user_row.empty:
-                    user_val_raw = user_row.iloc[0].get("kendall's tau", None)
+                    user_val_raw: Any = user_row.iloc[0].get("kendall's tau", None)
                     uv, ue = extract_value_uncertainty(user_val_raw)
                     if uv is not None:
                         ax.axvline(uv, color="#E63946", linewidth=2, linestyle="--")
@@ -1011,11 +1011,19 @@ def _generate_plots(
     # 14. Radar/Spider Chart - Multi-metric profile per task
     try:
         radar_tasks = task_data["task"].tolist()
-        metrics_radar = {"Rank (inverted)": [], r"$R^2$": [], "Spearman R": [], "MAE (inverted)": []}
+        metrics_radar: Dict[str, List[float]] = {
+            "Rank (inverted)": [],
+            r"$R^2$": [],
+            "Spearman R": [],
+            "MAE (inverted)": [],
+        }
         max_rank = 100  # normalize ranks
         for _, row in task_data.iterrows():
             rank = row["rank"]
             metrics_radar["Rank (inverted)"].append(1 - rank / max_rank)
+            r2_val: Optional[float] = None
+            sp_val: Optional[float] = None
+            mae_val: Optional[float] = None
             r2_val, _ = extract_value_uncertainty(row.get("r2", None))
             metrics_radar[r"$R^2$"].append(r2_val if r2_val is not None else 0)
             sp_val, _ = extract_value_uncertainty(row.get("spearman r", None))
@@ -1101,6 +1109,7 @@ def _generate_plots(
         gap_data = []
         for _, row in task_data.iterrows():
             task = row["task"]
+            mae_val: Optional[float] = None
             mae_val, _ = extract_value_uncertainty(row.get("mae", None))
             min_mae = task_mins.get(task, None)
             if mae_val is not None and min_mae is not None:
@@ -1140,6 +1149,10 @@ def _generate_plots(
     try:
         corr_data = []
         for _, row in task_data.iterrows():
+            r2_val: Optional[float] = None
+            sp_val: Optional[float] = None
+            kd_val: Optional[float] = None
+            mae_val: Optional[float] = None
             r2_val, _ = extract_value_uncertainty(row.get("r2", None))
             sp_val, _ = extract_value_uncertainty(row.get("spearman r", None))
             kd_val, _ = extract_value_uncertainty(row.get("kendall's tau", None))
@@ -1308,6 +1321,7 @@ def _generate_plots(
         priority_data = []
         for _, row in task_data.iterrows():
             task = row["task"]
+            mae_val: Optional[float] = None
             mae_val, _ = extract_value_uncertainty(row.get("mae", None))
             min_mae = task_mins.get(task, None)
             user_rank = row["rank"]
@@ -1711,11 +1725,14 @@ def main() -> None:
     )
     md_lines.append("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---|")
 
-    def get_note_from_rank(rank_val):
+    def get_note_from_rank(rank_val: Any) -> str:
         """Categorize performance based on rank position"""
         try:
-            rank_int = int(rank_val) if pd.notna(rank_val) else None
-            if rank_int is None:
+            if not pd.notna(rank_val):
+                return "Performance data unavailable"
+            try:
+                rank_int: Optional[int] = int(rank_val)
+            except (ValueError, TypeError):
                 return "Performance data unavailable"
             if rank_int <= 10:
                 return "Excellent performance"
@@ -1727,7 +1744,7 @@ def main() -> None:
                 return "Poor performance"
             else:
                 return "Terrible performance"
-        except (ValueError, TypeError):
+        except Exception:
             return "Performance data unavailable"
 
     for _, row in out[out["task"] != "OVERALL"].iterrows():

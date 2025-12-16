@@ -1,10 +1,11 @@
 """Test task affinity integration with ChempropModel."""
 
 import logging
+from typing import cast
 
 import numpy as np
 import pandas as pd
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, OmegaConf
 
 from admet.model.chemprop.config import ChempropConfig, TaskAffinityConfig
 from admet.model.chemprop.model import ChempropModel
@@ -127,9 +128,12 @@ config_dict = {
     },
 }
 
-config = OmegaConf.merge(
-    OmegaConf.structured(ChempropConfig),
-    OmegaConf.create(config_dict),
+config = cast(
+    ChempropConfig | DictConfig,
+    OmegaConf.merge(
+        OmegaConf.structured(ChempropConfig),
+        OmegaConf.create(config_dict),
+    ),
 )
 
 model3 = ChempropModel.from_config(

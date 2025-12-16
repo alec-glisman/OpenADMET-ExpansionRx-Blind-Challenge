@@ -111,13 +111,13 @@ class TestChempropHPO:
         assert "learning_rate" in space
         assert "dropout" in space
 
-        # Should have fixed parameters
-        assert space["data_path"] == "train.csv"
-        assert space["val_data_path"] == "validation.csv"
+        # Should have fixed parameters (paths are converted to absolute)
+        assert space["data_path"].endswith("train.csv")
+        assert space["val_data_path"].endswith("validation.csv")
         assert space["smiles_column"] == "smiles"
         assert space["target_columns"] == ["target1", "target2"]
         assert space["max_epochs"] == 50
-        assert space["metric"] == "mae"
+        assert space["metric"] == "val_mae"
         assert space["seed"] == 42
 
     def test_build_scheduler(self, test_hpo_config) -> None:
@@ -138,7 +138,9 @@ class TestChempropHPO:
         mock_mlflow = mocker.patch("admet.model.chemprop.hpo.mlflow")
         mock_run = mocker.MagicMock()
         mock_run.info.run_id = "test_run_id"
-        mock_mlflow.start_run.return_value = mock_run
+        # Setup context manager properly for 'with mlflow.start_run() as run:'
+        mock_mlflow.start_run.return_value.__enter__ = mocker.MagicMock(return_value=mock_run)
+        mock_mlflow.start_run.return_value.__exit__ = mocker.MagicMock(return_value=False)
 
         hpo = ChempropHPO(test_hpo_config)
         hpo._setup_mlflow()
@@ -162,6 +164,9 @@ class TestChempropHPOIntegration:
         # Setup mocks
         mock_mlflow = mocker.patch("admet.model.chemprop.hpo.mlflow")
         mock_tuner_class = mocker.patch("admet.model.chemprop.hpo.tune.Tuner")
+        # Patch ray module where it's imported in the function body
+        mocker.patch("ray.is_initialized", return_value=True)
+        mocker.patch("ray.init")
 
         mock_run = mocker.MagicMock()
         mock_run.info.run_id = "test_run"

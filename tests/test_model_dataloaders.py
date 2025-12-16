@@ -64,9 +64,13 @@ def test_prepare_dataloaders_uses_sampler(monkeypatch, train_val_dataframes, ena
     assert model.dataloaders["validation"] is not None
 
     if enable_curriculum:
+        # With curriculum enabled, quality labels should be set
         assert model._quality_labels.get("train") is not None
-        assert model.dataloaders["train"] is fake_dataloader
+        # Curriculum creates a custom DataLoader with sampler, not using build_dataloader
+        from torch.utils.data import DataLoader
+
+        assert isinstance(model.dataloaders["train"], DataLoader)
     else:
-        # no sampler applied; dataloader is still fake_dataloader but quality not set
+        # Without curriculum, quality labels not set and build_dataloader is used
         assert model._quality_labels.get("train") is None
         assert model.dataloaders["train"] is fake_dataloader

@@ -39,6 +39,17 @@ sns.set_palette(GLASBEY_PALETTE)
 # Public API exports
 from admet.plot.density import plot_endpoint_distributions, plot_property_distributions  # noqa: E402
 from admet.plot.latex import latex_sanitize, text_correlation, text_distribution  # noqa: E402
+from admet.plot.leaderboard import (  # noqa: E402
+    generate_all_plots,
+    plot_delta_mae_comparison,
+    plot_mae_comparison_bar,
+    plot_metrics_heatmap,
+    plot_overall_rank_distribution,
+    plot_performance_category_pie,
+    plot_rank_vs_metric_scatter,
+    plot_task_rankings_bar,
+    save_figure_formats,
+)
 from admet.plot.metrics import (  # noqa: E402
     compute_metrics_by_split,
     compute_metrics_df,
@@ -73,4 +84,14 @@ __all__ = [
     "plot_all_metrics",
     "plot_all_metrics_by_split",
     "metrics_to_latex_table",
+    # Leaderboard plots
+    "generate_all_plots",
+    "plot_delta_mae_comparison",
+    "plot_mae_comparison_bar",
+    "plot_metrics_heatmap",
+    "plot_overall_rank_distribution",
+    "plot_performance_category_pie",
+    "plot_rank_vs_metric_scatter",
+    "plot_task_rankings_bar",
+    "save_figure_formats",
 ]

@@ -12,3 +12,8 @@ for ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) property p
 from __future__ import annotations
 
 __version__ = "0.0.1"
+
+# Leaderboard module for Gradio scraping and analysis
+from admet import leaderboard
+
+__all__ = ["leaderboard"]

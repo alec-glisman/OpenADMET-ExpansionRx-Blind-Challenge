@@ -14,7 +14,7 @@
     "files.exclude": {
         "**/.mypy_cache": true,
         "**/.pytest_cache": true,
-        "**/.venv": true,
+        "**/.venv": true
     },
     "search.exclude": {
         "**/.mypy_cache": true,
@@ -28,6 +28,5 @@
     "workbench.editor.limit.enabled": true,
     "workbench.startupEditor": "none",
     "extensions.ignoreRecommendations": true,
-    "python.languageServer": "Pylance",
-    "telemetry.telemetryLevel": "off"
+    "python.languageServer": "Pylance"
 }

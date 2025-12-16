@@ -68,7 +68,7 @@ class TestSearchSpaceConfig:
         assert config.learning_rate is not None
         assert config.learning_rate.type == "loguniform"
         assert config.dropout is not None
-        assert config.hidden_dim is None
+        assert config.ffn_hidden_dim is None
 
 
 class TestASHAConfig:

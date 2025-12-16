@@ -171,8 +171,6 @@ def test_log_plot_metrics_batch_logging(tmp_path):
     """Test that _log_plot_metrics uses batch logging correctly."""
     from unittest.mock import MagicMock, patch
 
-    import numpy as np
-
     # Create minimal config
     config = EnsembleConfig()
     config.data.data_dir = str(tmp_path)

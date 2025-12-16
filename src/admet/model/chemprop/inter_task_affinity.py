@@ -459,7 +459,7 @@ class InterTaskAffinityComputer:
     def compute_step_affinity(
         self,
         model: nn.Module,
-        batch: Tuple[Any, ...],
+        batch: Any,
         learning_rate: float,
     ) -> np.ndarray:
         """
@@ -576,7 +576,8 @@ class InterTaskAffinityComputer:
             finally:
                 # Restore original parameters no matter what
                 for name, param in shared_items:
-                    param.data = original_params.get(name, param.data)
+                    if name in original_params:
+                        param.data = original_params[name]
 
         # Update running statistics
         self.affinity_sum += Z_t
@@ -659,7 +660,7 @@ class InterTaskAffinityCallback(Callback):
 
     def __init__(
         self,
-        config: InterTaskAffinityConfig,
+        config: Any,
         target_cols: List[str],
     ) -> None:
         """

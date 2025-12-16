@@ -2,9 +2,7 @@
 # ## Setup
 
 import gc
-import itertools
 import logging
-import warnings
 from datetime import datetime
 
 # %%
@@ -13,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scienceplots
+import scienceplots  # noqa: F401
 import seaborn as sns
 import useful_rdkit_utils as uru
 from datasets import Dataset, DatasetDict
@@ -287,7 +285,8 @@ for dset_name, splits in split_datasets.items():
         folder_size = sum(f.stat().st_size for f in split_output_dir.glob("**/*") if f.is_file())
         folder_size_mb = folder_size / (1024 * 1024)
         logger.info(
-            f"Saved all splits for dataset: {dset_name}, split method: {split_name}. Folder size: {folder_size_mb:.2f} MB"
+            f"Saved all splits for dataset: {dset_name}, split method: {split_name}."
+            + f" Folder size: {folder_size_mb:.2f} MB"
         )
 
 # %%
@@ -330,7 +329,8 @@ for dset_name, splits in split_datasets.items():
                 # plot
                 ax = counts_df.plot.bar(rot=45, figsize=(10, 6))
                 ax.set_title(
-                    f"Dataset: {dset_name}, Split: {split_name}, {split_number}, {fold_number} - Sample Counts per Endpoint"
+                    f"Dataset: {dset_name}, Split: {split_name}, {split_number},"
+                    + f" {fold_number} - Sample Counts per Endpoint"
                 )
                 ax.set_ylabel("Number of Samples")
                 plt.tight_layout()
@@ -397,12 +397,14 @@ for dset_name, splits in split_datasets.items():
 
         sns.boxplot(x="Group", y="Train Size", data=fold_sizes_df, ax=axs[0])
         axs[0].set_title(
-            f"Train Set Size Distribution: {dset_name.capitalize()} Quality, {split_name.replace('_', ' ').capitalize()} Split"
+            f"Train Set Size Distribution: {dset_name.capitalize()} Quality, "
+            + f"{split_name.replace('_', ' ').capitalize()} Split"
         )
 
         sns.boxplot(x="Group", y="Test Size", data=fold_sizes_df, ax=axs[1])
         axs[1].set_title(
-            f"Test Set Size Distribution: {dset_name.capitalize()} Quality, {split_name.replace('_', ' ').capitalize()} Split"
+            f"Test Set Size Distribution: {dset_name.capitalize()} Quality, "
+            + f"{split_name.replace('_', ' ').capitalize()} Split"
         )
 
         for ax in axs:

@@ -101,6 +101,7 @@ def inter_task_affinity_config():
         lookahead_lr=0.001,
         use_optimizer_lr=False,
         log_to_mlflow=False,  # Disable MLflow logging for tests
+        device="cpu",  # Explicitly use CPU for reproducible tests
     )
 
 
@@ -849,8 +850,8 @@ class TestGradientComputation:
         """Test that model state is restored after affinity computation."""
         computer = InterTaskAffinityComputer(inter_task_affinity_config, target_cols)
 
-        # Get original parameters
-        original_params = {name: param.clone() for name, param in simple_mpnn.named_parameters()}
+        # Get original parameters - clone the data tensors and detach from computation graph
+        original_params = {name: param.data.clone().detach() for name, param in simple_mpnn.named_parameters()}
 
         # Compute affinity
         computer.compute_step_affinity(
@@ -859,11 +860,11 @@ class TestGradientComputation:
             learning_rate=0.001,
         )
 
-        # Verify parameters are restored
+        # Verify parameters are restored (compare data values)
         for name, param in simple_mpnn.named_parameters():
             torch.testing.assert_close(
-                param.data,
-                original_params[name],
+                param.data.cpu(),
+                original_params[name].cpu(),
                 msg=f"Parameter {name} was not restored after affinity computation",
             )
 

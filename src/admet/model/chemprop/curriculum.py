@@ -184,7 +184,7 @@ class CurriculumCallback(pl.Callback):
                     self._quality_indices[label] = []
                 self._quality_indices[label].append(i)
 
-    def _reset_early_stopping(self, trainer: pl.Trainer) -> None:
+    def _reset_early_stopping(self, trainer: Any) -> None:
         """Reset early stopping callback's wait counter and best score."""
         callbacks = getattr(trainer, "callbacks", [])
         for callback in callbacks:
@@ -200,7 +200,7 @@ class CurriculumCallback(pl.Callback):
 
     def _log_per_quality_metrics(
         self,
-        trainer: pl.Trainer,  # noqa: ARG002
+        trainer: Any,  # noqa: ARG002
         pl_module: pl.LightningModule,
         metrics: Dict[str, Any],
     ) -> None:
@@ -226,7 +226,7 @@ class CurriculumCallback(pl.Callback):
                     except Exception:
                         pass
 
-    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+    def on_validation_epoch_end(self, trainer: Any, pl_module: pl.LightningModule) -> None:
         """Handle validation epoch end: update state, check phase, log metrics."""
         metrics = trainer.callback_metrics
         metric_key = self.monitor_metric or self.curr_state.target_metric_key()

@@ -1172,8 +1172,8 @@ class ChempropEnsemble:
                 metric_type=metric_type,
                 safe_metric=safe_metric,
                 labels=labels,
-                means=means,
-                errors=errors,
+                means=[float(m) for m in means],
+                errors=[float(e) for e in errors],
                 n_models=len(model_predictions),
             )
 

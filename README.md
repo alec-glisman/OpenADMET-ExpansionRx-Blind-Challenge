@@ -64,6 +64,52 @@ This repository contains code and documentation for participating in the OpenADM
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
 
+## Leaderboard CLI & Report Generation ✅
+
+Quickly scrape the OpenADMET leaderboard, analyze a user's submissions, and generate reports and plots using the built-in CLI or Python API.
+
+**CLI (recommended)**
+
+- Activate your virtual environment and run the CLI entrypoint `admet` (installed via the `admet` script in `pyproject.toml`).
+- See `docs/guide/cli.rst` for full usage examples and testing guidance (including programmatic tests using ``typer.testing.CliRunner``).
+
+```bash
+# Activate venv (example)
+source .venv/bin/activate
+
+# Scrape leaderboard for user 'aglisman' (creates assets/submissions/<YYYY-MM-DD>/)
+admet leaderboard scrape --user aglisman
+
+# Scrape into custom output dir and skip plots
+admet leaderboard scrape --user myname --output ./results --no-plots
+
+# Generate a report from cached data
+admet leaderboard report assets/submissions/2025-12-16/data --user aglisman
+```
+
+**Python API**
+
+```python
+from admet.leaderboard import LeaderboardConfig, LeaderboardClient
+from admet.leaderboard.report import generate_markdown_report
+from pathlib import Path
+
+cfg = LeaderboardConfig(space="openadmet/OpenADMET-ExpansionRx-Challenge", target_user="aglisman")
+client = LeaderboardClient(cfg)
+tables = client.fetch_all_tables()
+# (assemble ResultsData or use the CLI implementation as a reference)
+# generate_markdown_report(results, Path("results/report.md"))
+```
+
+**Output layout**
+
+- `assets/submissions/<YYYY-MM-DD>/report.md` — human-readable markdown report
+- `assets/submissions/<YYYY-MM-DD>/summary.txt` — compact summary statistics
+- `assets/submissions/<YYYY-MM-DD>/data/*.csv` — cached endpoint tables
+- `assets/submissions/<YYYY-MM-DD>/figures/*` — generated plots (if not skipped)
+
+> **Note:** Some plot labels use LaTeX math formatting (e.g., `$R^2$`, `\tau`). If you see LaTeX-related errors when generating plots, install a TeX distribution (e.g., `texlive`) or run with `--no-plots` and generate plots locally where LaTeX is available.
+
 ### Training Models
 
 #### Single Model Training
@@ -71,11 +117,11 @@ You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if 
 Train a single Chemprop model using a YAML configuration file:
 
 ```bash
-# Train from command line
-python -m admet.model.chemprop.model --config configs/0-experiment/chemprop.yaml
+# Train from command line (using `admet` CLI)
+admet model train --config configs/0-experiment/chemprop.yaml
 
 # With debug logging
-python -m admet.model.chemprop.model -c configs/0-experiment/chemprop.yaml --log-level DEBUG
+admet model train -c configs/0-experiment/chemprop.yaml --log-level DEBUG
 ```
 
 Or programmatically in Python:
@@ -106,11 +152,11 @@ model.close()
 Train an ensemble of models across multiple splits and folds with Ray-based parallelization:
 
 ```bash
-# Train ensemble from command line
-python -m admet.model.chemprop.ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml
+# Train ensemble from command line (using `admet` CLI)
+admet model ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml
 
 # Limit parallel models to prevent OOM
-python -m admet.model.chemprop.ensemble -c configs/0-experiment/ensemble_chemprop_production.yaml --max-parallel 2
+admet model ensemble -c configs/0-experiment/ensemble_chemprop_production.yaml --max-parallel 2
 ```
 
 Or programmatically:
@@ -171,10 +217,10 @@ Use Task Affinity Grouping (TAG) to automatically discover which tasks benefit f
 
 ```bash
 # Train with task affinity enabled
-python -m admet.model.chemprop.model --config configs/task-affinity/chemprop_task_affinity.yaml
+admet model train --config configs/task-affinity/chemprop_task_affinity.yaml
 
 # Override number of task groups
-python -m admet.model.chemprop.model -c configs/0-experiment/chemprop.yaml \
+admet model train -c configs/0-experiment/chemprop.yaml \
     --task-affinity.enabled true \
     --task-affinity.n-groups 3
 
@@ -215,10 +261,10 @@ Run hyperparameter optimization (HPO) for Chemprop models using Ray Tune with AS
 
 ```bash
 # Run HPO from command line
-python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
+admet model hpo --config configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
 
 # With custom resource allocation
-python -m admet.model.chemprop.hpo -c configs/1-hpo-single/hpo_chemprop.yaml \
+admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml \
     --gpus-per-trial 0.5 --cpus-per-trial 4 --output-dir hpo_results/
 ```
 
@@ -296,7 +342,7 @@ Generate train/validation splits using cluster-based cross-validation with multi
 
 ```bash
 # Run data splitting from command line
-python -m admet.data.split --input data.csv --output outputs/ \
+admet data split data.csv --output outputs/ \
     --cluster-method bitbirch --split-method multilabel_stratified_kfold
 
 # Or use the batch script for all configurations

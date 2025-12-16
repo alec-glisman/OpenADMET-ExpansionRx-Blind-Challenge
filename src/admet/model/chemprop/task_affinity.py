@@ -575,23 +575,25 @@ class TaskAffinityComputer:
 
                 # Accumulate affinity scores (dot products or cosine similarity)
                 for i in range(n_tasks):
-                    if grad_vecs[i] is None:
+                    gi = grad_vecs[i]
+                    if gi is None:
                         continue
                     for j in range(i, n_tasks):
-                        if grad_vecs[j] is None:
+                        gj = grad_vecs[j]
+                        if gj is None:
                             continue
 
                         if self.config.affinity_type == "cosine":
                             # Cosine similarity
-                            norm_i = np.linalg.norm(grad_vecs[i])
-                            norm_j = np.linalg.norm(grad_vecs[j])
+                            norm_i = np.linalg.norm(gi)
+                            norm_j = np.linalg.norm(gj)
                             if norm_i > 0 and norm_j > 0:
-                                affinity = float(np.dot(grad_vecs[i], grad_vecs[j]) / (norm_i * norm_j))
+                                affinity = float(np.dot(gi, gj) / (norm_i * norm_j))
                             else:
                                 affinity = 0.0
                         else:
                             # Raw dot product
-                            affinity = float(np.dot(grad_vecs[i], grad_vecs[j]))
+                            affinity = float(np.dot(gi, gj))
 
                         affinity_sum[i, j] += affinity
                         if i != j:

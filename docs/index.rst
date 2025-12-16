@@ -74,6 +74,7 @@ Documentation sections
    :caption: API Reference
 
    api/admet
+   api/leaderboard
    guide/cli
 
 
@@ -82,6 +83,7 @@ Documentation sections
    :caption: Guides
 
    guide/overview
+   guide/leaderboard
    guide/development
    guide/architecture
    guide/data_sources
