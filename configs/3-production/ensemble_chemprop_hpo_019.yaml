@@ -17,7 +17,7 @@ data:
   splits: null
   folds: null
 
-  test_file: "assets/dataset/set/local_test.csv"
+  test_file: "assets/dataset/set/train_val_local_test.csv"
   blind_file: "assets/dataset/set/blind_test.csv"
   output_dir: null
 

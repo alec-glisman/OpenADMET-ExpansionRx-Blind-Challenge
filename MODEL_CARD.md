@@ -1,29 +1,125 @@
 # Model Card: OpenADMET ExpansionRx Blind Challenge
 
+## Table of Contents
+
+- [Methodology Summary](#methodology-summary)
+- [Model Overview](#model-overview)
+- [Model Architecture](#model-architecture)
+- [Training Performance](#training-performance-observations)
+- [Hyperparameter Optimization](#hyperparameter-optimization)
+- [Ensemble Strategy](#ensemble-strategy)
+- [Evaluation](#evaluation)
+- [Data Sources](#data-sources)
+- [Known Limitations](#known-limitations)
+- [Future Work](#future-work)
+- [Reproducibility](#reproducibility)
+- [References](#references)
+
+---
+
+## Methodology Summary
+
+> **Challenge Requirements:** Model description, additional training steps, and performance observations.
+
+### Model Description
+
+Multi-task MPNN via [Chemprop v2](https://github.com/chemprop/chemprop) predicting 9 ADMET endpoints from SMILES. Ensemble of 25 models (5 Butina splits × 5 CV folds) with averaged predictions.
+
+```mermaid
+flowchart LR
+    A[SMILES] --> B[Molecular Graph]
+    B --> C[Message Passing<br/>5-7 layers]
+    C --> D[Aggregation<br/>norm sum]
+    D --> E[FFN<br/>1-4 layers]
+    E --> F[9 Endpoints]
+```
+
+### Additional Training Steps
+
+| Step | Description | Status |
+|------|-------------|--------|
+| HPO | Ray Tune ASHA ~2,000 trials | ✅ Used |
+| Task Sampling | α-weighted oversampling of sparse endpoints | ✅ Used |
+| FFN Variants | MLP, MoE, Branched architectures explored | ✅ Evaluated |
+| Supplementary Data | KERMT, PharmaBench integration | 🔮 Future |
+| Curriculum Learning | Quality-aware phased training | 🔮 Future |
+
+### Training Performance
+
+- **Convergence:** 60–120 epochs with early stopping on validation MAE
+- **Best validation MAE:** 0.4–0.6 (macro-averaged across endpoints)
+- **R² range:** 0.40–0.85 (LogD best, Caco-2 and MGMB worst)
+
+---
+
 ## Model Overview
 
-**Model Name:** OpenADMET Multi-Endpoint ADMET Predictor
-**Version:** 1.0
-**Task:** Multi-output regression for 9 ADMET endpoints
-**Architecture:** Chemprop Message-Passing Neural Network (MPNN) ensemble
-**Training Framework:** PyTorch Lightning + Ray (parallel training)
-**Experiment Tracking:** MLflow
+- **Model Name:** OpenADMET Multi-Endpoint ADMET Predictor
+- **Version:** 1.0
+- **Task:** Multi-output regression for 9 ADMET endpoints
+- **Architecture:** Chemprop MPNN ensemble
+- **Training Framework:** PyTorch Lightning + Ray
+- **Experiment Tracking:** MLflow
 
-## Intended Use
+### Intended Use
 
-This model predicts ADMET (Absorption, Distribution, Metabolism, Excretion, and Toxicity) properties for small molecule drug candidates as part of the OpenADMET ExpansionRx Blind Challenge. The model is designed for early-stage drug discovery to prioritize compounds with favorable pharmacokinetic profiles.
+Predict ADMET properties for small molecule drug candidates. Primary uses:
 
-### Primary Use Cases
+- Multi-endpoint ADMET prediction from SMILES
+- Compound ranking by predicted profiles
+- Identifying potential pharmacokinetic liabilities
 
-- Predicting multiple ADMET endpoints simultaneously from molecular SMILES
-- Ranking compounds by predicted ADMET profiles
-- Identifying potential liabilities in drug candidates
+**Out of scope:** Clinical decisions without validation, large biologics/polymers, regulatory submissions.
 
-### Out-of-Scope Uses
+---
 
-- Clinical decision-making without experimental validation
-- Predictions for molecules outside the training domain (e.g., large biologics, polymers)
-- Regulatory submissions without additional validation
+## Model Architecture
+
+### Chemprop MPNN
+
+```mermaid
+flowchart TB
+    subgraph Input
+        S[SMILES String]
+    end
+    subgraph Encoder["Message Passing Network"]
+        G[Molecular Graph] --> MP[Bond-based Messages<br/>depth: 3-7]
+        MP --> AGG[Normalized Sum<br/>Aggregation]
+    end
+    subgraph Head["Prediction Head"]
+        AGG --> FFN[Feed-Forward Network<br/>1-4 layers]
+        FFN --> OUT[9 Endpoint Predictions]
+    end
+    S --> G
+```
+
+| Component | Configuration |
+|-----------|---------------|
+| Message Passing Depth | 3–7 (HPO-tuned) |
+| Message Hidden Dim | 700–1100 |
+| FFN Layers | 1–4 |
+| FFN Hidden Dim | 200–1200 |
+| Dropout | 0.0–0.2 |
+| Aggregation | Normalized sum |
+
+### FFN Architectures Explored
+
+Three FFN types were evaluated during HPO:
+
+| Type | Description | Performance |
+|------|-------------|-------------|
+| **MLP** | Standard multi-layer perceptron | Best overall; used in final ensemble |
+| **MoE** | Mixture of Experts with gating network | Competitive (rank 3, 7 in top-10) |
+| **Branched** | Shared trunk + task-specific branches | Competitive (rank 5, 6, 10 in top-10) |
+
+The MoE and Branched architectures are implemented in [`src/admet/model/chemprop/ffn.py`](src/admet/model/chemprop/ffn.py).
+
+### Multi-Task Learning
+
+- **Output:** 9 endpoints predicted simultaneously
+- **Loss:** MSE with NaN masking (missing endpoints ignored in gradient)
+- **Task Weights:** Uniform (1.0 for all endpoints)
+- **Task Sampling:** α-weighted to compensate for equal loss weighting and balance sparse endpoints
 
 ---
 
@@ -35,7 +131,7 @@ This model predicts ADMET (Absorption, Distribution, Metabolism, Excretion, and 
 - **Quality Designation:** **High**
 - **Description:** Curated ADMET data from the challenge organizers with standardized assay protocols
 - **Size:** Primary training set with all 9 endpoints
-- **Local Test Set:** 12% of ExpansionRx data withheld via temporal split on `Molecule Name` column (sorted alphabetically, last 12% held out before cross-validation)
+- **Local Test Set:** 12% of ExpansionRx data withheld via temporal split on `Molecule Name` column (sorted alphabetically, last 12% held out). Used only during HPO and architecture evaluation; final models trained on full 5×5 CV without separate time split.
 
 ### Supplementary Dataset: KERMT Public
 
@@ -137,8 +233,12 @@ All datasets were transformed to common units before merging:
 
 1. **Log₁₀ Transformation:** All endpoints except LogD are stored as log₁₀ values
 2. **Outlier Handling:** For binding/clearance endpoints (MPPB, MBPB, MGMB, HLM CLint, MLM CLint), values below -3.0 (log scale) are set to NaN as likely measurement artifacts
-3. **SMILES Canonicalization:** All SMILES canonicalized with RDKit (isomeric=True)
-4. **Duplicate Handling:** Duplicate SMILES within datasets averaged (excluding NaN)
+3. **SMILES Canonicalization:** All SMILES canonicalized with RDKit (isomeric=True, canonical=True) using [`src/admet/data/smiles.py`](src/admet/data/smiles.py):
+   - **Salt Removal:** RDKit SaltRemover strips counter-ions while preserving the parent molecule
+   - **Validation:** Invalid SMILES that fail parsing return None and are excluded
+   - **Empty Check:** Molecules with zero atoms after salt removal are excluded
+   - **Parallel Processing:** Thread pool (max 32 workers) for batch canonicalization
+4. **Duplicate Handling:** Duplicate canonical SMILES within datasets averaged (excluding NaN)
 
 ---
 
@@ -168,248 +268,182 @@ Data quality is assigned per-endpoint based on:
 
 ---
 
-## Model Architecture
+## Training Performance Observations
 
-### Chemprop MPNN
+### Convergence Behavior
 
-- **Message Passing Depth:** 5 iterations
-- **Message Hidden Dimension:** 600
-- **FFN Layers:** 2
-- **FFN Hidden Dimension:** 600
-- **Dropout:** 0.1
-- **Batch Normalization:** Enabled
-- **FFN Type:** Standard regression (options: branched, mixture-of-experts)
+- **Typical convergence:** 60–120 epochs with early stopping on validation MAE
+- **Early stopping patience:** 15 epochs without improvement
+- **Learning rate:** OneCycleLR with warmup critical for stability
 
-### Multi-Task Learning
+### Per-Endpoint Performance
 
-- **Output:** 9 endpoints predicted simultaneously
-- **Loss Function:** MSE (Mean Squared Error)
-- **Missing Value Handling:** NaN-masked loss (missing endpoints ignored in gradient computation)
+| Endpoint Category | Typical R² | Notes |
+|-------------------|------------|-------|
+| LogD | >0.85 | Well-represented, easiest |
+| KSOL, HLM/MLM CLint | 0.65–0.75 | Good coverage |
+| Caco-2 Papp/Efflux, MPPB | 0.55–0.70 | Moderate |
+| MBPB, MGMB | 0.40–0.60 | Sparse, ExpansionRx only |
 
 ---
 
-## Training Configuration
+## Hyperparameter Optimization
 
-### Data Splitting Strategy
+### Framework
 
-1. **Local Test Set:** 12% temporal holdout from ExpansionRx (last entries by sorted `Molecule Name`)
-2. **Cross-Validation:** 5 splits × 5 folds = 25 models per ensemble
-3. **Clustering Methods Available:**
-   - BitBirch (default): Hierarchical clustering on RDKit fingerprints
-   - Scaffold-based: Bemis-Murcko scaffolds
-   - K-means: Fingerprint-based clustering
-   - Butina: Taylor-Butina clustering
-   - Random: Stratified random splits
-4. **Stratification:** Multi-label stratified K-fold on endpoint presence and quality labels
+- **Tool:** Ray Tune with ASHA scheduler
+- **Trials:** ~500
+- **Objective:** Validation MAE (minimize)
+- **Early stopping:** Grace period 10 epochs, reduction factor 2
+- **Evaluation Split:** Local test set (12% temporal holdout) used during HPO to prevent overfitting to validation folds
 
-### Optimization
+### Search Space Summary
 
-| Parameter | Value |
+| Parameter | Range |
 |-----------|-------|
-| Initial LR | 1×10⁻⁴ |
-| Max LR | 1×10⁻³ |
-| Final LR | 1×10⁻⁴ |
-| Warmup Epochs | 5 |
-| Max Epochs | 150 |
-| Early Stopping Patience | 15 |
-| Batch Size | 32 |
-| Optimizer | Adam (via Chemprop) |
-| LR Schedule | OneCycleLR |
+| `learning_rate` | [1×10⁻⁴, 3×10⁻²] log-uniform |
+| `depth` | [2, 8] |
+| `message_hidden_dim` | {200, ..., 1200} |
+| `ffn_type` | {mlp, moe, branched} |
+| `ffn_num_layers` | [0, 5] |
+| `dropout` | {0.0, ..., 0.3} |
+| `task_sampling_alpha` | {0.0, ..., 1.0} |
 
-### Target Weights (Heuristic)
+### Top 10 Configurations
 
-Per-endpoint loss weights to balance difficulty and importance:
+| Rank | FFN | Depth | Msg Dim | FFN Layers | FFN Dim | Dropout | α | LR | Val MAE |
+|------|-----|-------|---------|------------|---------|---------|---|-----|---------|
+| 1 | MLP | 3 | 700 | 4 | 200 | 0.15 | 0.02 | 2.27e-4 | 0.459 |
+| 2 | MLP | 4 | 1100 | 1 | 1200 | 0.10 | 0.20 | 1.19e-3 | 0.460 |
+| 3 | MoE | 6 | 1100 | 2 | 1100 | 0.00 | 0.00 | 2.94e-3 | 0.461 |
+| 4 | MLP | 6 | 1000 | 3 | 700 | 0.20 | 0.20 | 1.77e-3 | 0.462 |
+| 5 | Branched | 4 | 900 | 3 | 400 | 0.10 | 0.00 | 3.04e-4 | 0.463 |
+| 6 | Branched | 5 | 800 | 2 | 800 | 0.05 | 0.05 | 2.74e-4 | 0.464 |
+| 7 | MoE | 6 | 700 | 4 | 300 | 0.05 | 0.02 | 5.24e-4 | 0.464 |
+| 8 | MLP | 3 | 1000 | 4 | 400 | 0.10 | 0.10 | 2.60e-4 | 0.465 |
+| 9 | MLP | 4 | 800 | 2 | 1100 | 0.20 | 0.20 | 2.12e-3 | 0.467 |
+| 10 | Branched | 7 | 700 | 4 | 800 | 0.15 | 0.02 | 2.41e-4 | 0.468 |
 
-| Endpoint | Weight | Rationale |
-|----------|--------|-----------|
-| LogD | 0.5 | Easier endpoint, well-represented |
-| Log KSOL | 2.0 | Moderate difficulty |
-| Log HLM CLint | 3.0 | Important, challenging |
-| Log MLM CLint | 3.0 | Important, challenging |
-| Log Caco-2 Papp | 3.0 | Important, challenging |
-| Log Caco-2 Efflux | 2.0 | Moderate difficulty |
-| Log MPPB | 2.0 | Moderate difficulty |
-| Log MBPB | 3.0 | Challenging, sparse data |
-| Log MGMB | 4.0 | Most challenging, sparsest data |
+**Key insights:**
 
-**Note:** Target weights are currently heuristic and should be optimized via hyperparameter search.
+- MLP architectures dominate top ranks but MoE/Branched are competitive
+- Task sampling α = 0.02–0.2 appears optimal
+- Moderate dropout (0.05–0.15) preferred
+- Deeper message passing (4–7) with moderate dimensions (700–1100)
 
----
+### Task Sampling Alpha
 
-## Hyperparameter Selection
+**Purpose:** Compensates for uniform task weights in the loss function by oversampling sparse endpoints.
 
-### Current Approach
+Since all endpoints have equal weight (1.0) in the MSE loss, task sampling alpha rebalances training to give more gradient updates to endpoints with fewer labeled examples.
 
-Model hyperparameters are set based on literature defaults and preliminary experiments. No systematic hyperparameter optimization (HPO) has been performed yet.
+Oversamples sparse endpoints using inverse-power weighting:
 
-### Planned HPO Strategy
+$$p_i \propto n_i^{-\alpha}$$
 
-- **Framework:** Ray Tune with ASHA scheduler
-- **Objective:** Validation loss (MSE)
-- **Search Space:**
-  - Learning rates: log-uniform [10⁻⁵, 10⁻²]
-  - Batch size: {16, 32, 64, 128}
-  - Message passing depth: {2, 3, 4, 5, 6}
-  - Hidden dimensions: {256, 300, 512, 600, 768}
-  - Dropout: uniform [0.0, 0.4]
-  - FFN type: {regression, branched, mixture_of_experts}
-- **Resources:** 4 trials per GPU (0.25 GPU fraction)
-- **Scheduler:** ASHA with grace period 10 epochs, max 150 epochs
-
----
-
-## Curriculum Learning
-
-### Implementation Status
-
-Curriculum learning is **implemented but not currently active** in training.
-
-### Curriculum Strategy (When Enabled)
-
-The `CurriculumCallback` implements quality-aware training phases:
-
-| Phase | Description | Weight Distribution (High/Med/Low) |
-|-------|-------------|-----------------------------------|
-| Warmup | Focus on high-quality data | 90% / 10% / 0% |
-| Expand | Include medium-quality | 60% / 35% / 5% |
-| Robust | Include low-quality | 40% / 40% / 20% |
-| Polish | Re-focus on high-quality | 100% / 0% / 0% |
-
-- **Phase Transition:** Triggered by lack of improvement on high-quality validation loss (patience-based)
-- **Monitoring Metric:** `val_high_loss`
-
----
-
-## Evaluation Metrics
-
-### Primary Metric
-
-**MAE (Mean Absolute Error)** — Used for model ranking and training
-
-### Additional Metrics
-
-- **RMSE:** Root Mean Squared Error
-- **R²:** Coefficient of determination
-
-### Evaluation Spaces
-
-All metrics computed in both spaces:
-
-1. **Log Space:** Direct model outputs (stored format)
-2. **Linear Space:** Back-transformed via 10^x (except LogD)
-
-### Aggregation
-
-- **Per-Endpoint:** Individual metrics for each of 9 endpoints
-- **Macro-Average:** Unweighted mean across all endpoints
+| α Value | Effect |
+|---------|--------|
+| 0.0 | Uniform task sampling (no rebalancing) |
+| 0.02–0.1 | Mild rebalancing (recommended; used in top configs) |
+| 0.5–1.0 | Aggressive; may hurt overall MAE |
 
 ---
 
 ## Ensemble Strategy
 
-### Training
+### Configuration
 
-- **Configuration:** 5 splits × 5 folds = 25 base models
-- **Parallelization:** Ray-based, configurable max parallel jobs
+- **Splits:** 5 Butina clustering splits
+- **Folds:** 5-fold CV per split
+- **Total models:** 25
+- **Clustering:** Taylor-Butina on molecular fingerprints
+- **Training Strategy:** HPO and architecture evaluation used 88% of data (12% temporal holdout); final ensemble trained on full dataset with 5×5 CV
+
+```mermaid
+flowchart LR
+    subgraph Ensemble["25 Model Ensemble"]
+        direction TB
+        S1[Split 1] --> F1[5 Folds]
+        S2[Split 2] --> F2[5 Folds]
+        S3[Split 3] --> F3[5 Folds]
+        S4[Split 4] --> F4[5 Folds]
+        S5[Split 5] --> F5[5 Folds]
+    end
+    F1 & F2 & F3 & F4 & F5 --> AGG[Mean Aggregation]
+    AGG --> PRED[Final Predictions]
+```
 
 ### Prediction Aggregation
 
-For each molecule and endpoint:
-
-```
-Y_mean = mean(Y_pred across all models)
-Y_std = std(Y_pred across all models)
-Y_stderr = Y_std / sqrt(N_models)
+```text
+Y_mean = mean(Y_pred across 25 models)
+Y_std = std(Y_pred across 25 models)
 ```
 
-### Output Format
+---
 
-Predictions saved in two formats:
+## Evaluation
 
-1. **Log Space:** Direct ensemble outputs with mean, std, stderr
-2. **Linear Space:** Back-transformed (10^x for non-LogD endpoints)
+### Primary Metric
 
-**Note:** Standard error is currently used only for visualization/diagnostics; not included in challenge submissions.
+**MAE (Mean Absolute Error)** — Validation MAE used for early stopping and HPO objective.
+
+### Additional Metrics
+
+| Metric | Description | Use Case |
+|--------|-------------|----------|
+| **RMSE** | Root Mean Squared Error | Penalizes large errors more than MAE |
+| **R²** | Coefficient of determination | Proportion of variance explained |
+| **Pearson r** | Linear correlation coefficient | Measures linear relationship strength |
+| **Spearman ρ** | Rank-based correlation | Robust to outliers, captures monotonic relationships |
+| **Kendall τ** | Rank concordance metric | More robust than Spearman for small samples |
+
+**Correlation Metrics:**
+
+- **Pearson r:** Assumes linear relationship; sensitive to outliers and distribution shape
+- **Spearman ρ:** Non-parametric; evaluates monotonic (not necessarily linear) relationships by comparing ranks
+- **Kendall τ:** Non-parametric; measures ordinal association; more computationally expensive but better for small datasets with ties
+
+All three correlation metrics range from -1 (perfect negative correlation) to +1 (perfect positive correlation), with 0 indicating no correlation.
+
+### Evaluation Spaces
+
+- **Log Space:** Direct model outputs
+- **Linear Space:** Back-transformed via 10^x (except LogD)
 
 ---
 
-## Handling Missing Data
+## Known Limitations
 
-### Training
+### Data Harmonization Caveats (Future Work)
 
-- **Masking Strategy:** Missing endpoint values (NaN) are masked in loss computation
-- **No Imputation:** Missing values are not imputed; model learns from available data only
-
-### Prediction
-
-- Model predicts all 9 endpoints regardless of training data sparsity
-- Endpoints with sparse training data may have higher uncertainty
-
-### Endpoint Sparsity Notes
-
-| Endpoint | Data Availability |
-|----------|-------------------|
-| LogD | Well-covered across datasets |
-| KSOL | Well-covered |
-| HLM/MLM CLint | Good coverage |
-| Caco-2 Papp | Limited to ExpansionRx + KERMT Public |
-| Caco-2 Efflux | Moderate coverage |
-| MPPB | Good coverage |
-| MBPB | **ExpansionRx only** |
-| MGMB | **ExpansionRx only** |
-
----
-
-## Model Selection (Planned Extensions)
-
-### Current
-
-- **Chemprop MPNN:** Primary model, SMILES-based
-
-### Planned Additions
-
-| Model | Input Type | Status |
-|-------|------------|--------|
-| XGBoost | Fingerprints | Planned |
-| LightGBM | Fingerprints | Planned |
-| CheMeleon | SMILES (pretrained) | Planned |
-
----
-
-## Known Limitations and Caveats
-
-### Data Harmonization Caveats
+> **Note:** Supplementary data integration is planned but not used in the final submission.
 
 1. **Assay Condition Mismatches:**
    - KERMT Biogen solubility at pH 6.8 vs challenge pH ~7.0-7.4
    - KERMT Biogen efflux from MDCK cells vs Caco-2 cells
    - P-gp efflux (KERMT Public) ≠ Caco-2 efflux ratio
 
-2. **Species Differences:**
-   - MPPB: Some datasets use rat, others mouse plasma
-
-3. **Low-Confidence Mappings:**
-   - `Pgp_human` → `Caco-2 Efflux` (biological relevance uncertain)
+2. **Species Differences:** MPPB uses rat in some datasets, mouse in others
 
 ### Model Limitations
 
-1. **Domain Applicability:**
-   - Trained on small molecule drug-like compounds
-   - May not generalize to: natural products, peptides, PROTACs, or molecules outside Lipinski space
+- **Domain:** Trained on drug-like small molecules; may not generalize to natural products, peptides, PROTACs
+- **Sparse Endpoints:** MBPB/MGMB rely solely on ExpansionRx data
+- **No Calibrated Uncertainty:** Ensemble stderr is spread, not confidence intervals
+- **Uniform Task Weights:** Loss function uses equal weighting (1.0) for all endpoints; task sampling alpha compensates but per-endpoint loss weighting could improve performance
 
-2. **Endpoint Sparsity:**
-   - MBPB and MGMB predictions rely solely on ExpansionRx data
-   - Higher uncertainty expected for sparse endpoints
+---
 
-3. **No Uncertainty Quantification:**
-   - Ensemble stderr provides spread, not calibrated confidence intervals
-   - No conformal prediction or Bayesian uncertainty
+## Future Work
 
-### Training Limitations
-
-1. **Target Weights:** Heuristic, not optimized
-2. **Curriculum Learning:** Implemented but inactive
-3. **HPO:** Not yet performed; using literature defaults
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Supplementary Data | KERMT, PharmaBench integration with harmonization | 🔮 Planned |
+| Curriculum Learning | Quality-aware phased training | 🔮 Implemented, disabled |
+| Alternative Models | XGBoost, LightGBM, CheMeleon ensemble | 🔮 Planned |
+| Uncertainty | Conformal prediction, Bayesian methods | 🔮 Planned |
+| Task Weights | HPO-optimized per-endpoint loss weights (currently uniform) | 🔮 Planned |
 
 ---
 
@@ -422,11 +456,13 @@ Predictions saved in two formats:
 
 ### Environment
 
-- Python: 3.11
-- PyTorch: ≥2.1
-- Chemprop: ≥2.0
-- Ray: ≥2.4
-- MLflow: ≥2.0
+| Package | Version |
+|---------|---------|
+| Python | 3.11 |
+| PyTorch | ≥2.1 |
+| Chemprop | ≥2.0 |
+| Ray | ≥2.4 |
+| MLflow | ≥2.0 |
 
 ### Artifacts Logged
 

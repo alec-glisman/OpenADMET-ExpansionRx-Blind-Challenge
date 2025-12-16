@@ -3,7 +3,59 @@
 **Authors**: Alec Glisman, PhD
 **Date**: October 2025
 
+---
+
+> 📋 **For Challenge Reviewers:** See the **[Model Card](./MODEL_CARD.md)** for complete methodology documentation, including model architecture, training procedures, HPO results, and performance metrics.
+
+---
+
+## Quick Overview
+
+```mermaid
+flowchart LR
+    A[SMILES] --> B[Molecular Graph]
+    B --> C[Chemprop MPNN<br/>3-7 layers]
+    C --> D[FFN<br/>1-4 layers]
+    D --> E[9 ADMET<br/>Endpoints]
+    
+    subgraph Ensemble["25-Model Ensemble"]
+    E
+    end
+```
+
+| Component | Configuration |
+|-----------|---------------|
+| **Architecture** | Chemprop v2 MPNN |
+| **Ensemble** | 5 Butina splits × 5 CV folds |
+| **HPO** | ~2,000 Ray Tune ASHA trials |
+| **Convergence** | 60–120 epochs (early stopping on val MAE) |
+| **Best Val MAE** | 0.4–0.6 (macro-averaged) |
+
+### Predicted Endpoints
+
+| Endpoint | Description | Data Coverage |
+|----------|-------------|---------------|
+| LogD | Lipophilicity | ★★★ High |
+| KSOL | Kinetic Solubility (μM) | ★★★ High |
+| HLM CLint | Human Liver Microsomal Clearance | ★★★ High |
+| MLM CLint | Mouse Liver Microsomal Clearance | ★★★ High |
+| Caco-2 Papp | Permeability (A→B) | ★★☆ Medium |
+| Caco-2 Efflux | Efflux Ratio | ★★☆ Medium |
+| MPPB | Mouse Plasma Protein Binding | ★★☆ Medium |
+| MBPB | Mouse Brain Protein Binding | ★☆☆ Sparse |
+| MGMB | Mouse Gut Microbiome Binding | ★☆☆ Sparse |
+
+---
+
 ## Getting Started
+
+### Table of Contents
+
+- [Quick Overview](#quick-overview)
+- [Getting Started](#getting-started)
+- [Training Models](#training-models)
+- [Goals](#goals)
+- [Links](#links)
 
 This repository contains code and documentation for participating in the OpenADMET + ExpansionRx Blind Challenge. The goal of this challenge is to develop machine learning models to predict various ADMET properties of small molecules using the provided dataset.
 
@@ -211,12 +263,16 @@ Key HPO features:
 
 ### Model Card
 
-Comprehensive model documentation following ML transparency best practices is available in [`docs/model_card.md`](./docs/model_card.md). The model card includes:
+📋 **Comprehensive model documentation** is available in **[MODEL_CARD.md](./MODEL_CARD.md)**.
 
-- Intended use cases and limitations
-- Training data descriptions and preprocessing
-- Evaluation metrics and benchmark results
-- Ethical considerations and bias analysis
+The model card includes:
+
+- **Methodology Summary:** Architecture, training steps, performance observations
+- **Model Architecture:** MPNN configuration, FFN variants (MLP, MoE, Branched)
+- **HPO Results:** Top 10 configurations from ~2,000 trials
+- **Ensemble Strategy:** Butina clustering, 25-model aggregation
+- **Data Sources:** ExpansionRx + supplementary datasets (KERMT, PharmaBench)
+- **Known Limitations:** Domain applicability, sparse endpoints, uncertainty
 
 ### Ensemble Metrics
 
@@ -349,27 +405,53 @@ These targets call `sphinx-build` under the hood and produce output in `docs/_bu
 
 ## Goals
 
+### Approach Summary
+
+```mermaid
+flowchart TB
+    subgraph Data["Data Pipeline"]
+        D1[ExpansionRx Data] --> D3[Butina Clustering]
+        D3 --> D4[5 Splits × 5 Folds]
+    end
+    
+    subgraph Training["Training Pipeline"]
+        D4 --> T1[HPO: ~2000 Trials]
+        T1 --> T2[Top Configs]
+        T2 --> T3[25 Model Ensemble]
+    end
+    
+    subgraph Eval["Evaluation"]
+        T3 --> E1[Mean Predictions]
+        T3 --> E2[Uncertainty Estimates]
+    end
+```
+
 ### Models
 
-We plan to benchmark the following models:
+#### Implemented ✅
 
-- XGBoost
-- LightGBM
-- Chemprop Multitask (trained from scratch)
-- Chemprop CheMeleon (finetuned)
-- GROVER (finetuned)
-- KERMT (finetuned)
-- ChemBERTa-3 (finetuned)
+| Model | Architecture | Status |
+|-------|--------------|--------|
+| **Chemprop MPNN** | Message-passing neural network | ✅ Primary model |
+| **MLP FFN** | Standard feed-forward | ✅ Best performing |
+| **MoE FFN** | Mixture of Experts | ✅ Evaluated (competitive) |
+| **Branched FFN** | Task-specific branches | ✅ Evaluated (competitive) |
 
-These models were selected to represent a range of architectures and training paradigms, including tree-based methods, graph neural networks, and transformer-based models. We will explore both training from scratch and transfer learning approaches.
+#### Planned 🔮
 
-Each of the models will be trained as ensemble models with 5-fold cross-validation to improve robustness and performance, as recommended in the literature (Practically Significant Method Comparison Protocols for Machine Learning in Small Molecule Drug Discovery). Each fold should have multiple random seeds to further enhance ensemble diversity. By default, we will try five random seeds per fold, resulting in a total of 25 models per endpoint per architecture.
+| Model | Architecture | Status |
+|-------|--------------|--------|
+| XGBoost | Gradient boosting | 🔮 Future |
+| LightGBM | Gradient boosting | 🔮 Future |
+| CheMeleon | Pretrained MPNN | 🔮 Future |
+| ChemBERTa-3 | Transformer | 🔮 Future |
 
-We will explore various hyperparameter optimization strategies, including grid search, random search, and Bayesian optimization, to identify the best model configurations for each architecture.
+### Training Strategy
 
-We will also explore super-ensembling techniques to combine the embeddings and/or predictions from multiple models to further enhance predictive performance.
-
-To begin, we will not use KERMT and ChemBERTa-3 due to local hardware constraints, but we plan to include them in future iterations.
+- **Ensemble:** 5 Butina splits × 5 CV folds = 25 models
+- **HPO:** Ray Tune with ASHA scheduler (~2,000 trials)
+- **Early Stopping:** 15 epochs patience on validation MAE
+- **Task Sampling:** α-weighted oversampling for sparse endpoints
 
 ### Endpoints
 
