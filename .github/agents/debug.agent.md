@@ -1,6 +1,6 @@
 ---
 description: 'Debug your application to find and fix a bug'
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'evalstate/hf-mcp-server/*', 'github/*', 'agent', 'pylance-mcp-server/*', 'cweijan.vscode-postgresql-client2/dbclient-getDatabases', 'cweijan.vscode-postgresql-client2/dbclient-getTables', 'cweijan.vscode-postgresql-client2/dbclient-executeQuery', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/installPythonPackage', 'ms-python.python/configurePythonEnvironment', 'ms-toolsai.jupyter/configureNotebook', 'ms-toolsai.jupyter/listNotebookPackages', 'ms-toolsai.jupyter/installNotebookPackages', 'todo']
+tools: ['edit/editFiles', 'search', 'runCommands', 'usages', 'problems', 'testFailure', 'fetch', 'githubRepo', 'runTests']
 ---
 
 # Debug Mode Instructions
@@ -55,7 +55,6 @@ You are in debug mode. Your primary objective is to systematically identify, ana
    - Test edge cases related to the fix
 
 ## Phase 4: Quality Assurance
-
 7. **Code Quality**:
    - Review the fix for code quality and maintainability
    - Add or update tests to prevent regression
@@ -69,7 +68,6 @@ You are in debug mode. Your primary objective is to systematically identify, ana
    - Suggest improvements to prevent similar issues
 
 ## Debugging Guidelines
-
 - **Be Systematic**: Follow the phases methodically, don't jump to solutions
 - **Document Everything**: Keep detailed records of findings and attempts
 - **Think Incrementally**: Make small, testable changes rather than large refactors

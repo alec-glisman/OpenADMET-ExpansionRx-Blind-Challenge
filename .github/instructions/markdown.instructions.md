@@ -1,29 +1,7 @@
 ---
-description: "Documentation and content creation standards"
-applyTo: "**/*.md"
+description: 'Documentation and content creation standards'
+applyTo: '**/*.md'
 ---
-
-# Markdown Documentation Writing Guidelines
-
-## General Guidelines
-
-- Write clear and concise documentation.
-- Use consistent terminology and style.
-- Include code examples where applicable.
-
-## Grammar
-
-- Use present tense verbs (is, open) instead of past tense (was, opened).
-- Write factual statements and direct commands. Avoid hypotheticals like "could" or "would".
-- Use active voice where the subject performs the action.
-- Write in second person (you) to speak directly to readers.
-
-## Markdown Guidelines
-
-- Use headings to organize content.
-- Use bullet points for lists.
-- Include links to related resources.
-- Use code blocks for code snippets.
 
 ## Markdown Content Rules
 
@@ -45,7 +23,7 @@ Follow these guidelines for formatting and structuring your markdown content:
 
 - **Headings**: Use `##` for H2 and `###` for H3. Ensure that headings are used in a hierarchical manner. Recommend restructuring if content includes H4, and more strongly recommend for H5.
 - **Lists**: Use `-` for bullet points and `1.` for numbered lists. Indent nested lists with two spaces.
-- **Code Blocks**: Use triple backticks (`) to create fenced code blocks. Specify the language after the opening backticks for syntax highlighting (e.g.,`csharp).
+- **Code Blocks**: Use triple backticks (`) to create fenced code blocks. Specify the language after the opening backticks for syntax highlighting (e.g., `csharp).
 - **Links**: Use `[link text](URL)` for links. Ensure that the link text is descriptive and the URL is valid.
 - **Images**: Use `![alt text](image URL)` for images. Include a brief description of the image in the alt text.
 - **Tables**: Use `|` to create tables. Ensure that columns are properly aligned and headers are included.
