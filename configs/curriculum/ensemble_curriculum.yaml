@@ -1,96 +1,102 @@
 data:
-  data_dir: assets/dataset/split_train_val/v3/all_quality/bitbirch/multilabel_stratified_kfold/data
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data
   test_file: assets/dataset/set/local_test.csv
   blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.031
-  - 1.0
-  - 1.2252
-  - 1.1368
-  - 2.1227
-  - 2.1174
-  - 3.7877
-  - 5.2722
-  - 10.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
   splits: null
   folds: null
+
 model:
-  depth: 5
-  message_hidden_dim: 600
-  num_layers: 2
-  hidden_dim: 600
-  dropout: 0.1
+  depth: 3
+  message_hidden_dim: 700
+  num_layers: 4
+  hidden_dim: 200
+  dropout: 0.15
   batch_norm: true
   ffn_type: regression
-  trunk_n_layers: 2
-  trunk_hidden_dim: 600
-  n_experts: 4
+  aggregation: norm
+
 optimization:
-  criterion: MSE
-  init_lr: 0.0001
-  max_lr: 0.001
-  final_lr: 0.0001
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
-  batch_size: 32
+  batch_size: 128
   num_workers: 0
   seed: 12345
   progress_bar: false
-mlflow:
-  tracking: true
-  tracking_uri: http://127.0.0.1:8084
-  experiment_name: ensemble_curriculum
-  run_name: null
-  nested: true
-inter_task_affinity:
-  enabled: false
-  compute_every_n_steps: 10
-  log_every_n_steps: 100
-  log_epoch_summary: true
-  log_step_matrices: false
-  lookahead_lr: 0.001
-  use_optimizer_lr: true
-  exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
-  log_to_mlflow: true
+
 joint_sampling:
   enabled: true
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+
   task_oversampling:
-    alpha: 0.5
+    alpha: 0.02
+
   curriculum:
     enabled: true
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     strategy: sampled
     reset_early_stopping_on_phase_change: true
     log_per_quality_metrics: true
     seed: 42
-  num_samples: null
-  seed: 42
-  increment_seed_per_epoch: true
+
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
+
 ray:
-  max_parallel: 5
+  max_parallel: 1
   num_cpus: null
   num_gpus: null
+
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: ensemble_chemprop_hpo_topk
+  run_name: rank_001
+  nested: true
