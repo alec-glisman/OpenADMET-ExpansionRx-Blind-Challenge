@@ -74,6 +74,7 @@ Documentation sections
    :caption: API Reference
 
    api/admet
+   api/leaderboard
    guide/cli
 
 
@@ -82,6 +83,7 @@ Documentation sections
    :caption: Guides
 
    guide/overview
+   guide/leaderboard
    guide/development
    guide/architecture
    guide/data_sources
@@ -93,6 +95,7 @@ Documentation sections
    guide/curriculum
    guide/task_affinity
    guide/mlflow_artifacts
+   planning/index
 
 
 To build the docs locally, follow one of these methods:

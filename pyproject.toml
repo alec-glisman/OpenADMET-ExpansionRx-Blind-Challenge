@@ -28,11 +28,10 @@ dependencies = [
     "ray[data,train,tune,serve]",
     # ML infra
     "mlflow>=2.0",
-    "ray[tune]>=2.4",
     "nvidia-ml-py==13.580.82",
     "psutil",
     "psycopg2-binary",
-    "psycopg2",
+    # "psycopg2",
     "transformers>=4.30",
     "gradio-client==2.0.1",
     # visualization
@@ -164,6 +163,10 @@ ignore_missing_imports = true
 warn_unused_configs = true
 strict = false
 exclude = ["tests/.*", "src/bitbirch", "archive"]
+# Performance optimizations
+cache_dir = ".mypy_cache"
+incremental = true
+skip_version_check = true
 
 [tool.mypy-rdkit]
 follow_imports = "skip"

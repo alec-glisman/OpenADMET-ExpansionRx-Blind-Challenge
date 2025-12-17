@@ -219,11 +219,13 @@
 <li class="toctree-l2"><a class="reference internal" href="admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
@@ -235,6 +237,35 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 
 </div>
@@ -321,6 +352,27 @@ evaluation and dataset exploration. It configures consistent styling using
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v2.3.3)">pandas.DataFrame</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">generate_all_plots</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_mins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overall_min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_user</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#generate_all_plots"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Generate all leaderboard plots.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>results_df</strong> (<em>pd.DataFrame</em>) – Summary results DataFrame</p></li>
+<li><p><strong>tables</strong> (<em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>pd.DataFrame</em><em>]</em>) – Raw leaderboard tables</p></li>
+<li><p><strong>task_mins</strong> (<em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Minimum MAE per task</p></li>
+<li><p><strong>overall_min</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Minimum overall MA-RAE</p></li>
+<li><p><strong>output_dir</strong> (<em>Path</em>) – Output directory for plots</p></li>
+<li><p><strong>target_user</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Target username</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
 </dd>
 </dl>
 </dd></dl>
@@ -414,6 +466,28 @@ If False, use Unicode arrows (→, ←) which render cleanly.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_delta_mae_comparison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_mins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_user</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(12,</span> <span class="pre">8)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_delta_mae_comparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot performance gap analysis (delta MAE to minimum).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>task_data</strong> (<em>pd.DataFrame</em>) – Task data with ‘task’ and ‘mae’ columns</p></li>
+<li><p><strong>task_mins</strong> (<em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Minimum MAE values per task</p></li>
+<li><p><strong>target_user</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Username for title</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>12</em><em>, </em><em>8</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, Axes]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
 <span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_endpoint_distributions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize_per_cell</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(6,</span> <span class="pre">4)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kde</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/density.html#plot_endpoint_distributions"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Plot histograms (with optional KDE) for numeric columns.</p>
 <dl class="field-list simple">
@@ -433,6 +507,28 @@ If False, use Unicode arrows (→, ←) which render cleanly.</p></li>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>(<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)">matplotlib.figure.Figure</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)">numpy.ndarray</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_mae_comparison_bar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_mins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_user</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(12,</span> <span class="pre">8)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_mae_comparison_bar"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot MAE values comparison with minimum (top performer).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>task_data</strong> (<em>pd.DataFrame</em>) – Task data with ‘task’ and ‘mae’ columns</p></li>
+<li><p><strong>task_mins</strong> (<em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>) – Minimum MAE values per task</p></li>
+<li><p><strong>target_user</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Username for title</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>12</em><em>, </em><em>8</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, Axes]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -488,6 +584,47 @@ If False, use Unicode arrows (→, ←) which render cleanly.</p></li>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>[Figure, Axes]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_metrics_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_data</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(14,</span> <span class="pre">10)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_metrics_heatmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot multi-metric heatmaps for each task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>task_data</strong> (<em>pd.DataFrame</em>) – Task data with metric columns</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>14</em><em>, </em><em>10</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes array</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, np.ndarray]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_overall_rank_distribution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_overall</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(14,</span> <span class="pre">6)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_overall_rank_distribution"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot overall ranking distribution with histogram and ECDF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df_overall</strong> (<em>pd.DataFrame</em>) – Overall leaderboard DataFrame with ‘rank’ column</p></li>
+<li><p><strong>user_rank</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>]</em>) – User’s rank to highlight</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>14</em><em>, </em><em>6</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes array</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, np.ndarray]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -581,6 +718,26 @@ If provided, error bars are drawn instead of scatter points.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_performance_category_pie</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_data</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(10,</span> <span class="pre">7)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_performance_category_pie"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot performance distribution pie chart.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>task_data</strong> (<em>pd.DataFrame</em>) – Task data with ‘rank’ column</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>10</em><em>, </em><em>7</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, Axes]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
 <span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_property_distributions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">props_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize_per_cell</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(4,</span> <span class="pre">3)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kde</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Molecular</span> <span class="pre">Property</span> <span class="pre">Distributions'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/density.html#plot_property_distributions"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Plot histograms for computed molecular property columns.</p>
 <dl class="field-list simple">
@@ -601,6 +758,67 @@ If provided, error bars are drawn instead of scatter points.</p></li>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>(<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.8)">matplotlib.figure.Figure</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)">numpy.ndarray</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_rank_vs_metric_scatter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric_label</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(10,</span> <span class="pre">6)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_rank_vs_metric_scatter"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot rank vs metric scatter plot.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>task_data</strong> (<em>pd.DataFrame</em>) – Task data</p></li>
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Metric column name</p></li>
+<li><p><strong>metric_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Metric label for axis</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>10</em><em>, </em><em>6</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, Axes]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">plot_task_rankings_bar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_user</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(12,</span> <span class="pre">8)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#plot_task_rankings_bar"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Plot task-specific rankings as horizontal bar chart with performance zones.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>task_data</strong> (<em>pd.DataFrame</em>) – Task data with ‘task’ and ‘rank’ columns</p></li>
+<li><p><strong>target_user</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Username for title</p></li>
+<li><p><strong>figsize</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>, </em><em>default=</em><em>(</em><em>12</em><em>, </em><em>8</em><em>)</em>) – Figure size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure and axes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Figure, Axes]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.plot.</span></span><span class="sig-name descname"><span class="pre">save_figure_formats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['png',</span> <span class="pre">'svg',</span> <span class="pre">'pdf']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/plot/leaderboard.html#save_figure_formats"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Save figure in multiple formats.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fig</strong> (<em>Figure</em>) – Matplotlib figure to save</p></li>
+<li><p><strong>output_path</strong> (<em>Path</em>) – Base output path (without extension)</p></li>
+<li><p><strong>formats</strong> (<em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>default=</em><em>[</em><em>&quot;png&quot;</em><em>, </em><em>&quot;svg&quot;</em><em>, </em><em>&quot;pdf&quot;</em><em>]</em>) – File formats to save</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
 </dd>
 </dl>
 </dd></dl>

@@ -1,9 +1,37 @@
 CLI Usage
 =========
 
-The ``admet`` package provides Python modules for training Chemprop models.
-Training is typically done via configuration files and Python scripts rather
-than a CLI interface.
+The ``admet`` package provides command-line tools for leaderboard analysis
+and model training workflows.
+
+Leaderboard Commands
+--------------------
+
+The ``admet leaderboard`` command provides tools for scraping and analyzing
+competition leaderboards.
+
+**Basic Usage**
+
+.. code-block:: bash
+
+   # Scrape leaderboard for a user
+   admet leaderboard scrape --user your_username
+
+   # Custom output directory
+   admet leaderboard scrape --user your_username --output ./results
+
+   # Skip plot generation (faster)
+   admet leaderboard scrape --user your_username --no-plots
+
+   # Different HuggingFace Space
+   admet leaderboard scrape --user your_username --space owner/space-name
+
+For detailed leaderboard documentation, see :doc:`leaderboard`.
+
+Model Training
+--------------
+
+Training Chemprop models is done via configuration files and Python scripts.
 
 Training Chemprop Models
 ------------------------
@@ -33,7 +61,8 @@ Train an ensemble of models across multiple data splits:
 
 .. code-block:: bash
 
-   python -m admet.model.chemprop.ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml
+   # Using the admet CLI
+   admet model ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml
 
 Or programmatically:
 
@@ -56,10 +85,43 @@ Run HPO with Ray Tune and ASHA scheduler:
 
 .. code-block:: bash
 
-   python -m admet.model.chemprop.hpo --config configs/hpo_chemprop.yaml
+   # Using the admet CLI
+   admet model hpo --config configs/hpo_chemprop.yaml
 
 Configuration Files
 -------------------
+
+Data Commands
+-------------
+
+Split datasets and generate cluster-aware train/validation assignments using the `admet` CLI.
+
+.. code-block:: bash
+
+   # Run the high-level split pipeline and save augmented dataframe
+   admet data split data/admet_train.csv --output outputs/ --smiles-col SMILES
+
+Testing the CLI
+---------------
+
+The Typer app used by the CLI is available programmatically as ``admet.cli.app``.
+When writing unit tests, prefer invoking the top-level app (``admet``) so subcommand
+parsing behaves the same as when the CLI is installed as a console script. Use
+Typer's ``CliRunner`` to exercise commands in tests, for example:
+
+.. code-block:: python
+
+   from typer.testing import CliRunner
+   from admet.cli import app as main_app
+
+   runner = CliRunner()
+   result = runner.invoke(main_app, ["data", "split", "--output", "./out", "data.csv"])
+   assert result.exit_code == 0
+
+Avoid invoking sub-``Typer`` instances (for example ``data_app``) directly when
+testing command-line parsing; doing so can lead to different argument parsing
+behavior and unexpected errors.
+
 
 Configuration files are located in ``configs/``:
 

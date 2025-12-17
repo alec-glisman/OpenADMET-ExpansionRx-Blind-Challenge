@@ -114,7 +114,6 @@ def build_search_space(
         "ffn_type",
         "aggregation",
         "aggregation_norm",
-        "task_sampling_alpha",
     ]
 
     for param_name in simple_params:

@@ -219,11 +219,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
@@ -235,6 +237,35 @@
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 
 </div>
@@ -369,8 +400,24 @@ with structured defaults.</p>
 <span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ensemble_chemprop&quot;</span>
 <span class="w">  </span><span class="nt">nested</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">    </span><span class="c1"># Log each fold as child run</span>
 
-<span class="c1"># Ensemble-specific</span>
-<span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">   </span><span class="c1"># Models trained concurrently</span>
+<span class="c1"># Ray parallelization settings</span>
+<span class="nt">ray</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">    </span><span class="c1"># Models trained concurrently</span>
+<span class="w">  </span><span class="nt">num_cpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">     </span><span class="c1"># null = use all available</span>
+<span class="w">  </span><span class="nt">num_gpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">     </span><span class="c1"># null = auto-detect</span>
+
+<span class="c1"># Joint sampling configuration (task oversampling + curriculum)</span>
+<span class="nt">joint_sampling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">       </span><span class="c1"># Balance factor for task-aware sampling</span>
+<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span><span class="w">  </span><span class="c1"># or &quot;deterministic&quot;</span>
+<span class="w">    </span><span class="nt">log_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
 </section>
@@ -394,6 +441,50 @@ with structured defaults.</p>
 </pre></div>
 </div>
 </section>
+<section id="ray-parallelization-configuration">
+<h2>Ray Parallelization Configuration<a class="headerlink" href="#ray-parallelization-configuration" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">ray</span></code> configuration section controls distributed ensemble training:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ray</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">    </span><span class="c1"># Maximum models trained in parallel</span>
+<span class="w">  </span><span class="nt">num_cpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w">        </span><span class="c1"># CPU allocation (null = all available)</span>
+<span class="w">  </span><span class="nt">num_gpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">        </span><span class="c1"># GPU allocation (null = auto-detect)</span>
+</pre></div>
+</div>
+<p>Key parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">max_parallel</span></code>: How many models train simultaneously. Set based on GPU memory.
+For example, if each model needs 0.5 GPU, set <code class="docutils literal notranslate"><span class="pre">max_parallel:</span> <span class="pre">2</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_cpus</span></code>: Total CPUs for Ray cluster. <code class="docutils literal notranslate"><span class="pre">null</span></code> uses all available.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_gpus</span></code>: Total GPUs for Ray cluster. <code class="docutils literal notranslate"><span class="pre">null</span></code> auto-detects available GPUs.</p></li>
+</ul>
+</section>
+<section id="joint-sampling-configuration">
+<h2>Joint Sampling Configuration<a class="headerlink" href="#joint-sampling-configuration" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">joint_sampling</span></code> section enables unified task-aware oversampling and curriculum learning:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">joint_sampling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">         </span><span class="c1"># Balance factor (0=uniform, 1=fully weighted)</span>
+<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">        </span><span class="c1"># Epochs before quality phase change</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span><span class="w">  </span><span class="c1"># or &quot;deterministic&quot;</span>
+<span class="w">    </span><span class="nt">reset_early_stopping_on_phase_change</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">log_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">    </span><span class="c1"># null = use full dataset size</span>
+<span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">  </span><span class="nt">increment_seed_per_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p><strong>Task Oversampling</strong>: Balances multi-task learning by oversampling tasks with fewer samples.
+The <code class="docutils literal notranslate"><span class="pre">alpha</span></code> parameter controls the balance: 0 = uniform sampling, 1 = fully inverse-weighted.</p>
+<p><strong>Curriculum Learning</strong>: Progressively trains on data of increasing difficulty (e.g., high → medium → low quality).
+The sampler automatically advances through quality phases based on validation performance and <code class="docutils literal notranslate"><span class="pre">patience</span></code>.</p>
+<p>See <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> for detailed curriculum learning documentation.</p>
+</section>
 <section id="configuration-classes">
 <h2>Configuration Classes<a class="headerlink" href="#configuration-classes" title="Link to this heading">¶</a></h2>
 <p>The dataclass hierarchy:</p>
@@ -402,6 +493,8 @@ with structured defaults.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">ModelConfig</span></code>: Model architecture parameters</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">OptimizationConfig</span></code>: Training hyperparameters</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">MlflowConfig</span></code>: Experiment tracking settings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RayConfig</span></code>: Ray parallelization settings for ensemble training</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JointSamplingConfig</span></code>: Unified task oversampling and curriculum learning</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ChempropConfig</span></code>: Combines all above for single model</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EnsembleDataConfig</span></code>: Extends DataConfig for ensemble</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EnsembleConfig</span></code>: Combines all for ensemble training</p></li>
@@ -493,6 +586,8 @@ with structured defaults.</p>
 <li><a class="reference internal" href="#single-model-configuration">Single Model Configuration</a></li>
 <li><a class="reference internal" href="#ensemble-configuration">Ensemble Configuration</a></li>
 <li><a class="reference internal" href="#programmatic-loading">Programmatic Loading</a></li>
+<li><a class="reference internal" href="#ray-parallelization-configuration">Ray Parallelization Configuration</a></li>
+<li><a class="reference internal" href="#joint-sampling-configuration">Joint Sampling Configuration</a></li>
 <li><a class="reference internal" href="#configuration-classes">Configuration Classes</a></li>
 <li><a class="reference internal" href="#mlflow-integration">MLflow Integration</a></li>
 <li><a class="reference internal" href="#best-practices">Best Practices</a></li>

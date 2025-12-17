@@ -1,164 +1,89 @@
-# Example ChempropModel Configuration
-# ====================================
-# This YAML file demonstrates the full configuration structure for training
-# a Chemprop MPNN model. Load it with OmegaConf and pass to ChempropModel.from_config()
-#
-# Usage:
-#   from omegaconf import OmegaConf
-#   from admet.model.chemprop.config import ChempropConfig
-#   from admet.model.chemprop.model import ChempropModel
-#
-#   config = OmegaConf.merge(
-#       OmegaConf.structured(ChempropConfig),
-#       OmegaConf.load("configs/0-experiment/chemprop.yaml")
-#   )
-#   model = ChempropModel.from_config(config)
-#   model.fit()
-
-# Data configuration
 data:
-  # Directory containing train.csv and validation.csv (required)
-  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
-  # Optional test and blind files
-  test_file: "assets/dataset/set/local_test.csv"
-  blind_file: "assets/dataset/set/blind_test.csv"
-
-  # Output directory (null for temp directory)
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
-
-  # Column configuration
-  smiles_col: "SMILES"
+  smiles_col: SMILES
   target_cols:
-    - "LogD"
-    - "Log KSOL"
-    - "Log HLM CLint"
-    - "Log MLM CLint"
-    - "Log Caco-2 Permeability Papp A>B"
-    - "Log Caco-2 Permeability Efflux"
-    - "Log MPPB"
-    - "Log MBPB"
-    - "Log MGMB"
-
-  # Per-task loss weights (optional, defaults to 1.0 for each)
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
   target_weights:
-    - 1.0310
-    - 1.0000
-    - 1.2252
-    - 1.1368
-    - 2.1227
-    - 2.1174
-    - 3.7877
-    - 5.2722
-    - 10.000
-
-# Model architecture configuration
+  - 1.031
+  - 1.0
+  - 1.2252
+  - 1.1368
+  - 2.1227
+  - 2.1174
+  - 3.7877
+  - 5.2722
+  - 10.0
 model:
-  # Message passing network
-  depth: 5 # Number of message passing iterations
-  message_hidden_dim: 600 # Hidden dimension for message passing
-
-  # Feed-forward network
-  num_layers: 2 # Number of FFN layers
-  hidden_dim: 600 # FFN hidden dimension
-  dropout: 0.1 # Dropout probability
-  batch_norm: true # Use batch normalization in MPNN
-
-  # FFN type: 'regression', 'mixture_of_experts', 'branched'
-  ffn_type: "regression"
-
-  # Branched FFN settings (used when ffn_type='branched')
+  depth: 5
+  message_hidden_dim: 600
+  num_layers: 2
+  hidden_dim: 600
+  dropout: 0.1
+  batch_norm: true
+  ffn_type: regression
   trunk_n_layers: 2
   trunk_hidden_dim: 600
-
-  # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
   n_experts: 4
-
-# Optimization configuration
 optimization:
-  # Loss function: "MAE", "MSE", "RMSE", "BCE", "CrossEntropy", etc.
-  criterion: "MSE"
-
-  # Learning rate schedule (OneCycleLR)
-  init_lr: 1.0e-4 # Initial learning rate
-  max_lr: 1.0e-3 # Peak learning rate
-  final_lr: 1.0e-4 # Final learning rate
-
-  # Training epochs
-  warmup_epochs: 5 # Warmup epochs
-  max_epochs: 150 # Maximum training epochs
-  patience: 15 # Early stopping patience
-
-  # Batch settings
+  criterion: MSE
+  init_lr: 0.0001
+  max_lr: 0.001
+  final_lr: 0.0001
+  warmup_epochs: 5
+  max_epochs: 150
+  patience: 15
   batch_size: 32
   num_workers: 0
-  task_sampling_alpha: 0.5
-
-  # Reproducibility
   seed: 12345
-
-  # Display
   progress_bar: true
-
-# MLflow experiment tracking configuration
 mlflow:
   tracking: true
-  tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "single_chemprop"
-  run_name: null # Auto-generated if null
-
-# Curriculum learning configuration
-# =================================
-# Quality-aware curriculum learning is disabled by default.
-# Enable it when training on mixed-quality datasets with a Quality column.
-curriculum:
-  enabled: false
-  quality_col: "Quality"
-  qualities:
-    - "high"
-    - "medium"
-    - "low"
-  patience: 5
-  seed: 42
-
-# =============================================================================
-# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
-# =============================================================================
-# Computes inter-task affinity during training using the lookahead method from:
-# "Efficiently Identifying Task Groupings for Multi-Task Learning"
-# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
-#
-# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
-# This measures how task i's gradient update affects task j's loss.
-# =============================================================================
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: single_chemprop
+  run_name: null
 inter_task_affinity:
-  # Enable/disable inter-task affinity computation during training
   enabled: false
-
-  # Compute affinity every N training steps (1 = every step)
   compute_every_n_steps: 10
-
-  # Log running average affinity to MLflow every N steps
   log_every_n_steps: 100
-
-  # Log epoch-level summary statistics
   log_epoch_summary: true
-
-  # Log individual step affinity matrices (WARNING: high volume)
   log_step_matrices: false
-
-  # Learning rate for lookahead computation
   lookahead_lr: 0.001
-
-  # Use current optimizer learning rate for lookahead
   use_optimizer_lr: true
-
-  # Patterns to exclude from shared parameters (task-specific layers)
   exclude_param_patterns:
-    - predictor
-    - ffn
-    - output
-    - head
-    - readout
-
-  # Log affinity metrics to MLflow
+  - predictor
+  - ffn
+  - output
+  - head
+  - readout
+  log_to_mlflow: true
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.5
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+    - high
+    - medium
+    - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
   log_to_mlflow: true
