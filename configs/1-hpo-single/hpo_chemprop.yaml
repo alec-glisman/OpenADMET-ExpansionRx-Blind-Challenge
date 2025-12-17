@@ -1,309 +1,225 @@
-# =============================================================================
-# Chemprop HPO Configuration Example
-# =============================================================================
-# This configuration file demonstrates hyperparameter optimization (HPO)
-# for Chemprop models using Ray Tune with ASHA scheduler.
-#
-# Usage:
-#   python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
-#
-# Or using the bash script:
-#   ./scripts/training/train_chemprop_hpo.sh configs/1-hpo-single/hpo_chemprop.yaml
-# =============================================================================
-
-# Experiment identification
 experiment_name: chemprop-hpo-5
 output_dir: /media/aglisman/Data/models/admet-chemprop-hpo-5
 ray_storage_path: /media/aglisman/Data/ray-tune-5
-mlflow_tracking_uri: "http://127.0.0.1:8084"
-# mlflow path: /media/aglisman/Data/models/admet-chemprop
-
-# Data configuration
+mlflow_tracking_uri: http://127.0.0.1:8084
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
 target_columns:
-  - "LogD"
-  - "Log KSOL"
-  - "Log HLM CLint"
-  - "Log MLM CLint"
-  - "Log Caco-2 Permeability Papp A>B"
-  - "Log Caco-2 Permeability Efflux"
-  - "Log MPPB"
-  - "Log MBPB"
-  - "Log MGMB"
+- LogD
+- Log KSOL
+- Log HLM CLint
+- Log MLM CLint
+- Log Caco-2 Permeability Papp A>B
+- Log Caco-2 Permeability Efflux
+- Log MPPB
+- Log MBPB
+- Log MGMB
 target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-
-# Reproducibility
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
 seed: 12345
-
-# =============================================================================
-# Search Space Configuration
-# =============================================================================
-# Define hyperparameter distributions for optimization.
-# Supported types: uniform, loguniform, quniform, choice
-#
-# For conditional parameters (e.g., MoE-specific), use:
-#   conditional_on: ffn_type
-#   conditional_values: [moe]
-# =============================================================================
 search_space:
-  # max_lr (log-uniform for wide range)
   learning_rate:
     type: loguniform
-    low: 1.0e-4
-    high: 3.0e-2
-
-  # Learning rate schedule parameters
-  # init_lr = max_lr * lr_warmup_ratio (warmup start)
+    low: 0.0001
+    high: 0.03
   lr_warmup_ratio:
     type: choice
-    values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
-
-  # final_lr = max_lr * lr_final_ratio (end of training)
+    values:
+    - 0.1
+    - 0.5
+    - 1.0
+    - 2.0
+    - 5.0
+    - 10.0
   lr_final_ratio:
     type: choice
-    values: [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.08, 0.1, 0.2, 0.5, 1.0]
-
+    values:
+    - 0.001
+    - 0.002
+    - 0.005
+    - 0.01
+    - 0.02
+    - 0.05
+    - 0.08
+    - 0.1
+    - 0.2
+    - 0.5
+    - 1.0
   dropout:
     type: choice
-    values: [0.0, 0.05, 0.1, 0.15, 0.20, 0.25, 0.30]
-
-  # Training
+    values:
+    - 0.0
+    - 0.05
+    - 0.1
+    - 0.15
+    - 0.2
+    - 0.25
+    - 0.3
   batch_size:
     type: choice
-    values: [32, 64, 128, 256]
-
-  # Task sampling alpha (0=uniform, 1=inverse proportional)
-  task_sampling_alpha:
-    type: choice
-    values: [0.0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9, 1.0]
-
-  # Message passing architecture
+    values:
+    - 32
+    - 64
+    - 128
+    - 256
   depth:
     type: randint
     low: 2
     high: 8
-
-  # Message hidden dim (MPNN layer width) - can be different from FFN hidden_dim
   message_hidden_dim:
     type: choice
-    values: [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
-
-  # Message aggregation
+    values:
+    - 200
+    - 300
+    - 400
+    - 500
+    - 600
+    - 700
+    - 800
+    - 900
+    - 1000
+    - 1100
+    - 1200
   aggregation:
     type: choice
-    values: [norm]
-
-  # FFN type selection
+    values:
+    - norm
   ffn_type:
     type: choice
-    values: [mlp, moe, branched]
-
-  # FFN architecture
+    values:
+    - mlp
+    - moe
+    - branched
   ffn_num_layers:
     type: randint
     low: 0
     high: 5
-
   ffn_hidden_dim:
     type: choice
-    values: [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
-
-  # MoE-specific (only sampled when ffn_type=moe)
+    values:
+    - 200
+    - 300
+    - 400
+    - 500
+    - 600
+    - 700
+    - 800
+    - 900
+    - 1000
+    - 1100
+    - 1200
   n_experts:
     type: qrandint
     low: 2
     high: 8
     q: 2
     conditional_on: ffn_type
-    conditional_values: [moe]
-
-  # Branched-specific (only sampled when ffn_type=branched)
+    conditional_values:
+    - moe
   trunk_depth:
     type: randint
     low: 0
     high: 5
     conditional_on: ffn_type
-    conditional_values: [branched]
-
+    conditional_values:
+    - branched
   trunk_hidden_dim:
     type: choice
-    values: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+    values:
+    - 100
+    - 200
+    - 300
+    - 400
+    - 500
+    - 600
+    - 700
+    - 800
+    - 900
+    - 1000
+    - 1100
+    - 1200
     conditional_on: ffn_type
-    conditional_values: [branched]
-
-# =============================================================================
-# ASHA Scheduler Configuration
-# =============================================================================
-# ASHA (Asynchronous Successive Halving Algorithm) provides efficient
-# early stopping of underperforming trials.
-# =============================================================================
+    conditional_values:
+    - branched
+  joint_sampling:
+    enabled:
+      type: choice
+      values:
+      - true
+      - false
+    task_oversampling:
+      alpha:
+        type: choice
+        values:
+        - 0.0
+        - 0.02
+        - 0.05
+        - 0.1
+        - 0.2
+        - 0.3
+        - 0.4
+        - 0.5
+        - 0.6
+        - 0.7
+        - 0.9
+        - 1.0
 asha:
-  # Metric to optimize
   metric: val_mae
-  mode: min # 'min' for loss metrics, 'max' for accuracy metrics
-
-  # Training epochs
-  max_t: 120 # Maximum epochs for full training
-  grace_period: 15 # Minimum epochs before early stopping
-
-  # Successive halving parameters
-  reduction_factor: 3 # Keep top 1/3 of trials at each rung
-  brackets: 1 # Number of brackets (1 is standard ASHA)
-
-# =============================================================================
-# Resource Configuration
-# =============================================================================
-# Configure computational resources for HPO trials.
-# =============================================================================
+  mode: min
+  max_t: 120
+  grace_period: 15
+  reduction_factor: 3
+  brackets: 1
 resources:
-  # Number of HPO trials to run
   num_samples: 2000
-
-  # Resources per trial
   cpus_per_trial: 5
-  gpus_per_trial: 0.25 # 4 concurrent trials per GPU
-
-  # Concurrency limit (null = auto based on resources)
+  gpus_per_trial: 0.25
   max_concurrent_trials: null
-
-# =============================================================================
-# Transfer Learning Configuration
-# =============================================================================
-# After HPO, use top-k configurations for full ensemble training.
-# =============================================================================
 transfer_learning:
-  # Number of top configurations to use
   top_k: 100
-
-  # Full training parameters
   full_epochs: 60
   ensemble_size: 5
-
-# =============================================================================
-# Curriculum Learning Configuration
-# =============================================================================
-# Quality-aware curriculum learning progressively adjusts sampling from
-# high-quality to lower-quality data based on validation loss improvements.
-#
-# Note: HPO trials typically run for fewer epochs than full training.
-# Consider whether curriculum learning benefits short trials.
-# =============================================================================
-curriculum:
-  # Enable/disable curriculum learning during HPO trials
-  enabled: false
-
-  # Column name containing quality labels (e.g., "high", "medium", "low")
-  quality_col: "Quality"
-
-  # Quality levels ordered from highest to lowest
-  qualities:
-    - "high"
-    - "medium"
-    - "low"
-
-  # Epochs without improvement before phase transition
-  # Lower patience for shorter HPO trials
-  patience: 5
-
-  # Random seed for reproducible sampling
-  seed: 12345
-
-# =============================================================================
-# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
-# =============================================================================
-# Computes inter-task affinity during training using the lookahead method from:
-# "Efficiently Identifying Task Groupings for Multi-Task Learning"
-# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
-#
-# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
-#
-# This measures how task i's gradient update on shared parameters affects
-# task j's loss. Positive values indicate beneficial transfer; negative
-# values indicate harmful interference.
-#
-# Note: Computing affinity at every step adds overhead. Consider using
-# compute_every_n_steps > 1 for HPO trials to reduce computation.
-# =============================================================================
 inter_task_affinity:
-  # Enable/disable inter-task affinity computation during training
   enabled: false
-
-  # Compute affinity every N training steps (1 = every step)
-  # Higher values reduce overhead but provide less granular measurements
   compute_every_n_steps: 10
-
-  # Log running average affinity to MLflow every N steps
   log_every_n_steps: 100
-
-  # Log epoch-level summary statistics
   log_epoch_summary: true
-
-  # Log individual step affinity matrices (WARNING: high volume)
   log_step_matrices: false
-
-  # Learning rate for lookahead computation
-  # If use_optimizer_lr is true, this is overridden by the current LR
   lookahead_lr: 0.001
-
-  # Use current optimizer learning rate for lookahead
   use_optimizer_lr: true
-
-  # Patterns to exclude from shared parameters (task-specific layers)
   exclude_param_patterns:
-    - predictor
-    - ffn
-    - output
-    - head
-    - readout
-
-  # Log affinity metrics to MLflow
+  - predictor
+  - ffn
+  - output
+  - head
+  - readout
   log_to_mlflow: true
-# # =============================================================================
-# # Task Affinity Configuration (Legacy Pre-Training Approach)
-# # =============================================================================
-# # DEPRECATED: This uses gradient cosine similarity during a separate
-# # pre-training phase. For paper-accurate implementation, use
-# # inter_task_affinity above instead.
-# #
-# # Compute task affinity matrix during training to identify task relationships
-# # and group related tasks. The affinity matrix is stored in the trained MPNN
-# # for downstream use in ensemble models and transfer learning.
-# # =============================================================================
-# task_affinity:
-#   # Enable/disable task affinity computation during HPO trials
-#   enabled: false
-
-#   # Number of epochs for affinity estimation
-#   affinity_epochs: 2
-
-#   # Batch size for affinity computation
-#   affinity_batch_size: 64
-
-#   # Learning rate for affinity estimation
-#   affinity_lr: 0.001
-
-#   # Affinity metric: "cosine" or "dot_product"
-#   affinity_type: "cosine"
-
-#   # Number of task groups to discover via clustering
-#   n_groups: 3
-
-#   # Clustering algorithm: "agglomerative" or "spectral"
-#   clustering_method: "agglomerative"
-
-#   # Random seed for reproducibility
-#   seed: 42
-
-#   # Log affinity matrix and task groups to MLflow
-#   log_affinity_matrix: true
+joint_sampling:
+  enabled: false
+  task_oversampling:
+    alpha: 0.0
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+    - high
+    - medium
+    - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 12345
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true

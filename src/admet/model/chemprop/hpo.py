@@ -226,9 +226,6 @@ class ChempropHPO:
         if self.config.target_weights is not None:
             space["target_weights"] = self.config.target_weights
 
-        if self.config.task_sampling_alpha is not None:
-            space["task_sampling_alpha"] = self.config.task_sampling_alpha
-
         return space
 
     def _build_scheduler(self) -> ASHAScheduler:

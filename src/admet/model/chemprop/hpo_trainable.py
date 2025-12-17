@@ -444,7 +444,4 @@ def _build_hyperparams(
     if "trunk_hidden_dim" in config and config["trunk_hidden_dim"] is not None:
         params["trunk_hidden_dim"] = int(config["trunk_hidden_dim"])
 
-    if "task_sampling_alpha" in config and config["task_sampling_alpha"] is not None:
-        params["task_sampling_alpha"] = float(config["task_sampling_alpha"])
-
     return ChempropHyperparams(**params)

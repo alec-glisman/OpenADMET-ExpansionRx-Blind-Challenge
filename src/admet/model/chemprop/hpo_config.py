@@ -92,7 +92,6 @@ class SearchSpaceConfig:
 
     # Task weighting
     target_weights: ParameterSpace | None = None
-    task_sampling_alpha: ParameterSpace | None = None
 
 
 @dataclass
@@ -183,7 +182,6 @@ class HPOConfig:
     base_config_path: str | None = None
     ray_storage_path: str | None = None
     mlflow_tracking_uri: str | None = None
-    task_sampling_alpha: float | None = None
 
     # Fixed target weights (optional, overrides search space)
     target_weights: list[float] | None = None

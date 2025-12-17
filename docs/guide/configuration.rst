@@ -102,8 +102,24 @@ Example ``configs/0-experiment/ensemble_chemprop_production.yaml``:
      experiment_name: "ensemble_chemprop"
      nested: true    # Log each fold as child run
 
-   # Ensemble-specific
-   max_parallel: 4   # Models trained concurrently
+   # Ray parallelization settings
+   ray:
+     max_parallel: 4    # Models trained concurrently
+     num_cpus: null     # null = use all available
+     num_gpus: null     # null = auto-detect
+
+   # Joint sampling configuration (task oversampling + curriculum)
+   joint_sampling:
+     enabled: true
+     task_oversampling:
+       alpha: 0.5       # Balance factor for task-aware sampling
+     curriculum:
+       enabled: true
+       quality_col: "Quality"
+       qualities: ["high", "medium", "low"]
+       patience: 5
+       strategy: "sampled"  # or "deterministic"
+       log_per_quality_metrics: true
 
 Programmatic Loading
 --------------------
@@ -126,6 +142,57 @@ Programmatic Loading
    # Create model from config
    model = ChempropModel.from_config(config)
 
+Ray Parallelization Configuration
+---------------------------------
+
+The ``ray`` configuration section controls distributed ensemble training:
+
+.. code-block:: yaml
+
+   ray:
+     max_parallel: 4    # Maximum models trained in parallel
+     num_cpus: 8        # CPU allocation (null = all available)
+     num_gpus: 1        # GPU allocation (null = auto-detect)
+
+Key parameters:
+
+- ``max_parallel``: How many models train simultaneously. Set based on GPU memory.
+  For example, if each model needs 0.5 GPU, set ``max_parallel: 2``.
+- ``num_cpus``: Total CPUs for Ray cluster. ``null`` uses all available.
+- ``num_gpus``: Total GPUs for Ray cluster. ``null`` auto-detects available GPUs.
+
+Joint Sampling Configuration
+----------------------------
+
+The ``joint_sampling`` section enables unified task-aware oversampling and curriculum learning:
+
+.. code-block:: yaml
+
+   joint_sampling:
+     enabled: true
+     task_oversampling:
+       alpha: 0.5         # Balance factor (0=uniform, 1=fully weighted)
+     curriculum:
+       enabled: true
+       quality_col: "Quality"
+       qualities: ["high", "medium", "low"]
+       patience: 5        # Epochs before quality phase change
+       strategy: "sampled"  # or "deterministic"
+       reset_early_stopping_on_phase_change: false
+       log_per_quality_metrics: true
+     num_samples: null    # null = use full dataset size
+     seed: 42
+     increment_seed_per_epoch: true
+     log_to_mlflow: true
+
+**Task Oversampling**: Balances multi-task learning by oversampling tasks with fewer samples.
+The ``alpha`` parameter controls the balance: 0 = uniform sampling, 1 = fully inverse-weighted.
+
+**Curriculum Learning**: Progressively trains on data of increasing difficulty (e.g., high → medium → low quality).
+The sampler automatically advances through quality phases based on validation performance and ``patience``.
+
+See :doc:`curriculum` for detailed curriculum learning documentation.
+
 Configuration Classes
 ---------------------
 
@@ -135,6 +202,8 @@ The dataclass hierarchy:
 - ``ModelConfig``: Model architecture parameters
 - ``OptimizationConfig``: Training hyperparameters
 - ``MlflowConfig``: Experiment tracking settings
+- ``RayConfig``: Ray parallelization settings for ensemble training
+- ``JointSamplingConfig``: Unified task oversampling and curriculum learning
 - ``ChempropConfig``: Combines all above for single model
 - ``EnsembleDataConfig``: Extends DataConfig for ensemble
 - ``EnsembleConfig``: Combines all for ensemble training

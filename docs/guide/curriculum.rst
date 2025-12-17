@@ -49,18 +49,24 @@ improving for ``patience`` epochs.
 Quick Start
 -----------
 
-Enable curriculum learning in your configuration:
+Enable curriculum learning via the ``joint_sampling`` configuration:
 
 .. code-block:: yaml
 
-   curriculum:
+   joint_sampling:
      enabled: true
-     quality_col: "Quality"
-     qualities:
-       - "high"
-       - "medium"
-       - "low"
-     patience: 5
+     task_oversampling:
+       alpha: 0.5  # Optional: enable task-aware oversampling
+     curriculum:
+       enabled: true
+       quality_col: "Quality"
+       qualities:
+         - "high"
+         - "medium"
+         - "low"
+       patience: 5
+       strategy: "sampled"
+       log_per_quality_metrics: true
      seed: 42
 
 Then train normally:
@@ -80,26 +86,36 @@ Configuration
 Curriculum Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+Use the ``joint_sampling`` configuration, which combines curriculum learning
+with task-aware oversampling:
+
 .. code-block:: yaml
 
-   curriculum:
-     # Enable/disable curriculum learning
+   joint_sampling:
      enabled: true
 
-     # Column containing quality labels
-     quality_col: "Quality"
+     # Task-aware oversampling (optional)
+     task_oversampling:
+       alpha: 0.5  # 0=uniform, 1=fully inverse-weighted by task size
 
-     # Quality levels ordered from highest to lowest
-     qualities:
-       - "high"
-       - "medium"
-       - "low"
+     # Curriculum learning settings
+     curriculum:
+       enabled: true
+       quality_col: "Quality"
+       qualities:
+         - "high"
+         - "medium"
+         - "low"
+       patience: 5
+       strategy: "sampled"  # or "deterministic"
+       reset_early_stopping_on_phase_change: false
+       log_per_quality_metrics: true
 
-     # Epochs without improvement before phase transition
-     patience: 5
-
-     # Random seed for reproducible sampling
+     # Global sampling settings
+     num_samples: null  # null = use full dataset size per epoch
      seed: 42
+     increment_seed_per_epoch: true
+     log_to_mlflow: true
 
 Configuration Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^

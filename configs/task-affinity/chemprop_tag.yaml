@@ -1,43 +1,34 @@
-# Single ChempropModel TAG Configuration
-# ======================================
-# Train a single Chemprop model on one split/fold while computing
-# the TAG inter-task affinity matrix and clustering tasks into groups.
-#
-# Usage:
-#   python -m admet.model.chemprop.model --config configs/task-affinity/chemprop_tag.yaml
-
 data:
-  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
-  test_file: "assets/dataset/set/local_test.csv"
-  blind_file: "assets/dataset/set/blind_test.csv"
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
-  smiles_col: "SMILES"
+  smiles_col: SMILES
   target_cols:
-    - "LogD"
-    - "Log KSOL"
-    - "Log HLM CLint"
-    - "Log MLM CLint"
-    - "Log Caco-2 Permeability Papp A>B"
-    - "Log Caco-2 Permeability Efflux"
-    - "Log MPPB"
-    - "Log MBPB"
-    - "Log MGMB"
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
   target_weights:
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 model:
   depth: 4
   message_hidden_dim: 200
-  aggregation: "norm"
-  ffn_type: "regression"
+  aggregation: norm
+  ffn_type: regression
   num_layers: 2
   hidden_dim: 100
   dropout: 0.0
@@ -45,12 +36,11 @@ model:
   trunk_n_layers: 2
   trunk_hidden_dim: 600
   n_experts: 4
-
 optimization:
-  criterion: "MAE"
-  init_lr: 1.04e-5
-  max_lr: 1.04e-4
-  final_lr: 2.09e-6
+  criterion: MAE
+  init_lr: 1.04e-05
+  max_lr: 0.000104
+  final_lr: 2.09e-06
   warmup_epochs: 5
   max_epochs: 20
   patience: 2
@@ -58,24 +48,11 @@ optimization:
   num_workers: 0
   seed: 12345
   progress_bar: true
-  task_sampling_alpha: 0.1
-
 mlflow:
   tracking: true
-  tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "single_task_affinity"
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: single_task_affinity
   run_name: null
-
-curriculum:
-  enabled: false
-  quality_col: "Quality"
-  qualities:
-    - "high"
-    - "medium"
-    - "low"
-  patience: 5
-  seed: 42
-
 inter_task_affinity:
   enabled: true
   compute_every_n_steps: 2
@@ -86,14 +63,34 @@ inter_task_affinity:
   use_optimizer_lr: true
   shared_param_patterns: []
   exclude_param_patterns:
-    - predictor
-    - output
-    - head
+  - predictor
+  - output
+  - head
   n_groups: 3
   clustering_method: agglomerative
   clustering_linkage: average
   log_to_mlflow: true
   save_plots: true
   plot_formats:
-    - png
+  - png
   plot_dpi: 150
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.1
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+    - high
+    - medium
+    - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true

@@ -54,6 +54,7 @@ flowchart LR
 ### Table of Contents
 
 - [Quick Overview](#quick-overview)
+- [Recent Updates](#recent-updates)
 - [Getting Started](#getting-started)
 - [Training Models](#training-models)
 - [Goals](#goals)
@@ -63,6 +64,37 @@ This repository contains code and documentation for participating in the OpenADM
 
 To get started, please follow the installation instructions in [INSTALLATION.md](./INSTALLATION.md) to set up your development environment.
 You can find contribution guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md) if you wish to contribute to this project.
+
+## Recent Updates
+
+### Unified Configuration API (December 2024)
+
+The configuration system has been reorganized for better clarity and consistency:
+
+**Joint Sampling API** — Task-aware oversampling and curriculum learning unified under `joint_sampling`:
+
+```yaml
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.5  # Balance factor for multi-task sampling
+  curriculum:
+    enabled: true
+    quality_col: "Quality"
+    qualities: ["high", "medium", "low"]
+    patience: 5
+```
+
+**Ray Configuration** — Parallelization settings in dedicated `ray` section:
+
+```yaml
+ray:
+  max_parallel: 4    # Models trained concurrently
+  num_cpus: null     # null = use all available
+  num_gpus: null     # null = auto-detect
+```
+
+**Documentation**: See [Configuration Guide](docs/guide/configuration.rst) and [Curriculum Learning Guide](docs/guide/curriculum.rst) for complete API documentation.
 
 ## Leaderboard CLI & Report Generation ✅
 

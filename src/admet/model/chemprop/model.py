@@ -64,6 +64,7 @@ from admet.model.chemprop.config import (
     CurriculumConfig,
     DataConfig,
     InterTaskAffinityConfig,
+    JointSamplingConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
@@ -75,7 +76,7 @@ from admet.model.chemprop.curriculum_sampler import (
     get_quality_indices,
 )
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
-from admet.model.chemprop.task_sampler import TaskAwareSampler
+from admet.model.chemprop.joint_sampler import JointSampler
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
 
@@ -335,7 +336,6 @@ class ChempropHyperparams:
 
     # MPNN
     batch_norm: bool = True
-    task_sampling_alpha: Optional[float] = None
 
 
 class ChempropModel:
@@ -423,6 +423,7 @@ class ChempropModel:
         mlflow_nested: bool = False,
         curriculum_config: CurriculumConfig | None = None,
         curriculum_state: CurriculumState | None = None,
+        joint_sampling_config: JointSamplingConfig | None = None,
         task_affinity_config: TaskAffinityConfig | None = None,
         inter_task_affinity_config: InterTaskAffinityConfig | None = None,
         data_dir: Optional[str] = None,
@@ -484,12 +485,23 @@ class ChempropModel:
         self.hyperparams: ChempropHyperparams = hyperparams or ChempropHyperparams()
         self.data_dir: Optional[str] = data_dir
 
-        # Curriculum learning configuration
+        # Joint sampling configuration (unified task + curriculum)
+        self.joint_sampling_config: JointSamplingConfig | None = joint_sampling_config
+
+        # Curriculum learning configuration (legacy, will be deprecated)
         self.curriculum_config: CurriculumConfig | None = curriculum_config
         self.curriculum_state: CurriculumState | None = curriculum_state
 
         # Initialize curriculum state if config is enabled but state not provided
-        if self.curriculum_config is not None and self.curriculum_config.enabled:
+        # Check both legacy and joint_sampling configs
+        if joint_sampling_config is not None and joint_sampling_config.enabled:
+            if joint_sampling_config.curriculum.enabled:
+                if self.curriculum_state is None:
+                    self.curriculum_state = CurriculumState(
+                        qualities=list(joint_sampling_config.curriculum.qualities),
+                        patience=joint_sampling_config.curriculum.patience,
+                    )
+        elif self.curriculum_config is not None and self.curriculum_config.enabled:
             if self.curriculum_state is None:
                 self.curriculum_state = CurriculumState(
                     qualities=list(self.curriculum_config.qualities),
@@ -506,8 +518,15 @@ class ChempropModel:
         self.inter_task_affinity_config: InterTaskAffinityConfig | None = inter_task_affinity_config
 
         # Store quality column for later use
-        if self.curriculum_config is not None and self.curriculum_config.enabled:
-            self.quality_col: str | None = self.curriculum_config.quality_col
+        # Store quality column for later use (avoid re-annotating the attribute)
+        self.quality_col: Optional[str]
+        if joint_sampling_config is not None and joint_sampling_config.enabled:
+            if joint_sampling_config.curriculum.enabled:
+                self.quality_col = joint_sampling_config.curriculum.quality_col
+            else:
+                self.quality_col = None
+        elif self.curriculum_config is not None and self.curriculum_config.enabled:
+            self.quality_col = self.curriculum_config.quality_col
         else:
             self.quality_col = None
 
@@ -653,7 +672,6 @@ class ChempropModel:
             num_workers=config.optimization.num_workers,
             seed=config.optimization.seed,
             criterion=config.optimization.criterion,
-            task_sampling_alpha=config.optimization.task_sampling_alpha,
             # Model architecture
             depth=config.model.depth,
             message_hidden_dim=config.model.message_hidden_dim,
@@ -688,9 +706,10 @@ class ChempropModel:
             mlflow_run_id=config.mlflow.run_id,
             mlflow_parent_run_id=config.mlflow.parent_run_id,
             mlflow_nested=config.mlflow.nested,
-            curriculum_config=config.curriculum,
+            curriculum_config=config.joint_sampling.curriculum,
+            joint_sampling_config=config.joint_sampling,
             task_affinity_config=config.task_affinity,
-            inter_task_affinity_config=getattr(config, "inter_task_affinity", None),
+            inter_task_affinity_config=config.inter_task_affinity,
             data_dir=config.data.data_dir,
         )
 
@@ -713,6 +732,11 @@ class ChempropModel:
         >>> config = model.to_config()
         >>> OmegaConf.save(config, "experiment_config.yaml")
         """
+        # Ensure legacy curriculum_config is propagated into joint_sampling
+        joint_sampling = self.joint_sampling_config or JointSamplingConfig()
+        if self.curriculum_config is not None:
+            joint_sampling.curriculum = self.curriculum_config
+
         return ChempropConfig(
             data=DataConfig(
                 data_dir="",  # Not available after loading
@@ -752,7 +776,7 @@ class ChempropModel:
                 experiment_name=self.mlflow_experiment_name,
                 run_name=self.mlflow_run_name,
             ),
-            curriculum=self.curriculum_config or CurriculumConfig(),
+            joint_sampling=joint_sampling,
             task_affinity=self.task_affinity_config or TaskAffinityConfig(),
             inter_task_affinity=self.inter_task_affinity_config or InterTaskAffinityConfig(),
         )
@@ -803,11 +827,50 @@ class ChempropModel:
             elif split == "validation":
                 datasets[split].normalize_targets(self.scaler)
 
-            # Build dataloader with curriculum sampling for training if enabled
+            # Build dataloader with appropriate sampling strategy
             # Declare sampler with a permissive type to avoid incompatible assignments
             sampler: Any = None
-            if split == "train" and self.curriculum_state is not None and self._quality_labels["train"] is not None:
-                # Use dynamic curriculum-aware sampling that updates with phase changes
+
+            # Priority: JointSampler > Legacy samplers > Standard shuffle
+            if split == "train" and self.joint_sampling_config is not None and self.joint_sampling_config.enabled:
+                # Use unified joint sampler
+                task_alpha = self.joint_sampling_config.task_oversampling.alpha
+                curriculum_enabled = self.joint_sampling_config.curriculum.enabled
+
+                # Determine if we should use JointSampler
+                use_joint_sampler = task_alpha > 0.0 or (
+                    curriculum_enabled
+                    and self.curriculum_state is not None
+                    and self._quality_labels["train"] is not None
+                )
+
+                if use_joint_sampler:
+                    sampler = JointSampler(
+                        targets=ys,
+                        quality_labels=self._quality_labels["train"] if curriculum_enabled else None,
+                        curriculum_state=self.curriculum_state if curriculum_enabled else None,
+                        task_alpha=task_alpha,
+                        num_samples=self.joint_sampling_config.num_samples or len(datasets[split]),
+                        seed=self.joint_sampling_config.seed,
+                        increment_seed_per_epoch=self.joint_sampling_config.increment_seed_per_epoch,
+                        log_weight_stats=True,  # Always log for monitoring
+                    )
+                    drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                    self.dataloaders[split] = DataLoader(
+                        datasets[split],
+                        batch_size=self.hyperparams.batch_size,
+                        sampler=sampler,
+                        num_workers=self.hyperparams.num_workers,
+                        collate_fn=data.collate_batch,
+                        drop_last=drop_last,
+                    )
+                    logger.info(
+                        "JointSampler enabled: task_alpha=%.2f, curriculum=%s",
+                        task_alpha,
+                        curriculum_enabled,
+                    )
+            elif split == "train" and self.curriculum_state is not None and self._quality_labels["train"] is not None:
+                # Legacy: Use dynamic curriculum-aware sampling that updates with phase changes
                 seed = (
                     self.curriculum_config.seed
                     if self.curriculum_config and self.curriculum_config.seed
@@ -833,24 +896,8 @@ class ChempropModel:
                     self.curriculum_state.phase,
                     self.curriculum_state.qualities,
                 )
-            elif split == "train" and self.hyperparams.task_sampling_alpha is not None:
-                # Task-aware sampling for imbalanced multi-task learning
-                logger.info("Using TaskAwareSampler with alpha=%s", self.hyperparams.task_sampling_alpha)
-                sampler = TaskAwareSampler(
-                    targets=ys,
-                    alpha=self.hyperparams.task_sampling_alpha,
-                    seed=self.hyperparams.seed,
-                )
-                drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
-                self.dataloaders[split] = DataLoader(
-                    datasets[split],
-                    batch_size=self.hyperparams.batch_size,
-                    sampler=sampler,
-                    num_workers=self.hyperparams.num_workers,
-                    collate_fn=data.collate_batch,
-                    drop_last=drop_last,
-                )
-            else:
+
+            if sampler is None:
                 # Standard dataloader (shuffle for train, no shuffle for val/test)
                 self.dataloaders[split] = data.build_dataloader(
                     datasets[split],
