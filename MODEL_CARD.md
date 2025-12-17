@@ -55,7 +55,10 @@ flowchart LR
 ## Model Overview
 
 - **Model Name:** OpenADMET Multi-Endpoint ADMET Predictor
-- **Version:** 1.0
+- **Version:** 1.1
+
+> **Note:** We implemented hyperparameter optimization (HPO) for single models and for ensembles, and added α-weighted oversampling to improve learning on sparser tasks in our multi-task models.
+
 - **Task:** Multi-output regression for 9 ADMET endpoints
 - **Architecture:** Chemprop MPNN ensemble
 - **Training Framework:** PyTorch Lightning + Ray
