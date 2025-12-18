@@ -1,6 +1,8 @@
 import math
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 # torch not required directly here; trainer metrics may include torch tensors
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping
@@ -184,6 +186,29 @@ class CurriculumCallback(pl.Callback):
                     self._quality_indices[label] = []
                 self._quality_indices[label].append(i)
 
+    def on_train_start(self, trainer: Any, pl_module: pl.LightningModule) -> None:
+        """Log initial curriculum state at the start of training."""
+        import logging
+
+        logger = logging.getLogger("admet.model.chemprop.curriculum")
+        logger.info(
+            "Starting curriculum learning: phase=%s, weights=%s",
+            self.curr_state.phase,
+            self.curr_state.weights,
+        )
+
+        # Log initial curriculum state to MLflow
+        phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
+        pl_module.log("curriculum/phase", float(phase_idx), on_step=False, on_epoch=True)
+
+        for quality, weight in self.curr_state.weights.items():
+            pl_module.log(
+                f"curriculum/weight/{quality}",
+                float(weight),
+                on_step=False,
+                on_epoch=True,
+            )
+
     def _reset_early_stopping(self, trainer: Any) -> None:
         """Reset early stopping callback's wait counter and best score."""
         callbacks = getattr(trainer, "callbacks", [])
@@ -204,21 +229,31 @@ class CurriculumCallback(pl.Callback):
         pl_module: pl.LightningModule,
         metrics: Dict[str, Any],
     ) -> None:
-        """Log per-quality validation metrics if available."""
+        """Log per-quality validation metrics if available.
+
+        Metrics are logged with hierarchical naming: val/<metric>/<quality>
+        For example: val/mae/high, val/rmse/medium, val/loss/low
+        """
         if not self.log_per_quality_metrics:
             return
 
         # Look for per-quality metrics that may have been computed by the model
         for quality in self.curr_state.qualities:
-            # Check for metrics like val_mae_high, val_rmse_medium, etc.
-            for base_metric in ["val_mae", "val_rmse", "val_loss"]:
-                quality_metric_key = f"{base_metric}_{quality}"
-                if quality_metric_key in metrics:
-                    val = metrics[quality_metric_key]
+            # Check for metrics like val/mae/high, val/rmse/medium, etc.
+            # Also check legacy format for backward compatibility
+            for base_metric in ["mae", "rmse", "loss"]:
+                # New hierarchical format: val/<metric>/<quality>
+                new_key = f"val/{base_metric}/{quality}"
+                # Legacy underscore format
+                legacy_key = f"val_{base_metric}_{quality}"
+
+                metric_key = new_key if new_key in metrics else legacy_key
+                if metric_key in metrics:
+                    val = metrics[metric_key]
                     try:
                         v = val.item() if hasattr(val, "item") else float(val)
                         pl_module.log(
-                            quality_metric_key,
+                            new_key,
                             v,
                             on_step=False,
                             on_epoch=True,
@@ -249,13 +284,28 @@ class CurriculumCallback(pl.Callback):
         # Log per-quality metrics
         self._log_per_quality_metrics(trainer, pl_module, metrics)
 
-        # Log phase transitions
+        # Always log current curriculum state to MLflow (not just on transitions)
+        phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
+        pl_module.log("curriculum/phase", float(phase_idx), on_step=False, on_epoch=True)
+
+        # Log current weights for each quality
+        for quality, weight in self.curr_state.weights.items():
+            pl_module.log(
+                f"curriculum/weight/{quality}",
+                float(weight),
+                on_step=False,
+                on_epoch=True,
+            )
+
+        # Log phase transitions (with additional details)
         if self.curr_state.phase != self._previous_phase:
             import logging
 
+            import mlflow
+
             logger = logging.getLogger("admet.model.chemprop.curriculum")
             logger.info(
-                "Curriculum phase transition: %s -> %s at epoch %d (step %d), " "val_loss=%.4f, weights=%s",
+                "Curriculum phase transition: %s -> %s at epoch %d (step %d), val_loss=%.4f, weights=%s",
                 self._previous_phase,
                 self.curr_state.phase,
                 epoch,
@@ -264,22 +314,334 @@ class CurriculumCallback(pl.Callback):
                 self.curr_state.weights,
             )
 
-            # Log phase transition to trainer's logger (goes to MLflow if enabled)
-            phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
-            pl_module.log("curriculum_phase", float(phase_idx), on_step=False, on_epoch=True)
-            pl_module.log("curriculum_phase_epoch", float(epoch), on_step=False, on_epoch=True)
+            # Log phase transition metadata
+            pl_module.log("curriculum/phase_epoch", float(epoch), on_step=False, on_epoch=True)
+            pl_module.log("curriculum/val_loss_at_transition", float(v), on_step=False, on_epoch=True)
 
-            # Log current weights for each quality
-            for quality, weight in self.curr_state.weights.items():
-                pl_module.log(
-                    f"curriculum_weight_{quality}",
-                    float(weight),
-                    on_step=False,
-                    on_epoch=True,
-                )
+            # Log MLflow tag for curriculum stage transition (clear marker for training curves)
+            try:
+                if mlflow.active_run():
+                    mlflow.set_tag(
+                        f"curriculum_transition_epoch_{epoch}",
+                        f"{self._previous_phase}_to_{self.curr_state.phase}",
+                    )
+                    # Also log as a metric for visibility in training curves
+                    mlflow.log_metric("curriculum/transition", float(phase_idx), step=global_step)
+            except Exception:
+                pass  # Silently ignore MLflow tagging failures
 
             # Reset early stopping if configured
             if self.reset_early_stopping_on_phase_change:
                 self._reset_early_stopping(trainer)
 
             self._previous_phase = self.curr_state.phase
+
+
+class PerQualityMetricsCallback(pl.Callback):
+    """Compute and log per-quality metrics during training and validation.
+
+    This callback computes predictions at the end of each validation epoch
+    and calculates MAE, MSE, RMSE for each data quality level.
+
+    Since Chemprop's validation_step doesn't return outputs, this callback
+    runs the model's predict_step on the validation dataloader at the end
+    of each epoch to compute per-quality metrics.
+
+    Metrics are logged with hierarchical naming for clear organization in MLflow:
+    - val/<metric>/<quality> (e.g., val/mae/high, val/rmse/medium)
+    - val/count/<quality> (number of samples per quality)
+
+    Parameters
+    ----------
+    val_quality_labels : List[str]
+        Quality label for each validation sample (e.g., ["high", "medium", "low", ...]).
+    qualities : List[str]
+        Ordered list of quality levels to track (e.g., ["high", "medium", "low"]).
+    target_cols : List[str], optional
+        Target column names for per-target metrics. If provided, also logs
+        val/<metric>/<quality>/<target>, e.g., val/mae/high/LogD.
+    compute_every_n_epochs : int, default=1
+        Compute per-quality metrics every N epochs (to reduce overhead).
+
+    Examples
+    --------
+    >>> callback = PerQualityMetricsCallback(
+    ...     val_quality_labels=df_val["Quality"].tolist(),
+    ...     qualities=["high", "medium", "low"],
+    ...     target_cols=["LogD", "KSOL"],
+    ... )
+    >>> trainer = pl.Trainer(callbacks=[callback])
+    """
+
+    def __init__(
+        self,
+        val_quality_labels: List[str],
+        qualities: List[str],
+        target_cols: Optional[List[str]] = None,
+        compute_every_n_epochs: int = 1,
+        # Legacy parameter names for backward compatibility
+        quality_labels: Optional[List[str]] = None,
+        train_quality_labels: Optional[List[str]] = None,  # noqa: ARG002
+    ):
+        super().__init__()
+        # Support legacy parameter name
+        if quality_labels is not None and val_quality_labels is None:
+            val_quality_labels = quality_labels
+        self.val_quality_labels = val_quality_labels
+        self.qualities = qualities
+        self.target_cols = target_cols
+        self.compute_every_n_epochs = compute_every_n_epochs
+
+        # Build quality indices for efficient grouping (validation)
+        self._val_quality_indices: Dict[str, List[int]] = {q: [] for q in qualities}
+        for i, label in enumerate(val_quality_labels):
+            if label in self._val_quality_indices:
+                self._val_quality_indices[label].append(i)
+
+    def _compute_and_log_metrics(
+        self,
+        pl_module: pl.LightningModule,
+        all_preds: np.ndarray,
+        all_targets: np.ndarray,
+        quality_indices: Dict[str, List[int]],
+        split: str,
+    ) -> None:
+        """Compute and log per-quality metrics for a given split (train/val).
+
+        Metrics are logged with format: <split>/<metric>/<quality>
+        e.g., val/mae/high, train/rmse/medium
+        """
+        import mlflow
+
+        for quality in self.qualities:
+            indices = quality_indices.get(quality, [])
+            if not indices:
+                continue
+
+            q_preds = all_preds[indices]
+            q_targets = all_targets[indices]
+
+            # Handle NaN values
+            valid_mask = ~(np.isnan(q_preds) | np.isnan(q_targets))
+            if valid_mask.ndim > 1:
+                valid_mask = valid_mask.any(axis=1)
+
+            if not valid_mask.any():
+                continue
+
+            q_preds_valid = q_preds[valid_mask]
+            q_targets_valid = q_targets[valid_mask]
+
+            # Flatten for overall metrics
+            if q_preds_valid.ndim > 1:
+                flat_mask = ~(np.isnan(q_preds_valid) | np.isnan(q_targets_valid))
+                q_preds_flat = q_preds_valid[flat_mask]
+                q_targets_flat = q_targets_valid[flat_mask]
+            else:
+                q_preds_flat = q_preds_valid.flatten()
+                q_targets_flat = q_targets_valid.flatten()
+
+            if len(q_preds_flat) == 0:
+                continue
+
+            # Compute metrics
+            mae = float(np.mean(np.abs(q_preds_flat - q_targets_flat)))
+            mse = float(np.mean((q_preds_flat - q_targets_flat) ** 2))
+            rmse = float(np.sqrt(mse))
+
+            # Log with hierarchical naming: <split>/<metric>/<quality>
+            # Use pl_module.log for Lightning integration
+            pl_module.log(f"{split}/mae/{quality}", mae, on_step=False, on_epoch=True)
+            pl_module.log(f"{split}/mse/{quality}", mse, on_step=False, on_epoch=True)
+            pl_module.log(f"{split}/rmse/{quality}", rmse, on_step=False, on_epoch=True)
+            pl_module.log(f"{split}/count/{quality}", float(len(q_preds_flat)), on_step=False, on_epoch=True)
+
+            # Also log directly to MLflow for immediate visibility
+            try:
+                if mlflow.active_run():
+                    step = pl_module.current_epoch if hasattr(pl_module, "current_epoch") else 0
+                    mlflow.log_metric(f"{split}/mae/{quality}", mae, step=step)
+                    mlflow.log_metric(f"{split}/mse/{quality}", mse, step=step)
+                    mlflow.log_metric(f"{split}/rmse/{quality}", rmse, step=step)
+                    mlflow.log_metric(f"{split}/count/{quality}", float(len(q_preds_flat)), step=step)
+            except Exception:
+                pass
+
+            # Per-target metrics: <split>/<metric>/<quality>/<target>
+            if self.target_cols is not None and q_preds_valid.ndim > 1:
+                for t_idx, target in enumerate(self.target_cols):
+                    if t_idx >= q_preds_valid.shape[1]:
+                        continue
+
+                    t_preds = q_preds_valid[:, t_idx]
+                    t_targets = q_targets_valid[:, t_idx]
+
+                    t_valid = ~(np.isnan(t_preds) | np.isnan(t_targets))
+                    if not t_valid.any():
+                        continue
+
+                    t_preds_v = t_preds[t_valid]
+                    t_targets_v = t_targets[t_valid]
+
+                    t_mae = float(np.mean(np.abs(t_preds_v - t_targets_v)))
+                    t_mse = float(np.mean((t_preds_v - t_targets_v) ** 2))
+                    t_rmse = float(np.sqrt(t_mse))
+
+                    pl_module.log(f"{split}/mae/{quality}/{target}", t_mae, on_step=False, on_epoch=True)
+                    pl_module.log(f"{split}/mse/{quality}/{target}", t_mse, on_step=False, on_epoch=True)
+                    pl_module.log(f"{split}/rmse/{quality}/{target}", t_rmse, on_step=False, on_epoch=True)
+
+                    try:
+                        if mlflow.active_run():
+                            step = pl_module.current_epoch if hasattr(pl_module, "current_epoch") else 0
+                            mlflow.log_metric(f"{split}/mae/{quality}/{target}", t_mae, step=step)
+                            mlflow.log_metric(f"{split}/mse/{quality}/{target}", t_mse, step=step)
+                            mlflow.log_metric(f"{split}/rmse/{quality}/{target}", t_rmse, step=step)
+                    except Exception:
+                        pass
+
+    def on_validation_epoch_end(self, trainer: Any, pl_module: pl.LightningModule) -> None:
+        """Compute and log per-quality validation metrics at the end of validation epoch."""
+        import logging
+
+        import torch
+
+        logger = logging.getLogger("admet.model.chemprop.curriculum")
+        logger.debug("PerQualityMetricsCallback.on_validation_epoch_end called")
+
+        # Skip if not the right epoch
+        current_epoch = trainer.current_epoch
+        logger.debug("Current epoch: %d, compute_every_n_epochs: %d", current_epoch, self.compute_every_n_epochs)
+        if current_epoch % self.compute_every_n_epochs != 0:
+            logger.debug("Skipping epoch %d (not divisible by %d)", current_epoch, self.compute_every_n_epochs)
+            return
+
+        # Get validation dataloader
+        val_dataloader = trainer.val_dataloaders
+        logger.debug("Validation dataloader: %s, is_none: %s", type(val_dataloader), val_dataloader is None)
+        if val_dataloader is None:
+            logger.debug("No validation dataloader available")
+            return
+
+        # Handle single dataloader case
+        if not isinstance(val_dataloader, list):
+            val_dataloader = [val_dataloader]
+
+        logger.debug("Number of dataloaders: %d", len(val_dataloader))
+        if not val_dataloader:
+            return
+
+        logger.debug("Quality labels count: %d", len(self.val_quality_labels))
+        logger.debug("Target columns: %s", self.target_cols)
+
+        try:
+            # Collect predictions and targets from validation dataloader
+            all_preds = []
+            all_targets = []
+
+            pl_module.eval()
+            logger.debug("Starting batch iteration for predictions...")
+            batch_count = 0
+            with torch.no_grad():
+                for dl_idx, dl in enumerate(val_dataloader):
+                    logger.debug("Processing dataloader %d/%d", dl_idx + 1, len(val_dataloader))
+                    for batch_idx, batch in enumerate(dl):
+                        batch_count += 1
+                        # Chemprop batch format: (bmg, V_d, X_d, targets, weights, lt_mask, gt_mask)
+                        if len(batch) >= 4:
+                            bmg, V_d, X_d, targets = batch[0], batch[1], batch[2], batch[3]
+                            logger.debug("  Batch %d: targets shape=%s", batch_idx, targets.shape)
+
+                            # Move to device
+                            # Note: BatchMolGraph.to() modifies in-place and returns None
+                            device = next(pl_module.parameters()).device
+                            if hasattr(bmg, "to"):
+                                bmg.to(device)  # In-place modification
+                            if V_d is not None and hasattr(V_d, "to"):
+                                V_d = V_d.to(device)
+                            if X_d is not None and hasattr(X_d, "to"):
+                                X_d = X_d.to(device)
+
+                            # Get predictions
+                            preds = pl_module(bmg, V_d, X_d)
+                            logger.debug(f"  Predictions shape: {preds.shape}")
+
+                            # Handle multi-target case where preds has extra dimension
+                            if preds.ndim == 3 and preds.shape[-1] == 1:
+                                preds = preds[..., 0]
+
+                            all_preds.append(preds.cpu().numpy())
+                            all_targets.append(targets.cpu().numpy())
+
+            logger.debug(f"Processed {batch_count} batches total")
+            logger.debug(f"Collected {len(all_preds)} prediction batches")
+            if not all_preds:
+                logger.debug("No predictions collected from validation dataloader")
+                return
+
+            # Concatenate all batches
+            all_preds_np = np.concatenate(all_preds, axis=0)
+            all_targets_np = np.concatenate(all_targets, axis=0)
+            logger.debug(f"Concatenated predictions shape: {all_preds_np.shape}")
+            logger.debug(f"Concatenated targets shape: {all_targets_np.shape}")
+
+            # Verify sample count matches
+            if len(all_preds_np) != len(self.val_quality_labels):
+                logger.warning(
+                    "Mismatch: %d predictions vs %d quality labels - cannot compute per-quality metrics!",
+                    len(all_preds_np),
+                    len(self.val_quality_labels),
+                )
+                return
+
+            # Compute and log metrics
+            logger.debug("Computing per-quality metrics...")
+            self._compute_and_log_metrics(pl_module, all_preds_np, all_targets_np, self._val_quality_indices, "val")
+            logger.info("Per-quality validation metrics computed for epoch %d", current_epoch)
+
+        except Exception as e:
+            import traceback
+
+            logger.warning("Failed to compute per-quality metrics: %s\n%s", e, traceback.format_exc())
+
+
+class JointSamplerStatsCallback(pl.Callback):
+    """Log JointSampler weight statistics to MLflow.
+
+    This callback logs sampling weight statistics (entropy, effective samples, etc.)
+    to MLflow at the start of each training epoch. The statistics are computed by
+    the JointSampler during data loading.
+
+    Metrics logged:
+    - sampling/weight_min - Minimum sample weight
+    - sampling/weight_max - Maximum sample weight
+    - sampling/weight_mean - Mean sample weight
+    - sampling/entropy - Entropy of weight distribution (higher = more uniform)
+    - sampling/effective_samples - Effective number of samples (1/sum(w²))
+
+    Parameters
+    ----------
+    sampler : JointSampler
+        The JointSampler instance from which to extract statistics.
+    """
+
+    def __init__(self, sampler: Any) -> None:
+        super().__init__()
+        self.sampler = sampler
+
+    def on_train_epoch_start(self, trainer: Any, pl_module: pl.LightningModule) -> None:
+        """Log sampling statistics at the start of each training epoch."""
+        # Check if sampler has computed statistics
+        if not hasattr(self.sampler, "_last_weight_stats") or self.sampler._last_weight_stats is None:
+            return
+
+        stats = self.sampler._last_weight_stats
+
+        # Log to PyTorch Lightning (which forwards to MLflow)
+        for key, value in stats.items():
+            pl_module.log(
+                f"sampling/weight_{key}",
+                float(value),
+                on_step=False,
+                on_epoch=True,
+            )

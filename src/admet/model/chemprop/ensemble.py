@@ -59,6 +59,7 @@ from admet.model.chemprop.model import ChempropModel
 from admet.plot.latex import latex_sanitize
 from admet.plot.metrics import plot_metric_bar
 from admet.plot.parity import plot_parity
+from admet.util.logging import configure_logging
 from admet.util.utils import parse_data_dir_params
 
 # Configure module-level logger
@@ -1254,13 +1255,8 @@ def train_ensemble_from_config(config_path: str, log_level: str = "INFO") -> Non
     log_level : str, default="INFO"
         Logging level. Options: "DEBUG", "INFO", "WARNING", "ERROR".
     """
-    # Configure logging
-    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
-    logger.setLevel(numeric_level)
-    logging.basicConfig(
-        level=numeric_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Configure logging with colored output
+    configure_logging(level=log_level)
 
     logger.info("Loading ensemble configuration from: %s", config_path)
 
@@ -1340,13 +1336,8 @@ Configuration file should have the structure:
     if args.max_parallel is not None:
         config.max_parallel = args.max_parallel
 
-    # Configure logging
-    numeric_level = getattr(logging, args.log_level.upper(), logging.INFO)
-    logger.setLevel(numeric_level)
-    logging.basicConfig(
-        level=numeric_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Configure logging with colored output
+    configure_logging(level=args.log_level)
 
     logger.info("Loading ensemble configuration from: %s", args.config)
     logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))

@@ -11,6 +11,9 @@ logging.getLogger("lightning.fabric").setLevel(logging.WARNING)
 logging.getLogger("lightning.pytorch.accelerators.cuda").setLevel(logging.WARNING)
 logging.getLogger("mlflow").setLevel(logging.WARNING)
 
+# Enable INFO logging for curriculum callbacks (per-quality metrics)
+logging.getLogger("admet.model.chemprop.curriculum").setLevel(logging.INFO)
+
 # Suppress specific warnings
 warnings.filterwarnings("ignore", message=".*srun.*")
 warnings.filterwarnings("ignore", message=".*num_workers.*")

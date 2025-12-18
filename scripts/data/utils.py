@@ -191,7 +191,7 @@ def parse_data_dir_params(data_dir: Union[str, Path]) -> dict[str, Optional[str]
                 if len(structure_parts) >= 1:
                     result["version"] = structure_parts[0]
                 if len(structure_parts) >= 2:
-                    # quality_high -> high, all_quality -> all_quality
+                    # quality_high -> high, quality_high_medium_low -> quality_high_medium_low
                     quality = structure_parts[1]
                     if quality.startswith("quality_"):
                         result["quality"] = quality.replace("quality_", "")

@@ -1,5 +1,5 @@
 data:
-  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data
+  data_dir: assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/multilabel_stratified_kfold/data
   test_file: assets/dataset/set/local_test.csv
   blind_file: assets/dataset/set/blind_test.csv
   output_dir: null

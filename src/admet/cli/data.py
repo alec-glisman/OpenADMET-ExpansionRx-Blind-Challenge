@@ -9,6 +9,7 @@ import pandas as pd
 import typer
 
 from admet.data.split import pipeline
+from admet.util.logging import configure_logging
 
 data_app = typer.Typer(name="data", help="Data utilities (splits, preprocessing)")
 
@@ -25,12 +26,15 @@ def split_command(
     n_splits: int = typer.Option(5, help="Number of repeated splits"),
     n_folds: int = typer.Option(5, help="Folds per split"),
     fig_dir: Optional[Path] = typer.Option(None, help="Directory to save diagnostic figures"),
+    log_level: str = typer.Option("INFO", "--log-level", "-l", help="Logging level"),
 ) -> None:
     """Run the data splitting pipeline and save the augmented dataframe.
 
     Example:
         admet data split data/admet_train.csv --output outputs/ --smiles-col SMILES
     """
+    configure_logging(level=log_level)
+
     df = pd.read_csv(input)
 
     target_cols: Optional[List[str]] = None

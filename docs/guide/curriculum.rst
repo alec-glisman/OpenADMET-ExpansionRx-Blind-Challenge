@@ -254,12 +254,58 @@ Phase transitions are logged to both the console and MLflow:
 MLflow Metrics
 ^^^^^^^^^^^^^^
 
-When MLflow tracking is enabled, the following metrics are logged:
+When MLflow tracking is enabled, the following metrics are logged with hierarchical naming:
 
-- ``curriculum_phase``: Numeric phase indicator (0=warmup, 1=expand, 2=robust, 3=polish)
-- ``curriculum_phase_epoch``: Epoch when phase transition occurred
+**Curriculum State Metrics:**
 
-These metrics enable visualization of curriculum progression in MLflow UI.
+- ``curriculum/phase``: Numeric phase indicator (0=warmup, 1=expand, 2=robust, 3=polish)
+- ``curriculum/phase_epoch``: Epoch when phase transition occurred
+- ``curriculum/val_loss_at_transition``: Validation loss at the time of phase transition
+- ``curriculum/transition``: Phase transition marker (logged at global_step for training curves)
+- ``curriculum/weight/<quality>``: Sampling weight for each quality level (e.g., ``curriculum/weight/high``)
+
+**Per-Quality Metrics (during training):**
+
+When ``log_per_quality_metrics: true`` is enabled, per-quality metrics are computed
+and logged on each epoch for both training and validation, enabling training curve visualization:
+
+*Validation metrics:*
+
+- ``val/<metric>/<quality>``: Metric for a specific quality level
+  
+  Examples:
+  
+  - ``val/mae/high``: Mean absolute error for high-quality validation samples
+  - ``val/mse/medium``: Mean squared error for medium-quality validation samples
+  - ``val/rmse/low``: Root mean squared error for low-quality validation samples
+  - ``val/loss/high``: Loss for high-quality samples (same as MSE)
+  - ``val/count/high``: Number of validation samples for high-quality
+
+*Training metrics:*
+
+- ``train/<metric>/<quality>``: Metric for a specific quality level during training
+  
+  Examples:
+  
+  - ``train/mae/high``: Mean absolute error for high-quality training samples
+  - ``train/mse/medium``: Mean squared error for medium-quality training samples
+  - ``train/rmse/low``: Root mean squared error for low-quality training samples
+
+*Per-target metrics (when multiple targets):*
+
+- ``<split>/<metric>/<quality>/<target>``: Metric for a specific quality level and target
+  
+  Examples:
+  
+  - ``val/mae/high/LogD``: MAE for high-quality validation samples on LogD target
+  - ``train/rmse/medium/KSOL``: RMSE for medium-quality training samples on KSOL target
+
+**MLflow Tags:**
+
+- ``curriculum_transition_epoch_<N>``: Tag marking the epoch and transition type (e.g., ``warmup_to_expand``)
+
+These metrics enable visualization of curriculum progression in MLflow UI. The hierarchical
+naming groups related metrics together for easier navigation.
 
 Best Practices
 --------------

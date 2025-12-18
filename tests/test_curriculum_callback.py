@@ -67,9 +67,9 @@ def test_curriculum_callback_updates_phase_and_logs(caplog):
     state.best_epoch = 0  # previously best at epoch 0
     cb.on_validation_epoch_end(trainer, pl_module)
 
-    # If advanced, curriculum_phase logged to module
+    # If advanced, curriculum/phase logged to module (hierarchical naming)
     if state.phase != cb._previous_phase:
-        assert "curriculum_phase" in pl_module.logged
+        assert "curriculum/phase" in pl_module.logged
 
 
 def test_callback_ignores_nan_values():

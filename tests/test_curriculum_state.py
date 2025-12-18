@@ -80,9 +80,9 @@ def test_curriculum_callback_logs(caplog):
     # on validation end should update and advance; with patience=0 it should move immediately
     cb.on_validation_epoch_end(trainer, pl_module)
 
-    # Ensure the module logged phase and epoch
-    assert "curriculum_phase" in pl_module.logged
-    assert "curriculum_phase_epoch" in pl_module.logged
+    # Ensure the module logged phase and epoch with hierarchical naming
+    assert "curriculum/phase" in pl_module.logged
+    assert "curriculum/phase_epoch" in pl_module.logged
 
     # Now simulate a transition by changing val_loss and epoch large enough
     prev_phase = state.phase

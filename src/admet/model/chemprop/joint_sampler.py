@@ -144,6 +144,10 @@ class JointSampler(Sampler[int]):
         self._current_epoch = 0
         self._last_phase: str | None = None
 
+        # Store last computed weights and stats for callback access
+        self._last_weights: np.ndarray | None = None
+        self._last_weight_stats: dict[str, float] | None = None
+
         # Validate alpha and warn if outside recommended range
         if task_alpha < 0 or task_alpha > 1:
             logger.warning(
@@ -282,33 +286,53 @@ class JointSampler(Sampler[int]):
 
         return joint_weights / total
 
+    def get_weight_statistics(self, weights: np.ndarray) -> dict[str, float]:
+        """Compute weight distribution statistics.
+
+        Returns
+        -------
+        dict[str, float]
+            Dictionary with keys: min, max, mean, entropy, effective_samples
+        """
+        # Basic statistics
+        min_weight = float(weights.min())
+        max_weight = float(weights.max())
+        mean_weight = float(weights.mean())
+
+        # Entropy (measure of uniformity)
+        # H = -sum(p * log(p))
+        eps = 1e-10
+        entropy = float(-np.sum(weights * np.log(weights + eps)))
+
+        # Effective number of samples (inverse of sum of squared weights)
+        # Higher = more uniform, lower = more concentrated
+        effective_samples = float(1.0 / np.sum(weights**2))
+
+        return {
+            "min": min_weight,
+            "max": max_weight,
+            "mean": mean_weight,
+            "entropy": entropy,
+            "effective_samples": effective_samples,
+        }
+
     def _log_weight_statistics(self, weights: np.ndarray) -> None:
         """Log weight distribution statistics for monitoring."""
         if not self.log_weight_stats:
             return
 
-        # Basic statistics
-        min_weight = weights.min()
-        max_weight = weights.max()
-        mean_weight = weights.mean()
-
-        # Entropy (measure of uniformity)
-        # H = -sum(p * log(p))
-        eps = 1e-10
-        entropy = -np.sum(weights * np.log(weights + eps))
-
-        # Effective number of samples (inverse of sum of squared weights)
-        # Higher = more uniform, lower = more concentrated
-        effective_samples = 1.0 / np.sum(weights**2)
-
+        stats = self.get_weight_statistics(weights)
         logger.info(
-            "Weight stats: min=%.6f, max=%.6f, mean=%.6f, " "entropy=%.3f, effective_samples=%.1f",
-            min_weight,
-            max_weight,
-            mean_weight,
-            entropy,
-            effective_samples,
+            "Weight stats: min=%.6f, max=%.6f, mean=%.6f, entropy=%.3f, effective_samples=%.1f",
+            stats["min"],
+            stats["max"],
+            stats["mean"],
+            stats["entropy"],
+            stats["effective_samples"],
         )
+
+        # Store for potential MLflow logging by callback
+        self._last_weight_stats = stats
 
     def __iter__(self) -> Iterator[int]:
         """
@@ -337,6 +361,9 @@ class JointSampler(Sampler[int]):
         # Compute current joint weights
         weights = self._compute_joint_weights()
         self._log_weight_statistics(weights)
+
+        # Store for callback access
+        self._last_weights = weights
 
         # Determine seed for this epoch
         if self.increment_seed_per_epoch:

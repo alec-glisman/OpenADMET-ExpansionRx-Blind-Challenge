@@ -39,6 +39,7 @@ from ray.tune.schedulers import ASHAScheduler
 from admet.model.chemprop.hpo_config import HPOConfig
 from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
+from admet.util.logging import configure_logging
 
 
 def _trial_dirname_creator(trial) -> str:
@@ -438,8 +439,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    configure_logging(level="INFO")
     main()
