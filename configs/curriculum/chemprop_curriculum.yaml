@@ -31,7 +31,7 @@ optimization:
   max_lr: 0.000227
   final_lr: 0.000113
   warmup_epochs: 5
-  max_epochs: 150
+  max_epochs: 400
   patience: 15
   batch_size: 128
   num_workers: 0
