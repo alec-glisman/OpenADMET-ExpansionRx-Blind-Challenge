@@ -46,9 +46,9 @@ def test_curriculum_state_weights_for_phases():
     weights_expand = state._weights_for_phase("expand")
     assert weights_expand["high"] > weights_expand["medium"]
 
-    # Polish returns high-only
+    # Polish maintains diversity with new defaults: [0.75, 0.25]
     weights_polish = state._weights_for_phase("polish")
-    assert weights_polish["high"] == 1.0 and weights_polish["medium"] == 0.0
+    assert weights_polish["high"] == 0.75 and weights_polish["medium"] == 0.25
 
 
 def test_curriculum_state_single_quality():

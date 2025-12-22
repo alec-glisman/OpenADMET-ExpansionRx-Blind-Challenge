@@ -33,9 +33,9 @@ def test_curriculum_state_weights_and_phases():
     state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
     # Initial phase is warmup
     assert state.phase == "warmup"
-    # Warmup weights
+    # Warmup weights - new defaults [0.80, 0.15, 0.05]
     w = state.sampling_probs()
-    assert abs(w["high"] - 0.9) < 1e-6
+    assert abs(w["high"] - 0.80) < 1e-6
 
     # Simulate improvement and advancement
     state.update_from_val_top(epoch=0, top_loss=0.5)

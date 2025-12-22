@@ -161,7 +161,7 @@ flowchart LR
 - **HPO:** Ray Tune with ASHA scheduler (~2,000 trials)
 - **Early Stopping:** 15 epochs patience on validation MAE
 - **Task Sampling:** α-weighted oversampling for sparse endpoints
-- **Curriculum Learning:** Progressive inclusion of lower-quality data from other public datasets
+- **Curriculum Learning:** Progressive inclusion of lower-quality data from other public datasets with count-normalized sampling
 - **Task Affinity Grouping:** Automatic grouping of related endpoints for joint training
 
 **Challenge Evaluation:** MA-RAE (Macro-Averaged Relative Absolute Error) ranking with per-endpoint MAE. See [Challenge Hugging Face Page](https://huggingface.co/spaces/openadmet/OpenADMET-ExpansionRx-Challenge) for full criteria.
@@ -306,15 +306,24 @@ flowchart TB
         Config --> Curriculum{"Curriculum<br/>Learning?"}
         Curriculum -->|yes| CurrSampler["<b>CurriculumSampler</b><br/>Progressive quality<br/>inclusion strategy"]
         Curriculum -->|no| JointSampler["<b>JointTaskSampler</b><br/>α-weighted<br/>oversampling"]
+
+        CurrSampler --> LossWeight{"Loss<br/>Weighting?"}
+        LossWeight -->|yes| PerSampleW["<b>Per-Sample Weights</b><br/>high=1.0, med=0.5, low=0.3<br/>via MoleculeDatapoint"]
+        LossWeight -->|no| EqualWeight["Equal weights"]
+
+        CurrSampler --> Adaptive{"Adaptive<br/>Curriculum?"}
+        Adaptive -->|yes| AdaptiveCallback["<b>AdaptiveCurriculumCallback</b><br/>Track per-quality MAE<br/>Adjust proportions dynamically"]
+        Adaptive -->|no| FixedPhases["Fixed phase proportions"]
     end
 
     subgraph Training["Training Loop"]
         MLP & MoE & Branched --> Optimizer["<b>AdamW</b><br/>Warmup + Cosine<br/>LR Schedule"]
         TAModule & Standard --> Optimizer
         CurrSampler & JointSampler --> Loader["<b>DataLoader</b><br/>Batch sampling"]
+        PerSampleW & EqualWeight --> Loader
         Loader --> Optimizer
-        Optimizer --> Loss["<b>MSE Loss</b><br/>Per-task masking<br/>for missing values"]
-        Loss --> EarlyStopping["<b>Early Stopping</b><br/>Patience: 15 epochs<br/>Monitor: Val MAE"]
+        Optimizer --> Loss["<b>Weighted MSE Loss</b><br/>Per-task masking<br/>Per-sample weights"]
+        Loss --> EarlyStopping["<b>Early Stopping</b><br/>Patience: 15 epochs<br/>Monitor: val/mae/high"]
     end
 
     subgraph Tracking["Experiment Tracking"]
@@ -556,13 +565,32 @@ flowchart TB
 
     subgraph CurriculumLearning["Curriculum Learning Strategy"]
         Data --> Quality["<b>Quality Tiers</b><br/>High, Medium, Low"]
-        Quality --> CurrState["<b>CurriculumState</b><br/>Phase management<br/>Dynamic weight updates"]
-        CurrState --> Phase1["<b>Phase 1: Warmup</b><br/>Initial epochs<br/>high=0.9, medium=0.1, low=0.0"]
-        Phase1 --> Phase2["<b>Phase 2: Main</b><br/>Mid training<br/>high=0.5, medium=0.4, low=0.1"]
-        Phase2 --> Phase3["<b>Phase 3: Expansion</b><br/>Late training<br/>high=0.3, medium=0.4, low=0.3"]
-        Phase3 --> Phase4["<b>Phase 4: Full</b><br/>Final epochs<br/>high=0.25, medium=0.35, low=0.4"]
+        Quality --> CurrState["<b>CurriculumState</b><br/>Phase management<br/>Count-normalized sampling"]
+        CurrState --> Phase1["<b>Phase 1: Warmup</b><br/>Focus on high-quality<br/>high=80%, med=15%, low=5%"]
+        Phase1 --> Phase2["<b>Phase 2: Expand</b><br/>Incorporate medium<br/>high=60%, med=30%, low=10%"]
+        Phase2 --> Phase3["<b>Phase 3: Robust</b><br/>Include all data<br/>high=50%, med=35%, low=15%"]
+        Phase3 --> Phase4["<b>Phase 4: Polish</b><br/>Fine-tune with diversity<br/>high=70%, med=20%, low=10%"]
 
-        Phase4 --> Sampler["<b>DynamicCurriculumSampler</b><br/>Recomputes weights each epoch<br/>Responds to phase transitions"]
+        Phase4 --> Sampler["<b>DynamicCurriculumSampler</b><br/>Count-normalized weights<br/>Achieves target proportions"]
+    end
+
+    subgraph LossWeighting["Per-Sample Loss Weighting"]
+        Quality --> LossW["<b>Loss Weights</b><br/>high=1.0, med=0.5, low=0.3"]
+        LossW --> WeightedDP["<b>MoleculeDatapoint</b><br/>weight parameter<br/>Gradient magnitude control"]
+        WeightedDP --> WeightedLoss["<b>Weighted MSE</b><br/>High-quality dominates gradients<br/>despite lower sample count"]
+    end
+
+    subgraph AdaptiveCurriculum["Adaptive Curriculum"]
+        CurrState --> MetricTrack["<b>Per-Quality Metrics</b><br/>val/mae/high, val/mae/medium<br/>val/mae/low tracking"]
+        MetricTrack --> AdaptiveCallback["<b>AdaptiveCurriculumCallback</b><br/>Track improvement trends<br/>lookback_epochs=5"]
+        AdaptiveCallback --> DynamicAdjust["<b>Dynamic Proportion Adjustment</b><br/>↑ weight for struggling tiers<br/>↓ weight for mastered tiers<br/>max_adjustment=±10%"]
+        DynamicAdjust --> CurrState
+    end
+
+    subgraph MetricAlignment["Metric Alignment"]
+        Quality --> MonitorMetric["<b>monitor_metric</b><br/>val/mae/high<br/>Align with test distribution"]
+        MonitorMetric --> EarlyStop["<b>Early Stopping</b><br/>Stop on high-quality plateau"]
+        MonitorMetric --> Checkpoint["<b>ModelCheckpoint</b><br/>Save best high-quality model"]
     end
 
     subgraph JointSampling["Joint Task Sampling"]
@@ -575,8 +603,9 @@ flowchart TB
         Head1 & Head2 & Head3 --> Loss["<b>Multi-task Loss</b>"]
         Sampler --> BatchData["Curriculum-based<br/>batches"]
         JointSampler --> BatchData
+        WeightedLoss --> BatchData
         BatchData --> Loss
-        Loss --> Backward["<b>Backpropagation</b><br/>Task-grouped gradients<br/>Reduced negative transfer"]
+        Loss --> Backward["<b>Backpropagation</b><br/>Task-grouped gradients<br/>Per-sample weighted"]
     end
 
     subgraph Benefits["Key Benefits"]
@@ -584,6 +613,8 @@ flowchart TB
         Backward --> Benefit2["Reduced Negative Transfer<br/>Unrelated tasks separated"]
         Backward --> Benefit3["Better Sparse Task Performance<br/>Oversampling + grouping"]
         Backward --> Benefit4["Curriculum Robustness<br/>Progressive difficulty"]
+        Backward --> Benefit5["Metric Alignment<br/>Optimize for test distribution"]
+        Backward --> Benefit6["Adaptive Learning<br/>Dynamic difficulty adjustment"]
     end
 
     style Input fill:#e1f5ff,stroke:#01579b,stroke-width:2px
@@ -591,6 +622,9 @@ flowchart TB
     style Clustering fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style MultiHeadArch fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style CurriculumLearning fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style LossWeighting fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style AdaptiveCurriculum fill:#fff8e1,stroke:#ff8f00,stroke-width:2px
+    style MetricAlignment fill:#e0f7fa,stroke:#00838f,stroke-width:2px
     style JointSampling fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style Training fill:#e0f2f1,stroke:#00695c,stroke-width:2px
     style Benefits fill:#fff9c4,stroke:#f57f17,stroke-width:2px

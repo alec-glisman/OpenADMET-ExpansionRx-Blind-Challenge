@@ -39,7 +39,8 @@ class TestDynamicCurriculumSampler:
             seed=42,
         )
 
-        # In warmup phase: high=0.9, medium=0.1, low=0.0
+        # In warmup phase with count normalization: target [0.80, 0.15, 0.05]
+        # These become the actual sampling proportions
         assert state.phase == "warmup"
         indices_warmup = list(sampler)
 
@@ -48,10 +49,11 @@ class TestDynamicCurriculumSampler:
         for idx in indices_warmup:
             counts[quality_labels[idx]] += 1
 
-        # High-quality should dominate in warmup
+        # High-quality should dominate in warmup (~80%)
         assert counts["high"] > counts["medium"]
-        # Low-quality should have zero samples (weight=0)
-        assert counts["low"] == 0
+        # Low-quality should have some samples (~5%) due to new defaults
+        # (previously was 0, now it's 0.05)
+        assert counts["low"] < counts["medium"]
 
     def test_sampler_responds_to_phase_change(self) -> None:
         """Test that sampler picks up new weights after phase change."""
@@ -85,12 +87,12 @@ class TestDynamicCurriculumSampler:
         expand_high = sum(1 for idx in indices_expand if quality_labels[idx] == "high")
 
         # Expand should have more medium samples than warmup
-        # (warmup: 90% high, expand: 60% high)
+        # (warmup: 85% high, expand: 65% high for 2-quality)
         warmup_ratio = warmup_high / 1000
         expand_ratio = expand_high / 1000
 
-        assert warmup_ratio > 0.85, f"Warmup high ratio should be ~0.9, got {warmup_ratio}"
-        assert expand_ratio < 0.70, f"Expand high ratio should be ~0.6, got {expand_ratio}"
+        assert warmup_ratio > 0.80, f"Warmup high ratio should be ~0.85, got {warmup_ratio}"
+        assert expand_ratio < 0.70, f"Expand high ratio should be ~0.65, got {expand_ratio}"
 
     def test_sampler_computes_weights_dynamically(self) -> None:
         """Test that _compute_weights reads from current state."""
@@ -102,17 +104,17 @@ class TestDynamicCurriculumSampler:
             curriculum_state=state,
         )
 
-        # Get weights in warmup
+        # Get weights in warmup (target [0.80, 0.15, 0.05])
         weights_warmup = sampler._compute_weights()
-        assert weights_warmup[0] > 0.8  # high weight
+        assert weights_warmup[0] >= 0.75  # high weight should be ~0.8
 
         # Change phase
         state.phase = "robust"
         state.weights = state._weights_for_phase("robust")
 
-        # Weights should change
+        # Weights should change (robust target [0.50, 0.35, 0.15])
         weights_robust = sampler._compute_weights()
-        assert weights_robust[0] < 0.5  # high weight lower in robust
+        assert weights_robust[0] < 0.55  # high weight lower in robust
 
 
 # =============================================================================
@@ -402,10 +404,10 @@ class TestCurriculumIntegration:
         # Sampler should see the new phase
         assert sampler.curriculum_state.phase == "polish"
         weights = sampler._compute_weights()
-        # In polish: only high quality has weight
-        assert weights[0] > 0.99  # high
-        assert weights[1] < 0.01  # medium
-        assert weights[2] < 0.01  # low
+        # In polish with new defaults: [0.70, 0.20, 0.10] - maintains diversity
+        assert weights[0] > 0.65  # high ~70%
+        assert weights[1] > 0.15  # medium ~20%
+        assert weights[2] > 0.05  # low ~10%
 
 
 # =============================================================================

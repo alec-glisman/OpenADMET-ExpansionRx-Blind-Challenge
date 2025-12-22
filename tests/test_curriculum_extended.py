@@ -97,33 +97,37 @@ class TestCurriculumState:
         """Test warmup phase weights (high quality focused)."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("warmup")
-        assert weights["high"] == 0.9
-        assert weights["medium"] == 0.1
-        assert weights["low"] == 0.0
+        # New conservative defaults: [0.80, 0.15, 0.05]
+        assert weights["high"] == 0.80
+        assert weights["medium"] == 0.15
+        assert weights["low"] == 0.05
 
     def test_weights_for_expand_phase(self) -> None:
         """Test expand phase weights."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("expand")
-        assert weights["high"] == 0.6
-        assert weights["medium"] == 0.35
-        assert weights["low"] == 0.05
+        # New conservative defaults: [0.60, 0.30, 0.10]
+        assert weights["high"] == 0.60
+        assert weights["medium"] == 0.30
+        assert weights["low"] == 0.10
 
     def test_weights_for_robust_phase(self) -> None:
         """Test robust phase weights."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("robust")
-        assert weights["high"] == 0.4
-        assert weights["medium"] == 0.4
-        assert weights["low"] == 0.2
+        # New conservative defaults: [0.50, 0.35, 0.15]
+        assert weights["high"] == 0.50
+        assert weights["medium"] == 0.35
+        assert weights["low"] == 0.15
 
     def test_weights_for_polish_phase(self) -> None:
-        """Test polish phase weights (back to high quality)."""
+        """Test polish phase weights (back to high quality but maintaining diversity)."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("polish")
-        assert weights["high"] == 1.0
-        assert weights["medium"] == 0.0
-        assert weights["low"] == 0.0
+        # New conservative defaults: [0.70, 0.20, 0.10] - keeps some diversity
+        assert weights["high"] == 0.70
+        assert weights["medium"] == 0.20
+        assert weights["low"] == 0.10
 
 
 class TestCurriculumCallback:

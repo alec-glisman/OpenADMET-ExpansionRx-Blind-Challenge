@@ -73,6 +73,38 @@ joint_sampling:
     log_per_quality_metrics: true
     seed: 42
 
+    # Count normalization: ensures target proportions are achieved regardless of dataset sizes
+    # With imbalanced datasets (e.g., High=5k, Medium=100k, Low=15k), this is essential
+    count_normalize: true
+    min_high_quality_proportion: 0.25
+
+    # Metric alignment: which metric to monitor for phase transitions and early stopping
+    # Options: "val_loss" (default), "val/mae/high", "val/rmse/high", etc.
+    monitor_metric: "val/mae/high" # Monitor high-quality validation MAE
+    early_stopping_metric: null # If null, uses monitor_metric
+
+    # Adaptive curriculum: auto-adjust proportions based on per-quality performance
+    adaptive_enabled: false
+    adaptive_improvement_threshold: 0.02 # 2% relative improvement required
+    adaptive_max_adjustment: 0.1 # Max 10% adjustment per epoch
+    adaptive_lookback_epochs: 5 # Compare current vs N epochs ago
+
+    # Loss weighting: scale gradients by quality level
+    loss_weighting_enabled: false
+    loss_weights:
+      high: 1.0
+      medium: 0.5
+      low: 0.3
+
+    # HPO-friendly target proportions for each phase
+    # These represent the actual fraction of training samples from each quality level
+    # Comment out to use defaults: warmup=[0.80, 0.15, 0.05], expand=[0.60, 0.30, 0.10],
+    #                              robust=[0.50, 0.35, 0.15], polish=[0.70, 0.20, 0.10]
+    # warmup_proportions: [0.80, 0.15, 0.05]
+    # expand_proportions: [0.60, 0.30, 0.10]
+    # robust_proportions: [0.50, 0.35, 0.15]
+    # polish_proportions: [0.70, 0.20, 0.10]
+
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 2

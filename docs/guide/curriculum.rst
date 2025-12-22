@@ -21,30 +21,137 @@ The curriculum progressively exposes the model to this data in phases.
 Curriculum Phases
 -----------------
 
-The curriculum proceeds through four phases:
+The curriculum proceeds through four phases with conservative default proportions:
 
 .. list-table::
    :header-rows: 1
    :widths: 15 25 60
 
    * - Phase
-     - Weights (3-quality)
+     - Target Proportions (3-quality)
      - Description
    * - **Warmup**
-     - 90% high, 10% medium, 0% low
+     - 80% high, 15% medium, 5% low
      - Focus on high-quality data to learn core patterns
    * - **Expand**
-     - 60% high, 35% medium, 5% low
+     - 60% high, 30% medium, 10% low
      - Gradually incorporate medium-quality data
    * - **Robust**
-     - 40% high, 40% medium, 20% low
+     - 50% high, 35% medium, 15% low
      - Include low-quality data for robustness
    * - **Polish**
-     - 100% high, 0% medium, 0% low
-     - Fine-tune on high-quality data only
+     - 70% high, 20% medium, 10% low
+     - Fine-tune on high-quality data while maintaining diversity
+
+The **polish phase** maintains 30% non-high-quality data (20% medium + 10% low)
+to prevent overfitting to high-quality examples and preserve learned robustness.
 
 Phase transitions occur automatically when the overall validation loss stops
 improving for ``patience`` epochs.
+
+Count Normalization
+^^^^^^^^^^^^^^^^^^^
+
+**Why count normalization matters**: In ADMET datasets, quality levels often have
+vastly different sizes. For example:
+
+- High quality: 5,000 samples (4%)
+- Medium quality: 100,000 samples (83%)
+- Low quality: 15,000 samples (13%)
+
+Without count normalization, setting weights ``[0.8, 0.15, 0.05]`` does NOT mean
+80% of your batches will contain high-quality samples. The medium-quality dataset
+has 20× more samples, so it dominates training regardless of weights.
+
+With ``count_normalize=True`` (default), the target proportions are achieved by
+adjusting per-sample weights:
+
+.. math::
+
+   weight_{sample} = \frac{target\_proportion}{count}
+
+This ensures that specifying ``[0.8, 0.15, 0.05]`` actually results in 80% of
+training batches containing high-quality samples.
+
+Metric Alignment
+^^^^^^^^^^^^^^^^
+
+**Why metric alignment matters**: By default, both curriculum phase transitions
+and early stopping monitor ``val_loss`` (overall validation loss). However, if
+your **test data is entirely high-quality**, this creates metric misalignment:
+
+- With High=5k, Medium=100k: overall ``val_loss`` is dominated by medium-quality
+- Model checkpoints optimize for medium-quality predictions, not high-quality test
+
+With ``monitor_metric: "val/mae/high"``, you align optimization with your actual
+evaluation metric:
+
+.. code-block:: yaml
+
+   curriculum:
+     monitor_metric: "val/mae/high"  # Monitor high-quality validation MAE
+     early_stopping_metric: null     # If null, uses monitor_metric
+
+Available metric patterns:
+
+- ``val_loss`` - Overall validation loss (default)
+- ``val/mae/high`` - High-quality validation MAE
+- ``val/rmse/high`` - High-quality validation RMSE
+- ``val/mae/medium``, ``val/mae/low`` - Other quality levels
+
+Adaptive Curriculum
+^^^^^^^^^^^^^^^^^^^
+
+**What is adaptive curriculum?** Instead of using fixed phase proportions, the
+adaptive curriculum automatically adjusts sampling weights based on per-quality
+validation performance trends.
+
+**How it works:**
+
+1. Track per-quality metrics (e.g., ``val/mae/high``, ``val/mae/medium``) over time
+2. Compute relative improvement rates for each quality level
+3. If high-quality improves faster than others → increase high-quality proportion
+4. If high-quality lags behind → decrease high-quality proportion (bounded by floor)
+
+.. code-block:: yaml
+
+   curriculum:
+     adaptive_enabled: true
+     adaptive_improvement_threshold: 0.02  # 2% relative improvement triggers adjustment
+     adaptive_max_adjustment: 0.1          # Max 10% weight change per epoch
+     adaptive_lookback_epochs: 5           # Compare current vs 5 epochs ago
+
+**Parameters:**
+
+- ``adaptive_improvement_threshold``: Minimum relative improvement gap required
+- ``adaptive_max_adjustment``: Maximum proportion change per adjustment
+- ``adaptive_lookback_epochs``: How far back to look for trend computation
+- ``min_high_quality_proportion``: Safety floor (default 0.25)
+
+Loss Weighting
+^^^^^^^^^^^^^^
+
+**Complementing sampling with loss weighting**: While curriculum sampling controls
+*which* samples appear in batches, loss weighting controls *how much* each sample's
+gradient contributes to learning.
+
+.. code-block:: yaml
+
+   curriculum:
+     loss_weighting_enabled: true
+     loss_weights:
+       high: 1.0     # Full gradient weight
+       medium: 0.5   # Half gradient weight
+       low: 0.3      # 30% gradient weight
+
+**When to use loss weighting:**
+
+- Combined with sampling for stronger high-quality emphasis
+- When you want gradients from all data but prioritize high-quality
+- Alternative to aggressive sampling proportions
+
+**Note:** Loss weighting applies per-sample weights during the forward pass via
+Chemprop's built-in sample weight mechanism.
 
 Quick Start
 -----------
@@ -67,6 +174,30 @@ Enable curriculum learning via the ``joint_sampling`` configuration:
        patience: 5
        strategy: "sampled"
        log_per_quality_metrics: true
+
+       # Count normalization (recommended for imbalanced datasets)
+       count_normalize: true
+       min_high_quality_proportion: 0.25
+
+       # Metric alignment (NEW): monitor high-quality metrics
+       monitor_metric: "val/mae/high"
+       early_stopping_metric: null  # Uses monitor_metric if null
+
+       # Adaptive curriculum (NEW): auto-adjust proportions
+       adaptive_enabled: false
+
+       # Loss weighting (NEW): scale gradients by quality
+       loss_weighting_enabled: false
+       loss_weights:
+         high: 1.0
+         medium: 0.5
+         low: 0.3
+
+       # Optional: customize phase proportions for HPO
+       # warmup_proportions: [0.80, 0.15, 0.05]
+       # expand_proportions: [0.60, 0.30, 0.10]
+       # robust_proportions: [0.50, 0.35, 0.15]
+       # polish_proportions: [0.70, 0.20, 0.10]
      seed: 42
 
 Then train normally:
@@ -111,6 +242,33 @@ with task-aware oversampling:
        reset_early_stopping_on_phase_change: false
        log_per_quality_metrics: true
 
+       # Count normalization for imbalanced datasets (default: true)
+       count_normalize: true
+       min_high_quality_proportion: 0.25
+
+       # Metric alignment: monitor high-quality metrics
+       monitor_metric: "val/mae/high"
+       early_stopping_metric: null  # Uses monitor_metric if null
+
+       # Adaptive curriculum (auto-adjust proportions)
+       adaptive_enabled: false
+       adaptive_improvement_threshold: 0.02
+       adaptive_max_adjustment: 0.1
+       adaptive_lookback_epochs: 5
+
+       # Loss weighting (scale gradients by quality)
+       loss_weighting_enabled: false
+       loss_weights:
+         high: 1.0
+         medium: 0.5
+         low: 0.3
+
+       # Optional: HPO-friendly phase proportions
+       # warmup_proportions: [0.80, 0.15, 0.05]
+       # expand_proportions: [0.60, 0.30, 0.10]
+       # robust_proportions: [0.50, 0.35, 0.15]
+       # polish_proportions: [0.70, 0.20, 0.10]
+
      # Global sampling settings
      num_samples: null  # null = use full dataset size per epoch
      seed: 42
@@ -122,7 +280,7 @@ Configuration Parameters
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 15 65
+   :widths: 30 15 55
 
    * - Parameter
      - Default
@@ -142,6 +300,48 @@ Configuration Parameters
    * - ``seed``
      - ``42``
      - Random seed for reproducible curriculum sampling
+   * - ``count_normalize``
+     - ``true``
+     - Adjust weights for dataset size imbalance (recommended)
+   * - ``min_high_quality_proportion``
+     - ``0.25``
+     - Safety floor: minimum high-quality proportion in any phase
+   * - ``monitor_metric``
+     - ``"val_loss"``
+     - Metric for curriculum phase transitions (e.g., ``val/mae/high``)
+   * - ``early_stopping_metric``
+     - ``null``
+     - Metric for early stopping; uses ``monitor_metric`` if null
+   * - ``adaptive_enabled``
+     - ``false``
+     - Enable adaptive proportion adjustment based on per-quality trends
+   * - ``adaptive_improvement_threshold``
+     - ``0.02``
+     - Minimum relative improvement gap to trigger adjustment (2%)
+   * - ``adaptive_max_adjustment``
+     - ``0.1``
+     - Maximum proportion change per adjustment (10%)
+   * - ``adaptive_lookback_epochs``
+     - ``5``
+     - Epochs to look back for trend computation
+   * - ``loss_weighting_enabled``
+     - ``false``
+     - Enable per-quality loss weights for gradient scaling
+   * - ``loss_weights``
+     - ``null``
+     - Quality-to-weight mapping (e.g., ``{high: 1.0, medium: 0.5}``)
+   * - ``warmup_proportions``
+     - ``[0.80, 0.15, 0.05]``
+     - Target proportions [high, medium, low] for warmup phase
+   * - ``expand_proportions``
+     - ``[0.60, 0.30, 0.10]``
+     - Target proportions for expand phase
+   * - ``robust_proportions``
+     - ``[0.50, 0.35, 0.15]``
+     - Target proportions for robust phase
+   * - ``polish_proportions``
+     - ``[0.70, 0.20, 0.10]``
+     - Target proportions for polish phase (maintains diversity)
 
 Adaptive Quality Levels
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -149,8 +349,8 @@ Adaptive Quality Levels
 The curriculum adapts to the number of quality levels provided:
 
 - **1 quality**: warmup → polish (effectively no curriculum)
-- **2 qualities**: warmup → expand → polish
-- **3+ qualities**: warmup → expand → robust → polish
+- **2 qualities**: warmup → expand → polish (defaults: [0.85, 0.15] → [0.65, 0.35] → [0.75, 0.25])
+- **3+ qualities**: warmup → expand → robust → polish (full curriculum)
 
 Example with two quality levels:
 
@@ -163,6 +363,12 @@ Example with two quality levels:
        - "reliable"
        - "uncertain"
      patience: 5
+     count_normalize: true
+
+     # Optional: customize 2-quality proportions
+     # warmup_proportions: [0.85, 0.15]
+     # expand_proportions: [0.65, 0.35]
+     # polish_proportions: [0.75, 0.25]
 
 Data Preparation
 ----------------
@@ -198,18 +404,40 @@ appear in each training batch:
 2. **Sampling with replacement**: Samples are drawn according to weights,
    so high-quality samples appear more frequently in early phases
 3. **Phase-dependent weights**: Weights are updated when phases change
+4. **Count normalization**: Weights are adjusted for dataset size imbalance
+
+Count-Normalized Sampling
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When ``count_normalize=True`` (default), the sampler converts target proportions
+to per-sample weights that achieve those proportions regardless of dataset size:
 
 .. code-block:: python
 
-   from admet.model.chemprop.curriculum_sampler import build_curriculum_sampler
-   from admet.model.chemprop.curriculum import CurriculumState
+   # Example: High=5k, Medium=100k, Low=15k samples
+   # Target proportions for warmup: [0.80, 0.15, 0.05]
 
-   # Create curriculum state
-   state = CurriculumState(qualities=["high", "medium", "low"], patience=5)
+   # Without count normalization (legacy):
+   #   Raw weights: [0.80, 0.15, 0.05] applied to each sample
+   #   Result: ~4% high (dominated by medium's 20x size!)
+
+   # With count normalization:
+   #   Normalized weights:
+   #     high:   0.80 / 5000   = 0.00016 per sample
+   #     medium: 0.15 / 100000 = 0.0000015 per sample
+   #     low:    0.05 / 15000  = 0.0000033 per sample
+   #   Result: ~80% high in batches (as intended!)
+
+   from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler
+   from admet.model.chemprop.curriculum import CurriculumState, CurriculumPhaseConfig
+
+   # Create curriculum state with count normalization
+   config = CurriculumPhaseConfig(count_normalize=True)
+   state = CurriculumState(qualities=["high", "medium", "low"], config=config)
 
    # Build sampler for training data
    quality_labels = df_train["Quality"].tolist()
-   sampler = build_curriculum_sampler(
+   sampler = DynamicCurriculumSampler(
        quality_labels=quality_labels,
        curriculum_state=state,
        seed=42,
@@ -272,9 +500,9 @@ and logged on each epoch for both training and validation, enabling training cur
 *Validation metrics:*
 
 - ``val/<metric>/<quality>``: Metric for a specific quality level
-  
+
   Examples:
-  
+
   - ``val/mae/high``: Mean absolute error for high-quality validation samples
   - ``val/mse/medium``: Mean squared error for medium-quality validation samples
   - ``val/rmse/low``: Root mean squared error for low-quality validation samples
@@ -284,9 +512,9 @@ and logged on each epoch for both training and validation, enabling training cur
 *Training metrics:*
 
 - ``train/<metric>/<quality>``: Metric for a specific quality level during training
-  
+
   Examples:
-  
+
   - ``train/mae/high``: Mean absolute error for high-quality training samples
   - ``train/mse/medium``: Mean squared error for medium-quality training samples
   - ``train/rmse/low``: Root mean squared error for low-quality training samples
@@ -294,9 +522,9 @@ and logged on each epoch for both training and validation, enabling training cur
 *Per-target metrics (when multiple targets):*
 
 - ``<split>/<metric>/<quality>/<target>``: Metric for a specific quality level and target
-  
+
   Examples:
-  
+
   - ``val/mae/high/LogD``: MAE for high-quality validation samples on LogD target
   - ``train/rmse/medium/KSOL``: RMSE for medium-quality training samples on KSOL target
 
@@ -323,17 +551,22 @@ Consider these factors when assigning quality labels:
 Quality Distribution
 ^^^^^^^^^^^^^^^^^^^^
 
-Aim for a reasonable distribution across quality levels:
+With count normalization enabled (default), the curriculum works effectively
+even with highly imbalanced quality distributions:
 
 .. code-block:: python
 
    # Check quality distribution
    print(df_train["Quality"].value_counts(normalize=True))
-   # high      0.40
-   # medium    0.35
-   # low       0.25
+   # high      0.04   # Only 4% high-quality is fine with count_normalize=True
+   # medium    0.83   # Large medium-quality dataset
+   # low       0.13   # Some low-quality data
 
-If one quality dominates, curriculum learning may have limited effect.
+   # The curriculum will still achieve target proportions:
+   # - warmup: 80% high, 15% medium, 5% low in actual batches
+   # - polish: 70% high, 20% medium, 10% low in actual batches
+
+Without count normalization, aim for a reasonable distribution across quality levels.
 
 Patience Tuning
 ^^^^^^^^^^^^^^^
@@ -348,6 +581,35 @@ Start with ``patience=5`` and adjust based on:
 - Total training epochs
 - Validation loss convergence behavior
 - Dataset size and complexity
+
+Phase Proportion Tuning
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The default proportions are conservative and designed for molecular property
+prediction with imbalanced datasets:
+
+.. code-block:: yaml
+
+   # Conservative defaults (good starting point)
+   warmup_proportions: [0.80, 0.15, 0.05]   # 80% high
+   expand_proportions: [0.60, 0.30, 0.10]   # 60% high
+   robust_proportions: [0.50, 0.35, 0.15]   # 50% high (minimum with safety floor)
+   polish_proportions: [0.70, 0.20, 0.10]   # 70% high (maintains diversity)
+
+   # More aggressive (favor high-quality more)
+   warmup_proportions: [0.90, 0.08, 0.02]
+   expand_proportions: [0.75, 0.20, 0.05]
+   robust_proportions: [0.60, 0.30, 0.10]
+   polish_proportions: [0.85, 0.10, 0.05]
+
+   # More inclusive (use more low-quality data)
+   warmup_proportions: [0.70, 0.20, 0.10]
+   expand_proportions: [0.50, 0.35, 0.15]
+   robust_proportions: [0.40, 0.35, 0.25]
+   polish_proportions: [0.60, 0.25, 0.15]
+
+The ``min_high_quality_proportion`` (default: 0.25) ensures high-quality data
+never drops below 25% in any phase, preventing catastrophic forgetting.
 
 Integration with Other Features
 -------------------------------
@@ -439,4 +701,3 @@ Cross-References
 - See :doc:`modeling` for general modeling guide
 - See :doc:`hpo` for hyperparameter optimization
 - See :doc:`configuration` for configuration file format
-

@@ -72,13 +72,11 @@ from admet.model.chemprop.config import (
 )
 from admet.model.chemprop.curriculum import (
     CurriculumCallback,
+    CurriculumPhaseConfig,
     CurriculumState,
     PerQualityMetricsCallback,
 )
-from admet.model.chemprop.curriculum_sampler import (
-    DynamicCurriculumSampler,
-    get_quality_indices,
-)
+from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
@@ -502,15 +500,19 @@ class ChempropModel:
         if joint_sampling_config is not None and joint_sampling_config.enabled:
             if joint_sampling_config.curriculum.enabled:
                 if self.curriculum_state is None:
+                    phase_config = self._build_phase_config(joint_sampling_config.curriculum)
                     self.curriculum_state = CurriculumState(
                         qualities=list(joint_sampling_config.curriculum.qualities),
                         patience=joint_sampling_config.curriculum.patience,
+                        config=phase_config,
                     )
         elif self.curriculum_config is not None and self.curriculum_config.enabled:
             if self.curriculum_state is None:
+                phase_config = self._build_phase_config(self.curriculum_config)
                 self.curriculum_state = CurriculumState(
                     qualities=list(self.curriculum_config.qualities),
                     patience=self.curriculum_config.patience,
+                    config=phase_config,
                 )
 
         # Task affinity configuration (legacy pre-training approach)
@@ -592,6 +594,67 @@ class ChempropModel:
         self._prepare_dataloaders()
         self._prepare_model()
         self._prepare_trainer()
+
+    def _build_phase_config(self, curriculum_config: CurriculumConfig) -> CurriculumPhaseConfig:
+        """Build CurriculumPhaseConfig from CurriculumConfig.
+
+        Converts the YAML-friendly CurriculumConfig into the internal
+        CurriculumPhaseConfig format, handling HPO-friendly per-phase
+        proportions and count normalization settings.
+
+        Parameters
+        ----------
+        curriculum_config : CurriculumConfig
+            Configuration from YAML containing curriculum settings.
+
+        Returns
+        -------
+        CurriculumPhaseConfig
+            Phase config with weights/proportions and normalization settings.
+        """
+        n_qualities = len(curriculum_config.qualities)
+
+        phase_config = CurriculumPhaseConfig(
+            count_normalize=curriculum_config.count_normalize,
+            min_high_quality_proportion=curriculum_config.min_high_quality_proportion,
+        )
+
+        # Build phase weights from HPO-friendly proportions if provided
+        if n_qualities == 2:
+            if curriculum_config.phase_weights_two_quality is not None:
+                phase_config.two_quality = curriculum_config.phase_weights_two_quality
+            else:
+                # Build from per-phase proportions if provided
+                custom_weights = {}
+                if curriculum_config.warmup_proportions is not None:
+                    custom_weights["warmup"] = curriculum_config.warmup_proportions
+                if curriculum_config.expand_proportions is not None:
+                    custom_weights["expand"] = curriculum_config.expand_proportions
+                if curriculum_config.polish_proportions is not None:
+                    custom_weights["polish"] = curriculum_config.polish_proportions
+                if custom_weights:
+                    # Merge with defaults
+                    phase_config.two_quality = {**phase_config.two_quality, **custom_weights}
+
+        elif n_qualities == 3:
+            if curriculum_config.phase_weights_three_quality is not None:
+                phase_config.three_quality = curriculum_config.phase_weights_three_quality
+            else:
+                # Build from per-phase proportions if provided
+                custom_weights = {}
+                if curriculum_config.warmup_proportions is not None:
+                    custom_weights["warmup"] = curriculum_config.warmup_proportions
+                if curriculum_config.expand_proportions is not None:
+                    custom_weights["expand"] = curriculum_config.expand_proportions
+                if curriculum_config.robust_proportions is not None:
+                    custom_weights["robust"] = curriculum_config.robust_proportions
+                if curriculum_config.polish_proportions is not None:
+                    custom_weights["polish"] = curriculum_config.polish_proportions
+                if custom_weights:
+                    # Merge with defaults
+                    phase_config.three_quality = {**phase_config.three_quality, **custom_weights}
+
+        return phase_config
 
     @classmethod
     def from_config(
@@ -825,7 +888,31 @@ class ChempropModel:
             if self.quality_col is not None and self.quality_col in df.columns:
                 self._quality_labels[split] = df[self.quality_col].tolist()
 
-            datapoints[split] = [data.MoleculeDatapoint.from_smi(smi, y) for smi, y in zip(smis, ys)]
+            # Compute per-sample loss weights based on quality (if enabled)
+            sample_weights = None
+            if (
+                split == "train"
+                and self.curriculum_config is not None
+                and self.curriculum_config.loss_weighting_enabled
+                and self.curriculum_config.loss_weights is not None
+                and self._quality_labels[split] is not None
+            ):
+                loss_weights_map = self.curriculum_config.loss_weights
+                quality_labels = self._quality_labels[split]
+                assert quality_labels is not None
+                sample_weights = [loss_weights_map.get(label, 1.0) for label in quality_labels]
+                logger.info(
+                    "Loss weighting enabled for training: weights=%s",
+                    {k: v for k, v in loss_weights_map.items()},
+                )
+
+            # Create datapoints with optional per-sample weights
+            if sample_weights is not None:
+                datapoints[split] = [
+                    data.MoleculeDatapoint.from_smi(smi, y, weight=w) for smi, y, w in zip(smis, ys, sample_weights)
+                ]
+            else:
+                datapoints[split] = [data.MoleculeDatapoint.from_smi(smi, y) for smi, y in zip(smis, ys)]
             datasets[split] = data.MoleculeDataset(datapoints[split], self.featurizer)
 
             if split == "train":
@@ -1102,8 +1189,19 @@ class ChempropModel:
         """
         torch.set_float32_matmul_precision("medium")
 
+        # Determine which metric to monitor for early stopping
+        # Priority: curriculum config > default "val_loss"
+        early_stopping_monitor = "val_loss"
+        if self.curriculum_config is not None and self.curriculum_config.enabled:
+            # Use early_stopping_metric if set, otherwise fall back to monitor_metric
+            if self.curriculum_config.early_stopping_metric:
+                early_stopping_monitor = self.curriculum_config.early_stopping_metric
+            elif self.curriculum_config.monitor_metric != "val_loss":
+                early_stopping_monitor = self.curriculum_config.monitor_metric
+            logger.info("Early stopping will monitor: %s", early_stopping_monitor)
+
         earlystopping = EarlyStopping(
-            monitor="val_loss",
+            monitor=early_stopping_monitor,
             patience=self.hyperparams.patience,
             mode="min",
         )
@@ -1157,8 +1255,8 @@ class ChempropModel:
                 mlflow_client=self._mlflow_client,  # type: ignore[arg-type]
                 run_id=self.mlflow_run_id,
                 dirpath=checkpoint_dir,
-                filename="best-{epoch:04}-{val_loss:.2f}",
-                monitor="val_loss",
+                filename=f"best-{{epoch:04}}-{{{early_stopping_monitor}:.2f}}",
+                monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
             )
@@ -1172,8 +1270,8 @@ class ChempropModel:
             # Standard checkpointing without MLflow
             checkpointing = ModelCheckpoint(  # type: ignore[no-redef,assignment]
                 dirpath=self.output_dir,
-                filename="best-{epoch:04}-{val_loss:.2f}",
-                monitor="val_loss",
+                filename=f"best-{{epoch:04}}-{{{early_stopping_monitor}:.2f}}",
+                monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
             )
@@ -1186,16 +1284,20 @@ class ChempropModel:
             log_per_quality = self.curriculum_config.log_per_quality_metrics if self.curriculum_config else True
             val_quality_labels = self._quality_labels.get("validation") if hasattr(self, "_quality_labels") else None
 
+            # Determine curriculum phase transition monitor metric
+            curriculum_monitor = self.curriculum_config.monitor_metric if self.curriculum_config else "val_loss"
+
             curriculum_callback = CurriculumCallback(
                 curr_state=self.curriculum_state,
-                monitor_metric="val_loss",  # Use overall validation loss
+                monitor_metric=curriculum_monitor,
                 reset_early_stopping_on_phase_change=reset_es,
                 log_per_quality_metrics=log_per_quality,
                 quality_labels=val_quality_labels,
             )
             callbacks_list.append(curriculum_callback)
             logger.info(
-                "Curriculum callback added: monitoring 'val_loss', reset_early_stopping=%s, log_per_quality=%s",
+                "Curriculum callback added: monitoring '%s', reset_early_stopping=%s, log_per_quality=%s",
+                curriculum_monitor,
                 reset_es,
                 log_per_quality,
             )
@@ -1212,6 +1314,26 @@ class ChempropModel:
                     "Per-quality metrics callback added: qualities=%s, targets=%s",
                     self.curriculum_state.qualities,
                     self.target_cols,
+                )
+
+            # Add adaptive curriculum callback if enabled
+            if self.curriculum_config and self.curriculum_config.adaptive_enabled:
+                from admet.model.chemprop.curriculum import AdaptiveCurriculumCallback
+
+                adaptive_callback = AdaptiveCurriculumCallback(
+                    curr_state=self.curriculum_state,
+                    qualities=self.curriculum_state.qualities,
+                    improvement_threshold=self.curriculum_config.adaptive_improvement_threshold,
+                    max_adjustment=self.curriculum_config.adaptive_max_adjustment,
+                    lookback_epochs=self.curriculum_config.adaptive_lookback_epochs,
+                    min_high_quality_proportion=self.curriculum_config.min_high_quality_proportion,
+                )
+                callbacks_list.append(adaptive_callback)
+                logger.info(
+                    "Adaptive curriculum callback added: threshold=%.2f%%, max_adjust=%.2f%%, lookback=%d",
+                    self.curriculum_config.adaptive_improvement_threshold * 100,
+                    self.curriculum_config.adaptive_max_adjustment * 100,
+                    self.curriculum_config.adaptive_lookback_epochs,
                 )
 
         # Add JointSampler stats callback for MLflow logging
@@ -1601,12 +1723,13 @@ class ChempropModel:
                 # Log to MLflow with split prefix
                 safe_target = _sanitize_mlflow_metric_name(target)
                 mlflow_metric_name = f"{split_name}/{safe_target}/{metric_name}"
-                try:
-                    self._mlflow_client.log_metric(
-                        self.mlflow_run_id, mlflow_metric_name, float(metric_value)  # type: ignore[arg-type]
-                    )
-                except Exception:
-                    pass
+                if self._mlflow_client is not None and self.mlflow_run_id is not None:
+                    try:
+                        self._mlflow_client.log_metric(
+                            self.mlflow_run_id, mlflow_metric_name, float(metric_value)  # type: ignore[arg-type]
+                        )
+                    except Exception:
+                        pass
 
         # Compute per-quality metrics if enabled and curriculum learning is active
         if (
@@ -1656,12 +1779,15 @@ class ChempropModel:
                         # Log quality-specific metrics to MLflow
                         safe_target = _sanitize_mlflow_metric_name(target)
                         mlflow_metric_name = f"{split_name}/{quality}/{safe_target}/{metric_name}"
-                        try:
-                            self._mlflow_client.log_metric(
-                                self.mlflow_run_id, mlflow_metric_name, float(metric_value)  # type: ignore[arg-type]
-                            )
-                        except Exception:
-                            pass
+                        if self._mlflow_client is not None and self.mlflow_run_id is not None:
+                            try:
+                                self._mlflow_client.log_metric(
+                                    self.mlflow_run_id,
+                                    mlflow_metric_name,
+                                    float(metric_value),  # type: ignore[arg-type]
+                                )
+                            except Exception:
+                                pass
 
             # Log quality distribution
             quality_counts = {q: len(indices) for q, indices in quality_indices.items() if indices}
@@ -1690,10 +1816,7 @@ class ChempropModel:
             import json
             import tempfile
 
-            from admet.model.chemprop.task_affinity import (
-                affinity_matrix_to_dataframe,
-                plot_task_affinity_heatmap,
-            )
+            from admet.model.chemprop.task_affinity import affinity_matrix_to_dataframe, plot_task_affinity_heatmap
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir_path = Path(tmpdir)

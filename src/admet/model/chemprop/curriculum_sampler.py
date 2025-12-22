@@ -50,6 +50,17 @@ class DynamicCurriculumSampler(Sampler[int]):
     reads from the CurriculumState on each iteration, allowing weights
     to update when phases change during training.
 
+    Count Normalization
+    -------------------
+    When `count_normalize=True` in the CurriculumState config, the phase weights
+    are interpreted as TARGET proportions and automatically adjusted for dataset
+    size imbalance. This ensures that the specified proportions (e.g., 80% high-quality)
+    actually reflect what appears in training batches, regardless of raw dataset sizes.
+
+    For example, with High=5k, Medium=100k, Low=15k and target [0.8, 0.15, 0.05]:
+    - Without count normalization: High gets ~4% of batches (dominated by Medium)
+    - With count normalization: High gets ~80% of batches (as intended)
+
     Parameters
     ----------
     quality_labels : Sequence[str]
@@ -65,6 +76,8 @@ class DynamicCurriculumSampler(Sampler[int]):
     ----------
     _last_phase : str
         Last observed phase, used to log phase changes.
+    _quality_counts : dict[str, int]
+        Number of samples per quality level (for count normalization).
 
     Examples
     --------
@@ -99,6 +112,16 @@ class DynamicCurriculumSampler(Sampler[int]):
                 self._label_indices[label] = []
             self._label_indices[label].append(i)
 
+        # Compute quality counts for count normalization
+        self._quality_counts: dict[str, int] = {}
+        for label in self.quality_labels:
+            self._quality_counts[label] = self._quality_counts.get(label, 0) + 1
+
+        # Log dataset composition
+        total = len(self.quality_labels)
+        composition = {q: f"{c} ({100*c/total:.1f}%)" for q, c in self._quality_counts.items()}
+        logger.info("DynamicCurriculumSampler initialized with dataset composition: %s", composition)
+
         # Warn about unknown quality labels
         present = set(self.quality_labels)
         defined = set(curriculum_state.qualities)
@@ -114,21 +137,62 @@ class DynamicCurriculumSampler(Sampler[int]):
             )
 
     def _compute_weights(self) -> np.ndarray:
-        """Compute sample weights from current curriculum state."""
-        probs = self.curriculum_state.sampling_probs()
+        """Compute sample weights from current curriculum state.
+
+        When count_normalize=True in the curriculum config, the target proportions
+        are converted to per-sample weights that achieve those proportions regardless
+        of dataset size imbalance.
+
+        Count Normalization Formula
+        ---------------------------
+        To achieve target proportion P for quality Q with count C_Q:
+            per_sample_weight_Q = P / C_Q
+
+        This ensures samples from quality Q appear in ~P fraction of batches.
+        """
+        target_probs = self.curriculum_state.sampling_probs()
+        config = self.curriculum_state.config
+        count_normalize = getattr(config, "count_normalize", True)
+
         weights = np.zeros(len(self.quality_labels), dtype=np.float64)
 
-        for i, label in enumerate(self.quality_labels):
-            weights[i] = probs.get(label, 0.0)
+        if count_normalize:
+            # Count-normalized: target proportions become actual batch proportions
+            for i, label in enumerate(self.quality_labels):
+                target_prop = target_probs.get(label, 0.0)
+                count = self._quality_counts.get(label, 1)
+                # Per-sample weight = target_proportion / count
+                # This gives each quality level its target share of batches
+                weights[i] = target_prop / count if count > 0 else 0.0
+        else:
+            # Legacy behavior: apply target proportions as direct weights
+            for i, label in enumerate(self.quality_labels):
+                weights[i] = target_probs.get(label, 0.0)
 
         # Handle all-zero weights
         if weights.sum() == 0:
             logger.warning("All sample weights are zero. Using uniform sampling.")
             weights = np.ones(len(self.quality_labels), dtype=np.float64)
 
-        # Normalize
+        # Normalize to sum to 1
         weights = weights / weights.sum()
+
         return weights
+
+    def _log_effective_proportions(self) -> None:
+        """Log the effective sampling proportions for debugging."""
+        weights = self._compute_weights()
+        effective_props = {}
+        for quality in self.curriculum_state.qualities:
+            indices = self._label_indices.get(quality, [])
+            if indices:
+                effective_props[quality] = float(np.sum(weights[indices]))
+        logger.debug(
+            "Phase %s: target=%s, effective=%s",
+            self.curriculum_state.phase,
+            self.curriculum_state.sampling_probs(),
+            effective_props,
+        )
 
     def __iter__(self) -> Iterator[int]:
         """Generate sample indices based on current curriculum weights."""
@@ -136,11 +200,12 @@ class DynamicCurriculumSampler(Sampler[int]):
         current_phase = self.curriculum_state.phase
         if self._last_phase is not None and current_phase != self._last_phase:
             logger.info(
-                "DynamicCurriculumSampler: phase changed %s -> %s, weights=%s",
+                "DynamicCurriculumSampler: phase changed %s -> %s, target_probs=%s",
                 self._last_phase,
                 current_phase,
-                self.curriculum_state.weights,
+                self.curriculum_state.sampling_probs(),
             )
+            self._log_effective_proportions()
         self._last_phase = current_phase
 
         # Compute weights based on current phase

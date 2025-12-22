@@ -98,29 +98,35 @@ Curriculum Learning
 -------------------
 
 Quality-aware curriculum learning progressively incorporates data based on
-quality tiers:
+quality tiers with count-normalized sampling:
 
 .. code-block:: python
 
-   from admet.model.chemprop import CurriculumState, CurriculumCallback
+   from admet.model.chemprop import CurriculumState, CurriculumCallback, CurriculumPhaseConfig
 
-   # Configure curriculum phases
+   # Configure curriculum with count normalization (recommended)
+   config = CurriculumPhaseConfig(
+       count_normalize=True,  # Adjust for dataset size imbalance
+       min_high_quality_proportion=0.25,  # Safety floor
+   )
+
    curriculum = CurriculumState(
-       warmup_epochs=5,      # Use only high-quality data
-       expand_epochs=10,     # Gradually add medium-quality data
-       robust_epochs=15,     # Include all data
-       polish_epochs=5,      # Fine-tune on high-quality data
+       qualities=["high", "medium", "low"],
+       patience=5,  # Epochs without improvement before advancing
+       config=config,
    )
 
    # Add callback to model training
-   callback = CurriculumCallback(curriculum_state=curriculum)
+   callback = CurriculumCallback(curr_state=curriculum)
 
-Curriculum phases:
+Curriculum phases with conservative default proportions:
 
-1. **Warmup**: Train only on highest-quality data
-2. **Expand**: Gradually incorporate lower-quality data
-3. **Robust**: Use all available data with quality-based weighting
-4. **Polish**: Fine-tune on high-quality data
+1. **Warmup**: 80% high, 15% medium, 5% low - learn core patterns
+2. **Expand**: 60% high, 30% medium, 10% low - incorporate more data
+3. **Robust**: 50% high, 35% medium, 15% low - build robustness
+4. **Polish**: 70% high, 20% medium, 10% low - fine-tune while maintaining diversity
+
+For detailed configuration and count normalization explanation, see :doc:`curriculum`.
 
 MLflow Integration
 ------------------

@@ -1,10 +1,64 @@
 # Curriculum Learning Integration Plan
 
-## Overview
+## Status: ✅ IMPLEMENTED
 
-This document outlines a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The curriculum progressively adjusts the importance of data samples based on their quality labels, helping models focus on high-quality data initially and gradually incorporate lower-quality data.
+**Last Updated:** December 2024
 
-## Current State
+This document originally outlined a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The implementation is now complete with count-normalized sampling.
+
+## Implementation Summary
+
+### Completed Features
+
+1. **Count-Normalized Sampling** (NEW)
+   - Target proportions are achieved regardless of dataset size imbalance
+   - Formula: `per_sample_weight = target_proportion / count`
+   - Example: With High=5k, Medium=100k, Low=15k, setting warmup=[0.8, 0.15, 0.05]
+     actually results in 80% high-quality samples in batches
+
+2. **Conservative Default Proportions**
+   - Warmup: 80% high, 15% medium, 5% low
+   - Expand: 60% high, 30% medium, 10% low
+   - Robust: 50% high, 35% medium, 15% low
+   - Polish: 70% high, 20% medium, 10% low (maintains diversity)
+
+3. **HPO-Friendly Parameters**
+   - Per-phase proportions configurable via YAML
+   - `count_normalize` toggle for backward compatibility
+   - `min_high_quality_proportion` safety floor (default: 0.25)
+
+4. **Full Integration**
+   - Single model training via `ChempropModel`
+   - Ensemble training via `ChempropEnsemble`
+   - HPO integration via Ray Tune
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `curriculum.py` | `CurriculumPhaseConfig`, `CurriculumState`, `CurriculumCallback` |
+| `curriculum_sampler.py` | `DynamicCurriculumSampler` with count normalization |
+| `config.py` | `CurriculumConfig` with HPO-friendly parameters |
+| `model.py` | `_build_phase_config()` helper for YAML → config conversion |
+
+### Usage
+
+```yaml
+# configs/curriculum/chemprop_curriculum.yaml
+joint_sampling:
+  enabled: true
+  curriculum:
+    enabled: true
+    quality_col: Quality
+    qualities: [high, medium, low]
+    patience: 5
+    count_normalize: true
+    min_high_quality_proportion: 0.25
+    # Optional: override phase proportions for HPO
+    # warmup_proportions: [0.80, 0.15, 0.05]
+```
+
+## Original State
 
 ### Existing Components
 
@@ -19,85 +73,18 @@ This document outlines a plan to integrate quality-aware curriculum learning int
    - Integrates `CurriculumCallback` with PyTorch Lightning trainer
    - Missing: actual data module that implements weighted sampling
 
-### Integration Points
+### Integration Points (NOW COMPLETE)
 
 | Component | File | Status | Notes |
 |-----------|------|--------|-------|
-| Single Model | `model.py` | Not integrated | Need to add quality column support and curriculum callback |
-| Ensemble | `ensemble.py` | Not integrated | Pass curriculum config through to each model |
-| HPO | `hpo_trainable.py` | Not integrated | Add curriculum hyperparameters to search space |
-| Config | `config.py` | Not integrated | Need `CurriculumConfig` dataclass |
+| Single Model | `model.py` | ✅ Integrated | Quality column support and curriculum callback |
+| Ensemble | `ensemble.py` | ✅ Integrated | Curriculum config passed through to each model |
+| HPO | `hpo_trainable.py` | ✅ Integrated | Curriculum hyperparameters in search space |
+| Config | `config.py` | ✅ Integrated | `CurriculumConfig` dataclass with HPO params |
 
 ---
 
-## Implementation Plan
-
-### Phase 1: Configuration Layer
-
-#### 1.1 Create `CurriculumConfig` dataclass
-
-Add to `config.py`:
-
-```python
-@dataclass
-class CurriculumConfig:
-    """Configuration for quality-aware curriculum learning.
-    
-    Attributes
-    ----------
-    enabled : bool
-        Whether to use curriculum learning.
-    quality_col : str
-        Column name containing quality labels.
-    qualities : List[str]
-        Ordered list of quality levels (highest to lowest).
-    patience : int
-        Epochs without improvement before advancing phase.
-    strategy : str
-        Either "weighted" (loss weighting) or "sampled" (data sampling).
-    """
-    enabled: bool = False
-    quality_col: str = "Quality"
-    qualities: List[str] = field(default_factory=lambda: ["high", "medium", "low"])
-    patience: int = 3
-    strategy: str = "weighted"  # "weighted" or "sampled"
-```
-
-#### 1.2 Update `DataConfig` to include curriculum
-
-```python
-@dataclass
-class DataConfig:
-    # ... existing fields ...
-    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
-```
-
----
-
-### Phase 2: Data Layer - Weighted Sampling/Loss
-
-#### 2.1 Create `curriculum_data.py` module
-
-New file with utilities for quality-aware data handling:
-
-```python
-# src/admet/model/chemprop/curriculum_data.py
-
-def compute_quality_weights(
-    df: pd.DataFrame,
-    quality_col: str,
-    curriculum_state: CurriculumState,
-) -> np.ndarray:
-    """Compute per-sample weights based on quality and curriculum phase.
-    
-    Returns array of shape (n_samples,) with weights for each sample.
-    """
-    probs = curriculum_state.sampling_probs()
-    quality_labels = df[quality_col].str.lower()
-    weights = quality_labels.map(lambda q: probs.get(q, 0.0)).values
-    return weights
-
-def create_weighted_sampler(
+## Original Implementation Plan (COMPLETED)
     weights: np.ndarray,
     num_samples: int,
 ) -> WeightedRandomSampler:

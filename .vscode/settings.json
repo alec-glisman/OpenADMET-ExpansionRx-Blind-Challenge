@@ -70,6 +70,7 @@
         "mypy",
         "omegaconf",
         "openadmet",
+        "preds",
         "Pretrained",
         "pyproject",
         "venv"

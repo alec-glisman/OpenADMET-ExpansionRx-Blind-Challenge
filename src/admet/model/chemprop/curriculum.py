@@ -1,4 +1,7 @@
+import logging
 import math
+from collections import deque
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -6,6 +9,67 @@ import numpy as np
 # torch not required directly here; trainer metrics may include torch tensors
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping
+
+logger = logging.getLogger("admet.model.chemprop.curriculum")
+
+
+@dataclass
+class CurriculumPhaseConfig:
+    """Configuration for curriculum learning phases and target sampling proportions.
+
+    Defines the progression of training phases and the TARGET sampling proportions
+    for each quality level during each phase. When `count_normalize=True` (default),
+    these proportions represent the actual fraction of training samples you want
+    from each quality level, regardless of dataset sizes.
+
+    For example, with datasets of High=5k, Medium=100k, Low=15k samples:
+    - proportion [0.8, 0.15, 0.05] means 80% of training batches will contain
+      high-quality samples, even though high-quality is only 4% of the raw data.
+
+    When `count_normalize=False`, weights are applied directly to each sample
+    (legacy behavior), which causes larger datasets to dominate training.
+
+    Parameters
+    ----------
+    count_normalize : bool, default=True
+        If True, interpret weights as target proportions and automatically
+        adjust for dataset size imbalance. If False, apply weights directly
+        to samples (legacy behavior - larger datasets dominate).
+    min_high_quality_proportion : float, default=0.25
+        Minimum proportion of high-quality data in any phase. Acts as a safety
+        floor to prevent catastrophic forgetting of high-quality patterns.
+
+    Examples
+    --------
+    Three quality levels ["high", "medium", "low"] with count_normalize=True:
+    - warmup: [0.80, 0.15, 0.05] -> 80% high, 15% medium, 5% low in actual batches
+    - expand: [0.60, 0.30, 0.10] -> 60% high, 30% medium, 10% low
+    - robust: [0.50, 0.35, 0.15] -> 50% high, 35% medium, 15% low
+    - polish: [0.70, 0.20, 0.10] -> 70% high, 20% medium, 10% low (maintains diversity)
+    """
+
+    available_phases: List[str] = field(default_factory=lambda: ["warmup", "expand", "robust", "polish"])
+
+    count_normalize: bool = True
+
+    min_high_quality_proportion: float = 0.25
+
+    two_quality: Dict[str, List[float]] = field(
+        default_factory=lambda: {
+            "warmup": [0.85, 0.15],
+            "expand": [0.65, 0.35],
+            "polish": [0.75, 0.25],
+        }
+    )
+
+    three_quality: Dict[str, List[float]] = field(
+        default_factory=lambda: {
+            "warmup": [0.80, 0.15, 0.05],
+            "expand": [0.60, 0.30, 0.10],
+            "robust": [0.50, 0.35, 0.15],
+            "polish": [0.70, 0.20, 0.10],
+        }
+    )
 
 
 class CurriculumState:
@@ -18,7 +82,12 @@ class CurriculumState:
       - polish: re-focus on high-quality
     """
 
-    def __init__(self, qualities: Optional[List[str]] = None, patience: int = 3):
+    def __init__(
+        self,
+        qualities: Optional[List[str]] = None,
+        patience: int = 3,
+        config: Optional[CurriculumPhaseConfig] = None,
+    ):
         """Create a curriculum that can support arbitrary quality labels.
 
         Parameters
@@ -27,6 +96,8 @@ class CurriculumState:
             Ordered list of quality levels, highest-to-lowest (e.g. ["high","medium","low"]).
         patience
             Number of epochs with no improvement before moving to the next phase.
+        config
+            Phase configuration (names and weights). If None, uses default configuration.
         """
         if qualities is None:
             qualities = ["high", "medium", "low"]
@@ -34,22 +105,40 @@ class CurriculumState:
             raise ValueError("`qualities` must be a non-empty list of names")
 
         self.qualities = list(qualities)
+        self.config = config if config is not None else CurriculumPhaseConfig()
         self.phase = "warmup"
-        # default initial weights derived from provided qualities
         # Start in warmup phase weights
         self.weights = self._weights_for_phase("warmup")
+        # Store base weights for adaptive adjustments
+        self._base_weights = dict(self.weights)
 
         self.best_val_top = float("inf")
         self.best_epoch = 0
         self.patience = patience
 
     def target_metric_key(self) -> str:
-        """Return the metric key monitored by the curriculum (val_loss).
+        """Return the default metric key monitored by the curriculum.
 
-        Uses overall validation loss (not per-quality loss) for phase transitions
-        to ensure the model improves across all quality levels.
+        Returns 'val_loss' by default. This can be overridden via the
+        monitor_metric parameter in CurriculumCallback.
         """
         return "val_loss"
+
+    def update_weights(self, new_weights: Dict[str, float]) -> None:
+        """Update the current phase weights (for adaptive curriculum).
+
+        Parameters
+        ----------
+        new_weights : Dict[str, float]
+            New sampling weights for each quality level. Will be normalized.
+        """
+        # Normalize weights
+        total = sum(new_weights.values())
+        if total > 0:
+            self.weights = {k: v / total for k, v in new_weights.items()}
+        else:
+            self.weights = new_weights
+        logger.debug("Curriculum weights updated to: %s", self.weights)
 
     def update_from_val_top(self, epoch: int, top_loss: float):
         if top_loss < self.best_val_top - 1e-4:
@@ -85,51 +174,34 @@ class CurriculumState:
         if idx < len(phases) - 1:
             idx += 1
             self.phase = phases[idx]
-        # compute weights based on phase and number of qualities
-        self.weights = self._weights_for_phase(self.phase)
+            # compute weights based on phase and number of qualities
+            self.weights = self._weights_for_phase(self.phase)
+            # Store base weights for adaptive adjustments
+            self._base_weights = dict(self.weights)
 
     def _weights_for_phase(self, phase: str) -> dict:
         """Return a weight mapping for the given phase adapted to the number of qualities."""
         n = len(self.qualities)
 
-        def _top_k_weights(k: int, top_weight: float) -> dict:
-            # k is number of qualities to include starting from top
-            weights = {q: 0.0 for q in self.qualities}
-            if k <= 0:
-                return weights
-            if k == 1:
-                weights[self.qualities[0]] = 1.0
-                return weights
-            top = float(top_weight)
-            remaining = 1.0 - top
-            per_other = remaining / (k - 1)
-            for idx_q in range(k):
-                q = self.qualities[idx_q]
-                weights[q] = top if idx_q == 0 else per_other
-            return weights
-
-        # Exact schedules for n == 1/2/3 to match original algorithm
+        # Single quality: no curriculum, always 100%
         if n == 1:
             return {self.qualities[0]: 1.0}
+
+        # Get weight list from config
+        weight_list: Optional[List[float]] = None
         if n == 2:
-            if phase == "warmup":
-                return {self.qualities[0]: 0.9, self.qualities[1]: 0.1}
-            if phase == "expand":
-                return {self.qualities[0]: 0.6, self.qualities[1]: 0.4}
-            if phase == "polish":
-                return {self.qualities[0]: 1.0, self.qualities[1]: 0.0}
-            # fallback
-            return {self.qualities[0]: 1.0, self.qualities[1]: 0.0}
-        if n == 3:
-            if phase == "warmup":
-                return {self.qualities[0]: 0.9, self.qualities[1]: 0.1, self.qualities[2]: 0.0}
-            if phase == "expand":
-                return {self.qualities[0]: 0.6, self.qualities[1]: 0.35, self.qualities[2]: 0.05}
-            if phase == "robust":
-                return {self.qualities[0]: 0.4, self.qualities[1]: 0.4, self.qualities[2]: 0.2}
-            if phase == "polish":
-                return {self.qualities[0]: 1.0, self.qualities[1]: 0.0, self.qualities[2]: 0.0}
-        # fallback for n > 3: equal weighting across qualities
+            weight_list = self.config.two_quality.get(phase)
+        elif n == 3:
+            weight_list = self.config.three_quality.get(phase)
+
+        # Use configured weights if available
+        if weight_list is not None:
+            weights = {}
+            for i, quality in enumerate(self.qualities):
+                weights[quality] = weight_list[i] if i < len(weight_list) else 0.0
+            return weights
+
+        # Fallback for n > 3 or unconfigured phases: equal weighting
         equal = 1.0 / n
         return {q: equal for q in self.qualities}
 
@@ -645,3 +717,229 @@ class JointSamplerStatsCallback(pl.Callback):
                 on_step=False,
                 on_epoch=True,
             )
+
+
+class AdaptiveCurriculumCallback(pl.Callback):
+    """Adaptively adjust curriculum proportions based on per-quality performance.
+
+    This callback monitors per-quality validation metrics (e.g., val/mae/high,
+    val/mae/medium) and adjusts the curriculum sampling weights based on
+    relative performance improvements across quality levels.
+
+    The adaptive logic:
+    - If high-quality metric is improving while others stagnate → increase high weight
+    - If low-quality metric degrades significantly → decrease low weight
+    - Adjustments are bounded by max_adjustment to prevent instability
+
+    Parameters
+    ----------
+    curr_state : CurriculumState
+        The curriculum state object to update.
+    qualities : List[str]
+        Ordered list of quality levels (e.g., ["high", "medium", "low"]).
+    improvement_threshold : float, default=0.02
+        Minimum relative improvement (2%) required to trigger adjustment.
+    max_adjustment : float, default=0.1
+        Maximum proportion adjustment (10%) per epoch.
+    lookback_epochs : int, default=5
+        Number of epochs to look back when computing improvement trends.
+    min_high_quality_proportion : float, default=0.25
+        Safety floor: high-quality proportion never drops below this.
+
+    Examples
+    --------
+    >>> callback = AdaptiveCurriculumCallback(
+    ...     curr_state=curriculum_state,
+    ...     qualities=["high", "medium", "low"],
+    ...     improvement_threshold=0.02,
+    ...     max_adjustment=0.1,
+    ... )
+    """
+
+    def __init__(
+        self,
+        curr_state: CurriculumState,
+        qualities: List[str],
+        improvement_threshold: float = 0.02,
+        max_adjustment: float = 0.1,
+        lookback_epochs: int = 5,
+        min_high_quality_proportion: float = 0.25,
+    ):
+        super().__init__()
+        self.curr_state = curr_state
+        self.qualities = qualities
+        self.improvement_threshold = improvement_threshold
+        self.max_adjustment = max_adjustment
+        self.lookback_epochs = lookback_epochs
+        self.min_high_quality_proportion = min_high_quality_proportion
+
+        # Track per-quality metric history
+        self._metric_history: Dict[str, deque] = {q: deque(maxlen=lookback_epochs + 1) for q in qualities}
+        self._last_adjustment_epoch = -1
+
+    def on_validation_epoch_end(self, trainer: Any, pl_module: pl.LightningModule) -> None:
+        """Evaluate per-quality performance and adjust weights if needed."""
+        metrics = trainer.callback_metrics
+        epoch = trainer.current_epoch
+
+        # Collect per-quality metrics (prefer MAE, fallback to loss)
+        current_metrics: Dict[str, float] = {}
+        for quality in self.qualities:
+            for metric_name in ["mae", "loss", "rmse"]:
+                key = f"val/{metric_name}/{quality}"
+                if key in metrics:
+                    val = metrics[key]
+                    try:
+                        current_metrics[quality] = val.item() if hasattr(val, "item") else float(val)
+                        break
+                    except Exception:
+                        pass
+
+        # Update history
+        for quality in self.qualities:
+            if quality in current_metrics:
+                self._metric_history[quality].append(current_metrics[quality])
+
+        # Need enough history to compute trends
+        if len(self._metric_history[self.qualities[0]]) < 2:
+            return
+
+        # Compute relative improvements for each quality
+        improvements: Dict[str, float] = {}
+        for quality in self.qualities:
+            history = list(self._metric_history[quality])
+            if len(history) >= 2:
+                # Compare current to lookback (or earliest available)
+                lookback_idx = max(0, len(history) - self.lookback_epochs - 1)
+                old_val = history[lookback_idx]
+                new_val = history[-1]
+                if old_val > 1e-8:
+                    # Positive improvement = metric decreased (good)
+                    improvements[quality] = (old_val - new_val) / old_val
+                else:
+                    improvements[quality] = 0.0
+
+        # Determine if adjustment is needed
+        if not improvements:
+            return
+
+        high_quality = self.qualities[0]
+        high_improvement = improvements.get(high_quality, 0.0)
+
+        # Compute average improvement of non-high qualities
+        other_improvements = [improvements.get(q, 0.0) for q in self.qualities[1:]]
+        avg_other_improvement = sum(other_improvements) / len(other_improvements) if other_improvements else 0.0
+
+        # Adjust weights if high-quality improves significantly more than others
+        improvement_gap = high_improvement - avg_other_improvement
+
+        if abs(improvement_gap) > self.improvement_threshold:
+            # Compute adjustment direction and magnitude
+            adjustment = min(abs(improvement_gap), self.max_adjustment)
+            if improvement_gap > 0:
+                # High-quality improving faster → increase high weight
+                self._adjust_weights_toward_quality(high_quality, adjustment, pl_module, epoch)
+            else:
+                # High-quality improving slower → decrease high weight (increase others)
+                self._adjust_weights_away_from_quality(high_quality, adjustment, pl_module, epoch)
+
+    def _adjust_weights_toward_quality(
+        self,
+        target_quality: str,
+        adjustment: float,
+        pl_module: pl.LightningModule,
+        epoch: int,
+    ) -> None:
+        """Increase weight for target quality, decrease others proportionally."""
+        current = dict(self.curr_state.weights)
+        target_weight = current.get(target_quality, 0.0)
+        new_target_weight = min(0.95, target_weight + adjustment)  # Cap at 95%
+
+        # Distribute the increase from other qualities
+        actual_increase = new_target_weight - target_weight
+        if actual_increase <= 0:
+            return
+
+        other_total = sum(current.get(q, 0.0) for q in self.qualities if q != target_quality)
+        if other_total <= 0:
+            return
+
+        new_weights = {}
+        for quality in self.qualities:
+            if quality == target_quality:
+                new_weights[quality] = new_target_weight
+            else:
+                # Reduce proportionally
+                old_weight = current.get(quality, 0.0)
+                reduction = actual_increase * (old_weight / other_total)
+                new_weights[quality] = max(0.01, old_weight - reduction)  # Floor at 1%
+
+        # Enforce min_high_quality_proportion
+        if new_weights.get(self.qualities[0], 0.0) < self.min_high_quality_proportion:
+            new_weights[self.qualities[0]] = self.min_high_quality_proportion
+
+        self.curr_state.update_weights(new_weights)
+        self._log_adjustment(pl_module, epoch, target_quality, "increase", adjustment, new_weights)
+
+    def _adjust_weights_away_from_quality(
+        self,
+        target_quality: str,
+        adjustment: float,
+        pl_module: pl.LightningModule,
+        epoch: int,
+    ) -> None:
+        """Decrease weight for target quality, increase others proportionally."""
+        current = dict(self.curr_state.weights)
+        target_weight = current.get(target_quality, 0.0)
+
+        # Enforce floor for high-quality
+        if target_quality == self.qualities[0]:
+            min_weight = self.min_high_quality_proportion
+        else:
+            min_weight = 0.01
+
+        new_target_weight = max(min_weight, target_weight - adjustment)
+        actual_decrease = target_weight - new_target_weight
+        if actual_decrease <= 0:
+            return
+
+        other_total = sum(current.get(q, 0.0) for q in self.qualities if q != target_quality)
+        if other_total <= 0:
+            return
+
+        new_weights = {}
+        for quality in self.qualities:
+            if quality == target_quality:
+                new_weights[quality] = new_target_weight
+            else:
+                # Increase proportionally
+                old_weight = current.get(quality, 0.0)
+                increase = actual_decrease * (old_weight / other_total)
+                new_weights[quality] = min(0.95, old_weight + increase)  # Cap at 95%
+
+        self.curr_state.update_weights(new_weights)
+        self._log_adjustment(pl_module, epoch, target_quality, "decrease", adjustment, new_weights)
+
+    def _log_adjustment(
+        self,
+        pl_module: pl.LightningModule,
+        epoch: int,
+        quality: str,
+        direction: str,
+        adjustment: float,
+        new_weights: Dict[str, float],
+    ) -> None:
+        """Log adaptive adjustment to console and MLflow."""
+        logger.info(
+            "Adaptive curriculum: %s %s weight by %.2f%% at epoch %d -> new weights: %s",
+            direction,
+            quality,
+            adjustment * 100,
+            epoch,
+            {k: f"{v:.2%}" for k, v in new_weights.items()},
+        )
+
+        # Log to MLflow
+        pl_module.log("curriculum/adaptive_adjustment", adjustment, on_step=False, on_epoch=True)
+        for q, w in new_weights.items():
+            pl_module.log(f"curriculum/adaptive_weight/{q}", w, on_step=False, on_epoch=True)
