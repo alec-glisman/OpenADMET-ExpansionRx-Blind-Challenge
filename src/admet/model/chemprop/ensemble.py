@@ -664,6 +664,7 @@ class ModelEnsemble:
                     test_df,
                     generate_plots=True,  # Generate plots for each model
                     split_name="test",
+                    log_metrics=False,  # Metrics already logged in _log_evaluation_metrics
                 )
                 # Prepend SMILES and Molecule Name columns to predictions if present
                 if "Molecule Name" in test_df.columns:
@@ -690,6 +691,7 @@ class ModelEnsemble:
                     blind_df,
                     generate_plots=False,  # No ground truth for blind
                     split_name="blind",
+                    log_metrics=False,  # Blind has no ground truth anyway
                 )
                 # Prepend SMILES and Molecule Name columns to predictions if present
                 if "Molecule Name" in blind_df.columns:

@@ -118,6 +118,11 @@ class ChempropHPO:
         # Convert to absolute path if relative
         storage_path = str(Path(storage_path).resolve())
 
+        # Create a dedicated temp directory inside the storage path to avoid issues
+        # when system /tmp is cleaned during long-running HPO jobs
+        ray_temp_dir = str(Path(storage_path) / "_ray_tmp")
+        Path(ray_temp_dir).mkdir(parents=True, exist_ok=True)
+
         # Initialize Ray with custom temp dir if storage path is provided
         # This helps avoid FileNotFoundError during sync when /tmp is cleaned
         # Disable dashboard to avoid MetricsHead startup failures on some systems
@@ -125,9 +130,10 @@ class ChempropHPO:
 
         if not ray.is_initialized():
             ray.init(
-                _temp_dir=storage_path,
+                _temp_dir=ray_temp_dir,
                 include_dashboard=False,  # Disable dashboard to avoid startup errors
             )
+            logger.info("Ray initialized with temp dir: %s", ray_temp_dir)
 
         # Run HPO
         logger.info(

@@ -14,6 +14,13 @@ Two sampler types are available:
    fixed weights from the curriculum state at construction time. Useful for
    debugging or when phase changes are not expected.
 
+.. warning::
+    **num_workers Limitation**: When using DynamicCurriculumSampler with
+    `num_workers > 0` in DataLoader, each worker gets its own copy of the sampler.
+    The internal `_current_epoch` counter will not be synchronized across workers,
+    and curriculum phase changes may not propagate correctly. For reliable curriculum
+    learning, use `num_workers=0`.
+
 Examples
 --------
 >>> from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler
@@ -70,7 +77,13 @@ class DynamicCurriculumSampler(Sampler[int]):
     num_samples : int, optional
         Number of samples per epoch. If None, uses len(quality_labels).
     seed : int, optional
-        Random seed for reproducibility.
+        Base random seed for reproducibility.
+    increment_seed_per_epoch : bool, default=True
+        If True, increments seed each epoch (seed + epoch_number) for sampling variety.
+        This means different samples are drawn each epoch, which is generally desired
+        for training. If False, uses same seed each epoch (deterministic across epochs).
+        **Note**: When True, training is NOT fully reproducible across runs even with
+        the same base seed, unless you also track and restore the epoch counter.
 
     Attributes
     ----------
@@ -78,12 +91,15 @@ class DynamicCurriculumSampler(Sampler[int]):
         Last observed phase, used to log phase changes.
     _quality_counts : dict[str, int]
         Number of samples per quality level (for count normalization).
+    _current_epoch : int
+        Current epoch counter for seed incrementation.
 
     Examples
     --------
     >>> state = CurriculumState(qualities=["high", "medium", "low"])
-    >>> sampler = DynamicCurriculumSampler(quality_labels, state)
+    >>> sampler = DynamicCurriculumSampler(quality_labels, state, seed=42)
     >>> # Sampler will automatically use updated weights when state.phase changes
+    >>> # Each epoch uses a different seed (seed + epoch) for varied sampling
     """
 
     def __init__(
@@ -92,6 +108,7 @@ class DynamicCurriculumSampler(Sampler[int]):
         curriculum_state: "CurriculumState",
         num_samples: int | None = None,
         seed: int | None = None,
+        increment_seed_per_epoch: bool = True,
     ) -> None:
         super().__init__()
         if not quality_labels:
@@ -101,6 +118,10 @@ class DynamicCurriculumSampler(Sampler[int]):
         self.curriculum_state = curriculum_state
         self._num_samples = num_samples or len(quality_labels)
         self.seed = seed
+        self.increment_seed_per_epoch = increment_seed_per_epoch
+
+        # Epoch tracking for seed incrementation
+        self._current_epoch = 0
 
         # Track phase for logging changes
         self._last_phase: str | None = None
@@ -122,18 +143,17 @@ class DynamicCurriculumSampler(Sampler[int]):
         composition = {q: f"{c} ({100*c/total:.1f}%)" for q, c in self._quality_counts.items()}
         logger.info("DynamicCurriculumSampler initialized with dataset composition: %s", composition)
 
-        # Warn about unknown quality labels
+        # Raise error for unknown quality labels - these samples would silently get zero weight
         present = set(self.quality_labels)
         defined = set(curriculum_state.qualities)
         unknown = present - defined
         if unknown:
-            import warnings
-
-            warnings.warn(
-                f"Quality labels {unknown} not in curriculum qualities "
-                f"{curriculum_state.qualities}. These samples will never be sampled.",
-                UserWarning,
-                stacklevel=2,
+            unknown_counts = {q: self._quality_counts.get(q, 0) for q in unknown}
+            raise ValueError(
+                f"Quality labels {unknown} found in dataset but not defined in curriculum qualities "
+                f"{curriculum_state.qualities}. These {sum(unknown_counts.values())} samples would receive "
+                f"zero weight and never be sampled. Either add these quality labels to curriculum_state.qualities "
+                f"or filter/remap these samples before training. Counts per unknown label: {unknown_counts}"
             )
 
     def _compute_weights(self) -> np.ndarray:
@@ -195,7 +215,11 @@ class DynamicCurriculumSampler(Sampler[int]):
         )
 
     def __iter__(self) -> Iterator[int]:
-        """Generate sample indices based on current curriculum weights."""
+        """Generate sample indices based on current curriculum weights.
+
+        Each epoch uses a different seed if increment_seed_per_epoch is True,
+        ensuring varied sampling across epochs while maintaining reproducibility.
+        """
         # Log phase changes
         current_phase = self.curriculum_state.phase
         if self._last_phase is not None and current_phase != self._last_phase:
@@ -211,9 +235,14 @@ class DynamicCurriculumSampler(Sampler[int]):
         # Compute weights based on current phase
         weights = self._compute_weights()
 
-        # Create generator with optional seed
+        # Determine seed for this epoch
         if self.seed is not None:
-            rng = np.random.default_rng(self.seed)
+            if self.increment_seed_per_epoch:
+                epoch_seed = self.seed + self._current_epoch
+                self._current_epoch += 1
+            else:
+                epoch_seed = self.seed
+            rng = np.random.default_rng(epoch_seed)
         else:
             rng = np.random.default_rng()
 

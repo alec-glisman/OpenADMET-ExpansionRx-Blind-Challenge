@@ -45,8 +45,8 @@ def test_log_evaluation_metrics_per_quality(monkeypatch, mocker, sample_datafram
 
     # Replace predict with a constant perfect prediction so that metrics are perfect.
     preds_df = val_df[["LogD"]].copy()
-    # Replace the predict method
-    monkeypatch.setattr(model, "predict", lambda df: preds_df)
+    # Replace the predict method with one accepting the new log_metrics argument
+    monkeypatch.setattr(model, "predict", lambda df, log_metrics=False: preds_df)
 
     # Set mlflow client
     model._mlflow_client = mocker.MagicMock()

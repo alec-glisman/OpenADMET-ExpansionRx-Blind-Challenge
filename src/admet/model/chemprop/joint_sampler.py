@@ -13,6 +13,13 @@ The two strategies are combined via multiplicative weight composition:
 For multi-task samples, the "primary" task (used for weight computation)
 is the rarest task among those the sample has labels for.
 
+.. warning::
+    **num_workers Limitation**: When using this sampler with `num_workers > 0` in
+    DataLoader, each worker gets its own copy of the sampler. The internal
+    `_current_epoch` counter and curriculum phase state will not be synchronized
+    across workers, potentially causing inconsistent sampling behavior. For reliable
+    curriculum learning, use `num_workers=0`.
+
 Examples
 --------
 >>> from admet.model.chemprop.joint_sampler import JointSampler
@@ -80,8 +87,12 @@ class JointSampler(Sampler[int]):
     seed : int, default=42
         Base random seed for reproducibility.
     increment_seed_per_epoch : bool, default=True
-        If True, increments seed each epoch for sampling variety.
-        If False, uses same seed each epoch.
+        If True, increments seed each epoch (seed + epoch_number) for sampling variety.
+        This means different samples are drawn each epoch, which is generally desired
+        for training. If False, uses same seed each epoch, resulting in identical
+        sampling every epoch (deterministic but may limit generalization).
+        **Note**: When True, training is NOT fully reproducible across runs even with
+        the same base seed, unless you also track and restore the epoch counter.
     log_weight_stats : bool, default=True
         Whether to log weight statistics (min, max, entropy, effective samples).
 

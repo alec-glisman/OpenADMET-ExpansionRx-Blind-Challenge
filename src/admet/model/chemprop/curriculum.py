@@ -249,6 +249,18 @@ class CurriculumCallback(pl.Callback):
         self.log_per_quality_metrics = log_per_quality_metrics
         self.quality_labels = quality_labels
 
+        # Warn about potential infinite training when reset_early_stopping_on_phase_change=True
+        if reset_early_stopping_on_phase_change:
+            import logging
+
+            logger = logging.getLogger("admet.model.chemprop.curriculum")
+            logger.warning(
+                "reset_early_stopping_on_phase_change=True: Early stopping patience will be reset "
+                "on each curriculum phase change. If curriculum transitions occur frequently and "
+                "curriculum patience < early stopping patience, training may never stop. "
+                "Consider setting appropriate patience values or using max_epochs as a hard limit."
+            )
+
         # Cache quality indices for efficient per-quality metric computation
         self._quality_indices: Optional[Dict[str, List[int]]] = None
         if quality_labels is not None:
@@ -657,20 +669,26 @@ class PerQualityMetricsCallback(pl.Callback):
             logger.debug(f"Concatenated predictions shape: {all_preds_np.shape}")
             logger.debug(f"Concatenated targets shape: {all_targets_np.shape}")
 
-            # Verify sample count matches
+            # Verify sample count matches - raise error to avoid silent curriculum degradation
             if len(all_preds_np) != len(self.val_quality_labels):
-                logger.warning(
-                    "Mismatch: %d predictions vs %d quality labels - cannot compute per-quality metrics!",
-                    len(all_preds_np),
-                    len(self.val_quality_labels),
+                error_msg = (
+                    f"Prediction/label count mismatch: {len(all_preds_np)} predictions vs "
+                    f"{len(self.val_quality_labels)} quality labels. This typically indicates "
+                    "a DataLoader configuration issue (e.g., drop_last=True dropping samples). "
+                    "Per-quality metrics cannot be computed, which may degrade curriculum learning. "
+                    "Ensure drop_last=False for validation DataLoader."
                 )
-                return
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
 
             # Compute and log metrics
             logger.debug("Computing per-quality metrics...")
             self._compute_and_log_metrics(pl_module, all_preds_np, all_targets_np, self._val_quality_indices, "val")
             logger.info("Per-quality validation metrics computed for epoch %d", current_epoch)
 
+        except RuntimeError:
+            # Re-raise RuntimeError from our validation above
+            raise
         except Exception as e:
             import traceback
 

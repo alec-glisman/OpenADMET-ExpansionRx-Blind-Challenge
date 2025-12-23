@@ -952,7 +952,16 @@ class ChempropModel:
                         log_weight_stats=True,  # Always log for monitoring
                     )
                     self._joint_sampler = sampler  # Store for MLflow stats callback
-                    drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                    # Never drop last batch to preserve all samples for per-quality metrics
+                    drop_last = False
+                    # Warn if using num_workers > 0 with curriculum sampler
+                    if self.hyperparams.num_workers > 0 and curriculum_enabled:
+                        logger.warning(
+                            "Using JointSampler with num_workers=%d > 0 and curriculum enabled. "
+                            "Sampler state (epoch counter, phase) is not synchronized across workers. "
+                            "For reliable curriculum learning, set num_workers=0.",
+                            self.hyperparams.num_workers,
+                        )
                     self.dataloaders[split] = DataLoader(
                         datasets[split],
                         batch_size=self.hyperparams.batch_size,
@@ -978,8 +987,18 @@ class ChempropModel:
                     curriculum_state=self.curriculum_state,
                     num_samples=len(datasets[split]),
                     seed=seed,
+                    increment_seed_per_epoch=True,  # Vary sampling across epochs
                 )
-                drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                # Never drop last batch to preserve all samples for per-quality metrics
+                drop_last = False
+                # Warn if using num_workers > 0 with curriculum sampler
+                if self.hyperparams.num_workers > 0:
+                    logger.warning(
+                        "Using DynamicCurriculumSampler with num_workers=%d > 0. "
+                        "Sampler state (epoch counter, phase) is not synchronized across workers. "
+                        "For reliable curriculum learning, set num_workers=0.",
+                        self.hyperparams.num_workers,
+                    )
                 self.dataloaders[split] = DataLoader(
                     datasets[split],
                     batch_size=self.hyperparams.batch_size,
@@ -1412,6 +1431,7 @@ class ChempropModel:
             max_epochs=self.hyperparams.max_epochs,
             callbacks=callbacks_list,
             log_every_n_steps=1,  # Log metrics every step for visibility
+            deterministic=True,  # Enable deterministic algorithms for reproducibility
         )
 
     def fit(self) -> bool:
@@ -1436,6 +1456,11 @@ class ChempropModel:
         bool
             True if training completed normally, False if interrupted.
         """
+        # Set random seeds for reproducibility across all libraries
+        # This ensures deterministic training when the same seed is used
+        pl.seed_everything(self.hyperparams.seed, workers=True)
+        logger.info("Random seed set to %d for reproducibility", self.hyperparams.seed)
+
         # Compute task affinity before preparing model (if enabled)
         self._compute_task_affinity()
 
@@ -1525,7 +1550,7 @@ class ChempropModel:
         df_train = self.dataframes.get("train")
         if df_train is not None:
             try:
-                train_preds = self.predict(df_train)
+                train_preds = self.predict(df_train, log_metrics=False)
                 self._generate_evaluation_plots(df_train, train_preds, split="train")
             except Exception as e:
                 logger.warning("Failed to generate training plots: %s", e)
@@ -1534,7 +1559,7 @@ class ChempropModel:
         df_validation = self.dataframes.get("validation")
         if df_validation is not None:
             try:
-                val_preds = self.predict(df_validation)
+                val_preds = self.predict(df_validation, log_metrics=False)
                 self._generate_evaluation_plots(df_validation, val_preds, split="validation")
             except Exception as e:
                 logger.warning("Failed to generate validation plots: %s", e)
@@ -1802,6 +1827,7 @@ class ChempropModel:
 
         # Collect metrics for batch logging to avoid database contention
         metrics_to_log: Dict[str, float] = {}
+        all_metrics: Dict[str, List[float]] = {}  # For computing mean across targets
 
         # Compute correlation metrics for each target (overall)
         for target in self.target_cols:
@@ -1831,6 +1857,32 @@ class ChempropModel:
                 safe_target = _sanitize_mlflow_metric_name(target)
                 mlflow_metric_name = f"{split_name}/{safe_target}/{metric_name}"
                 metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
+
+                # Collect for mean calculation across targets
+                if metric_name not in all_metrics:
+                    all_metrics[metric_name] = []
+                metric_val_float = float(metric_value)  # type: ignore[arg-type]
+                if not np.isnan(metric_val_float):
+                    all_metrics[metric_name].append(metric_val_float)
+
+        # Calculate and log mean metrics across all targets
+        for metric_name, values in all_metrics.items():
+            if values:
+                mean_value = float(np.mean(values))
+                mlflow_metric_name = f"{split_name}/mean/{metric_name}"
+                metrics_to_log[mlflow_metric_name] = mean_value
+
+                # Add to output dataframe
+                row = pd.DataFrame(
+                    {
+                        "split": [split_name],
+                        "target": ["mean"],
+                        "quality": ["overall"],
+                        "metric": [metric_name],
+                        "value": [mean_value],
+                    }
+                )
+                df_out = pd.concat([df_out, row], ignore_index=True)
 
         # Log overall metrics in batch
         if metrics_to_log and self._mlflow_client is not None and self.mlflow_run_id is not None:

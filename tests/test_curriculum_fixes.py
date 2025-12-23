@@ -116,6 +116,85 @@ class TestDynamicCurriculumSampler:
         weights_robust = sampler._compute_weights()
         assert weights_robust[0] < 0.55  # high weight lower in robust
 
+    def test_sampler_produces_different_samples_per_epoch_by_default(self) -> None:
+        """Test that sampler produces different samples when iterating multiple times.
+
+        By default, increment_seed_per_epoch=True, so each __iter__ call should
+        use a different seed and produce different sample indices.
+        """
+        quality_labels = ["high"] * 50 + ["medium"] * 50
+        state = CurriculumState(qualities=["high", "medium"], patience=1)
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=state,
+            num_samples=100,
+            seed=42,
+            increment_seed_per_epoch=True,  # Default is True
+        )
+
+        # Get samples from two consecutive "epochs" (iterations)
+        indices_epoch1 = list(sampler)
+        indices_epoch2 = list(sampler)
+
+        # Samples should be different across epochs
+        assert indices_epoch1 != indices_epoch2, "Samples should differ between epochs"
+
+        # Both should still have similar quality distributions (high should dominate)
+        epoch1_high = sum(1 for idx in indices_epoch1 if quality_labels[idx] == "high")
+        epoch2_high = sum(1 for idx in indices_epoch2 if quality_labels[idx] == "high")
+
+        # Both should favor high quality samples (warmup phase: ~90% high)
+        assert epoch1_high > 60, f"Epoch 1 should have >60% high, got {epoch1_high}"
+        assert epoch2_high > 60, f"Epoch 2 should have >60% high, got {epoch2_high}"
+
+    def test_sampler_produces_same_samples_when_increment_disabled(self) -> None:
+        """Test that sampler produces same samples when increment_seed_per_epoch=False."""
+        quality_labels = ["high"] * 50 + ["medium"] * 50
+        state = CurriculumState(qualities=["high", "medium"], patience=1)
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=state,
+            num_samples=100,
+            seed=42,
+            increment_seed_per_epoch=False,
+        )
+
+        # Get samples from two consecutive "epochs"
+        indices_epoch1 = list(sampler)
+        indices_epoch2 = list(sampler)
+
+        # Samples should be identical when increment is disabled
+        assert indices_epoch1 == indices_epoch2, "Samples should be identical"
+
+    def test_epoch_counter_increments_correctly(self) -> None:
+        """Test that the internal epoch counter increments on each iteration."""
+        quality_labels = ["high"] * 30 + ["medium"] * 30 + ["low"] * 30
+        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=state,
+            num_samples=50,
+            seed=42,
+            increment_seed_per_epoch=True,
+        )
+
+        assert sampler._current_epoch == 0, "Should start at epoch 0"
+
+        # First iteration
+        list(sampler)
+        assert sampler._current_epoch == 1, "Should be epoch 1 after first iteration"
+
+        # Second iteration
+        list(sampler)
+        assert sampler._current_epoch == 2, "Should be epoch 2 after second iteration"
+
+        # Third iteration
+        list(sampler)
+        assert sampler._current_epoch == 3, "Should be epoch 3 after third iteration"
+
 
 # =============================================================================
 # Test Issue 2: Per-Quality Metrics Logging
