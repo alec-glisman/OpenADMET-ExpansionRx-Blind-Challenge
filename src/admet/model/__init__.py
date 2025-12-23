@@ -3,7 +3,46 @@ from __future__ import annotations
 import logging
 import warnings
 
-__all__ = ["classical", "chemprop"]
+from admet.model import chemeleon, chemprop, classical, hpo
+from admet.model.base import BaseModel
+from admet.model.config import (
+    BaseDataConfig,
+    BaseMlflowConfig,
+    BaseModelConfig,
+    CatBoostModelParams,
+    ChemeleonModelParams,
+    FingerprintConfig,
+    LightGBMModelParams,
+    UnfreezeScheduleConfig,
+    XGBoostModelParams,
+)
+from admet.model.ensemble import Ensemble
+from admet.model.mlflow_mixin import MLflowMixin
+from admet.model.registry import ModelRegistry
+
+__all__ = [
+    # Base classes
+    "BaseModel",
+    "BaseDataConfig",
+    "BaseModelConfig",
+    "BaseMlflowConfig",
+    # Configuration
+    "FingerprintConfig",
+    "XGBoostModelParams",
+    "LightGBMModelParams",
+    "CatBoostModelParams",
+    "ChemeleonModelParams",
+    "UnfreezeScheduleConfig",
+    # Utilities
+    "MLflowMixin",
+    "ModelRegistry",
+    "Ensemble",
+    # Sub-modules
+    "classical",
+    "chemprop",
+    "chemeleon",
+    "hpo",
+]
 
 # Suppress overly verbose logging from dependencies
 logging.getLogger("lightning.pytorch").setLevel(logging.WARNING)

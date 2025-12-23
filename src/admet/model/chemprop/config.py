@@ -680,7 +680,7 @@ class EnsembleConfig:
     ...     OmegaConf.structured(EnsembleConfig),
     ...     OmegaConf.load("ensemble_config.yaml")
     ... )
-    >>> ensemble = ChempropEnsemble.from_config(config)
+    >>> ensemble = ModelEnsemble.from_config(config)
     >>> ensemble.train_all()
     """
 

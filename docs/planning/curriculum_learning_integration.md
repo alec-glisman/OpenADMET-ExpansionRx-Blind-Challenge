@@ -29,7 +29,7 @@ This document originally outlined a plan to integrate quality-aware curriculum l
 
 4. **Full Integration**
    - Single model training via `ChempropModel`
-   - Ensemble training via `ChempropEnsemble`
+   - Ensemble training via `ModelEnsemble`
    - HPO integration via Ray Tune
 
 ### Key Files

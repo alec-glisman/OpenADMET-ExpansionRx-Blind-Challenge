@@ -66,7 +66,7 @@ flowchart TB
     LB --> Report["report<br/><i>generate_report()</i>"]
 
     Model --> Train["train<br/><i>ChempropModel</i>"]
-    Model --> Ens["ensemble<br/><i>ChempropEnsemble</i>"]
+    Model --> Ens["ensemble<br/><i>ModelEnsemble</i>"]
     Model --> HPO["hpo<br/><i>ChempropHPO</i>"]
 
     style Root fill:#f3e5f5,stroke:#4a148c,stroke-width:3px

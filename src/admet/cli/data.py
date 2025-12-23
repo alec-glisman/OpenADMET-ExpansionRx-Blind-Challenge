@@ -11,7 +11,12 @@ import typer
 from admet.data.split import pipeline
 from admet.util.logging import configure_logging
 
-data_app = typer.Typer(name="data", help="Data utilities (splits, preprocessing)")
+data_app = typer.Typer(
+    name="data",
+    help="Data utilities (splits, preprocessing)",
+    pretty_exceptions_enable=False,
+    no_args_is_help=True,
+)
 
 
 @data_app.command("split")

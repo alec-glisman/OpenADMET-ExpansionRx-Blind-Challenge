@@ -1,31 +1,39 @@
 """
-Ensemble training for Chemprop models.
+Ensemble training for multi-model support (Chemprop, XGBoost, LightGBM, CatBoost, Chemeleon).
 
-This module provides the ChempropEnsemble class for training multiple Chemprop
-models across different data splits and folds, with Ray-based parallelization
+This module provides the ModelEnsemble class for training multiple models
+across different data splits and folds, with Ray-based parallelization
 and MLflow nested run tracking.
 
 Key features:
+- Multi-model support via ModelRegistry (chemprop, xgboost, lightgbm, catboost, chemeleon)
 - Automatic discovery of split/fold directory structure
 - Ray-based parallel training with configurable concurrency
 - MLflow nested runs for organized experiment tracking
 - Ensemble prediction aggregation with uncertainty estimates
 - Visualization with error bars from ensemble variance
+- Complete metrics and artifact logging
 
 Examples
 --------
 >>> from omegaconf import OmegaConf
->>> from admet.model.chemprop.ensemble import ChempropEnsemble
+>>> from admet.model.chemprop.ensemble import ModelEnsemble
 >>> from admet.model.chemprop.config import EnsembleConfig
 >>>
+>>> # Chemprop ensemble
 >>> config = OmegaConf.merge(
 ...     OmegaConf.structured(EnsembleConfig),
-...     OmegaConf.load("configs/ensemble_chemprop.yaml")
+...     OmegaConf.load("configs/4-more-models/chemprop.yaml")
 ... )
->>> ensemble = ChempropEnsemble.from_config(config)
+>>> ensemble = ModelEnsemble.from_config(config)
 >>> ensemble.train_all()
 >>> predictions = ensemble.predict_ensemble(test_df)
 >>> ensemble.close()
+>>>
+>>> # XGBoost ensemble
+>>> config = OmegaConf.load("configs/4-more-models/xgboost.yaml")
+>>> ensemble = ModelEnsemble.from_config(config)
+>>> ensemble.train_all()
 """
 
 from __future__ import annotations
@@ -45,17 +53,29 @@ from matplotlib import pyplot as plt
 from mlflow import MlflowClient
 from omegaconf import DictConfig, OmegaConf
 
+import admet.model.chemeleon.model  # noqa: F401
+
+# Import all model types to ensure registry population
+import admet.model.chemprop.adapter  # noqa: F401
+import admet.model.classical.catboost_model  # noqa: F401
+import admet.model.classical.lightgbm_model  # noqa: F401
+import admet.model.classical.xgboost_model  # noqa: F401
+from admet.model.base import BaseModel
 from admet.model.chemprop.config import (
     ChempropConfig,
+    CurriculumConfig,
     DataConfig,
     EnsembleConfig,
     InterTaskAffinityConfig,
+    JointSamplingConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
     TaskAffinityConfig,
+    TaskOversamplingConfig,
 )
 from admet.model.chemprop.model import ChempropModel
+from admet.model.registry import ModelRegistry
 from admet.plot.latex import latex_sanitize
 from admet.plot.metrics import plot_metric_bar
 from admet.plot.parity import plot_parity
@@ -118,18 +138,20 @@ class SplitFoldInfo:
     validation_file: Path
 
 
-class ChempropEnsemble:
+class ModelEnsemble:
     """
-    Ensemble trainer for Chemprop models across multiple splits and folds.
+    Ensemble trainer for multi-model support across multiple splits and folds.
 
-    This class orchestrates training of multiple Chemprop models using Ray
-    for parallelization and MLflow for experiment tracking with nested runs.
+    This class orchestrates training of multiple models (chemprop, xgboost, lightgbm,
+    catboost, chemeleon) using Ray for parallelization and MLflow for experiment
+    tracking with nested runs.
 
     Parameters
     ----------
     config : EnsembleConfig or DictConfig
         Configuration object containing data paths, model architecture,
-        optimization settings, and MLflow configuration.
+        optimization settings, and MLflow configuration. The model type is
+        determined by config.model.type.
 
     Attributes
     ----------
@@ -137,14 +159,14 @@ class ChempropEnsemble:
         The ensemble configuration.
     split_fold_infos : List[SplitFoldInfo]
         Discovered split/fold combinations.
-    models : Dict[str, ChempropModel]
+    models : Dict[str, BaseModel]
         Trained models keyed by "split_{i}_fold_{j}".
     parent_run_id : str or None
         MLflow parent run ID for nested runs.
 
     Examples
     --------
-    >>> ensemble = ChempropEnsemble.from_config(config)
+    >>> ensemble = ModelEnsemble.from_config(config)
     >>> ensemble.discover_splits_folds()
     >>> ensemble.train_all(max_parallel=2)
     >>> predictions = ensemble.predict_ensemble(test_df)
@@ -155,7 +177,7 @@ class ChempropEnsemble:
         config: Union[EnsembleConfig, DictConfig],
     ) -> None:
         """
-        Initialize ChempropEnsemble with configuration.
+        Initialize ModelEnsemble with configuration.
 
         Parameters
         ----------
@@ -164,8 +186,11 @@ class ChempropEnsemble:
         """
         self.config = config
         self.split_fold_infos: List[SplitFoldInfo] = []
-        self.models: Dict[str, ChempropModel] = {}
+        self.models: Dict[str, BaseModel] = {}
         self.predictions: Dict[str, pd.DataFrame] = {}
+
+        # Determine model type from config
+        self.model_type = self.config.model.type if hasattr(self.config.model, "type") else "chemprop"
 
         # MLflow tracking
         self.parent_run_id: Optional[str] = None
@@ -180,9 +205,9 @@ class ChempropEnsemble:
     def from_config(
         cls,
         config: Union[EnsembleConfig, DictConfig],
-    ) -> "ChempropEnsemble":
+    ) -> "ModelEnsemble":
         """
-        Create a ChempropEnsemble from configuration.
+        Create a ModelEnsemble from configuration.
 
         Parameters
         ----------
@@ -191,7 +216,7 @@ class ChempropEnsemble:
 
         Returns
         -------
-        ChempropEnsemble
+        ModelEnsemble
             Initialized ensemble ready for training.
         """
         ensemble = cls(config)
@@ -209,6 +234,10 @@ class ChempropEnsemble:
         # Start parent run (use configured name or let MLflow generate default)
         parent_run = mlflow.start_run(run_name=self.config.mlflow.run_name)
         self.parent_run_id = parent_run.info.run_id
+
+        # Enable system metrics logging on parent run only
+        # Nested runs will NOT have system metrics to avoid database conflicts
+        mlflow.enable_system_metrics_logging()
 
         # Log ensemble configuration
         config_dict = OmegaConf.to_container(self.config, resolve=True)
@@ -333,6 +362,9 @@ class ChempropEnsemble:
                 "Expected structure: split_*/fold_*/{{train,validation}}.csv"
             )
 
+        # Sort by (split_idx, fold_idx) for consistent alphabetical run names
+        self.split_fold_infos.sort(key=lambda x: (x.split_idx, x.fold_idx))
+
         logger.info("Discovered %d split/fold combinations", len(self.split_fold_infos))
         for info in self.split_fold_infos:
             logger.debug("  split_%d/fold_%d: %s", info.split_idx, info.fold_idx, info.data_dir)
@@ -356,27 +388,35 @@ class ChempropEnsemble:
         ChempropConfig
             Configuration for training a single model.
         """
+        # Use .get() for optional fields to handle raw OmegaConf configs
+        target_weights = self.config.data.get("target_weights")
+        target_weights_list = list(target_weights) if target_weights else []
+
+        # Access chemprop-specific model params (may be in model.chemprop.* or model.*)
+        model_cfg = self.config.model.get("chemprop", self.config.model)
+
         return ChempropConfig(
             data=DataConfig(
                 data_dir=str(split_fold_info.data_dir),
-                test_file=self.config.data.test_file,
-                blind_file=self.config.data.blind_file,
+                test_file=self.config.data.get("test_file"),
+                blind_file=self.config.data.get("blind_file"),
                 smiles_col=self.config.data.smiles_col,
                 target_cols=list(self.config.data.target_cols),
-                target_weights=list(self.config.data.target_weights) if self.config.data.target_weights else [],
-                output_dir=self.config.data.output_dir,
+                target_weights=target_weights_list,
+                output_dir=self.config.data.get("output_dir"),
             ),
             model=ModelConfig(
-                depth=self.config.model.depth,
-                message_hidden_dim=self.config.model.message_hidden_dim,
-                dropout=self.config.model.dropout,
-                num_layers=self.config.model.num_layers,
-                hidden_dim=self.config.model.hidden_dim,
-                batch_norm=self.config.model.batch_norm,
-                ffn_type=self.config.model.ffn_type,
-                trunk_n_layers=self.config.model.trunk_n_layers,
-                trunk_hidden_dim=self.config.model.trunk_hidden_dim,
-                n_experts=self.config.model.n_experts,
+                depth=model_cfg.get("depth", 3),
+                message_hidden_dim=model_cfg.get("message_hidden_dim", 300),
+                dropout=model_cfg.get("dropout", 0.0),
+                num_layers=model_cfg.get("num_layers", 2),
+                hidden_dim=model_cfg.get("hidden_dim", 300),
+                batch_norm=model_cfg.get("batch_norm", False),
+                ffn_type=model_cfg.get("ffn_type", "regression"),
+                trunk_n_layers=model_cfg.get("trunk_n_layers", 2),
+                trunk_hidden_dim=model_cfg.get("trunk_hidden_dim", 600),
+                n_experts=model_cfg.get("n_experts", 4),
+                aggregation=model_cfg.get("aggregation", "mean"),
             ),
             optimization=OptimizationConfig(
                 criterion=self.config.optimization.criterion,
@@ -400,36 +440,92 @@ class ChempropEnsemble:
                 parent_run_id=None,  # Will be set by caller for ensemble runs
                 nested=False,  # Will be set by caller for ensemble runs
             ),
-            joint_sampling=self.config.joint_sampling,
-            task_affinity=TaskAffinityConfig(
-                enabled=self.config.task_affinity.enabled,
-                affinity_epochs=self.config.task_affinity.affinity_epochs,
-                affinity_batch_size=self.config.task_affinity.affinity_batch_size,
-                affinity_lr=self.config.task_affinity.affinity_lr,
-                n_groups=self.config.task_affinity.n_groups,
-                clustering_method=self.config.task_affinity.clustering_method,
-                affinity_type=self.config.task_affinity.affinity_type,
-                seed=self.config.task_affinity.seed,
-            ),
-            inter_task_affinity=InterTaskAffinityConfig(
-                enabled=self.config.inter_task_affinity.enabled,
-                compute_every_n_steps=self.config.inter_task_affinity.compute_every_n_steps,
-                log_every_n_steps=self.config.inter_task_affinity.log_every_n_steps,
-                log_epoch_summary=self.config.inter_task_affinity.log_epoch_summary,
-                log_step_matrices=self.config.inter_task_affinity.log_step_matrices,
-                lookahead_lr=self.config.inter_task_affinity.lookahead_lr,
-                use_optimizer_lr=self.config.inter_task_affinity.use_optimizer_lr,
-                shared_param_patterns=list(self.config.inter_task_affinity.shared_param_patterns),
-                exclude_param_patterns=list(self.config.inter_task_affinity.exclude_param_patterns),
-                n_groups=self.config.inter_task_affinity.n_groups,
-                clustering_method=self.config.inter_task_affinity.clustering_method,
-                clustering_linkage=self.config.inter_task_affinity.clustering_linkage,
-                device=self.config.inter_task_affinity.device,
-                log_to_mlflow=self.config.inter_task_affinity.log_to_mlflow,
-                save_plots=self.config.inter_task_affinity.save_plots,
-                plot_formats=list(self.config.inter_task_affinity.plot_formats),
-                plot_dpi=self.config.inter_task_affinity.plot_dpi,
-            ),
+            joint_sampling=self._get_joint_sampling_config(),
+            task_affinity=self._get_task_affinity_config(),
+            inter_task_affinity=self._get_inter_task_affinity_config(),
+        )
+
+    def _get_joint_sampling_config(self) -> JointSamplingConfig:
+        """Get joint sampling config with defaults for missing fields."""
+        if "joint_sampling" not in self.config:
+            return JointSamplingConfig()
+        js = self.config.joint_sampling
+        return JointSamplingConfig(
+            enabled=js.get("enabled", False),
+            task_oversampling=js.get("task_oversampling", TaskOversamplingConfig()),
+            curriculum=js.get("curriculum", CurriculumConfig()),
+            num_samples=js.get("num_samples", None),
+            seed=js.get("seed", 42),
+            increment_seed_per_epoch=js.get("increment_seed_per_epoch", True),
+            log_to_mlflow=js.get("log_to_mlflow", True),
+        )
+
+    def _get_task_affinity_config(self) -> TaskAffinityConfig:
+        """Get task affinity config with defaults for missing fields."""
+        if "task_affinity" not in self.config:
+            return TaskAffinityConfig(
+                enabled=False,
+                affinity_epochs=2,
+                affinity_batch_size=100,
+                affinity_lr=1e-3,
+                n_groups=2,
+                clustering_method="hierarchical",
+                affinity_type="cosine",
+                seed=42,
+            )
+        ta = self.config.task_affinity
+        return TaskAffinityConfig(
+            enabled=ta.get("enabled", False),
+            affinity_epochs=ta.get("affinity_epochs", 2),
+            affinity_batch_size=ta.get("affinity_batch_size", 100),
+            affinity_lr=ta.get("affinity_lr", 1e-3),
+            n_groups=ta.get("n_groups", 2),
+            clustering_method=ta.get("clustering_method", "hierarchical"),
+            affinity_type=ta.get("affinity_type", "cosine"),
+            seed=ta.get("seed", 42),
+        )
+
+    def _get_inter_task_affinity_config(self) -> InterTaskAffinityConfig:
+        """Get inter-task affinity config with defaults for missing fields."""
+        if "inter_task_affinity" not in self.config:
+            return InterTaskAffinityConfig(
+                enabled=False,
+                compute_every_n_steps=50,
+                log_every_n_steps=50,
+                log_epoch_summary=True,
+                log_step_matrices=False,
+                lookahead_lr=1e-3,
+                use_optimizer_lr=False,
+                shared_param_patterns=[],
+                exclude_param_patterns=[],
+                n_groups=2,
+                clustering_method="hierarchical",
+                clustering_linkage="average",
+                device="auto",
+                log_to_mlflow=True,
+                save_plots=False,
+                plot_formats=["png"],
+                plot_dpi=100,
+            )
+        ita = self.config.inter_task_affinity
+        return InterTaskAffinityConfig(
+            enabled=ita.get("enabled", False),
+            compute_every_n_steps=ita.get("compute_every_n_steps", 50),
+            log_every_n_steps=ita.get("log_every_n_steps", 50),
+            log_epoch_summary=ita.get("log_epoch_summary", True),
+            log_step_matrices=ita.get("log_step_matrices", False),
+            lookahead_lr=ita.get("lookahead_lr", 1e-3),
+            use_optimizer_lr=ita.get("use_optimizer_lr", False),
+            shared_param_patterns=list(ita.get("shared_param_patterns", [])),
+            exclude_param_patterns=list(ita.get("exclude_param_patterns", [])),
+            n_groups=ita.get("n_groups", 2),
+            clustering_method=ita.get("clustering_method", "hierarchical"),
+            clustering_linkage=ita.get("clustering_linkage", "average"),
+            device=ita.get("device", "auto"),
+            log_to_mlflow=ita.get("log_to_mlflow", True),
+            save_plots=ita.get("save_plots", False),
+            plot_formats=list(ita.get("plot_formats", ["png"])),
+            plot_dpi=ita.get("plot_dpi", 100),
         )
 
     def train_all(self, max_parallel: Optional[int] = None) -> None:
@@ -517,9 +613,35 @@ class ChempropEnsemble:
             config.mlflow.parent_run_id = parent_run_id
             config.mlflow.nested = parent_run_id is not None
 
-            # Create and train model (MLflow enabled, creating nested run)
-            model = ChempropModel.from_config(config)  # type: ignore[arg-type]
-            model.fit()
+            # Create model using ModelRegistry (supports all model types)
+            model_type = config.model.type if hasattr(config.model, "type") else "chemprop"
+
+            if model_type == "chemprop":
+                # Use Chemprop-specific initialization with full config
+                # Chemprop loads data from config files directly
+                model = ChempropModel.from_config(config)  # type: ignore[arg-type]
+                model.fit()
+            else:
+                # Use ModelRegistry for other model types
+                # These models need explicit data loading
+                model = ModelRegistry.create_model(config)
+
+                # Load training and validation data
+                train_df = pd.read_csv(split_fold_info.train_file)
+                smiles_col = config.data.smiles_col
+                target_cols = list(config.data.target_cols)
+
+                train_smiles = train_df[smiles_col].tolist()
+                train_y = train_df[target_cols].values
+
+                val_smiles, val_y = None, None
+                if split_fold_info.validation_file.exists():
+                    val_df = pd.read_csv(split_fold_info.validation_file)
+                    val_smiles = val_df[smiles_col].tolist()
+                    val_y = val_df[target_cols].values
+
+                # Train model with explicit data
+                model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
 
             # Get metrics from trainer
             metrics = {}
@@ -1269,7 +1391,7 @@ def train_ensemble_from_config(config_path: str, log_level: str = "INFO") -> Non
     logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create and train ensemble
-    ensemble = ChempropEnsemble.from_config(config)  # type: ignore[arg-type]
+    ensemble = ModelEnsemble.from_config(config)  # type: ignore[arg-type]
     ensemble.train_all()
     ensemble.close()
 
@@ -1327,14 +1449,14 @@ Configuration file should have the structure:
 
     args = parser.parse_args()
 
-    # Load config and potentially override max_parallel
-    config = OmegaConf.merge(
-        OmegaConf.structured(EnsembleConfig),
-        OmegaConf.load(args.config),
-    )
+    # Load config without structured validation to support all model types
+    # (structured EnsembleConfig is Chemprop-specific and doesn't support model.type field)
+    config = OmegaConf.load(args.config)
 
     if args.max_parallel is not None:
-        config.max_parallel = args.max_parallel
+        if "ray" not in config:
+            config.ray = {}
+        config.ray.max_parallel = args.max_parallel
 
     # Configure logging with colored output
     configure_logging(level=args.log_level)
@@ -1343,7 +1465,7 @@ Configuration file should have the structure:
     logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create and train ensemble
-    ensemble = ChempropEnsemble.from_config(config)  # type: ignore[arg-type]
+    ensemble = ModelEnsemble.from_config(config)  # type: ignore[arg-type]
     ensemble.train_all()
     ensemble.close()
 

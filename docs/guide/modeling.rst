@@ -11,7 +11,7 @@ The primary modeling approach uses Chemprop message-passing neural networks
 via the ``admet.model.chemprop`` subpackage. Key classes include:
 
 - **ChempropModel**: Single model training with configurable FFN architectures
-- **ChempropEnsemble**: Ensemble training across multiple splits/folds
+- **ModelEnsemble**: Ensemble training across multiple splits/folds
 - **ChempropHPO**: Hyperparameter optimization with Ray Tune
 
 Single Model Training
@@ -40,7 +40,7 @@ For production use, train multiple models across different data splits:
 
 .. code-block:: python
 
-   from admet.model.chemprop import ChempropEnsemble, EnsembleConfig
+   from admet.model.chemprop import ModelEnsemble, EnsembleConfig
    from omegaconf import OmegaConf
 
    # Load ensemble configuration
@@ -48,7 +48,7 @@ For production use, train multiple models across different data splits:
    cfg = OmegaConf.structured(EnsembleConfig(**config))
 
    # Train ensemble (parallelized with Ray)
-   ensemble = ChempropEnsemble.from_config(cfg)
+   ensemble = ModelEnsemble.from_config(cfg)
    ensemble.train_all()
 
    # Make ensemble predictions with uncertainty

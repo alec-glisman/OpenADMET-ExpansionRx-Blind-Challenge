@@ -7,34 +7,36 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 model:
-  depth: 4
-  message_hidden_dim: 1100
-  aggregation: norm
-  ffn_type: regression
-  num_layers: 2
-  hidden_dim: 500
-  dropout: 0.25
-  batch_norm: true
+  type: chemprop
+  chemprop:
+    depth: 4
+    message_hidden_dim: 1100
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 2
+    hidden_dim: 500
+    dropout: 0.25
+    batch_norm: true
 optimization:
   criterion: MAE
   init_lr: 1.04e-05
@@ -61,9 +63,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     seed: 42
     strategy: sampled
@@ -82,11 +84,11 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
 ray:
   max_parallel: 5

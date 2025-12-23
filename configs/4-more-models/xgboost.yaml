@@ -1,0 +1,57 @@
+# XGBoost Ensemble Configuration
+# Trains an ensemble of XGBoost models with molecular fingerprints
+#
+# Run command:
+#   admet model ensemble --config configs/4-more-models/xgboost.yaml
+
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data
+  splits: null # Use all splits if null, or specify [0, 1, 2] for specific splits
+  folds: null # Use all folds if null, or specify [0, 1, 2] for specific folds
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
+  output_dir: null
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+
+model:
+  type: xgboost
+  fingerprint:
+    type: morgan
+    morgan:
+      radius: 2
+      n_bits: 2048
+      use_chirality: false
+  xgboost:
+    n_estimators: 500
+    max_depth: 8
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 3
+    gamma: 0.1
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    random_state: 42
+    n_jobs: -1
+
+ray:
+  max_parallel: 5
+  num_cpus: null
+  num_gpus: null
+
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: ensemble_additional_models
+  run_name: null
+  nested: true

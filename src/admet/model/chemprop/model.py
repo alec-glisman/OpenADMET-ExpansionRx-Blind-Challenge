@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import mlflow
 import mlflow.data
+import mlflow.entities
 import mlflow.pytorch
 import numpy as np
 import pandas as pd
@@ -1102,7 +1103,18 @@ class ChempropModel:
         mlflow.set_experiment(self.mlflow_experiment_name)
 
         # Enable system metrics logging (CPU, memory, GPU, etc.)
-        mlflow.enable_system_metrics_logging()
+        # NOTE: Only enable for standalone runs, not nested runs in ensemble training.
+        # For ensemble runs, system metrics are logged to the parent run only (see
+        # ModelEnsemble._init_mlflow). This prevents database constraint violations
+        # when multiple parallel workers log metrics simultaneously to PostgreSQL.
+        if not self.mlflow_nested:
+            mlflow.enable_system_metrics_logging()
+        else:
+            # Explicitly disable for nested runs - parent run handles system metrics
+            try:
+                mlflow.disable_system_metrics_logging()
+            except Exception:
+                pass
 
         # Determine which mode to use
         if self.mlflow_run_id is not None:
@@ -1464,6 +1476,18 @@ class ChempropModel:
         finally:
             logger.info("Training finished: completed=%s", completed)
 
+            # Disable system metrics logging before final artifact logging
+            # to prevent database contention issues with PostgreSQL backend
+            try:
+                mlflow.disable_system_metrics_logging()
+            except Exception:
+                pass
+
+            # Small delay to let any pending system metrics flush before we log
+            import time
+
+            time.sleep(0.1)
+
             # Log evaluation metrics and final artifacts
             if self.mlflow_tracking and self._mlflow_logger is not None:
                 logger.debug("Post-training: logging evaluation metrics and artifacts")
@@ -1627,6 +1651,68 @@ class ChempropModel:
                 csv_path.unlink(missing_ok=True)
                 temp_dir.rmdir()
 
+    def _log_metrics_with_retry(
+        self, metrics: Dict[str, float], max_retries: int = 3, initial_delay: float = 0.1
+    ) -> None:
+        """
+        Log metrics to MLflow individually with retry logic for database contention.
+
+        This method logs metrics one at a time to avoid batch conflicts with
+        training metrics that may still be in MLflow's internal buffer.
+        Uses unique step values based on timestamp to avoid primary key collisions.
+
+        Parameters
+        ----------
+        metrics : Dict[str, float]
+            Dictionary of metric names to values.
+        max_retries : int
+            Maximum number of retry attempts per metric.
+        initial_delay : float
+            Initial delay in seconds before first retry (doubles each retry).
+        """
+        import random
+        import time
+
+        if not metrics or self._mlflow_client is None or self.mlflow_run_id is None:
+            return
+
+        # Use a unique step value based on current time to avoid conflicts with training metrics
+        # Training uses step=0,1,2..., we use a large offset based on timestamp
+        unique_step = int(time.time()) % 1000000  # Use seconds as step offset
+
+        failed_metrics = []
+        for key, value in metrics.items():
+            logged = False
+            for attempt in range(max_retries):
+                try:
+                    self._mlflow_client.log_metric(
+                        run_id=self.mlflow_run_id,
+                        key=key,
+                        value=float(value),
+                        step=unique_step,
+                    )
+                    logged = True
+                    break
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "duplicate" in error_str or "constraint" in error_str or "unique" in error_str:
+                        if attempt < max_retries - 1:
+                            delay = initial_delay * (2**attempt) + random.uniform(0, 0.05)
+                            time.sleep(delay)
+                            # Try with a different step value on retry
+                            unique_step += 1
+                        else:
+                            failed_metrics.append(key)
+                    else:
+                        failed_metrics.append(key)
+                        break
+
+        if failed_metrics:
+            logger.debug(
+                "Some metrics could not be logged to MLflow (saved to CSV): %s",
+                failed_metrics[:5],  # Only show first 5
+            )
+
     def _log_evaluation_metrics(self) -> None:
         """
         Compute and log correlation metrics on validation and test sets.
@@ -1640,6 +1726,24 @@ class ChempropModel:
         """
         if self._mlflow_client is None or self.mlflow_run_id is None:
             return
+
+        # Disable system metrics logging to prevent interference during evaluation
+        try:
+            mlflow.disable_system_metrics_logging()
+        except Exception:
+            pass
+
+        # Flush any pending async metrics to avoid conflicts with our batch logging
+        # This ensures training metrics are committed before we log evaluation metrics
+        try:
+            mlflow.flush_async_logging()
+        except Exception:
+            pass
+
+        # Small delay to ensure flushing completes
+        import time
+
+        time.sleep(0.2)
 
         df_out = pd.DataFrame()
 
@@ -1689,12 +1793,15 @@ class ChempropModel:
         pd.DataFrame
             Updated accumulator with this split's metrics.
         """
-        # Generate predictions
+        # Generate predictions (disable metric logging here since we log metrics ourselves)
         try:
-            preds_df = self.predict(df_split)
+            preds_df = self.predict(df_split, log_metrics=False)
         except Exception as e:
             logger.warning("Failed to generate %s predictions: %s", split_name, e)
             return df_out
+
+        # Collect metrics for batch logging to avoid database contention
+        metrics_to_log: Dict[str, float] = {}
 
         # Compute correlation metrics for each target (overall)
         for target in self.target_cols:
@@ -1720,16 +1827,14 @@ class ChempropModel:
                 )
                 df_out = pd.concat([df_out, row], ignore_index=True)
 
-                # Log to MLflow with split prefix
+                # Collect metric for batch logging
                 safe_target = _sanitize_mlflow_metric_name(target)
                 mlflow_metric_name = f"{split_name}/{safe_target}/{metric_name}"
-                if self._mlflow_client is not None and self.mlflow_run_id is not None:
-                    try:
-                        self._mlflow_client.log_metric(
-                            self.mlflow_run_id, mlflow_metric_name, float(metric_value)  # type: ignore[arg-type]
-                        )
-                    except Exception:
-                        pass
+                metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
+
+        # Log overall metrics in batch
+        if metrics_to_log and self._mlflow_client is not None and self.mlflow_run_id is not None:
+            self._log_metrics_with_retry(metrics_to_log)
 
         # Compute per-quality metrics if enabled and curriculum learning is active
         if (
@@ -1740,6 +1845,9 @@ class ChempropModel:
         ):
             quality_labels = df_split[self.quality_col].tolist()
             quality_indices = get_quality_indices(quality_labels, self.curriculum_state.qualities)
+
+            # Collect quality-specific metrics for batch logging
+            quality_metrics_to_log: Dict[str, float] = {}
 
             for quality, indices in quality_indices.items():
                 if not indices:
@@ -1776,18 +1884,14 @@ class ChempropModel:
                         )
                         df_out = pd.concat([df_out, row], ignore_index=True)
 
-                        # Log quality-specific metrics to MLflow
+                        # Collect quality-specific metrics for batch logging
                         safe_target = _sanitize_mlflow_metric_name(target)
                         mlflow_metric_name = f"{split_name}/{quality}/{safe_target}/{metric_name}"
-                        if self._mlflow_client is not None and self.mlflow_run_id is not None:
-                            try:
-                                self._mlflow_client.log_metric(
-                                    self.mlflow_run_id,
-                                    mlflow_metric_name,
-                                    float(metric_value),  # type: ignore[arg-type]
-                                )
-                            except Exception:
-                                pass
+                        quality_metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
+
+            # Log quality-specific metrics in batch
+            if quality_metrics_to_log and self._mlflow_client is not None and self.mlflow_run_id is not None:
+                self._log_metrics_with_retry(quality_metrics_to_log)
 
             # Log quality distribution
             quality_counts = {q: len(indices) for q, indices in quality_indices.items() if indices}
@@ -1945,20 +2049,76 @@ class ChempropModel:
         yaml_path.unlink(missing_ok=True)
         temp_dir.rmdir()
 
+        # Restore best model weights before logging to MLflow
+        # PyTorch Lightning's ModelCheckpoint saves best weights to disk but does NOT
+        # restore them to the model in memory after training. We must do this manually.
+        best_checkpoint_path = self._get_best_checkpoint_path()
+        if best_checkpoint_path is not None and self.mpnn is not None:
+            try:
+                logger.info("Restoring best model weights from checkpoint: %s", best_checkpoint_path)
+                checkpoint = torch.load(best_checkpoint_path, map_location="cpu", weights_only=False)
+                self.mpnn.load_state_dict(checkpoint["state_dict"])
+                logger.info("Successfully restored best model weights (val_loss at checkpoint)")
+            except Exception as e:
+                logger.warning("Failed to restore best model weights: %s. Using last epoch weights.", e)
+
         # Register the model with MLflow (run is already active from _init_mlflow)
         if completed and self.mpnn is not None:
+            # Ensure system metrics are disabled before log_model to prevent DB conflicts
+            try:
+                mlflow.disable_system_metrics_logging()
+            except Exception:
+                pass
+
+            import time
+
+            time.sleep(0.1)  # Let any pending metrics flush
+
             mlflow.pytorch.log_model(
                 self.mpnn,
                 artifact_path="model",
                 registered_model_name=None,  # Don't auto-register to model registry
             )
-            logger.debug("Registered PyTorch model with MLflow")
+            logger.debug("Registered PyTorch model with MLflow (using best checkpoint weights)")
+
+    def _get_best_checkpoint_path(self) -> Optional[Path]:
+        """
+        Get the path to the best model checkpoint.
+
+        Attempts to find the best checkpoint in multiple ways:
+        1. From the ModelCheckpoint callback's best_model_path attribute
+        2. From the checkpoint directory by finding best-*.ckpt files
+
+        Returns
+        -------
+        Optional[Path]
+            Path to the best checkpoint file, or None if not found.
+        """
+        # First, try to get from the ModelCheckpoint callback
+        if self.trainer is not None:
+            for callback in self.trainer.callbacks:
+                if isinstance(callback, ModelCheckpoint):
+                    if callback.best_model_path and Path(callback.best_model_path).exists():
+                        return Path(callback.best_model_path)
+
+        # Fallback: search checkpoint directory for best-*.ckpt files
+        checkpoint_dir = self.output_dir if self.output_dir is not None else self._checkpoint_temp_dir
+        if checkpoint_dir is not None and checkpoint_dir.exists():
+            best_checkpoints = list(checkpoint_dir.glob("best-*.ckpt"))
+            if best_checkpoints:
+                # Sort by modification time to get the most recent
+                best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                return best_checkpoints[0]
+
+        logger.warning("Could not find best checkpoint path")
+        return None
 
     def predict(
         self,
         df: pd.DataFrame,
         generate_plots: bool = False,
         split_name: str = "test",
+        log_metrics: bool = True,
     ) -> pd.DataFrame:
         """
         Generate predictions for a dataframe.
@@ -1973,6 +2133,9 @@ class ChempropModel:
             ground truth is available.
         split_name : str, default='test'
             Split name for labeling plots when generate_plots is True.
+        log_metrics : bool, default=True
+            Whether to log prediction metrics to MLflow. Set to False
+            when metrics will be logged separately (e.g., from _compute_split_metrics).
 
         Returns
         -------
@@ -2017,8 +2180,8 @@ class ChempropModel:
         all_preds_arr = np.vstack(all_preds)
         pred_df = pd.DataFrame(all_preds_arr, columns=[f"{t}" for t in self.target_cols])
 
-        # Log prediction metrics if ground truth is available and MLflow tracking is enabled
-        if self.mlflow_tracking and self._mlflow_logger is not None:
+        # Log prediction metrics if enabled, ground truth is available, and MLflow tracking is enabled
+        if log_metrics and self.mlflow_tracking and self._mlflow_logger is not None:
             self._log_prediction_metrics(df, pred_df, split=split_name)
 
         # Generate plots if requested and ground truth is available

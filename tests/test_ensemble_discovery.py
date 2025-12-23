@@ -1,13 +1,13 @@
 """
 Unit tests for ensemble discovery and utilities.
 
-Tests `discover_splits_folds` and `_flatten_dict` in `ChempropEnsemble`.
+Tests `discover_splits_folds` and `_flatten_dict` in `ModelEnsemble`.
 """
 
 from omegaconf import OmegaConf
 
 from admet.model.chemprop.config import EnsembleConfig
-from admet.model.chemprop.ensemble import ChempropEnsemble, SplitFoldInfo
+from admet.model.chemprop.ensemble import ModelEnsemble, SplitFoldInfo
 
 
 def make_split_fold_tree(tmp_path, splits=(0, 1), folds=(0, 1)):
@@ -35,7 +35,7 @@ def test_discover_splits_folds(tmp_path):
     # Disable MLflow tracking in unit tests to avoid starting runs
     cfg.mlflow.tracking = False
 
-    ensemble = ChempropEnsemble(cfg)
+    ensemble = ModelEnsemble(cfg)
     infos = ensemble.discover_splits_folds()
     assert isinstance(infos, list)
     assert all(isinstance(i, SplitFoldInfo) for i in infos)
@@ -46,7 +46,7 @@ def test_flatten_dict():
     cfg = {"a": {"b": {"c": 1}}, "x": 2}
     base = OmegaConf.structured(EnsembleConfig)
     base.mlflow.tracking = False
-    ensemble = ChempropEnsemble(base)
+    ensemble = ModelEnsemble(base)
     flat = ensemble._flatten_dict(cfg)
     # keys should be flattened
     assert "a.b.c" in flat

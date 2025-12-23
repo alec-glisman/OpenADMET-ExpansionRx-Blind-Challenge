@@ -260,7 +260,7 @@ def train_model(
 
     See Also
     --------
-    ChempropEnsemble : Train ensemble of models
+    ModelEnsemble : Train ensemble of models
     ChempropHPO : Hyperparameter optimization
     """
     ...

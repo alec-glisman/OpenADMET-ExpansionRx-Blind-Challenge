@@ -28,14 +28,16 @@ data:
   folds: null
 
 model:
-  depth: 3
-  message_hidden_dim: 700
-  num_layers: 4
-  hidden_dim: 200
-  dropout: 0.15
-  batch_norm: true
-  ffn_type: regression
-  aggregation: norm
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
+    ffn_type: regression
+    aggregation: norm
 
 optimization:
   criterion: MAE

@@ -27,16 +27,18 @@ data:
   - 1.0
   - 1.0
 model:
-  depth: 7
-  message_hidden_dim: 1100
-  aggregation: norm
-  ffn_type: branched
-  num_layers: 1
-  hidden_dim: 1100
-  trunk_n_layers: 1
-  trunk_hidden_dim: 400
-  dropout: 0.15
-  batch_norm: true
+  type: chemprop
+  chemprop:
+    depth: 7
+    message_hidden_dim: 1100
+    aggregation: norm
+    ffn_type: branched
+    num_layers: 1
+    hidden_dim: 1100
+    trunk_n_layers: 1
+    trunk_hidden_dim: 400
+    dropout: 0.15
+    batch_norm: true
 optimization:
   criterion: MAE
   init_lr: 0.000151

@@ -19,12 +19,15 @@ source .venv/bin/activate
 
 # 3. Install project with all dependencies
 uv pip install \
-    -e ".[dev,docs]" \
-    --extra-index-url https://download.pytorch.org/whl/cu130
+    -e ".[dev,docs]"
 
-# 4. Install pre-commit hooks
-pre-commit install
-pre-commit install --hook-type commit-msg
+
+# 4. Synchronize environment (if uv.lock is updated)
+uv sync --extra "dev" --extra "docs"
+
+# 5. Install pre-commit hooks
+uv run pre-commit install
+uv run pre-commit install --hook-type commit-msg
 ```
 
 ## Installation Options
