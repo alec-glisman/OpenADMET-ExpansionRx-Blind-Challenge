@@ -47,13 +47,16 @@ from omegaconf import DictConfig, OmegaConf
 
 from admet.model.chemprop.config import (
     ChempropConfig,
+    CurriculumConfig,
     DataConfig,
     EnsembleConfig,
     InterTaskAffinityConfig,
+    JointSamplingConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
     TaskAffinityConfig,
+    TaskOversamplingConfig,
 )
 from admet.model.chemprop.model import ChempropModel
 from admet.plot.latex import latex_sanitize
@@ -399,7 +402,30 @@ class ChempropEnsemble:
                 parent_run_id=None,  # Will be set by caller for ensemble runs
                 nested=False,  # Will be set by caller for ensemble runs
             ),
-            joint_sampling=self.config.joint_sampling,
+            joint_sampling=JointSamplingConfig(
+                enabled=self.config.joint_sampling.enabled,
+                task_oversampling=TaskOversamplingConfig(
+                    alpha=self.config.joint_sampling.task_oversampling.alpha,
+                ),
+                curriculum=CurriculumConfig(
+                    enabled=self.config.joint_sampling.curriculum.enabled,
+                    quality_col=self.config.joint_sampling.curriculum.quality_col,
+                    qualities=list(self.config.joint_sampling.curriculum.qualities),
+                    patience=self.config.joint_sampling.curriculum.patience,
+                    seed=self.config.joint_sampling.curriculum.seed,
+                    save_plots=self.config.joint_sampling.curriculum.save_plots,
+                    plot_dpi=self.config.joint_sampling.curriculum.plot_dpi,
+                    strategy=self.config.joint_sampling.curriculum.strategy,
+                    reset_early_stopping_on_phase_change=(
+                        self.config.joint_sampling.curriculum.reset_early_stopping_on_phase_change
+                    ),
+                    log_per_quality_metrics=(self.config.joint_sampling.curriculum.log_per_quality_metrics),
+                ),
+                num_samples=self.config.joint_sampling.num_samples,
+                seed=self.config.joint_sampling.seed,
+                increment_seed_per_epoch=self.config.joint_sampling.increment_seed_per_epoch,
+                log_to_mlflow=self.config.joint_sampling.log_to_mlflow,
+            ),
             task_affinity=TaskAffinityConfig(
                 enabled=self.config.task_affinity.enabled,
                 affinity_epochs=self.config.task_affinity.affinity_epochs,
