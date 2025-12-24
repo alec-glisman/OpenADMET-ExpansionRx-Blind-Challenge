@@ -2,16 +2,16 @@
 Joint sampler for combined task-aware and curriculum-aware sampling.
 
 This module provides a unified sampler that combines:
-1. Task-aware oversampling: Rebalances sampling across tasks with different
-   label counts using inverse-power weighting.
+1. Task-aware oversampling: Two-stage sampling that first picks a task according
+   to inverse-power probabilities, then samples a molecule with that task's label.
 2. Curriculum-aware sampling: Adjusts sampling based on data quality labels
    that change with curriculum phase progression.
 
-The two strategies are combined via multiplicative weight composition:
-    w_joint[i] = w_task[i] × w_quality[i]
+The two strategies are combined via two-stage sampling with curriculum weighting:
+1. Sample task t according to task probabilities: p_t ∝ count_t^(-α)
+2. Sample molecule from task t's molecules, weighted by curriculum: p_i ∝ w_curriculum[i]
 
-For multi-task samples, the "primary" task (used for weight computation)
-is the rarest task among those the sample has labels for.
+This preserves the original TaskAwareSampler behavior when curriculum is disabled.
 
 Examples
 --------
@@ -51,14 +51,13 @@ class JointSampler(Sampler[int]):
     """
     Unified sampler combining task-aware oversampling and curriculum learning.
 
-    Computes joint sampling weights via multiplicative composition of:
-    1. Task weights: w_task[i] ∝ (count[primary_task[i]])^(-α)
-    2. Curriculum weights: w_curriculum[i] from CurriculumState
+    Uses two-stage sampling that preserves the original TaskAwareSampler behavior:
+    1. Sample task t with probability p_t ∝ count_t^(-α)
+    2. Sample molecule from task t's valid molecules, weighted by curriculum
 
-    Final weight: w_joint[i] = w_task[i] × w_curriculum[i]
-
-    For samples with multiple task labels, the "primary task" is the rarest
-    task (smallest label count) among those the sample has labels for.
+    When curriculum is disabled, this reduces to uniform sampling within each
+    task (identical to TaskAwareSampler). When task_alpha=0, all tasks are
+    equally likely and curriculum weights control within-task sampling.
 
     Parameters
     ----------
@@ -91,6 +90,10 @@ class JointSampler(Sampler[int]):
         Current epoch counter for seed incrementing.
     _last_phase : str | None
         Last observed curriculum phase for logging changes.
+    task_indices : list[np.ndarray]
+        Valid molecule indices for each task.
+    task_probs : np.ndarray
+        Sampling probability for each task.
 
     Examples
     --------
@@ -152,12 +155,22 @@ class JointSampler(Sampler[int]):
                 task_alpha,
             )
 
-        # Precompute task information
+        # Precompute task information (like original TaskAwareSampler)
         self.num_tasks = targets.shape[1]
-        self.task_counts = np.sum(~np.isnan(targets), axis=0).astype(float)
+        self.task_indices: list[np.ndarray] = []
+        task_counts = []
 
-        # Precompute primary task for each sample (rarest task)
-        self._primary_tasks = self._compute_primary_tasks()
+        for t in range(self.num_tasks):
+            valid_mask = ~np.isnan(targets[:, t])
+            indices = np.where(valid_mask)[0]
+            self.task_indices.append(indices)
+            task_counts.append(len(indices))
+
+        self.task_counts = np.array(task_counts, dtype=float)
+
+        # Calculate task sampling probabilities: p_t ∝ count_t^(-α)
+        weights = np.power(self.task_counts + 1e-6, -self.task_alpha)
+        self.task_probs = weights / np.sum(weights)
 
         logger.info(
             "JointSampler initialized: task_alpha=%.2f, curriculum=%s, " "increment_seed=%s, num_samples=%d",
@@ -167,59 +180,7 @@ class JointSampler(Sampler[int]):
             self._num_samples,
         )
         logger.info("Task counts: %s", self.task_counts)
-
-    def _compute_primary_tasks(self) -> np.ndarray:
-        """
-        Compute primary task (rarest) for each sample.
-
-        For samples with multiple task labels, selects the task with the
-        smallest label count. This ensures rare tasks influence sampling.
-
-        Returns
-        -------
-        np.ndarray
-            Array of shape (N,) containing primary task index for each sample.
-        """
-        primary_tasks = np.zeros(len(self.targets), dtype=int)
-
-        for i in range(len(self.targets)):
-            valid_tasks = ~np.isnan(self.targets[i])
-            if not valid_tasks.any():
-                # No valid tasks for this sample - use first task as fallback
-                primary_tasks[i] = 0
-                continue
-
-            # Select task with minimum count among valid tasks
-            valid_counts = self.task_counts.copy()
-            valid_counts[~valid_tasks] = np.inf
-            primary_tasks[i] = np.argmin(valid_counts)
-
-        return primary_tasks
-
-    def _compute_task_weights(self) -> np.ndarray:
-        """
-        Compute task-aware weights using inverse-power scheduling.
-
-        Returns per-sample weights based on the primary task label count:
-            w_task[i] ∝ (count[primary_task[i]])^(-α)
-
-        Returns
-        -------
-        np.ndarray
-            Unnormalized task weights of shape (N,).
-        """
-        if self.task_alpha == 0.0:
-            # Uniform task weighting
-            return np.ones(len(self.targets), dtype=np.float64)
-
-        # Get count for each sample's primary task
-        sample_task_counts = self.task_counts[self._primary_tasks]
-
-        # Compute weights: w ∝ count^(-α)
-        # Add epsilon to avoid division by zero
-        weights = np.power(sample_task_counts + 1e-6, -self.task_alpha)
-
-        return weights
+        logger.info("Task probabilities: %s", np.round(self.task_probs, 4))
 
     def _compute_curriculum_weights(self) -> np.ndarray:
         """
@@ -253,75 +214,88 @@ class JointSampler(Sampler[int]):
 
         return weights
 
-    def _compute_joint_weights(self) -> np.ndarray:
+    def _sample_from_task(
+        self,
+        task_idx: int,
+        curriculum_weights: np.ndarray,
+        rng: np.random.Generator,
+    ) -> int:
         """
-        Compute joint sampling weights via multiplicative composition.
+        Sample a molecule from the given task's valid indices.
 
-        Combines task and curriculum weights:
-            w_joint[i] = w_task[i] × w_curriculum[i]
-
-        Then normalizes to valid probability distribution.
+        Parameters
+        ----------
+        task_idx : int
+            Task index to sample from.
+        curriculum_weights : np.ndarray
+            Curriculum weights for all samples.
+        rng : np.random.Generator
+            Random number generator.
 
         Returns
         -------
-        np.ndarray
-            Normalized joint weights of shape (N,) summing to 1.
+        int
+            Sampled molecule index.
         """
-        task_weights = self._compute_task_weights()
-        curriculum_weights = self._compute_curriculum_weights()
+        valid_indices = self.task_indices[task_idx]
 
-        # Multiplicative composition
-        joint_weights = task_weights * curriculum_weights
+        if len(valid_indices) == 0:
+            # Fallback: sample uniformly from all samples
+            return rng.integers(0, len(self.targets))
 
-        # Normalize to probability distribution
-        total = joint_weights.sum()
+        # Get curriculum weights for valid indices
+        task_curriculum_weights = curriculum_weights[valid_indices]
+
+        # Normalize weights within this task
+        total = task_curriculum_weights.sum()
         if total == 0:
-            logger.warning("All joint weights are zero. Using uniform sampling.")
-            joint_weights = np.ones(len(self.targets), dtype=np.float64)
-            total = len(self.targets)
+            # Uniform sampling within task
+            probs = np.ones(len(valid_indices)) / len(valid_indices)
+        else:
+            probs = task_curriculum_weights / total
 
-        return joint_weights / total
+        # Sample molecule index within task
+        local_idx = rng.choice(len(valid_indices), p=probs)
+        return valid_indices[local_idx]
 
-    def _log_weight_statistics(self, weights: np.ndarray) -> None:
-        """Log weight distribution statistics for monitoring."""
+    def _log_weight_statistics(self, task_probs: np.ndarray) -> None:
+        """Log task probability distribution statistics for monitoring."""
         if not self.log_weight_stats:
             return
 
         # Basic statistics
-        min_weight = weights.min()
-        max_weight = weights.max()
-        mean_weight = weights.mean()
+        min_prob = task_probs.min()
+        max_prob = task_probs.max()
 
         # Entropy (measure of uniformity)
-        # H = -sum(p * log(p))
         eps = 1e-10
-        entropy = -np.sum(weights * np.log(weights + eps))
+        entropy = -np.sum(task_probs * np.log(task_probs + eps))
 
-        # Effective number of samples (inverse of sum of squared weights)
-        # Higher = more uniform, lower = more concentrated
-        effective_samples = 1.0 / np.sum(weights**2)
+        # Effective number of tasks (inverse of sum of squared probs)
+        effective_tasks = 1.0 / np.sum(task_probs**2)
 
         logger.info(
-            "Weight stats: min=%.6f, max=%.6f, mean=%.6f, " "entropy=%.3f, effective_samples=%.1f",
-            min_weight,
-            max_weight,
-            mean_weight,
+            "Task sampling stats: min_prob=%.6f, max_prob=%.6f, " "entropy=%.3f, effective_tasks=%.1f",
+            min_prob,
+            max_prob,
             entropy,
-            effective_samples,
+            effective_tasks,
         )
 
     def __iter__(self) -> Iterator[int]:
         """
-        Generate sample indices based on joint weights.
+        Generate sample indices using two-stage sampling.
 
-        Computes joint weights on each iteration to capture curriculum
-        phase transitions. Uses epoch-specific seed if increment_seed_per_epoch
-        is enabled.
+        Stage 1: Sample task t with probability p_t ∝ count_t^(-α)
+        Stage 2: Sample molecule from task t's valid indices, weighted by curriculum
+
+        This preserves the original TaskAwareSampler behavior while integrating
+        curriculum learning.
 
         Yields
         ------
         int
-            Sample indices drawn according to joint weights.
+            Sample indices drawn according to two-stage sampling.
         """
         # Log phase changes
         if self.curriculum_state is not None:
@@ -334,9 +308,11 @@ class JointSampler(Sampler[int]):
                 )
             self._last_phase = current_phase
 
-        # Compute current joint weights
-        weights = self._compute_joint_weights()
-        self._log_weight_statistics(weights)
+        # Get curriculum weights (recomputed each epoch for phase transitions)
+        curriculum_weights = self._compute_curriculum_weights()
+
+        # Log statistics
+        self._log_weight_statistics(self.task_probs)
 
         # Determine seed for this epoch
         if self.increment_seed_per_epoch:
@@ -345,16 +321,19 @@ class JointSampler(Sampler[int]):
         else:
             epoch_seed = self.seed
 
-        # Sample indices according to weights
         rng = np.random.default_rng(epoch_seed)
-        indices = rng.choice(
-            len(self.targets),
-            size=self._num_samples,
-            replace=True,
-            p=weights,
-        )
 
-        return iter(indices.tolist())
+        # Two-stage sampling
+        indices: list[int] = []
+        for _ in range(self._num_samples):
+            # Stage 1: Sample task according to task probabilities
+            task_idx = rng.choice(self.num_tasks, p=self.task_probs)
+
+            # Stage 2: Sample molecule from task, weighted by curriculum
+            mol_idx = self._sample_from_task(task_idx, curriculum_weights, rng)
+            indices.append(mol_idx)
+
+        return iter(indices)
 
     def __len__(self) -> int:
         """Return number of samples per epoch."""
