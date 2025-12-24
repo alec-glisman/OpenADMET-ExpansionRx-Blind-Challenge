@@ -71,10 +71,7 @@ from admet.model.chemprop.config import (
     TaskAffinityConfig,
 )
 from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
-from admet.model.chemprop.curriculum_sampler import (
-    DynamicCurriculumSampler,
-    get_quality_indices,
-)
+from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
@@ -1538,10 +1535,7 @@ class ChempropModel:
             import json
             import tempfile
 
-            from admet.model.chemprop.task_affinity import (
-                affinity_matrix_to_dataframe,
-                plot_task_affinity_heatmap,
-            )
+            from admet.model.chemprop.task_affinity import affinity_matrix_to_dataframe, plot_task_affinity_heatmap
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir_path = Path(tmpdir)
@@ -1656,16 +1650,15 @@ class ChempropModel:
 
             # Note: We do not log 'last.ckpt' to save space and only keep the best model.
 
-        # Save hyperparameters as YAML artifact
-        import yaml  # type: ignore[import]
-
+        # Save full configuration as YAML artifact
         temp_dir = Path(tempfile.mkdtemp())
         yaml_path = temp_dir / "hyperparameters.yaml"
-        params = asdict(self.hyperparams)
-        params["smiles_col"] = self.smiles_col
-        params["target_cols"] = self.target_cols
+
+        # Export full config using to_config() method and convert to YAML-serializable dict
+        full_config = self.to_config()
+        config_dict = OmegaConf.to_container(OmegaConf.structured(full_config), resolve=True)
         with open(yaml_path, "w") as f:
-            yaml.dump(params, f, default_flow_style=False)
+            OmegaConf.save(config=config_dict, f=f)
         self._mlflow_client.log_artifact(self.mlflow_run_id, str(yaml_path), artifact_path="config")
         yaml_path.unlink(missing_ok=True)
         temp_dir.rmdir()

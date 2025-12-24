@@ -224,7 +224,33 @@ class ChempropEnsemble:
             if value is not None:
                 mlflow.log_param(f"data.{key}", value)
 
+        # Log full config as YAML artifact
+        self._log_config_artifact()
+
         logger.info("Started MLflow parent run: %s", self.parent_run_id)
+
+    def _log_config_artifact(self) -> None:
+        """Log the full ensemble configuration as a YAML artifact."""
+        if self._mlflow_client is None or self.parent_run_id is None:
+            return
+
+        # Create temp directory for config file
+        temp_dir = Path(tempfile.mkdtemp())
+        yaml_path = temp_dir / "hyperparameters.yaml"
+
+        # Convert config to YAML-serializable dict and save
+        config_dict = OmegaConf.to_container(self.config, resolve=True)
+        with open(yaml_path, "w") as f:
+            OmegaConf.save(config=config_dict, f=f)
+
+        # Log as artifact
+        self._mlflow_client.log_artifact(self.parent_run_id, str(yaml_path), artifact_path="config")
+
+        # Cleanup
+        yaml_path.unlink(missing_ok=True)
+        temp_dir.rmdir()
+
+        logger.debug("Logged config artifact to MLflow")
 
     def _flatten_dict(
         self, d: Dict[str, Any], parent_key: str = "", sep: str = ".", max_depth: int = 3
