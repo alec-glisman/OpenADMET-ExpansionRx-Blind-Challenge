@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import lightning.pytorch as pl
 import mlflow
 import numpy as np
 import pandas as pd
@@ -467,6 +468,10 @@ class ChempropEnsemble:
             Maximum number of models to train in parallel.
             Overrides config.ray.max_parallel if provided.
         """
+        # Seed everything in parent process for reproducibility
+        pl.seed_everything(self.config.optimization.seed, workers=True)
+        logger.info("Seeded parent process with seed=%d for reproducibility", self.config.optimization.seed)
+
         max_parallel = max_parallel or self.config.ray.max_parallel
 
         if not self.split_fold_infos:
@@ -521,6 +526,9 @@ class ChempropEnsemble:
             OmegaConf.resolve(config)
 
             model_key = f"split_{split_idx}_fold_{fold_idx}"
+
+            # Seed everything in worker process for reproducibility
+            pl.seed_everything(config.optimization.seed, workers=True)
 
             # Debug: Log key config values to verify they match YAML
             import logging

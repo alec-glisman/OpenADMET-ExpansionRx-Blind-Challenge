@@ -1219,6 +1219,10 @@ class ChempropModel:
         bool
             True if training completed normally, False if interrupted.
         """
+        # Seed everything for reproducibility
+        pl.seed_everything(self.hyperparams.seed, workers=True)
+        logger.info("Seeded all RNGs with seed=%d for reproducibility", self.hyperparams.seed)
+
         # Compute task affinity before preparing model (if enabled)
         self._compute_task_affinity()
 

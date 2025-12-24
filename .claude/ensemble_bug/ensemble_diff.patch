@@ -3,7 +3,7 @@ index 17ba821..0f564b5 100644
 --- a/src/admet/model/chemprop/ensemble.py
 +++ b/src/admet/model/chemprop/ensemble.py
 @@ -47,7 +47,6 @@ from omegaconf import DictConfig, OmegaConf
- 
+
  from admet.model.chemprop.config import (
      ChempropConfig,
 -    CurriculumConfig,
@@ -42,11 +42,11 @@ index 17ba821..0f564b5 100644
          """
 -        max_parallel = max_parallel or self.config.max_parallel
 +        max_parallel = max_parallel or self.config.ray.max_parallel
- 
+
          if not self.split_fold_infos:
              self.discover_splits_folds()
 @@ -462,10 +454,10 @@ class ChempropEnsemble:
- 
+
          # Initialize Ray
          ray_kwargs: Dict[str, Any] = {}
 -        if self.config.ray_num_cpus is not None:
@@ -57,7 +57,7 @@ index 17ba821..0f564b5 100644
 +            ray_kwargs["num_cpus"] = self.config.ray.num_cpus
 +        if self.config.ray.num_gpus is not None:
 +            ray_kwargs["num_gpus"] = self.config.ray.num_gpus
- 
+
          if not ray.is_initialized():
              ray.init(**ray_kwargs, ignore_reinit_error=True)
 @@ -510,14 +502,14 @@ class ChempropEnsemble:
@@ -75,7 +75,7 @@ index 17ba821..0f564b5 100644
 -                config.optimization.task_sampling_alpha,
 +                config.joint_sampling.enabled if config.joint_sampling else False,
              )
- 
+
              # Configure model to create a nested MLflow run
 @@ -1310,7 +1302,10 @@ Configuration file should have the structure:
    model: {...}

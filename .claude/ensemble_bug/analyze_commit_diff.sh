@@ -1,8 +1,8 @@
 #!/bin/bash
-# 
+#
 # Quick Commit Diff Analyzer
 # ==========================
-# 
+#
 # This script extracts and analyzes the exact changes between
 # the good and bad commits.
 #
@@ -51,17 +51,17 @@ if git diff $GOOD_COMMIT $BAD_COMMIT -- src/admet/model/chemprop/ensemble.py > "
         echo "  ------------"
         cat "$OUTPUT_DIR/ensemble_diff.patch"
         echo ""
-        
+
         # Extract just the _aggregate_predictions changes
         echo "  [3a] Extracting _aggregate_predictions changes..."
         git show $GOOD_COMMIT:src/admet/model/chemprop/ensemble.py | \
             sed -n '/def _aggregate_predictions/,/^    def /p' | head -n -1 \
             > "$OUTPUT_DIR/aggregate_predictions_good.py"
-        
+
         git show $BAD_COMMIT:src/admet/model/chemprop/ensemble.py | \
             sed -n '/def _aggregate_predictions/,/^    def /p' | head -n -1 \
             > "$OUTPUT_DIR/aggregate_predictions_bad.py"
-        
+
         echo "  → Saved to aggregate_predictions_good.py and aggregate_predictions_bad.py"
         echo ""
         echo "  Diff of _aggregate_predictions:"
@@ -81,7 +81,7 @@ for file in \
     "src/admet/model/base.py" \
     "src/admet/data/smiles.py" \
     "configs/2-hpo-ensemble/ensemble_chemprop_hpo_001.yaml"; do
-    
+
     if git diff $GOOD_COMMIT $BAD_COMMIT -- "$file" > "$OUTPUT_DIR/$(basename $file).diff" 2>/dev/null; then
         DIFF_SIZE=$(wc -l < "$OUTPUT_DIR/$(basename $file).diff")
         if [ $DIFF_SIZE -gt 0 ]; then

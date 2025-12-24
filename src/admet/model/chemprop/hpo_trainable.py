@@ -260,6 +260,10 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         report_every_n_epochs = 5
     seed = config.get("seed", 42)
 
+    # Seed everything for reproducibility before any other operations
+    pl.seed_everything(seed, workers=True)
+    logger.info("Seeded HPO trial with seed=%d for reproducibility", seed)
+
     # Load data
     df_train = pd.read_csv(data_path)
     df_val = pd.read_csv(val_data_path) if val_data_path else None

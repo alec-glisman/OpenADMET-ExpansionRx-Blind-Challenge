@@ -36,7 +36,7 @@ cat /tmp/ensemble_bug_analysis/ensemble_diff.patch
 
 **Look for changes in**:
 - `_aggregate_predictions` method
-- `_save_ensemble_predictions` method  
+- `_save_ensemble_predictions` method
 - Array operations with `np.mean`, `np.power`
 - Column naming (`pred_col = target`)
 - Log transformation order
@@ -271,7 +271,7 @@ If stuck, check:
 ## Time Estimates
 
 - **Investigation**: 30 min - 1 hour
-- **Fix implementation**: 30 min - 1 hour  
+- **Fix implementation**: 30 min - 1 hour
 - **Testing (full ensemble)**: 1 hour (automated)
 - **Re-integration**: 2-4 hours
 - **Total**: ~6-8 hours (including wait times)

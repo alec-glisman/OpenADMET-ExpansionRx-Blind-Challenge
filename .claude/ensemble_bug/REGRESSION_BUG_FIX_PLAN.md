@@ -122,7 +122,7 @@ def _aggregate_predictions(self, predictions_list: List[pd.DataFrame], split_nam
 
 **Potential Issues to Check**:
 
-1. **Transformation Order Bug**: 
+1. **Transformation Order Bug**:
    - CORRECT: `mean(log_values)` then `10^mean` → geometric mean
    - WRONG: `mean(10^log_values)` → arithmetic mean of non-log values
    - This would explain consistent performance degradation across metrics
@@ -198,15 +198,15 @@ bad_run_id = "e26ac60be8b948bab4482c7589e856bb"
 def compare_runs(run_id_1, run_id_2, label_1="Good", label_2="Bad"):
     run1 = client.get_run(run_id_1)
     run2 = client.get_run(run_id_2)
-    
+
     print(f"\n{'='*80}")
     print(f"COMPARING: {label_1} vs {label_2}")
     print(f"{'='*80}\n")
-    
+
     # Compare parameters
     params1 = run1.data.params
     params2 = run2.data.params
-    
+
     print("PARAMETER DIFFERENCES:")
     all_params = set(params1.keys()) | set(params2.keys())
     for param in sorted(all_params):
@@ -216,14 +216,14 @@ def compare_runs(run_id_1, run_id_2, label_1="Good", label_2="Bad"):
             print(f"  {param}:")
             print(f"    {label_1}: {val1}")
             print(f"    {label_2}: {val2}")
-    
+
     # Compare metrics
     metrics1 = run1.data.metrics
     metrics2 = run2.data.metrics
-    
+
     print("\n\nKEY METRIC COMPARISONS:")
     key_metrics = [k for k in metrics1.keys() if any(x in k for x in ['r2', 'mae', 'rmse', 'mean'])]
-    
+
     metric_df = []
     for metric in sorted(key_metrics):
         if metric in metrics1 and metric in metrics2:
@@ -238,10 +238,10 @@ def compare_runs(run_id_1, run_id_2, label_1="Good", label_2="Bad"):
                 'diff': diff,
                 'pct_change': pct_change
             })
-    
+
     df = pd.DataFrame(metric_df)
     print(df.to_string(index=False))
-    
+
     # Identify biggest degradations
     print("\n\nBIGGEST DEGRADATIONS:")
     worst = df.nsmallest(10, 'diff')
@@ -322,23 +322,23 @@ from admet.model.chemprop.ensemble import ModelEnsemble
 
 def test_log_transform_aggregation():
     """Ensure log-scale predictions aggregate correctly."""
-    
+
     # Simulate 3 models predicting for 1 molecule on "Log KSOL"
     # In log space: [-1.0, -1.5, -1.2] → mean = -1.233
     # Transform: 10^(-1.233) = 0.0585
-    
+
     pred1 = pd.DataFrame({'SMILES': ['CCO'], 'Log KSOL': [-1.0]})
     pred2 = pd.DataFrame({'SMILES': ['CCO'], 'Log KSOL': [-1.5]})
     pred3 = pd.DataFrame({'SMILES': ['CCO'], 'Log KSOL': [-1.2]})
-    
+
     # Mock ensemble
     # ... aggregate predictions ...
-    
+
     # Expected: mean in log space = -1.233
     # Expected: 10^(-1.233) ≈ 0.0585
     expected_log_mean = np.mean([-1.0, -1.5, -1.2])
     expected_transformed = np.power(10, expected_log_mean)
-    
+
     # Assert aggregation is correct
     assert np.isclose(result['Log KSOL_mean'].values[0], expected_log_mean, rtol=1e-5)
     assert np.isclose(result['Log KSOL_transformed_mean'].values[0], expected_transformed, rtol=1e-5)
@@ -385,10 +385,10 @@ git log temp-new-features --oneline | tac > /tmp/commits_to_apply.txt
 while read commit_hash commit_message; do
     echo "Applying: $commit_message"
     git cherry-pick $commit_hash
-    
+
     # Test
     pytest tests/ -k "not mlflow"  # Quick smoke test
-    
+
     # If failure, investigate
     if [ $? -ne 0 ]; then
         echo "FAILED at $commit_hash: $commit_message"
@@ -431,7 +431,7 @@ import pandas as pd
 def test_ensemble_aggregation_golden_values():
     """
     Golden test: Ensure aggregation produces expected values.
-    
+
     This test locks in the correct behavior observed in commit 0d41199f.
     If this test fails, ensemble aggregation logic has regressed.
     """
@@ -453,25 +453,25 @@ def test_ensemble_aggregation_golden_values():
             'Log KSOL': [-1.9, -1.4]
         }),
     ]
-    
+
     # Expected behavior:
     # LogD (no "Log " prefix with space): mean directly
     expected_logd_mean = np.array([
         np.mean([1.5, 1.6, 1.4]),  # CCO
         np.mean([2.0, 1.9, 2.1])   # CCN
     ])
-    
+
     # Log KSOL (has "Log " prefix): mean in log space, then transform
     log_ksol_log_means = np.array([
         np.mean([-2.0, -2.1, -1.9]),  # CCO: -2.0
         np.mean([-1.5, -1.6, -1.4])   # CCN: -1.5
     ])
     expected_log_ksol_transformed = np.power(10, log_ksol_log_means)
-    
+
     # Use actual ensemble aggregation
     # ensemble = ModelEnsemble.from_config(mock_config)
     # result = ensemble._aggregate_predictions(predictions, "test")
-    
+
     # Assert golden values (adjust based on actual implementation)
     # np.testing.assert_allclose(result['LogD_mean'], expected_logd_mean, rtol=1e-6)
     # np.testing.assert_allclose(
@@ -500,7 +500,7 @@ import pytest
 def test_ensemble_performance_baseline():
     """
     Benchmark test: Ensure ensemble achieves minimum performance threshold.
-    
+
     Based on commit 0d41199f performance:
     - Mean R² across endpoints: >= 0.50
     - Mean MAE: <= 0.65
@@ -509,11 +509,11 @@ def test_ensemble_performance_baseline():
     # config = load_config("configs/2-hpo-ensemble/ensemble_chemprop_hpo_001.yaml")
     # ensemble = ModelEnsemble.from_config(config)
     # ensemble.train_all()
-    
+
     # Extract metrics from MLflow
     # mean_r2 = get_mlflow_metric(ensemble.parent_run_id, "test/mean_r2")
     # mean_mae = get_mlflow_metric(ensemble.parent_run_id, "test/mean_mae")
-    
+
     # assert mean_r2 >= 0.50, f"R² degraded: {mean_r2} < 0.50"
     # assert mean_mae <= 0.65, f"MAE degraded: {mean_mae} > 0.65"
 ```
