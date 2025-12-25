@@ -129,7 +129,7 @@ class OptimizationConfig:
         Training batch size.
     num_workers : int, default=0
         Number of data loader workers.
-    seed : int, default=12345
+    seed : int, default=42
         Random seed for reproducibility.
     progress_bar : bool, default=False
         Whether to show training progress bar.
@@ -144,7 +144,7 @@ class OptimizationConfig:
     max_epochs: int = 150
     batch_size: int = 32
     num_workers: int = 0
-    seed: int = 12345
+    seed: int = 42
     progress_bar: bool = False
 
 

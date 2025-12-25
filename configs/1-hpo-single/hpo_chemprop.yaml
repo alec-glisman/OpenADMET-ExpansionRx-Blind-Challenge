@@ -25,7 +25,7 @@ target_weights:
 - 1.0
 - 1.0
 - 1.0
-seed: 12345
+seed: 42
 search_space:
   learning_rate:
     type: loguniform
@@ -218,7 +218,7 @@ joint_sampling:
     strategy: sampled
     reset_early_stopping_on_phase_change: false
     log_per_quality_metrics: true
-    seed: 12345
+    seed: 42
   num_samples: null
   seed: 42
   increment_seed_per_epoch: true

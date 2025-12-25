@@ -273,7 +273,7 @@ class ChempropHyperparams:
         Batch size for training.
     num_workers : int, default=0
         Number of data loading workers.
-    seed : int, default=12345
+    seed : int, default=42
         Random seed for reproducibility.
     depth : int, default=3
         Number of message passing iterations.
@@ -310,7 +310,7 @@ class ChempropHyperparams:
     max_epochs: int = 150
     batch_size: int = 32
     num_workers: int = 0
-    seed: int = 12345
+    seed: int = 42
 
     # Message passing
     depth: int = 5

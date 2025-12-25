@@ -46,7 +46,7 @@ optimization:
   patience: 2
   batch_size: 128
   num_workers: 0
-  seed: 12345
+  seed: 42
   progress_bar: true
 mlflow:
   tracking: true
