@@ -155,7 +155,7 @@ class TestOptimizationConfig:
         assert config.patience == 15
         assert config.max_epochs == 150
         assert config.batch_size == 32
-        assert config.seed == 12345
+        assert config.seed == 42
 
     def test_custom_learning_rates(self) -> None:
         """Test custom learning rate schedule."""
