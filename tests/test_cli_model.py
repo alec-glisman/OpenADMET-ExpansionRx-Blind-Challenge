@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import importlib
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
 
-def test_model_train_invokes_module(monkeypatch):
+def test_model_train_invokes_module(monkeypatch, tmp_path):
     called = {}
 
     def fake_main():
@@ -18,11 +20,15 @@ def test_model_train_invokes_module(monkeypatch):
 
     monkeypatch.setattr(importlib, "import_module", lambda name: fake_module)
 
+    # Create a temporary config file with minimal valid config
+    config_file = tmp_path / "test_config.yaml"
+    config_file.write_text("model:\n  type: chemprop\n")
+
     runner = CliRunner()
     # Create a temp Typer app and register our command
     from admet.cli.model import model_app
 
-    result = runner.invoke(model_app, ["train", "--config", "configs/foo.yaml"])
+    result = runner.invoke(model_app, ["train", "--config", str(config_file)])
 
     assert result.exit_code == 0
     assert called.get("ran", False) is True
