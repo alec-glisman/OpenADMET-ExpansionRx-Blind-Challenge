@@ -42,25 +42,28 @@ Example ``configs/0-experiment/chemprop.yaml``:
        - "Log MBPB"
        - "Log MGMB"
      target_weights:
-       - 0.5
-       - 2.0
-       - 3.0
-       - 3.0
-       - 3.0
-       - 2.0
-       - 2.0
-       - 3.0
-       - 4.0
+       - 1.031
+       - 1.0
+       - 1.2252
+       - 1.1368
+       - 2.1227
+       - 2.1174
+       - 3.7877
+       - 5.2722
+       - 10.0
 
-   # Model architecture
+   # Model configuration (unified format)
    model:
-     depth: 5                  # Message passing iterations
-     message_hidden_dim: 600   # MPNN hidden dimension
-     num_layers: 2             # FFN layers
-     hidden_dim: 600           # FFN hidden dimension
-     dropout: 0.1
-     batch_norm: true
-     ffn_type: "regression"    # or "mixture_of_experts", "branched"
+     type: chemprop              # Model type: chemprop, chemeleon, xgboost, lightgbm, catboost
+     chemprop:                   # Model-specific parameters
+       depth: 5                  # Message passing iterations
+       message_hidden_dim: 600   # MPNN hidden dimension
+       num_layers: 2             # FFN layers
+       hidden_dim: 600           # FFN hidden dimension
+       dropout: 0.1
+       batch_norm: true
+       ffn_type: regression      # regression, mixture_of_experts, branched
+       aggregation: mean
 
    # Optimization settings
    optimization:
@@ -80,10 +83,42 @@ Example ``configs/0-experiment/chemprop.yaml``:
      tracking_uri: "http://127.0.0.1:8084"
      experiment_name: "chemprop_single"
 
+Supported Model Types
+---------------------
+
+The unified configuration supports multiple model types via ``model.type``:
+
+**PyTorch Models** (support JointSampling):
+
+- ``chemprop``: Message-passing neural network
+- ``chemeleon``: Pretrained foundation model with fine-tuning
+
+**Classical Models** (fingerprint-based, no JointSampling):
+
+- ``xgboost``: XGBoost gradient boosting
+- ``lightgbm``: LightGBM gradient boosting
+- ``catboost``: CatBoost gradient boosting
+
+Example for classical model (XGBoost):
+
+.. code-block:: yaml
+
+   model:
+     type: xgboost
+     fingerprint:
+       type: morgan
+       morgan:
+         radius: 2
+         n_bits: 2048
+     xgboost:
+       n_estimators: 500
+       max_depth: 8
+       learning_rate: 0.05
+
 Ensemble Configuration
 ----------------------
 
-Example ``configs/0-experiment/ensemble_chemprop_production.yaml``:
+Example ``configs/4-more-models/chemprop.yaml``:
 
 .. code-block:: yaml
 
@@ -95,7 +130,29 @@ Example ``configs/0-experiment/ensemble_chemprop_production.yaml``:
      splits: null    # null = use all, or [0, 1, 2]
      folds: null     # null = use all, or [0, 1, 2, 3, 4]
 
-   # Model and optimization same as single config...
+   # Model configuration (unified format)
+   model:
+     type: chemprop
+     chemprop:
+       depth: 3
+       message_hidden_dim: 700
+       aggregation: norm
+       ffn_type: regression
+       num_layers: 4
+       hidden_dim: 200
+       dropout: 0.15
+       batch_norm: true
+
+   # Optimization
+   optimization:
+     criterion: MAE
+     init_lr: 0.00113
+     max_lr: 0.000227
+     final_lr: 0.000113
+     warmup_epochs: 5
+     max_epochs: 150
+     patience: 15
+     batch_size: 128
 
    mlflow:
      tracking: true
@@ -104,7 +161,7 @@ Example ``configs/0-experiment/ensemble_chemprop_production.yaml``:
 
    # Ray parallelization settings
    ray:
-     max_parallel: 4    # Models trained concurrently
+     max_parallel: 5    # Models trained concurrently
      num_cpus: null     # null = use all available
      num_gpus: null     # null = auto-detect
 
@@ -112,9 +169,9 @@ Example ``configs/0-experiment/ensemble_chemprop_production.yaml``:
    joint_sampling:
      enabled: true
      task_oversampling:
-       alpha: 0.5       # Balance factor for task-aware sampling
+       alpha: 0.02      # Balance factor for task-aware sampling
      curriculum:
-       enabled: true
+       enabled: false
        quality_col: "Quality"
        qualities: ["high", "medium", "low"]
        patience: 5
@@ -127,20 +184,22 @@ Programmatic Loading
 .. code-block:: python
 
    from omegaconf import OmegaConf
-   from admet.model.chemprop import ChempropConfig, ChempropModel
+   from admet.model.config import UnifiedModelConfig
+   from admet.model.registry import create_model_from_config
 
    # Load and merge configuration
    config = OmegaConf.merge(
-       OmegaConf.structured(ChempropConfig),
-       OmegaConf.load("configs/0-experiment/chemprop.yaml")
+       OmegaConf.structured(UnifiedModelConfig),
+       OmegaConf.load("configs/4-more-models/chemprop.yaml")
    )
 
-   # Access nested settings
-   print(config.model.ffn_type)      # "regression"
-   print(config.optimization.max_lr)  # 0.001
+   # Access nested settings (unified format)
+   print(config.model.type)              # "chemprop"
+   print(config.model.chemprop.depth)    # 3
+   print(config.optimization.max_lr)     # 0.000227
 
-   # Create model from config
-   model = ChempropModel.from_config(config)
+   # Create model from config (automatic type detection)
+   model = create_model_from_config(config)
 
 Ray Parallelization Configuration
 ---------------------------------

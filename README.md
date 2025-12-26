@@ -150,13 +150,42 @@ flowchart LR
 
 > **Note:** Both Chemprop and CheMeleon support all three FFN architectures (MLP, MoE, Branched).
 
-### Planned
+### Classical Models
 
 | Model | Architecture | Status |
 | ------- | -------------- | -------- |
-| XGBoost | Gradient boosting | Future |
-| LightGBM | Gradient boosting | Future |
-| ChemBERTa-3 | Transformer | Future |
+| **XGBoost** | Gradient boosting on fingerprints | Implemented |
+| **LightGBM** | Gradient boosting on fingerprints | Implemented |
+| **CatBoost** | Gradient boosting on fingerprints | Implemented |
+
+> **Note:** Classical models use molecular fingerprints (Morgan, RDKit, MACCS, or Mordred) as input features.
+
+### Configuration System
+
+All model types use a unified configuration schema based on OmegaConf structured configs. This enables:
+
+- **Type-safe configuration**: Dataclass-based schema with validation
+- **Model-agnostic sections**: Common `data`, `mlflow`, `ray` sections work across all models
+- **Model-specific parameters**: Each model type has its own parameter section (e.g., `model.chemprop`, `model.xgboost`)
+
+**Example YAML config:**
+
+```yaml
+model:
+  type: chemprop  # or xgboost, lightgbm, catboost, chemeleon
+  chemprop:
+    message_hidden_dim: 700
+    ffn_hidden_dim: 300
+    # ... model-specific params
+data:
+  data_dir: path/to/splits
+  target_cols: [LogD, "Log KSOL", ...]
+mlflow:
+  enabled: true
+  tracking_uri: http://localhost:8080
+```
+
+**Config examples:** See [configs/4-more-models/](./configs/4-more-models/) for all model types.
 
 ## Training Strategy
 

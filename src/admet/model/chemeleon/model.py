@@ -24,7 +24,7 @@ import logging
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -37,6 +37,8 @@ from torch.utils.data import DataLoader
 
 from admet.model.base import BaseModel
 from admet.model.chemeleon.callbacks import GradualUnfreezeCallback
+from admet.model.chemprop.curriculum import CurriculumState
+from admet.model.chemprop.joint_sampler import JointSampler
 from admet.model.config import ChemeleonModelParams, UnfreezeScheduleConfig
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.model.mlflow_mixin import MLflowMixin
@@ -135,9 +137,14 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self._smiles_col = config.get("data", {}).get("smiles_col", "smiles")
         self._target_cols: list[str] = list(config.get("data", {}).get("target_cols", []))
         self._target_weights: list[float] = []
+        self._quality_col: str = config.get("data", {}).get("quality_col", "quality")
 
         # Checkpoint directory (created during training)
         self._checkpoint_dir: tempfile.TemporaryDirectory | None = None
+
+        # JointSampler for curriculum/task-aware sampling
+        self._joint_sampler: Optional[JointSampler] = None
+        self._curriculum_state: Optional[CurriculumState] = None
 
         # Unfreeze callback
         unfreeze_config = self._get_unfreeze_config()
@@ -280,6 +287,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         y: np.ndarray,
         val_smiles: list[str] | None = None,
         val_y: np.ndarray | None = None,
+        quality_labels: list[str] | None = None,
     ) -> "ChemeleonModel":
         """Train the model.
 
@@ -293,6 +301,9 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             Validation SMILES strings.
         val_y : np.ndarray | None, optional
             Validation target values.
+        quality_labels : list[str] | None, optional
+            Quality labels for curriculum learning (e.g., ["high", "medium", "low"]).
+            Required if joint_sampling.curriculum.enabled is True.
 
         Returns
         -------
@@ -327,18 +338,19 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         if val_dataset is not None:
             val_dataset.normalize_targets(self.scaler)
 
-        # Create dataloaders
+        # Create dataloaders with optional JointSampler
         opt_config = self.config.get("optimization", {})
         batch_size = opt_config.get("batch_size", 32)
         num_workers = opt_config.get("num_workers", 0)
 
-        train_loader = DataLoader(
+        train_loader = self._create_train_dataloader(
             train_dataset,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=num_workers,
-            collate_fn=data.collate_batch,
+            y,
+            quality_labels,
+            batch_size,
+            num_workers,
         )
+
         val_loader = None
         if val_dataset is not None:
             val_loader = DataLoader(
@@ -401,6 +413,93 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             datapoints.append(mol_data)
 
         return data.MoleculeDataset(datapoints, featurizer=self.featurizer)
+
+    def _create_train_dataloader(
+        self,
+        dataset: data.MoleculeDataset,
+        targets: np.ndarray,
+        quality_labels: list[str] | None,
+        batch_size: int,
+        num_workers: int,
+    ) -> DataLoader:
+        """Create training DataLoader with optional JointSampler.
+
+        Parameters
+        ----------
+        dataset : data.MoleculeDataset
+            Training dataset.
+        targets : np.ndarray
+            Target values for JointSampler.
+        quality_labels : list[str] | None
+            Quality labels for curriculum learning.
+        batch_size : int
+            Batch size.
+        num_workers : int
+            Number of workers.
+
+        Returns
+        -------
+        DataLoader
+            Training DataLoader.
+        """
+        js_config = self.config.get("joint_sampling", {})
+        js_enabled = js_config.get("enabled", False)
+
+        if not js_enabled:
+            return DataLoader(
+                dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                num_workers=num_workers,
+                collate_fn=data.collate_batch,
+            )
+
+        # Get joint sampling configuration
+        opt_config = self.config.get("optimization", {})
+        task_oversampling = js_config.get("task_oversampling", {})
+        curriculum_config = js_config.get("curriculum", {})
+
+        task_alpha = task_oversampling.get("alpha", 0.0)
+        curriculum_enabled = curriculum_config.get("enabled", False)
+
+        # Setup curriculum state if needed
+        if curriculum_enabled and quality_labels:
+            patience = curriculum_config.get("patience", 3)
+            qualities = curriculum_config.get("qualities", ["high", "medium", "low"])
+
+            self._curriculum_state = CurriculumState(
+                qualities=qualities,
+                patience=patience,
+            )
+
+        # Create JointSampler
+        num_samples = js_config.get("num_samples", len(dataset))
+        seed = js_config.get("seed", 42)
+        increment_seed = js_config.get("increment_seed_per_epoch", True)
+
+        self._joint_sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=self._curriculum_state,
+            task_alpha=task_alpha,
+            num_samples=num_samples if num_samples else len(dataset),
+            seed=seed,
+            increment_seed_per_epoch=increment_seed,
+        )
+
+        logger.info(
+            "JointSampler enabled for Chemeleon: task_alpha=%.2f, curriculum=%s",
+            task_alpha,
+            curriculum_enabled,
+        )
+
+        return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=self._joint_sampler,
+            num_workers=num_workers,
+            collate_fn=data.collate_batch,
+        )
 
     def _setup_trainer(self) -> None:
         """Setup PyTorch Lightning trainer."""

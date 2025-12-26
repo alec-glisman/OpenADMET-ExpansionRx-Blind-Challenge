@@ -735,19 +735,19 @@ Recommended configuration for production use:
       # Core settings
       enabled: true
       n_groups: 3
-      
+
       # Affinity computation
       affinity_epochs: 1
       affinity_batch_size: 64
       affinity_lr: 0.001
-      
+
       # Affinity scoring
       affinity_type: "cosine"
       normalize_gradients: true
-      
+
       # Clustering
       clustering_method: "agglomerative"
-      
+
       # System
       device: "auto"
       seed: 42
@@ -763,22 +763,22 @@ Configuration with all parameters explicitly set:
     task_affinity:
       # Enable/disable
       enabled: true
-      
+
       # Grouping
       n_groups: 4
-      
+
       # Affinity computation phase
       affinity_epochs: 2
       affinity_batch_size: 32
       affinity_lr: 0.0005
-      
+
       # Affinity scoring
       affinity_type: "cosine"
       normalize_gradients: true
-      
+
       # Clustering
       clustering_method: "agglomerative"
-      
+
       # Advanced
       encoder_param_patterns: []
       device: "cuda:0"
@@ -800,14 +800,13 @@ Create ``configs/task-affinity/chemprop_task_affinity.yaml``:
 
     # Basic Chemprop configuration with task affinity
     model:
-      type: "chemprop"
-      message_passing:
+      type: chemprop
+      chemprop:
         depth: 3
-        hidden_size: 300
-      ffn:
+        message_hidden_dim: 300
         num_layers: 2
-        hidden_size: 300
-    
+        hidden_dim: 300
+
     # Enable task affinity grouping
     task_affinity:
       enabled: true
@@ -815,25 +814,23 @@ Create ``configs/task-affinity/chemprop_task_affinity.yaml``:
       affinity_epochs: 1
       affinity_batch_size: 64
       log_affinity_matrix: true
-    
+
     # Training configuration
-    training:
-      epochs: 50
+    optimization:
+      max_epochs: 50
       batch_size: 64
-      learning_rate: 0.001
+      init_lr: 0.001
       warmup_epochs: 2
-    
+
     # Data configuration
     data:
-      smiles_column: "SMILES"
-      target_columns:
+      smiles_col: "SMILES"
+      target_cols:
         - "LogD"
         - "KSOL"
         - "PAMPA"
         - "hERG"
         - "CLint"
-      split_type: "scaffold"
-      split_ratios: [0.8, 0.1, 0.1]
 
 Advanced Configuration with All Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -844,53 +841,51 @@ Create ``configs/task-affinity/chemprop_task_affinity_advanced.yaml``:
 
     # Advanced Chemprop configuration with full task affinity settings
     model:
-      type: "chemprop"
-      message_passing:
+      type: chemprop
+      chemprop:
         depth: 4
-        hidden_size: 400
+        message_hidden_dim: 400
         dropout: 0.1
-      ffn:
         num_layers: 3
-        hidden_size: 400
-        dropout: 0.1
-    
+        hidden_dim: 400
+
     # Full task affinity configuration
     task_affinity:
       # Enable/disable
       enabled: true
-      
+
       # Grouping parameters
       n_groups: 4
       clustering_method: "agglomerative"  # or "spectral"
-      
+
       # Affinity computation phase
       affinity_epochs: 2
       affinity_batch_size: 32
       affinity_lr: 0.0005
-      
+
       # Affinity scoring
       affinity_type: "cosine"  # or "dot_product"
       normalize_gradients: true
-      
+
       # Advanced settings
       encoder_param_patterns: []  # Use default exclusion patterns
       device: "cuda"
       seed: 42
       log_affinity_matrix: true
-    
+
     # Training configuration
-    training:
-      epochs: 100
+    optimization:
+      max_epochs: 100
       batch_size: 64
-      learning_rate: 0.001
+      init_lr: 0.001
       warmup_epochs: 5
       max_lr: 0.001
       final_lr: 0.0001
-    
+
     # Data configuration
     data:
-      smiles_column: "SMILES"
-      target_columns:
+      smiles_col: "SMILES"
+      target_cols:
         - "LogD"
         - "KSOL"
         - "PAMPA"
@@ -899,8 +894,6 @@ Create ``configs/task-affinity/chemprop_task_affinity_advanced.yaml``:
         - "CYP3A4"
         - "CLint"
         - "CLhep"
-      split_type: "scaffold"
-      split_ratios: [0.8, 0.1, 0.1]
 
 Exploratory Configuration (Finding Optimal Groups)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -911,14 +904,13 @@ Create ``configs/task-affinity/chemprop_task_affinity_explore.yaml`` to try diff
 
     # Configuration for exploring different task groupings
     model:
-      type: "chemprop"
-      message_passing:
+      type: chemprop
+      chemprop:
         depth: 3
-        hidden_size: 300
-      ffn:
+        message_hidden_dim: 300
         num_layers: 2
-        hidden_size: 300
-    
+        hidden_dim: 300
+
     # Task affinity for exploration
     task_affinity:
       enabled: true
@@ -928,23 +920,21 @@ Create ``configs/task-affinity/chemprop_task_affinity_explore.yaml`` to try diff
       affinity_type: "cosine"
       clustering_method: "agglomerative"
       log_affinity_matrix: true  # Critical for analysis
-    
+
     # Shorter training for quick experiments
-    training:
-      epochs: 30
+    optimization:
+      max_epochs: 30
       batch_size: 64
-      learning_rate: 0.001
-    
+      init_lr: 0.001
+
     data:
-      smiles_column: "SMILES"
-      target_columns:
+      smiles_col: "SMILES"
+      target_cols:
         - "LogD"
         - "KSOL"
         - "PAMPA"
         - "hERG"
         - "CLint"
-      split_type: "scaffold"
-      split_ratios: [0.8, 0.1, 0.1]
 
 Command Line Interface Examples
 --------------------------------
@@ -1183,7 +1173,7 @@ Exploring Different Numbers of Groups
     for n_groups in [2, 3, 4, 5]:
         grouper = TaskGrouper(n_groups=n_groups, method="agglomerative")
         groups = grouper.cluster(affinity_matrix, task_names)
-        
+
         print(f"\n{n_groups} Groups:")
         for i, group in enumerate(groups):
             print(f"  Group {i}: {group}")
@@ -1242,7 +1232,7 @@ Visualizing Affinity with Heatmaps
     # Compute affinity
     df_train = pd.read_csv("data/admet_train.csv")
     target_cols = ["LogD", "KSOL", "PAMPA", "hERG", "CLint"]
-    
+
     affinity_matrix, task_names, groups = compute_task_affinity(
         df_train,
         smiles_col="SMILES",
@@ -1269,10 +1259,10 @@ Batch Processing Multiple Datasets
     # Compute affinities for multiple datasets
 
     datasets=("admet_small" "admet_large" "admet_diverse")
-    
+
     for dataset in "${datasets[@]}"; do
         echo "Analyzing dataset: $dataset"
-        
+
         python -m admet.cli.compute_task_affinity \
           --data-path "data/${dataset}.csv" \
           --smiles-column SMILES \
@@ -1281,7 +1271,7 @@ Batch Processing Multiple Datasets
           --affinity-batch-size 64 \
           --save-path "results/${dataset}_affinity.npz" \
           --plot-heatmap "results/${dataset}_affinity.png"
-        
+
         echo "Results saved to results/${dataset}_affinity.*"
         echo "---"
     done
@@ -1326,10 +1316,10 @@ Run quick experiments with different group numbers:
     # Create experiment script
     cat > scripts/find_optimal_groups.sh << 'EOF'
     #!/bin/bash
-    
+
     for n_groups in 2 3 4 5; do
         echo "Training with $n_groups groups..."
-        
+
         python -m admet.cli.train \
           --config configs/task-affinity/chemprop_task_affinity.yaml \
           --data-path data/admet_train.csv \
@@ -1337,20 +1327,20 @@ Run quick experiments with different group numbers:
           --training.epochs 30 \
           --save-dir models/group_search/n${n_groups} \
           --seed 42
-        
+
         echo "Evaluating model with $n_groups groups..."
         python -m admet.cli.evaluate \
           --model-dir models/group_search/n${n_groups} \
           --data-path data/admet_test.csv \
           --output results/eval_n${n_groups}.json
     done
-    
+
     # Compare results
     python -m admet.cli.compare_models \
       --result-files results/eval_n*.json \
       --output results/group_comparison.csv
     EOF
-    
+
     chmod +x scripts/find_optimal_groups.sh
     bash scripts/find_optimal_groups.sh
 
@@ -1392,14 +1382,14 @@ Compare task affinity model against standard approaches:
       --config configs/0-experiment/chemprop.yaml \
       --data-path data/admet_train.csv \
       --save-dir models/baseline/single_task
-    
+
     # Standard multi-task (no affinity)
     python -m admet.cli.train \
       --config configs/0-experiment/chemprop.yaml \
       --data-path data/admet_train.csv \
       --task-affinity.enabled false \
       --save-dir models/baseline/multi_task
-    
+
     # Task affinity multi-task
     python -m admet.cli.train \
       --config configs/task-affinity/chemprop_task_affinity.yaml \
@@ -1407,7 +1397,7 @@ Compare task affinity model against standard approaches:
       --task-affinity.enabled true \
       --task-affinity.n-groups 3 \
       --save-dir models/affinity/multi_head
-    
+
     # Compare all three
     python -m admet.cli.compare_models \
       --model-dirs models/baseline/single_task \
@@ -1506,7 +1496,7 @@ Small ADMET Panel (5 tasks)
       affinity_epochs: 1
       affinity_batch_size: 64
       clustering_method: "agglomerative"
-    
+
     data:
       target_columns:
         - "LogD"      # Physicochemical
@@ -1527,7 +1517,7 @@ Standard ADMET Panel (8 tasks)
       affinity_epochs: 1
       affinity_batch_size: 64
       clustering_method: "agglomerative"
-    
+
     data:
       target_columns:
         - "LogD"      # Physicochemical
@@ -1552,30 +1542,30 @@ Extended ADMET Panel (15+ tasks)
       affinity_batch_size: 32
       clustering_method: "agglomerative"
       affinity_type: "cosine"
-    
+
     data:
       target_columns:
         # Physicochemical (likely Group 0)
         - "LogD"
         - "KSOL"
         - "pKa"
-        
+
         # Permeability (likely Group 1)
         - "PAMPA"
         - "Papp"
         - "Caco2"
-        
+
         # Safety (likely Group 2)
         - "hERG"
         - "AMES"
         - "Hepatotox"
-        
+
         # Phase I Metabolism (likely Group 3)
         - "CYP1A2"
         - "CYP2C9"
         - "CYP2D6"
         - "CYP3A4"
-        
+
         # Clearance (likely Group 4)
         - "CLint"
         - "CLhep"

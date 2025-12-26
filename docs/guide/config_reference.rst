@@ -55,16 +55,18 @@ chemprop.yaml
 .. code-block:: yaml
 
     model:
-      depth: 5
-      message_hidden_dim: 600
-      num_layers: 2
-      hidden_dim: 600
-      ffn_type: "regression"
+      type: chemprop
+      chemprop:
+        depth: 5
+        message_hidden_dim: 600
+        num_layers: 2
+        hidden_dim: 600
+        ffn_type: regression
 
     optimization:
-      epochs: 100
+      max_epochs: 100
       batch_size: 64
-      learning_rate: 0.001
+      init_lr: 0.001
 
 Task Affinity Configurations
 -----------------------------
@@ -129,18 +131,20 @@ chemprop_task_affinity_advanced.yaml
 
 .. code-block:: yaml
 
+    model:
+      type: chemprop
+      chemprop:
+        depth: 6
+        message_hidden_dim: 800
+        num_layers: 3
+        hidden_dim: 800
+
     task_affinity:
       enabled: true
       n_groups: 4
       affinity_epochs: 2
       affinity_batch_size: 32
       affinity_lr: 0.0005
-
-    model:
-      depth: 6
-      message_hidden_dim: 800
-      num_layers: 3
-      hidden_dim: 800
 
 chemprop_task_affinity_explore.yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -431,28 +435,56 @@ Controls data loading, column mapping, and file paths.
 Model Section
 -------------
 
-Defines model architecture parameters.
+Defines model type and architecture parameters using unified format.
 
 .. code-block:: yaml
 
     model:
-      # Message Passing Network
-      depth: 5                    # Message passing iterations
-      message_hidden_dim: 600     # MPNN hidden size
-      batch_norm: true            # Batch normalization
+      # Model type selector
+      type: chemprop            # chemprop, chemeleon, xgboost, lightgbm, catboost
 
-      # Feed-Forward Network
-      ffn_type: "regression"      # "regression", "mixture_of_experts", "branched"
-      num_layers: 2               # FFN layers
-      hidden_dim: 600             # FFN hidden size
-      dropout: 0.1                # Dropout probability
+      # Chemprop-specific parameters (when type: chemprop)
+      chemprop:
+        # Message Passing Network
+        depth: 5                    # Message passing iterations
+        message_hidden_dim: 600     # MPNN hidden size
+        batch_norm: true            # Batch normalization
+        aggregation: mean           # mean, sum, norm
 
-      # Branched FFN (when ffn_type="branched")
-      trunk_n_layers: 2
-      trunk_hidden_dim: 600
+        # Feed-Forward Network
+        ffn_type: regression        # regression, mixture_of_experts, branched
+        num_layers: 2               # FFN layers
+        hidden_dim: 600             # FFN hidden size
+        dropout: 0.1                # Dropout probability
 
-      # Mixture of Experts (when ffn_type="mixture_of_experts")
-      n_experts: 4
+        # Branched FFN (when ffn_type: branched)
+        trunk_n_layers: 2
+        trunk_hidden_dim: 600
+
+        # Mixture of Experts (when ffn_type: mixture_of_experts)
+        n_experts: 4
+
+      # Chemeleon-specific parameters (when type: chemeleon)
+      chemeleon:
+        zenodo_id: "12776282"
+        zenodo_filename: "chemeleon.pt"
+        unfreeze_encoder: true
+        head:
+          hidden_dims: [256, 128]
+          dropout: 0.2
+
+      # Classical model fingerprint config (when type: xgboost/lightgbm/catboost)
+      fingerprint:
+        type: morgan              # morgan, rdkit, maccs
+        morgan:
+          radius: 2
+          n_bits: 2048
+
+      # XGBoost-specific parameters (when type: xgboost)
+      xgboost:
+        n_estimators: 500
+        max_depth: 8
+        learning_rate: 0.05
 
 Optimization Section
 --------------------
