@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Data Sources &amp; Curation" href="data_sources.html"><link rel="prev" title="Development Guide" href="development.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Architecture Overview - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -332,7 +332,7 @@ metric visualizations, and dataset exploration plots.</p></li>
 <p>The typical end-to-end pipeline follows these stages:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>raw data --&gt; standardization / cleaning --&gt; SMILES canonicalization
           --&gt; cluster-based splitting (BitBirch + stratification)
-          --&gt; model training (Chemprop + curriculum learning)
+          --&gt; model training (Chemprop + JointSampler)
           --&gt; ensemble predictions (with uncertainty)
           --&gt; evaluation (metrics) --&gt; visualization
 </pre></div>
@@ -355,9 +355,10 @@ metric visualizations, and dataset exploration plots.</p></li>
 <h3>Modeling Layer<a class="headerlink" href="#modeling-layer" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.model</span></code>: <code class="docutils literal notranslate"><span class="pre">ChempropModel</span></code> class for single model training</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.ensemble</span></code>: <code class="docutils literal notranslate"><span class="pre">ChempropEnsemble</span></code> for multi-fold training</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.ensemble</span></code>: <code class="docutils literal notranslate"><span class="pre">ModelEnsemble</span></code> for multi-fold training</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.hpo</span></code>: <code class="docutils literal notranslate"><span class="pre">ChempropHPO</span></code> for hyperparameter optimization</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.curriculum</span></code>: Curriculum learning with quality awareness</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.joint_sampler</span></code>: <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> for unified two-stage sampling</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.curriculum</span></code>: Curriculum state and callbacks</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.ffn</span></code>: Custom FFN architectures (MoE, Branched)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">admet.model.chemprop.config</span></code>: OmegaConf dataclass configurations</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">admet.model.classical</span></code>: Classical ML model wrappers</p></li>
@@ -398,6 +399,7 @@ metric visualizations, and dataset exploration plots.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">DataConfig</span></code>: Dataset paths and column names</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ModelConfig</span></code>: Model architecture parameters</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">OptimizationConfig</span></code>: Training hyperparameters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JointSamplingConfig</span></code>: Unified task + curriculum sampling settings</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">MlflowConfig</span></code>: Experiment tracking settings</p></li>
 </ul>
 </section>
@@ -515,7 +517,7 @@ via <code class="docutils literal notranslate"><span class="pre">__init__.py</sp
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

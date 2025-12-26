@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
-from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 from scripts.lib.config_migration import get_model_type

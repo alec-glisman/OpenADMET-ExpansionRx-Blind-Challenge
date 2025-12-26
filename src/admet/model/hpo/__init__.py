@@ -6,7 +6,7 @@ across all supported model types.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from omegaconf import MISSING
@@ -269,4 +269,6 @@ def get_search_space_for_model(
         msg = f"HPO not supported for model type: {model_type}"
         raise ValueError(msg)
 
-    return search_spaces[model_type]()
+    result = search_spaces[model_type]()
+    # Type narrowing: we've validated model_type is in search_spaces
+    return result  # type: ignore[return-value]

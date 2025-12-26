@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modeling Guide" href="modeling.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Configuration File Reference - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -325,21 +325,22 @@
 <li><p><a class="reference internal" href="#model-section" id="id10">Model Section</a></p></li>
 <li><p><a class="reference internal" href="#optimization-section" id="id11">Optimization Section</a></p></li>
 <li><p><a class="reference internal" href="#task-affinity-section" id="id12">Task Affinity Section</a></p></li>
-<li><p><a class="reference internal" href="#curriculum-learning-section" id="id13">Curriculum Learning Section</a></p></li>
-<li><p><a class="reference internal" href="#mlflow-section" id="id14">MLflow Section</a></p></li>
-<li><p><a class="reference internal" href="#system-section" id="id15">System Section</a></p></li>
+<li><p><a class="reference internal" href="#joint-sampling-section" id="id13">Joint Sampling Section</a></p></li>
+<li><p><a class="reference internal" href="#curriculum-learning-section" id="id14">Curriculum Learning Section</a></p></li>
+<li><p><a class="reference internal" href="#mlflow-section" id="id15">MLflow Section</a></p></li>
+<li><p><a class="reference internal" href="#system-section" id="id16">System Section</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#usage-patterns" id="id16">Usage Patterns</a></p>
+<li><p><a class="reference internal" href="#usage-patterns" id="id17">Usage Patterns</a></p>
 <ul>
-<li><p><a class="reference internal" href="#loading-configurations" id="id17">Loading Configurations</a></p></li>
-<li><p><a class="reference internal" href="#overriding-parameters" id="id18">Overriding Parameters</a></p></li>
-<li><p><a class="reference internal" href="#merging-multiple-configs" id="id19">Merging Multiple Configs</a></p></li>
+<li><p><a class="reference internal" href="#loading-configurations" id="id18">Loading Configurations</a></p></li>
+<li><p><a class="reference internal" href="#overriding-parameters" id="id19">Overriding Parameters</a></p></li>
+<li><p><a class="reference internal" href="#merging-multiple-configs" id="id20">Merging Multiple Configs</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#configuration-best-practices" id="id20">Configuration Best Practices</a></p></li>
-<li><p><a class="reference internal" href="#quick-reference-config-selection" id="id21">Quick Reference: Config Selection</a></p></li>
-<li><p><a class="reference internal" href="#see-also" id="id22">See Also</a></p></li>
+<li><p><a class="reference internal" href="#configuration-best-practices" id="id21">Configuration Best Practices</a></p></li>
+<li><p><a class="reference internal" href="#quick-reference-config-selection" id="id22">Quick Reference: Config Selection</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id23">See Also</a></p></li>
 </ul>
 </nav>
 <section id="overview">
@@ -380,16 +381,18 @@ directory and can be loaded with OmegaConf.</p>
 </div>
 <p><strong>Key parameters</strong>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
-<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
-<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;regression&quot;</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">    </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">regression</span>
 
 <span class="nt">optimization</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
-<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
 </pre></div>
 </div>
 </section>
@@ -441,18 +444,20 @@ directory and can be loaded with OmegaConf.</p>
 </pre></div>
 </div>
 <p><strong>Key parameters</strong>:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">800</span>
+<span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">800</span>
+
+<span class="nt">task_affinity</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="nt">n_groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
 <span class="w">  </span><span class="nt">affinity_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 <span class="w">  </span><span class="nt">affinity_batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
 <span class="w">  </span><span class="nt">affinity_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0005</span>
-
-<span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
-<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">800</span>
-<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">800</span>
 </pre></div>
 </div>
 </section>
@@ -578,21 +583,34 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 <p><strong>Key features</strong>:</p>
 <ul class="simple">
 <li><p>Curriculum learning based on data quality</p></li>
-<li><p>Pacing function to control difficulty progression</p></li>
-<li><p>Quality-based sample weighting</p></li>
-<li><p>Same base architecture as standard config</p></li>
+<li><p>Count-normalized sampling for imbalanced datasets</p></li>
+<li><p>Phase-based progression (warmup → expand → robust → polish)</p></li>
+<li><p>HPO-friendly per-phase proportion parameters</p></li>
+<li><p>Quality-based sample weighting with adjustable proportions</p></li>
 </ul>
 <p><strong>Usage</strong>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/chemprop_curriculum.yaml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span>--config<span class="w"> </span>configs/curriculum/chemprop_curriculum.yaml
 </pre></div>
 </div>
 <p><strong>Key parameters</strong>:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">joint_sampling</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">pacing_function</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;linear&quot;</span>
-<span class="w">  </span><span class="nt">quality_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
-<span class="w">  </span><span class="nt">start_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-<span class="w">  </span><span class="nt">end_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span>
+
+<span class="w">    </span><span class="c1"># Count normalization (recommended for imbalanced datasets)</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">min_high_quality_proportion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+
+<span class="w">    </span><span class="c1"># HPO-friendly phase proportions (optional overrides)</span>
+<span class="w">    </span><span class="c1"># warmup_proportions: [0.80, 0.15, 0.05]</span>
+<span class="w">    </span><span class="c1"># expand_proportions: [0.60, 0.30, 0.10]</span>
+<span class="w">    </span><span class="c1"># robust_proportions: [0.50, 0.35, 0.15]</span>
+<span class="w">    </span><span class="c1"># polish_proportions: [0.70, 0.20, 0.10]</span>
 </pre></div>
 </div>
 <p><strong>See also</strong>: <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> for detailed documentation.</p>
@@ -604,6 +622,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 <p><strong>Key features</strong>:</p>
 <ul class="simple">
 <li><p>Curriculum learning across all ensemble members</p></li>
+<li><p>Count-normalized sampling for consistent quality proportions</p></li>
 <li><p>Consistent pacing across splits/folds</p></li>
 <li><p>Ensemble predictions after curriculum training</p></li>
 </ul>
@@ -689,25 +708,53 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </section>
 <section id="model-section">
 <h3><a class="toc-backref" href="#id10" role="doc-backlink">Model Section</a><a class="headerlink" href="#model-section" title="Link to this heading">¶</a></h3>
-<p>Defines model architecture parameters.</p>
+<p>Defines model type and architecture parameters using unified format.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="c1"># Message Passing Network</span>
-<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                    </span><span class="c1"># Message passing iterations</span>
-<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">     </span><span class="c1"># MPNN hidden size</span>
-<span class="w">  </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># Batch normalization</span>
+<span class="w">  </span><span class="c1"># Model type selector</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span><span class="w">            </span><span class="c1"># chemprop, chemeleon, xgboost, lightgbm, catboost</span>
 
-<span class="w">  </span><span class="c1"># Feed-Forward Network</span>
-<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;regression&quot;</span><span class="w">      </span><span class="c1"># &quot;regression&quot;, &quot;mixture_of_experts&quot;, &quot;branched&quot;</span>
-<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">               </span><span class="c1"># FFN layers</span>
-<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">             </span><span class="c1"># FFN hidden size</span>
-<span class="w">  </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w">                </span><span class="c1"># Dropout probability</span>
+<span class="w">  </span><span class="c1"># Chemprop-specific parameters (when type: chemprop)</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># Message Passing Network</span>
+<span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                    </span><span class="c1"># Message passing iterations</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">     </span><span class="c1"># MPNN hidden size</span>
+<span class="w">    </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># Batch normalization</span>
+<span class="w">    </span><span class="nt">aggregation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mean</span><span class="w">           </span><span class="c1"># mean, sum, norm</span>
 
-<span class="w">  </span><span class="c1"># Branched FFN (when ffn_type=&quot;branched&quot;)</span>
-<span class="w">  </span><span class="nt">trunk_n_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">  </span><span class="nt">trunk_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<span class="w">    </span><span class="c1"># Feed-Forward Network</span>
+<span class="w">    </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">regression</span><span class="w">        </span><span class="c1"># regression, mixture_of_experts, branched</span>
+<span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">               </span><span class="c1"># FFN layers</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">             </span><span class="c1"># FFN hidden size</span>
+<span class="w">    </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w">                </span><span class="c1"># Dropout probability</span>
 
-<span class="w">  </span><span class="c1"># Mixture of Experts (when ffn_type=&quot;mixture_of_experts&quot;)</span>
-<span class="w">  </span><span class="nt">n_experts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">    </span><span class="c1"># Branched FFN (when ffn_type: branched)</span>
+<span class="w">    </span><span class="nt">trunk_n_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">    </span><span class="nt">trunk_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+
+<span class="w">    </span><span class="c1"># Mixture of Experts (when ffn_type: mixture_of_experts)</span>
+<span class="w">    </span><span class="nt">n_experts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+
+<span class="w">  </span><span class="c1"># Chemeleon-specific parameters (when type: chemeleon)</span>
+<span class="w">  </span><span class="nt">chemeleon</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">zenodo_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;12776282&quot;</span>
+<span class="w">    </span><span class="nt">zenodo_filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemeleon.pt&quot;</span>
+<span class="w">    </span><span class="nt">unfreeze_encoder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">head</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">hidden_dims</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span>
+
+<span class="w">  </span><span class="c1"># Classical model fingerprint config (when type: xgboost/lightgbm/catboost)</span>
+<span class="w">  </span><span class="nt">fingerprint</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">morgan</span><span class="w">              </span><span class="c1"># morgan, rdkit, maccs</span>
+<span class="w">    </span><span class="nt">morgan</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">radius</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">      </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2048</span>
+
+<span class="w">  </span><span class="c1"># XGBoost-specific parameters (when type: xgboost)</span>
+<span class="w">  </span><span class="nt">xgboost</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">n_estimators</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">    </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">    </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
 </pre></div>
 </div>
 </section>
@@ -767,30 +814,203 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </pre></div>
 </div>
 </section>
-<section id="curriculum-learning-section">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Curriculum Learning Section</a><a class="headerlink" href="#curriculum-learning-section" title="Link to this heading">¶</a></h3>
-<p>Gradual learning based on sample difficulty (optional).</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># Set to true to enable</span>
+<section id="joint-sampling-section">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Joint Sampling Section</a><a class="headerlink" href="#joint-sampling-section" title="Link to this heading">¶</a></h3>
+<p>Unified two-stage sampling combining task-aware oversampling and curriculum learning
+via the <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code>.</p>
+<p><strong>Algorithm:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Stage 1 (Task Selection):</strong> Sample task <code class="docutils literal notranslate"><span class="pre">t</span></code> with probability <code class="docutils literal notranslate"><span class="pre">p_t</span> <span class="pre">∝</span> <span class="pre">count_t^(-α)</span></code></p></li>
+<li><p><strong>Stage 2 (Within-Task):</strong> Sample molecule from task <code class="docutils literal notranslate"><span class="pre">t</span></code>’s valid indices, weighted by curriculum</p></li>
+</ol>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">joint_sampling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                  </span><span class="c1"># Master switch for joint sampling</span>
 
-<span class="w">  </span><span class="c1"># Pacing</span>
-<span class="w">  </span><span class="nt">pacing_function</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;linear&quot;</span><span class="w">   </span><span class="c1"># &quot;linear&quot;, &quot;exponential&quot;, &quot;step&quot;</span>
-<span class="w">  </span><span class="nt">start_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-<span class="w">  </span><span class="nt">end_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">  </span><span class="c1"># Task-aware oversampling</span>
+<span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">                   </span><span class="c1"># [0, 1] - task rebalancing strength</span>
+<span class="w">                                 </span><span class="c1"># 0=uniform, 0.5=moderate, 1=full inverse</span>
 
-<span class="w">  </span><span class="c1"># Data</span>
-<span class="w">  </span><span class="nt">quality_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
-<span class="w">  </span><span class="nt">sort_ascending</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">        </span><span class="c1"># true = easy to hard</span>
+<span class="w">  </span><span class="c1"># Curriculum learning</span>
+<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                </span><span class="c1"># Enable curriculum-aware sampling</span>
+<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w">                   </span><span class="c1"># Ordered highest to lowest</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;high&quot;</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;medium&quot;</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;low&quot;</span>
 
-<span class="w">  </span><span class="c1"># Weighting</span>
-<span class="w">  </span><span class="nt">use_sample_weights</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">min_weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
-<span class="w">  </span><span class="nt">max_weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="c1"># Phase transitions</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                  </span><span class="c1"># Epochs without improvement before advancing</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span><span class="w">          </span><span class="c1"># &quot;sampled&quot; or &quot;weighted&quot;</span>
+<span class="w">    </span><span class="nt">reset_early_stopping_on_phase_change</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+
+<span class="w">    </span><span class="c1"># Count normalization (recommended for imbalanced datasets)</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">        </span><span class="c1"># Adjust for dataset size imbalance</span>
+<span class="w">    </span><span class="nt">min_high_quality_proportion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span><span class="w">  </span><span class="c1"># Safety floor</span>
+
+<span class="w">    </span><span class="c1"># Metric alignment</span>
+<span class="w">    </span><span class="nt">monitor_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val/mae/high&quot;</span><span class="w">    </span><span class="c1"># Metric for phase transitions</span>
+<span class="w">    </span><span class="nt">early_stopping_metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">       </span><span class="c1"># Uses monitor_metric if null</span>
+
+<span class="w">    </span><span class="c1"># Adaptive curriculum (auto-adjust proportions)</span>
+<span class="w">    </span><span class="nt">adaptive_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">adaptive_improvement_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.02</span><span class="w">  </span><span class="c1"># 2% relative improvement required</span>
+<span class="w">    </span><span class="nt">adaptive_max_adjustment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w">          </span><span class="c1"># Max 10% adjustment per transition</span>
+<span class="w">    </span><span class="nt">adaptive_lookback_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">           </span><span class="c1"># Compare current vs N epochs ago</span>
+
+<span class="w">    </span><span class="c1"># Loss weighting (scale gradients by quality)</span>
+<span class="w">    </span><span class="nt">loss_weighting_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">loss_weights</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">      </span><span class="nt">medium</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">      </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+
+<span class="w">    </span><span class="c1"># HPO-friendly phase proportions (optional overrides)</span>
+<span class="w">    </span><span class="c1"># Default proportions: warmup=[0.80, 0.15, 0.05], expand=[0.60, 0.30, 0.10],</span>
+<span class="w">    </span><span class="c1">#                      robust=[0.50, 0.35, 0.15], polish=[0.70, 0.20, 0.10]</span>
+<span class="w">    </span><span class="c1"># warmup_proportions: [0.80, 0.15, 0.05]</span>
+<span class="w">    </span><span class="c1"># expand_proportions: [0.60, 0.30, 0.10]</span>
+<span class="w">    </span><span class="c1"># robust_proportions: [0.50, 0.35, 0.15]</span>
+<span class="w">    </span><span class="c1"># polish_proportions: [0.70, 0.20, 0.10]</span>
+
+<span class="w">    </span><span class="c1"># Logging</span>
+<span class="w">    </span><span class="nt">log_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+
+<span class="w">  </span><span class="c1"># Global sampling settings</span>
+<span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">              </span><span class="c1"># null = use full dataset size per epoch</span>
+<span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">  </span><span class="nt">increment_seed_per_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Different samples each epoch (recommended)</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># Log weight statistics</span>
 </pre></div>
 </div>
+<p><strong>Important Limitation:</strong> When using with <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> in DataLoader, the
+sampler state is NOT synchronized across workers. Use <code class="docutils literal notranslate"><span class="pre">num_workers=0</span></code> for reliable
+curriculum learning.</p>
+<section id="jointsamplingconfig-parameters">
+<h4>JointSamplingConfig Parameters<a class="headerlink" href="#jointsamplingconfig-parameters" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 15.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Master switch for joint sampling</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">task_oversampling.alpha</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.5</span></code></p></td>
+<td><p>Task rebalancing strength [0, 1]</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">num_samples</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+<td><p>Samples per epoch (null = dataset size)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">seed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">42</span></code></p></td>
+<td><p>Base random seed</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">increment_seed_per_epoch</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Vary sampling across epochs</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">log_to_mlflow</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Log weight statistics to MLflow</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="curriculum-learning-section">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Curriculum Learning Section</a><a class="headerlink" href="#curriculum-learning-section" title="Link to this heading">¶</a></h3>
+<p>Quality-aware curriculum learning with count-normalized sampling (part of JointSampling).</p>
+<section id="curriculumconfig-parameters">
+<h4>CurriculumConfig Parameters<a class="headerlink" href="#curriculumconfig-parameters" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Enable curriculum learning</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">quality_col</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Quality&quot;</span></code></p></td>
+<td><p>Column containing quality labels</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">qualities</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[&quot;high&quot;,</span> <span class="pre">&quot;medium&quot;,</span> <span class="pre">&quot;low&quot;]</span></code></p></td>
+<td><p>Quality levels (highest to lowest)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">patience</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Epochs without improvement before phase transition</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">count_normalize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Adjust for dataset size imbalance</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">min_high_quality_proportion</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.25</span></code></p></td>
+<td><p>Safety floor for high-quality proportion</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">monitor_metric</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;val_loss&quot;</span></code></p></td>
+<td><p>Metric for phase transitions</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adaptive_enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Auto-adjust proportions based on performance</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">loss_weighting_enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Scale gradients by quality level</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">warmup_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.80,</span> <span class="pre">0.15,</span> <span class="pre">0.05]</span></code></p></td>
+<td><p>Warmup phase proportions [high, medium, low]</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">expand_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.60,</span> <span class="pre">0.30,</span> <span class="pre">0.10]</span></code></p></td>
+<td><p>Expand phase proportions</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">robust_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.50,</span> <span class="pre">0.35,</span> <span class="pre">0.15]</span></code></p></td>
+<td><p>Robust phase proportions</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">polish_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.70,</span> <span class="pre">0.20,</span> <span class="pre">0.10]</span></code></p></td>
+<td><p>Polish phase proportions</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 <section id="mlflow-section">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">MLflow Section</a><a class="headerlink" href="#mlflow-section" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">MLflow Section</a><a class="headerlink" href="#mlflow-section" title="Link to this heading">¶</a></h3>
 <p>Experiment tracking configuration.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># Tracking</span>
@@ -809,7 +1029,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="system-section">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">System Section</a><a class="headerlink" href="#system-section" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">System Section</a><a class="headerlink" href="#system-section" title="Link to this heading">¶</a></h3>
 <p>Hardware and reproducibility settings.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Device</span>
 <span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;auto&quot;</span><span class="w">                </span><span class="c1"># &quot;auto&quot;, &quot;cpu&quot;, &quot;cuda&quot;, &quot;cuda:N&quot;</span>
@@ -825,9 +1045,9 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </section>
 </section>
 <section id="usage-patterns">
-<h2><a class="toc-backref" href="#id16" role="doc-backlink">Usage Patterns</a><a class="headerlink" href="#usage-patterns" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Usage Patterns</a><a class="headerlink" href="#usage-patterns" title="Link to this heading">¶</a></h2>
 <section id="loading-configurations">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Loading Configurations</a><a class="headerlink" href="#loading-configurations" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Loading Configurations</a><a class="headerlink" href="#loading-configurations" title="Link to this heading">¶</a></h3>
 <p><strong>Python</strong>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropConfig</span><span class="p">,</span> <span class="n">ChempropModel</span>
@@ -848,7 +1068,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="overriding-parameters">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Overriding Parameters</a><a class="headerlink" href="#overriding-parameters" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Overriding Parameters</a><a class="headerlink" href="#overriding-parameters" title="Link to this heading">¶</a></h3>
 <p><strong>Via CLI</strong>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--config<span class="w"> </span>configs/chemprop.yaml<span class="w"> </span><span class="se">\</span>
@@ -868,7 +1088,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="merging-multiple-configs">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Merging Multiple Configs</a><a class="headerlink" href="#merging-multiple-configs" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Merging Multiple Configs</a><a class="headerlink" href="#merging-multiple-configs" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load base and override configs</span>
@@ -882,7 +1102,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </section>
 </section>
 <section id="configuration-best-practices">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">Configuration Best Practices</a><a class="headerlink" href="#configuration-best-practices" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Configuration Best Practices</a><a class="headerlink" href="#configuration-best-practices" title="Link to this heading">¶</a></h2>
 <ol class="arabic">
 <li><p><strong>Start Simple</strong>: Begin with <code class="docutils literal notranslate"><span class="pre">chemprop.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity.yaml</span></code></p></li>
 <li><p><strong>Version Control</strong>: Commit all config changes with meaningful messages</p></li>
@@ -900,7 +1120,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </ol>
 </section>
 <section id="quick-reference-config-selection">
-<h2><a class="toc-backref" href="#id21" role="doc-backlink">Quick Reference: Config Selection</a><a class="headerlink" href="#quick-reference-config-selection" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Quick Reference: Config Selection</a><a class="headerlink" href="#quick-reference-config-selection" title="Link to this heading">¶</a></h2>
 <p>Choose your configuration based on your goal:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -940,8 +1160,16 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">ensemble_chemprop_production.yaml</span></code></p></td>
 <td><p>All splits/folds</p></td>
 </tr>
-<tr class="row-even"><td><p>Curriculum learning</p></td>
+<tr class="row-even"><td><p>Joint sampling (task + curriculum)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">chemprop_curriculum.yaml</span></code></p></td>
+<td><p>Two-stage sampling with JointSampler</p></td>
+</tr>
+<tr class="row-odd"><td><p>Task oversampling only</p></td>
+<td><p>Set <code class="docutils literal notranslate"><span class="pre">joint_sampling.task_oversampling.alpha</span></code></p></td>
+<td><p>α=0.5 recommended</p></td>
+</tr>
+<tr class="row-even"><td><p>Curriculum learning only</p></td>
+<td><p>Set <code class="docutils literal notranslate"><span class="pre">joint_sampling.curriculum.enabled</span></code></p></td>
 <td><p>Quality-based pacing</p></td>
 </tr>
 <tr class="row-odd"><td><p>Hyperparameter search</p></td>
@@ -953,7 +1181,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id22" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> - General configuration guide</p></li>
 <li><p><a class="reference internal" href="task_affinity.html"><span class="doc">Task Affinity Grouping</span></a> - Task affinity detailed guide</p></li>
@@ -1055,7 +1283,14 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 <li><a class="reference internal" href="#model-section">Model Section</a></li>
 <li><a class="reference internal" href="#optimization-section">Optimization Section</a></li>
 <li><a class="reference internal" href="#task-affinity-section">Task Affinity Section</a></li>
-<li><a class="reference internal" href="#curriculum-learning-section">Curriculum Learning Section</a></li>
+<li><a class="reference internal" href="#joint-sampling-section">Joint Sampling Section</a><ul>
+<li><a class="reference internal" href="#jointsamplingconfig-parameters">JointSamplingConfig Parameters</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#curriculum-learning-section">Curriculum Learning Section</a><ul>
+<li><a class="reference internal" href="#curriculumconfig-parameters">CurriculumConfig Parameters</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#mlflow-section">MLflow Section</a></li>
 <li><a class="reference internal" href="#system-section">System Section</a></li>
 </ul>
@@ -1081,7 +1316,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

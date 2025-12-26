@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="MLflow Artifacts Guide" href="mlflow_artifacts.html"><link rel="prev" title="Curriculum Learning Guide" href="curriculum.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Task Affinity Grouping - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -1310,13 +1310,12 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <p>Create <code class="docutils literal notranslate"><span class="pre">configs/task-affinity/chemprop_task_affinity.yaml</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic Chemprop configuration with task affinity</span>
 <span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop&quot;</span>
-<span class="w">  </span><span class="nt">message_passing</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<span class="w">    </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<span class="w">  </span><span class="nt">ffn</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 <span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">    </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 
 <span class="c1"># Enable task affinity grouping</span>
 <span class="nt">task_affinity</span><span class="p">:</span>
@@ -1327,23 +1326,21 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <span class="w">  </span><span class="nt">log_affinity_matrix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 
 <span class="c1"># Training configuration</span>
-<span class="nt">training</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
-<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
 <span class="w">  </span><span class="nt">warmup_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 
 <span class="c1"># Data configuration</span>
 <span class="nt">data</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">smiles_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
-<span class="w">  </span><span class="nt">target_columns</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">smiles_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
+<span class="w">  </span><span class="nt">target_cols</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;LogD&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;KSOL&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;PAMPA&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;hERG&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;CLint&quot;</span>
-<span class="w">  </span><span class="nt">split_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;scaffold&quot;</span>
-<span class="w">  </span><span class="nt">split_ratios</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
 </section>
@@ -1352,15 +1349,13 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <p>Create <code class="docutils literal notranslate"><span class="pre">configs/task-affinity/chemprop_task_affinity_advanced.yaml</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Advanced Chemprop configuration with full task affinity settings</span>
 <span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop&quot;</span>
-<span class="w">  </span><span class="nt">message_passing</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-<span class="w">    </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span>
 <span class="w">    </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
-<span class="w">  </span><span class="nt">ffn</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<span class="w">    </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span>
-<span class="w">    </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span>
 
 <span class="c1"># Full task affinity configuration</span>
 <span class="nt">task_affinity</span><span class="p">:</span>
@@ -1387,18 +1382,18 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <span class="w">  </span><span class="nt">log_affinity_matrix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 
 <span class="c1"># Training configuration</span>
-<span class="nt">training</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
-<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
 <span class="w">  </span><span class="nt">warmup_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">  </span><span class="nt">max_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
 <span class="w">  </span><span class="nt">final_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
 
 <span class="c1"># Data configuration</span>
 <span class="nt">data</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">smiles_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
-<span class="w">  </span><span class="nt">target_columns</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">smiles_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
+<span class="w">  </span><span class="nt">target_cols</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;LogD&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;KSOL&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;PAMPA&quot;</span>
@@ -1407,8 +1402,6 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;CYP3A4&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;CLint&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;CLhep&quot;</span>
-<span class="w">  </span><span class="nt">split_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;scaffold&quot;</span>
-<span class="w">  </span><span class="nt">split_ratios</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
 </section>
@@ -1417,13 +1410,12 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <p>Create <code class="docutils literal notranslate"><span class="pre">configs/task-affinity/chemprop_task_affinity_explore.yaml</span></code> to try different group numbers:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configuration for exploring different task groupings</span>
 <span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop&quot;</span>
-<span class="w">  </span><span class="nt">message_passing</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<span class="w">    </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<span class="w">  </span><span class="nt">ffn</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 <span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<span class="w">    </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 
 <span class="c1"># Task affinity for exploration</span>
 <span class="nt">task_affinity</span><span class="p">:</span>
@@ -1436,21 +1428,19 @@ prints a formatted matrix showing affinity scores between all task pairs.</p>
 <span class="w">  </span><span class="nt">log_affinity_matrix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Critical for analysis</span>
 
 <span class="c1"># Shorter training for quick experiments</span>
-<span class="nt">training</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
 <span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
-<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
 
 <span class="nt">data</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">smiles_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
-<span class="w">  </span><span class="nt">target_columns</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">smiles_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;SMILES&quot;</span>
+<span class="w">  </span><span class="nt">target_cols</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;LogD&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;KSOL&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;PAMPA&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;hERG&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;CLint&quot;</span>
-<span class="w">  </span><span class="nt">split_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;scaffold&quot;</span>
-<span class="w">  </span><span class="nt">split_ratios</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
 </section>
@@ -2384,7 +2374,7 @@ python<span class="w"> </span>-m<span class="w"> </span>admet.cli.compare_models
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

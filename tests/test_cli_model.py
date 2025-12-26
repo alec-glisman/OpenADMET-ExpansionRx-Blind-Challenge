@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import tempfile
-from pathlib import Path
 from types import SimpleNamespace
 
 from typer.testing import CliRunner

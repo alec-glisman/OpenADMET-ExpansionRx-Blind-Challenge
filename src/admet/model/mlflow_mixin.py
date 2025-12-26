@@ -8,7 +8,7 @@ and artifact management.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import mlflow
 from mlflow.tracking import MlflowClient
@@ -110,7 +110,10 @@ class MLflowMixin:
             return
 
         config_dict = OmegaConf.to_container(self.config, resolve=True)
-        flat_params = self._flatten_dict(config_dict, max_depth=max_depth)
+        if not isinstance(config_dict, dict):
+            logger.warning("Config is not a dict, skipping param logging")
+            return
+        flat_params = self._flatten_dict(cast(dict[str, Any], config_dict), max_depth=max_depth)
 
         # MLflow has a limit on param value length
         truncated_params = {}

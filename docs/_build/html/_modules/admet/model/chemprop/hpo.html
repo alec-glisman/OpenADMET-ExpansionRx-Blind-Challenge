@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
         <link rel="prefetch" href="../../../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>admet.model.chemprop.hpo - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=580074bf" />
@@ -331,6 +331,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HPOConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_search_space</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_search_space</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_trainable</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_chemprop_trial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_trial_dirname_creator</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -413,6 +414,11 @@
         <span class="c1"># Convert to absolute path if relative</span>
         <span class="n">storage_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
 
+        <span class="c1"># Create a dedicated temp directory inside the storage path to avoid issues</span>
+        <span class="c1"># when system /tmp is cleaned during long-running HPO jobs</span>
+        <span class="n">ray_temp_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;_ray_tmp&quot;</span><span class="p">)</span>
+        <span class="n">Path</span><span class="p">(</span><span class="n">ray_temp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="c1"># Initialize Ray with custom temp dir if storage path is provided</span>
         <span class="c1"># This helps avoid FileNotFoundError during sync when /tmp is cleaned</span>
         <span class="c1"># Disable dashboard to avoid MetricsHead startup failures on some systems</span>
@@ -420,9 +426,10 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
             <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
-                <span class="n">_temp_dir</span><span class="o">=</span><span class="n">storage_path</span><span class="p">,</span>
+                <span class="n">_temp_dir</span><span class="o">=</span><span class="n">ray_temp_dir</span><span class="p">,</span>
                 <span class="n">include_dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Disable dashboard to avoid startup errors</span>
             <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ray initialized with temp dir: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ray_temp_dir</span><span class="p">)</span>
 
         <span class="c1"># Run HPO</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -739,10 +746,7 @@
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
-        <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>
-        <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> - </span><span class="si">%(name)s</span><span class="s2"> - </span><span class="si">%(levelname)s</span><span class="s2"> - </span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="n">configure_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span><span class="p">)</span>
     <span class="n">main</span><span class="p">()</span>
 </pre></div>
         </article>
@@ -777,7 +781,7 @@
     </aside>
   </div>
 </div><script src="../../../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>

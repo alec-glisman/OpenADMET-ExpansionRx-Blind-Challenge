@@ -136,7 +136,7 @@ def build_search_space(config: HPOSearchSpaceConfig) -> dict[str, Any]:
         space.update(fp_space)
 
     # Add model-specific search space
-    model_config = None
+    model_config: XGBoostSearchSpace | LightGBMSearchSpace | CatBoostSearchSpace | ChemeleonSearchSpace | None = None
     if model_type == "xgboost" and config.xgboost is not None:
         model_config = config.xgboost
     elif model_type == "lightgbm" and config.lightgbm is not None:

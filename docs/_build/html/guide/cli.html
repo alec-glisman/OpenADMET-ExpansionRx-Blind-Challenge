@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Overview" href="overview.html"><link rel="prev" title="Leaderboard API" href="../api/leaderboard.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>CLI Usage - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -358,23 +358,30 @@ admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w
 </div>
 <p>Or programmatically:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropEnsemble</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelEnsemble</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
 
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">),</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/ensemble_chemprop_production.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
-<span class="n">ensemble</span> <span class="o">=</span> <span class="n">ChempropEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">ensemble</span> <span class="o">=</span> <span class="n">ModelEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 <span class="n">ensemble</span><span class="o">.</span><span class="n">train_all</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><strong>Hyperparameter Optimization</strong></p>
 <p>Run HPO with Ray Tune and ASHA scheduler:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Using the admet CLI</span>
-admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>--config<span class="w"> </span>configs/hpo_chemprop.yaml
+admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>--config<span class="w"> </span>configs/1-hpo-single/hpo_chemprop.yaml
 </pre></div>
 </div>
+<p><strong>List Available Models</strong></p>
+<p>View all registered model types:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>list
+</pre></div>
+</div>
+<p>This shows the available model backends: <code class="docutils literal notranslate"><span class="pre">chemprop</span></code>, <code class="docutils literal notranslate"><span class="pre">chemeleon</span></code>, <code class="docutils literal notranslate"><span class="pre">xgboost</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lightgbm</span></code>, <code class="docutils literal notranslate"><span class="pre">catboost</span></code>.</p>
 </section>
 <section id="configuration-files">
 <h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Link to this heading">¶</a></h2>
@@ -406,10 +413,13 @@ testing command-line parsing; doing so can lead to different argument parsing
 behavior and unexpected errors.</p>
 <p>Configuration files are located in <code class="docutils literal notranslate"><span class="pre">configs/</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">single_chemprop.yaml</span></code>: Single model training configuration</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ensemble_chemprop.yaml</span></code>: Ensemble training across splits/folds</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hpo_chemprop.yaml</span></code>: Hyperparameter optimization settings</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">chemprop_curriculum.yaml</span></code>: Curriculum learning configuration</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0-experiment/chemprop.yaml</span></code>: Single model training configuration</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0-experiment/ensemble_chemprop_production.yaml</span></code>: Ensemble training across splits/folds</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0-experiment/ensemble_joint_sampling_example.yaml</span></code>: Joint sampling example</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">1-hpo-single/hpo_chemprop.yaml</span></code>: Hyperparameter optimization settings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/</span></code>: Curriculum learning configurations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task-affinity/</span></code>: Task affinity configurations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">3-production/</span></code>: Production ensemble configurations</p></li>
 </ul>
 </section>
 <section id="mlflow-tracking">
@@ -512,7 +522,7 @@ behavior and unexpected errors.</p>
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

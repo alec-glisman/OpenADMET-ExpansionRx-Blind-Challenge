@@ -658,10 +658,20 @@ class ModelEnsemble:
             else:
                 # Use ModelRegistry for other model types
                 # These models need explicit data loading
-                model = ModelRegistry.create_model(config)
+                from omegaconf import DictConfig as DC
 
-                # Load training and validation data
-                train_df = pd.read_csv(split_fold_info.train_file)
+                if isinstance(config, DC):
+                    config_dc = config
+                else:
+                    config_dc = OmegaConf.create(config)  # type: ignore[assignment]
+                base_model = ModelRegistry.create(config_dc)
+
+                # Load training and validation data from config.data.data_dir
+                data_dir = Path(config.data.data_dir)
+                train_file = data_dir / "train.csv"
+                val_file = data_dir / "validation.csv"
+
+                train_df = pd.read_csv(train_file)
                 smiles_col = config.data.smiles_col
                 target_cols = list(config.data.target_cols)
 
@@ -669,13 +679,15 @@ class ModelEnsemble:
                 train_y = train_df[target_cols].values
 
                 val_smiles, val_y = None, None
-                if split_fold_info.validation_file.exists():
-                    val_df = pd.read_csv(split_fold_info.validation_file)
+                if val_file.exists():
+                    val_df = pd.read_csv(val_file)
                     val_smiles = val_df[smiles_col].tolist()
                     val_y = val_df[target_cols].values
 
                 # Train model with explicit data
-                model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
+                base_model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
+                # Assign to model for metrics collection (may not have trainer)
+                model = base_model  # type: ignore[assignment]
 
             # Get metrics from trainer
             metrics = {}

@@ -88,7 +88,7 @@ repos:
         entry: mypy
         language: system
         types: [python]
-        exclude: ^(docs/|notebooks/|tests/|archive/|src/bitbirch/)
+        exclude: ^(docs/|notebooks/|tests/|archive/|src/bitbirch/|scripts/)
 
       - id: pytest
         name: pytest

@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Hyperparameter Optimization Guide" href="hpo.html"><link rel="prev" title="Configuration File Reference" href="config_reference.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Modeling Guide - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -314,7 +314,7 @@ ADMET property prediction using the <code class="docutils literal notranslate"><
 via the <code class="docutils literal notranslate"><span class="pre">admet.model.chemprop</span></code> subpackage. Key classes include:</p>
 <ul class="simple">
 <li><p><strong>ChempropModel</strong>: Single model training with configurable FFN architectures</p></li>
-<li><p><strong>ChempropEnsemble</strong>: Ensemble training across multiple splits/folds</p></li>
+<li><p><strong>ModelEnsemble</strong>: Ensemble training across multiple splits/folds</p></li>
 <li><p><strong>ChempropHPO</strong>: Hyperparameter optimization with Ray Tune</p></li>
 </ul>
 <section id="single-model-training">
@@ -338,7 +338,7 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 <section id="ensemble-training">
 <h3>Ensemble Training<a class="headerlink" href="#ensemble-training" title="Link to this heading">¶</a></h3>
 <p>For production use, train multiple models across different data splits:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropEnsemble</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelEnsemble</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load ensemble configuration</span>
@@ -346,7 +346,7 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
 
 <span class="c1"># Train ensemble (parallelized with Ray)</span>
-<span class="n">ensemble</span> <span class="o">=</span> <span class="n">ChempropEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+<span class="n">ensemble</span> <span class="o">=</span> <span class="n">ModelEnsemble</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
 <span class="n">ensemble</span><span class="o">.</span><span class="n">train_all</span><span class="p">()</span>
 
 <span class="c1"># Make ensemble predictions with uncertainty</span>
@@ -358,15 +358,22 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 <h3>FFN Architecture Options<a class="headerlink" href="#ffn-architecture-options" title="Link to this heading">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">ffn_type</span></code> parameter controls the prediction head:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">regression</span></code>: Standard multi-layer perceptron (default)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">mixture_of_experts</span></code>: Mixture of experts for heterogeneous data</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">branched</span></code>: Branched architecture with shared and task-specific layers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">regression</span></code>: Standard multi-layer perceptron (default, best overall performance)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mixture_of_experts</span></code>: Mixture of experts for heterogeneous data (MoE)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">branched</span></code>: Branched architecture with shared trunk and task-specific branches</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In HPO search spaces, shorthand values <code class="docutils literal notranslate"><span class="pre">mlp</span></code>, <code class="docutils literal notranslate"><span class="pre">moe</span></code>, and <code class="docutils literal notranslate"><span class="pre">branched</span></code> are
+automatically mapped to the full config values.</p>
+</div>
 <p>Configuration example:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mixture_of_experts</span>
-<span class="w">  </span><span class="nt">ffn_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<span class="w">  </span><span class="nt">ffn_num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="c1"># MoE-specific</span>
+<span class="w">  </span><span class="nt">n_experts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
 </pre></div>
 </div>
 </section>
@@ -390,31 +397,36 @@ via the <code class="docutils literal notranslate"><span class="pre">admet.model
 ASHA scheduler tuning, and best practices, see <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a>.</p>
 </section>
 </section>
-<section id="curriculum-learning">
-<h2>Curriculum Learning<a class="headerlink" href="#curriculum-learning" title="Link to this heading">¶</a></h2>
-<p>Quality-aware curriculum learning progressively incorporates data based on
-quality tiers:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">CurriculumState</span><span class="p">,</span> <span class="n">CurriculumCallback</span>
-
-<span class="c1"># Configure curriculum phases</span>
-<span class="n">curriculum</span> <span class="o">=</span> <span class="n">CurriculumState</span><span class="p">(</span>
-    <span class="n">warmup_epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>      <span class="c1"># Use only high-quality data</span>
-    <span class="n">expand_epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>     <span class="c1"># Gradually add medium-quality data</span>
-    <span class="n">robust_epochs</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>     <span class="c1"># Include all data</span>
-    <span class="n">polish_epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>      <span class="c1"># Fine-tune on high-quality data</span>
-<span class="p">)</span>
-
-<span class="c1"># Add callback to model training</span>
-<span class="n">callback</span> <span class="o">=</span> <span class="n">CurriculumCallback</span><span class="p">(</span><span class="n">curriculum_state</span><span class="o">=</span><span class="n">curriculum</span><span class="p">)</span>
+<section id="joint-sampling">
+<h2>Joint Sampling<a class="headerlink" href="#joint-sampling" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> provides unified two-stage sampling that combines task-aware
+oversampling with curriculum learning:</p>
+<p><strong>Two-Stage Algorithm:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Stage 1 (Task Selection):</strong> Sample task <code class="docutils literal notranslate"><span class="pre">t</span></code> with probability <code class="docutils literal notranslate"><span class="pre">p_t</span> <span class="pre">∝</span> <span class="pre">count_t^(-α)</span></code></p></li>
+<li><p><strong>Stage 2 (Within-Task):</strong> Sample molecule from task’s indices, weighted by curriculum phase</p></li>
+</ol>
+<p><strong>Configuration via YAML:</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">joint_sampling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># [0, 1] task rebalancing strength</span>
+<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
+<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
-<p>Curriculum phases:</p>
+<p><strong>Curriculum Phases</strong> (when curriculum enabled):</p>
 <ol class="arabic simple">
-<li><p><strong>Warmup</strong>: Train only on highest-quality data</p></li>
-<li><p><strong>Expand</strong>: Gradually incorporate lower-quality data</p></li>
-<li><p><strong>Robust</strong>: Use all available data with quality-based weighting</p></li>
-<li><p><strong>Polish</strong>: Fine-tune on high-quality data</p></li>
+<li><p><strong>Warmup</strong>: 80% high, 15% medium, 5% low - learn core patterns</p></li>
+<li><p><strong>Expand</strong>: 60% high, 30% medium, 10% low - incorporate more data</p></li>
+<li><p><strong>Robust</strong>: 50% high, 35% medium, 15% low - build robustness</p></li>
+<li><p><strong>Polish</strong>: 70% high, 20% medium, 10% low - fine-tune while maintaining diversity</p></li>
 </ol>
+<p>For detailed configuration and algorithm explanation, see <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a>.</p>
 </section>
 <section id="mlflow-integration">
 <h2>MLflow Integration<a class="headerlink" href="#mlflow-integration" title="Link to this heading">¶</a></h2>
@@ -440,6 +452,64 @@ quality tiers:</p>
 <p>For detailed information about MLflow artifact organization, file formats,
 and how to access predictions and submission files, see <a class="reference internal" href="mlflow_artifacts.html"><span class="doc">MLflow Artifacts Guide</span></a>.</p>
 </div>
+</section>
+<section id="chemeleon-models">
+<h2>CheMeleon Models<a class="headerlink" href="#chemeleon-models" title="Link to this heading">¶</a></h2>
+<p>CheMeleon is a pre-trained molecular encoder that learns transferable representations
+from large-scale chemical datasets. The encoder is frozen during training, while
+a trainable FFN head performs task-specific predictions.</p>
+<p><strong>Key Features:</strong></p>
+<ul class="simple">
+<li><p><strong>Pre-trained Encoder:</strong> Frozen message passing network trained on millions of molecules</p></li>
+<li><p><strong>Flexible FFN Head:</strong> Supports all three FFN architecture types (regression, mixture_of_experts, branched)</p></li>
+<li><p><strong>Fast Training:</strong> Only the FFN head parameters are optimized, enabling rapid adaptation</p></li>
+</ul>
+<p><strong>Basic Training:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemeleon</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChemeleonModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChemeleonModelParams</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">ChemeleonModelParams</span><span class="p">(</span>
+    <span class="n">smiles_col</span><span class="o">=</span><span class="s2">&quot;SMILES&quot;</span><span class="p">,</span>
+    <span class="n">target_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;LogD&quot;</span><span class="p">],</span>
+    <span class="n">ffn_type</span><span class="o">=</span><span class="s2">&quot;regression&quot;</span><span class="p">,</span>  <span class="c1"># or &quot;mixture_of_experts&quot;, &quot;branched&quot;</span>
+    <span class="n">ffn_hidden_dim</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">ffn_n_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ChemeleonModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>FFN Architecture Options:</strong></p>
+<p>CheMeleon supports the same FFN architectures as Chemprop:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">regression</span></code>: Standard feedforward network (default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mixture_of_experts</span></code>: Multiple specialized sub-networks with learned gating</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">branched</span></code>: Shared trunk with task-specific branches for multi-task learning</p></li>
+</ul>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example: Mixture of Experts for multi-task</span>
+<span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mixture_of_experts</span>
+<span class="nt">n_experts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="nt">ffn_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+<span class="nt">ffn_n_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</pre></div>
+</div>
+<p><strong>HPO Support:</strong></p>
+<p>CheMeleon includes hyperparameter optimization via Ray Tune:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemeleon</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChemeleonHPO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemeleon.hpo_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChemeleonHPOConfig</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">ChemeleonHPOConfig</span><span class="p">(</span>
+    <span class="n">train_data_path</span><span class="o">=</span><span class="s2">&quot;data/train.csv&quot;</span><span class="p">,</span>
+    <span class="n">num_samples</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+    <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">hpo</span> <span class="o">=</span> <span class="n">ChemeleonHPO</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">best_config</span><span class="p">,</span> <span class="n">results</span> <span class="o">=</span> <span class="n">hpo</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For FFN-specific parameters during HPO, set <code class="docutils literal notranslate"><span class="pre">tune_ffn_type=True</span></code> in the search
+space configuration to explore all architecture variants.</p>
 </section>
 <section id="classical-ml-models">
 <h2>Classical ML Models<a class="headerlink" href="#classical-ml-models" title="Link to this heading">¶</a></h2>
@@ -539,8 +609,9 @@ and how to access predictions and submission files, see <a class="reference inte
 <li><a class="reference internal" href="#hyperparameter-optimization">Hyperparameter Optimization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#curriculum-learning">Curriculum Learning</a></li>
+<li><a class="reference internal" href="#joint-sampling">Joint Sampling</a></li>
 <li><a class="reference internal" href="#mlflow-integration">MLflow Integration</a></li>
+<li><a class="reference internal" href="#chemeleon-models">CheMeleon Models</a></li>
 <li><a class="reference internal" href="#classical-ml-models">Classical ML Models</a></li>
 <li><a class="reference internal" href="#model-persistence">Model Persistence</a></li>
 <li><a class="reference internal" href="#cross-references">Cross-References</a></li>
@@ -556,7 +627,7 @@ and how to access predictions and submission files, see <a class="reference inte
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

@@ -113,7 +113,6 @@ class ChempropModelAdapter(BaseModel, MLflowMixin):
         """
         # Extract config sections
         data_config = self._get_data_config()
-        model_config = self._get_model_config()
 
         self._smiles_col = data_config.get("smiles_col", "smiles")
         self._target_cols = list(data_config.get("target_cols", []))

@@ -1,0 +1,663 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="Per-Quality Metrics Debugging Guide" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/guide/debugging_per_quality_metrics.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="Summary: All diagnostic tests pass! The PerQualityMetricsCallback is working correctly in isolation. If you’re not seeing metrics in your actual training, follow this guide to diagnose the issue. W..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="Summary: All diagnostic tests pass! The PerQualityMetricsCallback is working correctly in isolation. If you’re not seeing metrics in your actual training, follow this guide to diagnose the issue. W..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+        <title>Per-Quality Metrics Debugging Guide - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/guide/debugging_per_quality_metrics.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="per-quality-metrics-debugging-guide">
+<h1>Per-Quality Metrics Debugging Guide<a class="headerlink" href="#per-quality-metrics-debugging-guide" title="Link to this heading">¶</a></h1>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
+<p>All diagnostic tests pass! The <code class="docutils literal notranslate"><span class="pre">PerQualityMetricsCallback</span></code> is working correctly in isolation. If you’re not seeing metrics in your actual training, follow this guide to diagnose the issue.</p>
+</section>
+<section id="what-we-ve-done">
+<h2>What We’ve Done<a class="headerlink" href="#what-we-ve-done" title="Link to this heading">¶</a></h2>
+<section id="added-detailed-logging">
+<h3>1. ✅ Added Detailed Logging<a class="headerlink" href="#added-detailed-logging" title="Link to this heading">¶</a></h3>
+<p>Enhanced the callback with INFO-level logging that shows:</p>
+<ul class="simple">
+<li><p>When the callback is called</p></li>
+<li><p>Current epoch and compute frequency</p></li>
+<li><p>Dataloader availability and structure</p></li>
+<li><p>Number of quality labels and target columns</p></li>
+<li><p>Batch processing progress</p></li>
+<li><p>Shape of predictions and targets</p></li>
+<li><p>Success/failure of metric computation</p></li>
+</ul>
+</section>
+<section id="verified-configuration">
+<h3>2. ✅ Verified Configuration<a class="headerlink" href="#verified-configuration" title="Link to this heading">¶</a></h3>
+<p>Your config at <code class="docutils literal notranslate"><span class="pre">configs/curriculum/chemprop_curriculum.yaml</span></code> has:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">log_per_quality_metrics:</span> <span class="pre">true</span></code> ✓</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum.enabled:</span> <span class="pre">true</span></code> ✓</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum.qualities:</span> <span class="pre">[high,</span> <span class="pre">medium,</span> <span class="pre">low]</span></code> ✓</p></li>
+</ul>
+</section>
+<section id="created-debug-script">
+<h3>3. ✅ Created Debug Script<a class="headerlink" href="#created-debug-script" title="Link to this heading">¶</a></h3>
+<p>The script at <code class="docutils literal notranslate"><span class="pre">scripts/analysis/debug_per_quality_metrics.py</span></code> validates:</p>
+<ul class="simple">
+<li><p>Callback can be imported ✓</p></li>
+<li><p>Callback can be instantiated with quality labels ✓</p></li>
+<li><p>Callback computes and logs metrics correctly ✓</p></li>
+<li><p>Configuration is correct ✓</p></li>
+<li><p>MLflow is accessible ✓</p></li>
+</ul>
+</section>
+</section>
+<section id="diagnostic-steps">
+<h2>Diagnostic Steps<a class="headerlink" href="#diagnostic-steps" title="Link to this heading">¶</a></h2>
+<section id="step-1-run-training-with-info-logging">
+<h3>Step 1: Run Training with INFO Logging<a class="headerlink" href="#step-1-run-training-with-info-logging" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Add to your training command:</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">PYTHONUNBUFFERED</span><span class="o">=</span><span class="m">1</span>
+
+<span class="c1"># Run training and capture logs</span>
+python<span class="w"> </span>your_training_script.py<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span>training.log
+</pre></div>
+</div>
+<p>Look for these log messages:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>INFO - ================================================================================
+INFO - PerQualityMetricsCallback.on_validation_epoch_end called
+INFO - Current epoch: X, compute_every_n_epochs: 1
+INFO - Validation dataloader: &lt;class &#39;...&#39;&gt;, is_none: False
+</pre></div>
+</div>
+</section>
+<section id="step-2-check-what-you-see">
+<h3>Step 2: Check What You See<a class="headerlink" href="#step-2-check-what-you-see" title="Link to this heading">¶</a></h3>
+<section id="scenario-a-no-callback-logs-at-all">
+<h4>Scenario A: No callback logs at all<a class="headerlink" href="#scenario-a-no-callback-logs-at-all" title="Link to this heading">¶</a></h4>
+<p><strong>Problem</strong>: Callback not added to trainer or not enabled in config</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic">
+<li><p>Check your config has <code class="docutils literal notranslate"><span class="pre">log_per_quality_metrics:</span> <span class="pre">true</span></code></p></li>
+<li><p>Verify callback is instantiated in your training code</p></li>
+<li><p>Add debug print to see callbacks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trainer callbacks:&quot;</span><span class="p">,</span> <span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="n">trainer</span><span class="o">.</span><span class="n">callbacks</span><span class="p">])</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="scenario-b-callback-logs-skipping-epoch-x">
+<h4>Scenario B: Callback logs “Skipping epoch X”<a class="headerlink" href="#scenario-b-callback-logs-skipping-epoch-x" title="Link to this heading">¶</a></h4>
+<p><strong>Problem</strong>: <code class="docutils literal notranslate"><span class="pre">compute_every_n_epochs</span></code> setting</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p>Check callback initialization - it should log every epoch by default</p></li>
+<li><p>Verify in logs: <code class="docutils literal notranslate"><span class="pre">compute_every_n_epochs:</span> <span class="pre">1</span></code></p></li>
+<li><p>If you see a different number, check where callback is instantiated</p></li>
+</ol>
+</section>
+<section id="scenario-c-no-validation-dataloader-available">
+<h4>Scenario C: “No validation dataloader available”<a class="headerlink" href="#scenario-c-no-validation-dataloader-available" title="Link to this heading">¶</a></h4>
+<p><strong>Problem</strong>: Validation not configured or not running</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p>Verify you have validation data split</p></li>
+<li><p>Check trainer has <code class="docutils literal notranslate"><span class="pre">val_dataloaders</span></code> set</p></li>
+<li><p>Ensure validation is actually running (look for validation loss logs)</p></li>
+</ol>
+</section>
+<section id="scenario-d-mismatch-x-predictions-vs-y-quality-labels">
+<h4>Scenario D: “Mismatch: X predictions vs Y quality labels”<a class="headerlink" href="#scenario-d-mismatch-x-predictions-vs-y-quality-labels" title="Link to this heading">¶</a></h4>
+<p><strong>Problem</strong>: Validation dataset size doesn’t match quality labels</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic">
+<li><p>Check your validation data loading code</p></li>
+<li><p>Verify quality labels list matches validation dataset length</p></li>
+<li><p>Print lengths:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Val dataset size: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val_dataset</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quality labels size: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val_quality_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="scenario-e-logs-show-processing-but-no-metrics-in-mlflow">
+<h4>Scenario E: Logs show processing but no metrics in MLflow<a class="headerlink" href="#scenario-e-logs-show-processing-but-no-metrics-in-mlflow" title="Link to this heading">¶</a></h4>
+<p><strong>Problem</strong>: MLflow logging issue</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p>Verify MLflow experiment is created</p></li>
+<li><p>Check MLflow tracking URI is correct</p></li>
+<li><p>Look for MLflow errors in logs</p></li>
+<li><p>Verify run is active when callback fires</p></li>
+</ol>
+</section>
+</section>
+<section id="step-3-add-debug-prints-to-your-training-code">
+<h3>Step 3: Add Debug Prints to Your Training Code<a class="headerlink" href="#step-3-add-debug-prints-to-your-training-code" title="Link to this heading">¶</a></h3>
+<p>Add these before starting training:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Print configuration</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TRAINING CONFIGURATION&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Validation dataset size: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val_dataset</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quality labels size: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val_quality_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quality distribution: </span><span class="si">{</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">val_quality_labels</span><span class="p">)</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Target columns: </span><span class="si">{</span><span class="n">target_cols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;MLflow tracking URI: </span><span class="si">{</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;MLflow experiment: </span><span class="si">{</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_experiment_by_name</span><span class="p">(</span><span class="s1">&#39;your_experiment_name&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+
+<span class="c1"># Print callbacks</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TRAINER CALLBACKS&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cb</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">trainer</span><span class="o">.</span><span class="n">callbacks</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">. </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="n">PerQualityMetricsCallback</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   - Quality labels count: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cb</span><span class="o">.</span><span class="n">val_quality_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   - Qualities: </span><span class="si">{</span><span class="n">cb</span><span class="o">.</span><span class="n">qualities</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   - Target columns: </span><span class="si">{</span><span class="n">cb</span><span class="o">.</span><span class="n">target_cols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   - Compute every N epochs: </span><span class="si">{</span><span class="n">cb</span><span class="o">.</span><span class="n">compute_every_n_epochs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="step-4-check-training-logs">
+<h3>Step 4: Check Training Logs<a class="headerlink" href="#step-4-check-training-logs" title="Link to this heading">¶</a></h3>
+<p>After training starts, check for these patterns:</p>
+<p><strong>Good Signs</strong> (callback is working):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>INFO - PerQualityMetricsCallback.on_validation_epoch_end called
+INFO - Current epoch: 0, compute_every_n_epochs: 1
+INFO - Processing dataloader 1/1
+INFO - Processed 10 batches total
+INFO - Collected 10 prediction batches
+INFO - Computing per-quality metrics...
+INFO - ✓ Per-quality validation metrics successfully computed and logged for epoch 0
+</pre></div>
+</div>
+<p><strong>Bad Signs</strong> (callback not working):</p>
+<ul class="simple">
+<li><p>No PerQualityMetricsCallback logs at all</p></li>
+<li><p>“No validation dataloader available”</p></li>
+<li><p>“Mismatch: X predictions vs Y quality labels”</p></li>
+<li><p>“Skipping epoch X”</p></li>
+</ul>
+</section>
+</section>
+<section id="quick-test">
+<h2>Quick Test<a class="headerlink" href="#quick-test" title="Link to this heading">¶</a></h2>
+<p>To quickly verify the callback works in your environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the debug script</span>
+python<span class="w"> </span>scripts/analysis/debug_per_quality_metrics.py
+
+<span class="c1"># All tests should pass</span>
+<span class="c1"># If any fail, check the output for specific error messages</span>
+</pre></div>
+</div>
+</section>
+<section id="common-issues-and-solutions">
+<h2>Common Issues and Solutions<a class="headerlink" href="#common-issues-and-solutions" title="Link to this heading">¶</a></h2>
+<section id="issue-epoch-is-remaining-at-1">
+<h3>Issue: “epoch is remaining at 1”<a class="headerlink" href="#issue-epoch-is-remaining-at-1" title="Link to this heading">¶</a></h3>
+<p><strong>Cause</strong>: Training might be configured with <code class="docutils literal notranslate"><span class="pre">max_epochs=1</span></code> or early stopping very aggressively</p>
+<p><strong>Solution</strong>: Check your training config:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">150</span><span class="w">  </span><span class="c1"># Should be &gt; 1</span>
+<span class="w">  </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span><span class="w">     </span><span class="c1"># Shouldn&#39;t trigger too early</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-only-seeing-train-loss-step">
+<h3>Issue: Only seeing “train_loss_step”<a class="headerlink" href="#issue-only-seeing-train-loss-step" title="Link to this heading">¶</a></h3>
+<p><strong>Cause</strong>: Validation might not be running</p>
+<p><strong>Solution</strong>:</p>
+<ol class="arabic simple">
+<li><p>Verify you have validation data</p></li>
+<li><p>Check trainer is configured to run validation</p></li>
+<li><p>Look for validation loss in logs (should see <code class="docutils literal notranslate"><span class="pre">val_loss</span></code>)</p></li>
+</ol>
+</section>
+<section id="issue-metrics-appear-but-wrong-hierarchy">
+<h3>Issue: Metrics appear but wrong hierarchy<a class="headerlink" href="#issue-metrics-appear-but-wrong-hierarchy" title="Link to this heading">¶</a></h3>
+<p><strong>Cause</strong>: This was the original issue we fixed!</p>
+<p><strong>Solution</strong>: Already fixed! New hierarchy is <code class="docutils literal notranslate"><span class="pre">val/&lt;metric&gt;/&lt;quality&gt;</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">val/mae/high</span></code>)</p>
+</section>
+</section>
+<section id="expected-output">
+<h2>Expected Output<a class="headerlink" href="#expected-output" title="Link to this heading">¶</a></h2>
+<p>When working correctly, you should see metrics in MLflow like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">high</span> <span class="o">=</span> <span class="mf">0.123</span>
+<span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">medium</span> <span class="o">=</span> <span class="mf">0.234</span>
+<span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">low</span> <span class="o">=</span> <span class="mf">0.345</span>
+<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">high</span> <span class="o">=</span> <span class="mf">0.456</span>
+<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">medium</span> <span class="o">=</span> <span class="mf">0.567</span>
+<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">low</span> <span class="o">=</span> <span class="mf">0.678</span>
+<span class="n">val</span><span class="o">/</span><span class="n">count</span><span class="o">/</span><span class="n">high</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">val</span><span class="o">/</span><span class="n">count</span><span class="o">/</span><span class="n">medium</span> <span class="o">=</span> <span class="mi">80</span>
+<span class="n">val</span><span class="o">/</span><span class="n">count</span><span class="o">/</span><span class="n">low</span> <span class="o">=</span> <span class="mi">50</span>
+</pre></div>
+</div>
+<p>And with target columns:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">high</span><span class="o">/</span><span class="n">LogD</span> <span class="o">=</span> <span class="mf">0.111</span>
+<span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">high</span><span class="o">/</span><span class="n">KSOL</span> <span class="o">=</span> <span class="mf">0.222</span>
+<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">medium</span><span class="o">/</span><span class="n">LogD</span> <span class="o">=</span> <span class="mf">0.333</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Run the debug script</strong>: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">scripts/analysis/debug_per_quality_metrics.py</span></code></p></li>
+<li><p><strong>Start training with INFO logging</strong>: Capture output to a log file</p></li>
+<li><p><strong>Search logs</strong> for “PerQualityMetricsCallback” to see what’s happening</p></li>
+<li><p><strong>Match your scenario</strong> to the ones above and apply the solution</p></li>
+</ol>
+<p>If you still don’t see metrics after following this guide, share:</p>
+<ol class="arabic simple">
+<li><p>The output of the debug script</p></li>
+<li><p>Relevant sections from your training logs</p></li>
+<li><p>Your training script (or the relevant callback instantiation code)</p></li>
+</ol>
+</section>
+<section id="test-results">
+<h2>Test Results<a class="headerlink" href="#test-results" title="Link to this heading">¶</a></h2>
+<p>Run on: 2025-12-17</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Import              : ✓ PASS
+Instantiation       : ✓ PASS
+Mock Data           : ✓ PASS
+Config              : ✓ PASS
+MLflow              : ✓ PASS
+</pre></div>
+</div>
+<p>All diagnostic tests passed! The callback implementation is correct.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Per-Quality Metrics Debugging Guide</a><ul>
+<li><a class="reference internal" href="#summary">Summary</a></li>
+<li><a class="reference internal" href="#what-we-ve-done">What We’ve Done</a><ul>
+<li><a class="reference internal" href="#added-detailed-logging">1. ✅ Added Detailed Logging</a></li>
+<li><a class="reference internal" href="#verified-configuration">2. ✅ Verified Configuration</a></li>
+<li><a class="reference internal" href="#created-debug-script">3. ✅ Created Debug Script</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#diagnostic-steps">Diagnostic Steps</a><ul>
+<li><a class="reference internal" href="#step-1-run-training-with-info-logging">Step 1: Run Training with INFO Logging</a></li>
+<li><a class="reference internal" href="#step-2-check-what-you-see">Step 2: Check What You See</a><ul>
+<li><a class="reference internal" href="#scenario-a-no-callback-logs-at-all">Scenario A: No callback logs at all</a></li>
+<li><a class="reference internal" href="#scenario-b-callback-logs-skipping-epoch-x">Scenario B: Callback logs “Skipping epoch X”</a></li>
+<li><a class="reference internal" href="#scenario-c-no-validation-dataloader-available">Scenario C: “No validation dataloader available”</a></li>
+<li><a class="reference internal" href="#scenario-d-mismatch-x-predictions-vs-y-quality-labels">Scenario D: “Mismatch: X predictions vs Y quality labels”</a></li>
+<li><a class="reference internal" href="#scenario-e-logs-show-processing-but-no-metrics-in-mlflow">Scenario E: Logs show processing but no metrics in MLflow</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#step-3-add-debug-prints-to-your-training-code">Step 3: Add Debug Prints to Your Training Code</a></li>
+<li><a class="reference internal" href="#step-4-check-training-logs">Step 4: Check Training Logs</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#quick-test">Quick Test</a></li>
+<li><a class="reference internal" href="#common-issues-and-solutions">Common Issues and Solutions</a><ul>
+<li><a class="reference internal" href="#issue-epoch-is-remaining-at-1">Issue: “epoch is remaining at 1”</a></li>
+<li><a class="reference internal" href="#issue-only-seeing-train-loss-step">Issue: Only seeing “train_loss_step”</a></li>
+<li><a class="reference internal" href="#issue-metrics-appear-but-wrong-hierarchy">Issue: Metrics appear but wrong hierarchy</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#expected-output">Expected Output</a></li>
+<li><a class="reference internal" href="#next-steps">Next Steps</a></li>
+<li><a class="reference internal" href="#test-results">Test Results</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    </body>
+</html>

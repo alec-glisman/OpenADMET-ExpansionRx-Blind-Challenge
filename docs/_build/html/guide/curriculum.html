@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Task Affinity Grouping" href="task_affinity.html"><link rel="prev" title="Hyperparameter Optimization Guide" href="hpo.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Curriculum Learning Guide - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -323,7 +323,7 @@ prediction, data quality varies significantly:</p>
 </section>
 <section id="curriculum-phases">
 <h2>Curriculum Phases<a class="headerlink" href="#curriculum-phases" title="Link to this heading">¶</a></h2>
-<p>The curriculum proceeds through four phases:</p>
+<p>The curriculum proceeds through four phases with conservative default proportions:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -333,32 +333,128 @@ prediction, data quality varies significantly:</p>
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Phase</p></th>
-<th class="head"><p>Weights (3-quality)</p></th>
+<th class="head"><p>Target Proportions (3-quality)</p></th>
 <th class="head"><p>Description</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><strong>Warmup</strong></p></td>
-<td><p>90% high, 10% medium, 0% low</p></td>
+<td><p>80% high, 15% medium, 5% low</p></td>
 <td><p>Focus on high-quality data to learn core patterns</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Expand</strong></p></td>
-<td><p>60% high, 35% medium, 5% low</p></td>
+<td><p>60% high, 30% medium, 10% low</p></td>
 <td><p>Gradually incorporate medium-quality data</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Robust</strong></p></td>
-<td><p>40% high, 40% medium, 20% low</p></td>
+<td><p>50% high, 35% medium, 15% low</p></td>
 <td><p>Include low-quality data for robustness</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Polish</strong></p></td>
-<td><p>100% high, 0% medium, 0% low</p></td>
-<td><p>Fine-tune on high-quality data only</p></td>
+<td><p>70% high, 20% medium, 10% low</p></td>
+<td><p>Fine-tune on high-quality data while maintaining diversity</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>The <strong>polish phase</strong> maintains 30% non-high-quality data (20% medium + 10% low)
+to prevent overfitting to high-quality examples and preserve learned robustness.</p>
 <p>Phase transitions occur automatically when the overall validation loss stops
 improving for <code class="docutils literal notranslate"><span class="pre">patience</span></code> epochs.</p>
+<section id="count-normalization">
+<h3>Count Normalization<a class="headerlink" href="#count-normalization" title="Link to this heading">¶</a></h3>
+<p><strong>Why count normalization matters</strong>: In ADMET datasets, quality levels often have
+vastly different sizes. For example:</p>
+<ul class="simple">
+<li><p>High quality: 5,000 samples (4%)</p></li>
+<li><p>Medium quality: 100,000 samples (83%)</p></li>
+<li><p>Low quality: 15,000 samples (13%)</p></li>
+</ul>
+<p>Without count normalization, setting weights <code class="docutils literal notranslate"><span class="pre">[0.8,</span> <span class="pre">0.15,</span> <span class="pre">0.05]</span></code> does NOT mean
+80% of your batches will contain high-quality samples. The medium-quality dataset
+has 20× more samples, so it dominates training regardless of weights.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">count_normalize=True</span></code> (default), the target proportions are achieved by
+adjusting per-sample weights:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[weight_{sample} = \frac{target\_proportion}{count}\]</div>
+</div>
+<p>This ensures that specifying <code class="docutils literal notranslate"><span class="pre">[0.8,</span> <span class="pre">0.15,</span> <span class="pre">0.05]</span></code> actually results in 80% of
+training batches containing high-quality samples.</p>
+</section>
+<section id="metric-alignment">
+<h3>Metric Alignment<a class="headerlink" href="#metric-alignment" title="Link to this heading">¶</a></h3>
+<p><strong>Why metric alignment matters</strong>: By default, both curriculum phase transitions
+and early stopping monitor <code class="docutils literal notranslate"><span class="pre">val_loss</span></code> (overall validation loss). However, if
+your <strong>test data is entirely high-quality</strong>, this creates metric misalignment:</p>
+<ul class="simple">
+<li><p>With High=5k, Medium=100k: overall <code class="docutils literal notranslate"><span class="pre">val_loss</span></code> is dominated by medium-quality</p></li>
+<li><p>Model checkpoints optimize for medium-quality predictions, not high-quality test</p></li>
+</ul>
+<p>With <code class="docutils literal notranslate"><span class="pre">monitor_metric:</span> <span class="pre">&quot;val/mae/high&quot;</span></code>, you align optimization with your actual
+evaluation metric:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">monitor_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val/mae/high&quot;</span><span class="w">  </span><span class="c1"># Monitor high-quality validation MAE</span>
+<span class="w">  </span><span class="nt">early_stopping_metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">     </span><span class="c1"># If null, uses monitor_metric</span>
+</pre></div>
+</div>
+<p>Available metric patterns:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">val_loss</span></code> - Overall validation loss (default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/mae/high</span></code> - High-quality validation MAE</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/rmse/high</span></code> - High-quality validation RMSE</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/mae/medium</span></code>, <code class="docutils literal notranslate"><span class="pre">val/mae/low</span></code> - Other quality levels</p></li>
+</ul>
+</section>
+<section id="adaptive-curriculum">
+<h3>Adaptive Curriculum<a class="headerlink" href="#adaptive-curriculum" title="Link to this heading">¶</a></h3>
+<p><strong>What is adaptive curriculum?</strong> Instead of using fixed phase proportions, the
+adaptive curriculum automatically adjusts sampling weights based on per-quality
+validation performance trends.</p>
+<p><strong>How it works:</strong></p>
+<ol class="arabic simple">
+<li><p>Track per-quality metrics (e.g., <code class="docutils literal notranslate"><span class="pre">val/mae/high</span></code>, <code class="docutils literal notranslate"><span class="pre">val/mae/medium</span></code>) over time</p></li>
+<li><p>Compute relative improvement rates for each quality level</p></li>
+<li><p>If high-quality improves faster than others → increase high-quality proportion</p></li>
+<li><p>If high-quality lags behind → decrease high-quality proportion (bounded by floor)</p></li>
+</ol>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">adaptive_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">adaptive_improvement_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.02</span><span class="w">  </span><span class="c1"># 2% relative improvement triggers adjustment</span>
+<span class="w">  </span><span class="nt">adaptive_max_adjustment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w">          </span><span class="c1"># Max 10% weight change per epoch</span>
+<span class="w">  </span><span class="nt">adaptive_lookback_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">           </span><span class="c1"># Compare current vs 5 epochs ago</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adaptive_improvement_threshold</span></code>: Minimum relative improvement gap required</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adaptive_max_adjustment</span></code>: Maximum proportion change per adjustment</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adaptive_lookback_epochs</span></code>: How far back to look for trend computation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_high_quality_proportion</span></code>: Safety floor (default 0.25)</p></li>
+</ul>
+</section>
+<section id="loss-weighting">
+<h3>Loss Weighting<a class="headerlink" href="#loss-weighting" title="Link to this heading">¶</a></h3>
+<p><strong>Complementing sampling with loss weighting</strong>: While curriculum sampling controls
+<em>which</em> samples appear in batches, loss weighting controls <em>how much</em> each sample’s
+gradient contributes to learning.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">loss_weighting_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">loss_weights</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w">     </span><span class="c1"># Full gradient weight</span>
+<span class="w">    </span><span class="nt">medium</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">   </span><span class="c1"># Half gradient weight</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span><span class="w">      </span><span class="c1"># 30% gradient weight</span>
+</pre></div>
+</div>
+<p><strong>When to use loss weighting:</strong></p>
+<ul class="simple">
+<li><p>Combined with sampling for stronger high-quality emphasis</p></li>
+<li><p>When you want gradients from all data but prioritize high-quality</p></li>
+<li><p>Alternative to aggressive sampling proportions</p></li>
+</ul>
+<p><strong>Note:</strong> Loss weighting applies per-sample weights during the forward pass via
+Chemprop’s built-in sample weight mechanism.</p>
+</section>
 </section>
 <section id="quick-start">
 <h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
@@ -377,6 +473,30 @@ improving for <code class="docutils literal notranslate"><span class="pre">patie
 <span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span>
 <span class="w">    </span><span class="nt">log_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">    </span><span class="c1"># Count normalization (recommended for imbalanced datasets)</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">min_high_quality_proportion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+
+<span class="w">    </span><span class="c1"># Metric alignment (NEW): monitor high-quality metrics</span>
+<span class="w">    </span><span class="nt">monitor_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val/mae/high&quot;</span>
+<span class="w">    </span><span class="nt">early_stopping_metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># Uses monitor_metric if null</span>
+
+<span class="w">    </span><span class="c1"># Adaptive curriculum (NEW): auto-adjust proportions</span>
+<span class="w">    </span><span class="nt">adaptive_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+
+<span class="w">    </span><span class="c1"># Loss weighting (NEW): scale gradients by quality</span>
+<span class="w">    </span><span class="nt">loss_weighting_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">loss_weights</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">      </span><span class="nt">medium</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">      </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+
+<span class="w">    </span><span class="c1"># Optional: customize phase proportions for HPO</span>
+<span class="w">    </span><span class="c1"># warmup_proportions: [0.80, 0.15, 0.05]</span>
+<span class="w">    </span><span class="c1"># expand_proportions: [0.60, 0.30, 0.10]</span>
+<span class="w">    </span><span class="c1"># robust_proportions: [0.50, 0.35, 0.15]</span>
+<span class="w">    </span><span class="c1"># polish_proportions: [0.70, 0.20, 0.10]</span>
 <span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
 </pre></div>
 </div>
@@ -416,6 +536,33 @@ with task-aware oversampling:</p>
 <span class="w">    </span><span class="nt">reset_early_stopping_on_phase_change</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="w">    </span><span class="nt">log_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 
+<span class="w">    </span><span class="c1"># Count normalization for imbalanced datasets (default: true)</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">min_high_quality_proportion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+
+<span class="w">    </span><span class="c1"># Metric alignment: monitor high-quality metrics</span>
+<span class="w">    </span><span class="nt">monitor_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val/mae/high&quot;</span>
+<span class="w">    </span><span class="nt">early_stopping_metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># Uses monitor_metric if null</span>
+
+<span class="w">    </span><span class="c1"># Adaptive curriculum (auto-adjust proportions)</span>
+<span class="w">    </span><span class="nt">adaptive_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">adaptive_improvement_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.02</span>
+<span class="w">    </span><span class="nt">adaptive_max_adjustment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">    </span><span class="nt">adaptive_lookback_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+
+<span class="w">    </span><span class="c1"># Loss weighting (scale gradients by quality)</span>
+<span class="w">    </span><span class="nt">loss_weighting_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">loss_weights</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">      </span><span class="nt">medium</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">      </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+
+<span class="w">    </span><span class="c1"># Optional: HPO-friendly phase proportions</span>
+<span class="w">    </span><span class="c1"># warmup_proportions: [0.80, 0.15, 0.05]</span>
+<span class="w">    </span><span class="c1"># expand_proportions: [0.60, 0.30, 0.10]</span>
+<span class="w">    </span><span class="c1"># robust_proportions: [0.50, 0.35, 0.15]</span>
+<span class="w">    </span><span class="c1"># polish_proportions: [0.70, 0.20, 0.10]</span>
+
 <span class="w">  </span><span class="c1"># Global sampling settings</span>
 <span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># null = use full dataset size per epoch</span>
 <span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
@@ -429,9 +576,9 @@ with task-aware oversampling:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 20.0%" />
+<col style="width: 30.0%" />
 <col style="width: 15.0%" />
-<col style="width: 65.0%" />
+<col style="width: 55.0%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Parameter</p></th>
@@ -460,6 +607,62 @@ with task-aware oversampling:</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">42</span></code></p></td>
 <td><p>Random seed for reproducible curriculum sampling</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">count_normalize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Adjust weights for dataset size imbalance (recommended)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">min_high_quality_proportion</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.25</span></code></p></td>
+<td><p>Safety floor: minimum high-quality proportion in any phase</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">monitor_metric</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;val_loss&quot;</span></code></p></td>
+<td><p>Metric for curriculum phase transitions (e.g., <code class="docutils literal notranslate"><span class="pre">val/mae/high</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">early_stopping_metric</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+<td><p>Metric for early stopping; uses <code class="docutils literal notranslate"><span class="pre">monitor_metric</span></code> if null</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adaptive_enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Enable adaptive proportion adjustment based on per-quality trends</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adaptive_improvement_threshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.02</span></code></p></td>
+<td><p>Minimum relative improvement gap to trigger adjustment (2%)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adaptive_max_adjustment</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.1</span></code></p></td>
+<td><p>Maximum proportion change per adjustment (10%)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adaptive_lookback_epochs</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Epochs to look back for trend computation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">loss_weighting_enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Enable per-quality loss weights for gradient scaling</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">loss_weights</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+<td><p>Quality-to-weight mapping (e.g., <code class="docutils literal notranslate"><span class="pre">{high:</span> <span class="pre">1.0,</span> <span class="pre">medium:</span> <span class="pre">0.5}</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">warmup_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.80,</span> <span class="pre">0.15,</span> <span class="pre">0.05]</span></code></p></td>
+<td><p>Target proportions [high, medium, low] for warmup phase</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">expand_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.60,</span> <span class="pre">0.30,</span> <span class="pre">0.10]</span></code></p></td>
+<td><p>Target proportions for expand phase</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">robust_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.50,</span> <span class="pre">0.35,</span> <span class="pre">0.15]</span></code></p></td>
+<td><p>Target proportions for robust phase</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">polish_proportions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[0.70,</span> <span class="pre">0.20,</span> <span class="pre">0.10]</span></code></p></td>
+<td><p>Target proportions for polish phase (maintains diversity)</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -469,8 +672,8 @@ with task-aware oversampling:</p>
 <p>The curriculum adapts to the number of quality levels provided:</p>
 <ul class="simple">
 <li><p><strong>1 quality</strong>: warmup → polish (effectively no curriculum)</p></li>
-<li><p><strong>2 qualities</strong>: warmup → expand → polish</p></li>
-<li><p><strong>3+ qualities</strong>: warmup → expand → robust → polish</p></li>
+<li><p><strong>2 qualities</strong>: warmup → expand → polish (defaults: [0.85, 0.15] → [0.65, 0.35] → [0.75, 0.25])</p></li>
+<li><p><strong>3+ qualities</strong>: warmup → expand → robust → polish (full curriculum)</p></li>
 </ul>
 <p>Example with two quality levels:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">curriculum</span><span class="p">:</span>
@@ -480,6 +683,12 @@ with task-aware oversampling:</p>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;reliable&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;uncertain&quot;</span>
 <span class="w">  </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="c1"># Optional: customize 2-quality proportions</span>
+<span class="w">  </span><span class="c1"># warmup_proportions: [0.85, 0.15]</span>
+<span class="w">  </span><span class="c1"># expand_proportions: [0.65, 0.35]</span>
+<span class="w">  </span><span class="c1"># polish_proportions: [0.75, 0.25]</span>
 </pre></div>
 </div>
 </section>
@@ -503,26 +712,97 @@ configured <code class="docutils literal notranslate"><span class="pre">qualitie
 </section>
 <section id="how-it-works">
 <h2>How It Works<a class="headerlink" href="#how-it-works" title="Link to this heading">¶</a></h2>
-<section id="sampling-based-curriculum">
-<h3>Sampling-Based Curriculum<a class="headerlink" href="#sampling-based-curriculum" title="Link to this heading">¶</a></h3>
-<p>The curriculum uses weighted random sampling to control which data points
-appear in each training batch:</p>
+<section id="two-stage-sampling-with-jointsampler">
+<h3>Two-Stage Sampling with JointSampler<a class="headerlink" href="#two-stage-sampling-with-jointsampler" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> provides unified sampling that combines task-aware oversampling
+with curriculum learning via a two-stage algorithm:</p>
+<p><strong>Stage 1: Task Selection</strong></p>
+<p>Sample a task <code class="docutils literal notranslate"><span class="pre">t</span></code> according to inverse-power probabilities:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[p_t \propto count_t^{-\alpha}\]</div>
+</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">count_t</span></code> = number of samples with labels for task <code class="docutils literal notranslate"><span class="pre">t</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">α</span> <span class="pre">∈</span> <span class="pre">[0,</span> <span class="pre">1]</span></code> controls rebalancing strength:
+- <code class="docutils literal notranslate"><span class="pre">α=0</span></code>: Uniform task sampling (no rebalancing)
+- <code class="docutils literal notranslate"><span class="pre">α=0.5</span></code>: Moderate rebalancing (default, recommended)
+- <code class="docutils literal notranslate"><span class="pre">α=1.0</span></code>: Full inverse-proportional (rare tasks heavily favored)</p></li>
+</ul>
+<p><strong>Stage 2: Within-Task Sampling</strong></p>
+<p>Sample a molecule from task <code class="docutils literal notranslate"><span class="pre">t</span></code>’s valid indices, weighted by curriculum:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[p_i \propto w_{curriculum}[i]\]</div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">w_curriculum[i]</span></code> is determined by the sample’s quality label and
+the current curriculum phase proportions.</p>
+<p><strong>Weight Composition</strong></p>
+<p>The joint weight for sample <code class="docutils literal notranslate"><span class="pre">i</span></code> is computed as:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[w_{joint}[i] = w_{task}[i] \times w_{curriculum}[i]\]</div>
+</div>
+<p>This preserves backward compatibility:</p>
+<ul class="simple">
+<li><p>When curriculum is disabled: reduces to task oversampling only</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">task_alpha=0</span></code>: curriculum weights control all sampling</p></li>
+<li><p>When both enabled: multiplicative composition balances both strategies</p></li>
+</ul>
+<p><strong>Important: num_workers Limitation</strong></p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When using <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> with <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> in DataLoader, each
+worker gets its own copy of the sampler. The internal <code class="docutils literal notranslate"><span class="pre">_current_epoch</span></code>
+counter and curriculum phase state will NOT be synchronized across workers,
+potentially causing inconsistent sampling behavior.</p>
+<p><strong>Recommendation</strong>: Use <code class="docutils literal notranslate"><span class="pre">num_workers=0</span></code> for reliable curriculum learning.</p>
+</div>
+</section>
+<section id="sampling-based-curriculum-legacy">
+<h3>Sampling-Based Curriculum (Legacy)<a class="headerlink" href="#sampling-based-curriculum-legacy" title="Link to this heading">¶</a></h3>
+<p>The legacy <code class="docutils literal notranslate"><span class="pre">DynamicCurriculumSampler</span></code> uses weighted random sampling to control
+which data points appear in each training batch:</p>
 <ol class="arabic simple">
 <li><p><strong>WeightedRandomSampler</strong>: Each sample gets a weight based on its quality
 and the current curriculum phase</p></li>
 <li><p><strong>Sampling with replacement</strong>: Samples are drawn according to weights,
 so high-quality samples appear more frequently in early phases</p></li>
 <li><p><strong>Phase-dependent weights</strong>: Weights are updated when phases change</p></li>
+<li><p><strong>Count normalization</strong>: Weights are adjusted for dataset size imbalance</p></li>
 </ol>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.curriculum_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_curriculum_sampler</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.curriculum</span><span class="w"> </span><span class="kn">import</span> <span class="n">CurriculumState</span>
+<p>The <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> is the preferred approach as it unifies task and curriculum
+sampling in a single, well-tested implementation.</p>
+</section>
+<section id="count-normalized-sampling">
+<h3>Count-Normalized Sampling<a class="headerlink" href="#count-normalized-sampling" title="Link to this heading">¶</a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">count_normalize=True</span></code> (default), the sampler converts target proportions
+to per-sample weights that achieve those proportions regardless of dataset size:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example: High=5k, Medium=100k, Low=15k samples</span>
+<span class="c1"># Target proportions for warmup: [0.80, 0.15, 0.05]</span>
 
-<span class="c1"># Create curriculum state</span>
-<span class="n">state</span> <span class="o">=</span> <span class="n">CurriculumState</span><span class="p">(</span><span class="n">qualities</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">],</span> <span class="n">patience</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="c1"># Without count normalization (legacy):</span>
+<span class="c1">#   Raw weights: [0.80, 0.15, 0.05] applied to each sample</span>
+<span class="c1">#   Result: ~4% high (dominated by medium&#39;s 20x size!)</span>
+
+<span class="c1"># With count normalization:</span>
+<span class="c1">#   Normalized weights:</span>
+<span class="c1">#     high:   0.80 / 5000   = 0.00016 per sample</span>
+<span class="c1">#     medium: 0.15 / 100000 = 0.0000015 per sample</span>
+<span class="c1">#     low:    0.05 / 15000  = 0.0000033 per sample</span>
+<span class="c1">#   Result: ~80% high in batches (as intended!)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.curriculum_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">DynamicCurriculumSampler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.curriculum</span><span class="w"> </span><span class="kn">import</span> <span class="n">CurriculumState</span><span class="p">,</span> <span class="n">CurriculumPhaseConfig</span>
+
+<span class="c1"># Create curriculum state with count normalization</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">CurriculumPhaseConfig</span><span class="p">(</span><span class="n">count_normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">state</span> <span class="o">=</span> <span class="n">CurriculumState</span><span class="p">(</span><span class="n">qualities</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">],</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 
 <span class="c1"># Build sampler for training data</span>
 <span class="n">quality_labels</span> <span class="o">=</span> <span class="n">df_train</span><span class="p">[</span><span class="s2">&quot;Quality&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<span class="n">sampler</span> <span class="o">=</span> <span class="n">build_curriculum_sampler</span><span class="p">(</span>
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">DynamicCurriculumSampler</span><span class="p">(</span>
     <span class="n">quality_labels</span><span class="o">=</span><span class="n">quality_labels</span><span class="p">,</span>
     <span class="n">curriculum_state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
     <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
@@ -563,14 +843,87 @@ so high-quality samples appear more frequently in early phases</p></li>
 </pre></div>
 </div>
 </section>
+<section id="weight-statistics-monitoring">
+<h3>Weight Statistics Monitoring<a class="headerlink" href="#weight-statistics-monitoring" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> computes and logs comprehensive weight statistics each epoch
+to help monitor sampling behavior:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_weight_statistics</span><span class="p">(</span><span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>           <span class="c1"># Minimum weight</span>
+        <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>           <span class="c1"># Maximum weight</span>
+        <span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>          <span class="c1"># Mean weight</span>
+        <span class="s2">&quot;entropy&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>       <span class="c1"># Distribution uniformity (H = -sum(p*log(p)))</span>
+        <span class="s2">&quot;effective_samples&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>  <span class="c1"># 1/sum(weights^2) - higher = more uniform</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>entropy</strong>: Higher values indicate more uniform sampling; lower values indicate
+concentration on specific samples</p></li>
+<li><p><strong>effective_samples</strong>: The “effective” number of samples being used. A value close
+to the dataset size indicates uniform sampling; a low value indicates sampling is
+concentrated on a small subset</p></li>
+</ul>
+<p>These statistics are logged as:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Weight stats: min=0.000001, max=0.000160, mean=0.000008, entropy=11.234, effective_samples=4523.1
+</pre></div>
+</div>
+</section>
 <section id="mlflow-metrics">
 <h3>MLflow Metrics<a class="headerlink" href="#mlflow-metrics" title="Link to this heading">¶</a></h3>
-<p>When MLflow tracking is enabled, the following metrics are logged:</p>
+<p>When MLflow tracking is enabled, the following metrics are logged with hierarchical naming:</p>
+<p><strong>Curriculum State Metrics:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">curriculum_phase</span></code>: Numeric phase indicator (0=warmup, 1=expand, 2=robust, 3=polish)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">curriculum_phase_epoch</span></code>: Epoch when phase transition occurred</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/phase</span></code>: Numeric phase indicator (0=warmup, 1=expand, 2=robust, 3=polish)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/phase_epoch</span></code>: Epoch when phase transition occurred</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/val_loss_at_transition</span></code>: Validation loss at the time of phase transition</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/transition</span></code>: Phase transition marker (logged at global_step for training curves)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/weight/&lt;quality&gt;</span></code>: Sampling weight for each quality level (e.g., <code class="docutils literal notranslate"><span class="pre">curriculum/weight/high</span></code>)</p></li>
 </ul>
-<p>These metrics enable visualization of curriculum progression in MLflow UI.</p>
+<p><strong>Per-Quality Metrics (during training):</strong></p>
+<p>When <code class="docutils literal notranslate"><span class="pre">log_per_quality_metrics:</span> <span class="pre">true</span></code> is enabled, per-quality metrics are computed
+and logged on each epoch for both training and validation, enabling training curve visualization:</p>
+<p><em>Validation metrics:</em></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/&lt;metric&gt;/&lt;quality&gt;</span></code>: Metric for a specific quality level</p>
+<p>Examples:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">val/mae/high</span></code>: Mean absolute error for high-quality validation samples</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/mse/medium</span></code>: Mean squared error for medium-quality validation samples</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/rmse/low</span></code>: Root mean squared error for low-quality validation samples</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/loss/high</span></code>: Loss for high-quality samples (same as MSE)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">val/count/high</span></code>: Number of validation samples for high-quality</p></li>
+</ul>
+</li>
+</ul>
+<p><em>Training metrics:</em></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">train/&lt;metric&gt;/&lt;quality&gt;</span></code>: Metric for a specific quality level during training</p>
+<p>Examples:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">train/mae/high</span></code>: Mean absolute error for high-quality training samples</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train/mse/medium</span></code>: Mean squared error for medium-quality training samples</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train/rmse/low</span></code>: Root mean squared error for low-quality training samples</p></li>
+</ul>
+</li>
+</ul>
+<p><em>Per-target metrics (when multiple targets):</em></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;split&gt;/&lt;metric&gt;/&lt;quality&gt;/&lt;target&gt;</span></code>: Metric for a specific quality level and target</p>
+<p>Examples:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">val/mae/high/LogD</span></code>: MAE for high-quality validation samples on LogD target</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train/rmse/medium/KSOL</span></code>: RMSE for medium-quality training samples on KSOL target</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>MLflow Tags:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum_transition_epoch_&lt;N&gt;</span></code>: Tag marking the epoch and transition type (e.g., <code class="docutils literal notranslate"><span class="pre">warmup_to_expand</span></code>)</p></li>
+</ul>
+<p>These metrics enable visualization of curriculum progression in MLflow UI. The hierarchical
+naming groups related metrics together for easier navigation.</p>
 </section>
 </section>
 <section id="best-practices">
@@ -587,15 +940,20 @@ so high-quality samples appear more frequently in early phases</p></li>
 </section>
 <section id="quality-distribution">
 <h3>Quality Distribution<a class="headerlink" href="#quality-distribution" title="Link to this heading">¶</a></h3>
-<p>Aim for a reasonable distribution across quality levels:</p>
+<p>With count normalization enabled (default), the curriculum works effectively
+even with highly imbalanced quality distributions:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check quality distribution</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">df_train</span><span class="p">[</span><span class="s2">&quot;Quality&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-<span class="c1"># high      0.40</span>
-<span class="c1"># medium    0.35</span>
-<span class="c1"># low       0.25</span>
+<span class="c1"># high      0.04   # Only 4% high-quality is fine with count_normalize=True</span>
+<span class="c1"># medium    0.83   # Large medium-quality dataset</span>
+<span class="c1"># low       0.13   # Some low-quality data</span>
+
+<span class="c1"># The curriculum will still achieve target proportions:</span>
+<span class="c1"># - warmup: 80% high, 15% medium, 5% low in actual batches</span>
+<span class="c1"># - polish: 70% high, 20% medium, 10% low in actual batches</span>
 </pre></div>
 </div>
-<p>If one quality dominates, curriculum learning may have limited effect.</p>
+<p>Without count normalization, aim for a reasonable distribution across quality levels.</p>
 </section>
 <section id="patience-tuning">
 <h3>Patience Tuning<a class="headerlink" href="#patience-tuning" title="Link to this heading">¶</a></h3>
@@ -610,6 +968,32 @@ so high-quality samples appear more frequently in early phases</p></li>
 <li><p>Validation loss convergence behavior</p></li>
 <li><p>Dataset size and complexity</p></li>
 </ul>
+</section>
+<section id="phase-proportion-tuning">
+<h3>Phase Proportion Tuning<a class="headerlink" href="#phase-proportion-tuning" title="Link to this heading">¶</a></h3>
+<p>The default proportions are conservative and designed for molecular property
+prediction with imbalanced datasets:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Conservative defaults (good starting point)</span>
+<span class="nt">warmup_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.80</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.15</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.05</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># 80% high</span>
+<span class="nt">expand_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.60</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.30</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.10</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># 60% high</span>
+<span class="nt">robust_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.50</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.35</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.15</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># 50% high (minimum with safety floor)</span>
+<span class="nt">polish_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.70</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.20</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.10</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># 70% high (maintains diversity)</span>
+
+<span class="c1"># More aggressive (favor high-quality more)</span>
+<span class="nt">warmup_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.90</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.08</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.02</span><span class="p p-Indicator">]</span>
+<span class="nt">expand_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.75</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.20</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.05</span><span class="p p-Indicator">]</span>
+<span class="nt">robust_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.60</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.30</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.10</span><span class="p p-Indicator">]</span>
+<span class="nt">polish_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.85</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.10</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.05</span><span class="p p-Indicator">]</span>
+
+<span class="c1"># More inclusive (use more low-quality data)</span>
+<span class="nt">warmup_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.70</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.20</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.10</span><span class="p p-Indicator">]</span>
+<span class="nt">expand_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.50</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.35</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.15</span><span class="p p-Indicator">]</span>
+<span class="nt">robust_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.40</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.35</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.25</span><span class="p p-Indicator">]</span>
+<span class="nt">polish_proportions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.60</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.25</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.15</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">min_high_quality_proportion</span></code> (default: 0.25) ensures high-quality data
+never drops below 25% in any phase, preventing catastrophic forgetting.</p>
 </section>
 </section>
 <section id="integration-with-other-features">
@@ -680,9 +1064,10 @@ The sampler falls back to uniform sampling to avoid empty batches.</p>
 <h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h2>
 <p>See the API documentation for detailed class and function references:</p>
 <ul class="simple">
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">admet.model.chemprop.joint_sampler</span></code> - JointSampler (unified two-stage sampling)</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">admet.model.chemprop.curriculum</span></code> - CurriculumState and CurriculumCallback</p></li>
-<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">admet.model.chemprop.curriculum_sampler</span></code> - Weighted sampler utilities</p></li>
-<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">admet.model.chemprop.config</span></code> - CurriculumConfig dataclass</p></li>
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">admet.model.chemprop.curriculum_sampler</span></code> - DynamicCurriculumSampler (legacy)</p></li>
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">admet.model.chemprop.config</span></code> - JointSamplingConfig, CurriculumConfig dataclasses</p></li>
 </ul>
 </section>
 <section id="cross-references">
@@ -752,7 +1137,13 @@ The sampler falls back to uniform sampling to avoid empty batches.</p>
             <ul>
 <li><a class="reference internal" href="#">Curriculum Learning Guide</a><ul>
 <li><a class="reference internal" href="#overview">Overview</a></li>
-<li><a class="reference internal" href="#curriculum-phases">Curriculum Phases</a></li>
+<li><a class="reference internal" href="#curriculum-phases">Curriculum Phases</a><ul>
+<li><a class="reference internal" href="#count-normalization">Count Normalization</a></li>
+<li><a class="reference internal" href="#metric-alignment">Metric Alignment</a></li>
+<li><a class="reference internal" href="#adaptive-curriculum">Adaptive Curriculum</a></li>
+<li><a class="reference internal" href="#loss-weighting">Loss Weighting</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#quick-start">Quick Start</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a><ul>
 <li><a class="reference internal" href="#curriculum-configuration">Curriculum Configuration</a></li>
@@ -762,12 +1153,15 @@ The sampler falls back to uniform sampling to avoid empty batches.</p>
 </li>
 <li><a class="reference internal" href="#data-preparation">Data Preparation</a></li>
 <li><a class="reference internal" href="#how-it-works">How It Works</a><ul>
-<li><a class="reference internal" href="#sampling-based-curriculum">Sampling-Based Curriculum</a></li>
+<li><a class="reference internal" href="#two-stage-sampling-with-jointsampler">Two-Stage Sampling with JointSampler</a></li>
+<li><a class="reference internal" href="#sampling-based-curriculum-legacy">Sampling-Based Curriculum (Legacy)</a></li>
+<li><a class="reference internal" href="#count-normalized-sampling">Count-Normalized Sampling</a></li>
 <li><a class="reference internal" href="#phase-transition-logic">Phase Transition Logic</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#monitoring-and-logging">Monitoring and Logging</a><ul>
 <li><a class="reference internal" href="#phase-transitions">Phase Transitions</a></li>
+<li><a class="reference internal" href="#weight-statistics-monitoring">Weight Statistics Monitoring</a></li>
 <li><a class="reference internal" href="#mlflow-metrics">MLflow Metrics</a></li>
 </ul>
 </li>
@@ -775,6 +1169,7 @@ The sampler falls back to uniform sampling to avoid empty batches.</p>
 <li><a class="reference internal" href="#data-quality-assignment">Data Quality Assignment</a></li>
 <li><a class="reference internal" href="#quality-distribution">Quality Distribution</a></li>
 <li><a class="reference internal" href="#patience-tuning">Patience Tuning</a></li>
+<li><a class="reference internal" href="#phase-proportion-tuning">Phase Proportion Tuning</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#integration-with-other-features">Integration with Other Features</a><ul>
@@ -802,10 +1197,11 @@ The sampler falls back to uniform sampling to avoid empty batches.</p>
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </body>
 </html>

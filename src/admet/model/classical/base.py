@@ -86,7 +86,10 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         if params_key in model_section:
             params = model_section.get(params_key, {})
             if isinstance(params, DictConfig):
-                return dict(OmegaConf.to_container(params, resolve=True))
+                container = OmegaConf.to_container(params, resolve=True)
+                if isinstance(container, dict):
+                    return {str(k): v for k, v in container.items()}
+                return {}
             return dict(params) if params else {}
 
         return {}
@@ -109,12 +112,19 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         maccs_config = fp_section.get("maccs", {})
         mordred_config = fp_section.get("mordred", {})
 
+        # Convert configs to proper types
+        default_fp = FingerprintConfig()
+        morgan = OmegaConf.to_object(morgan_config) if morgan_config else default_fp.morgan
+        rdkit = OmegaConf.to_object(rdkit_config) if rdkit_config else default_fp.rdkit
+        maccs = OmegaConf.to_object(maccs_config) if maccs_config else default_fp.maccs
+        mordred = OmegaConf.to_object(mordred_config) if mordred_config else default_fp.mordred
+
         return FingerprintConfig(
             type=fp_type,
-            morgan=OmegaConf.to_object(morgan_config) if morgan_config else FingerprintConfig().morgan,
-            rdkit=OmegaConf.to_object(rdkit_config) if rdkit_config else FingerprintConfig().rdkit,
-            maccs=OmegaConf.to_object(maccs_config) if maccs_config else FingerprintConfig().maccs,
-            mordred=OmegaConf.to_object(mordred_config) if mordred_config else FingerprintConfig().mordred,
+            morgan=morgan,  # type: ignore[arg-type]
+            rdkit=rdkit,  # type: ignore[arg-type]
+            maccs=maccs,  # type: ignore[arg-type]
+            mordred=mordred,  # type: ignore[arg-type]
         )
 
     @abstractmethod
@@ -147,12 +157,14 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         """
         return self.fingerprint_generator.generate(smiles)
 
-    def fit(
+    def fit(  # type: ignore[override]
         self,
         smiles: list[str],
         targets: np.ndarray,
         *,
         sample_weight: np.ndarray | None = None,
+        val_smiles: list[str] | None = None,
+        val_y: np.ndarray | None = None,
         **kwargs: Any,
     ) -> ClassicalModelBase:
         """Fit the model on SMILES and targets.
@@ -196,7 +208,7 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         self._is_fitted = True
 
         if hasattr(self, "_mlflow_run") and self._mlflow_run:
-            self.log_params_from_config(self.config)
+            self.log_params_from_config()
             self.log_metric("n_samples", len(smiles))
             self.log_metric("n_features", X.shape[1])
             self.log_metric("n_targets", n_targets)
@@ -224,7 +236,7 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         RuntimeError
             If model has not been fitted.
         """
-        if not self._is_fitted:
+        if not self._is_fitted or self._model is None:
             msg = f"{self.model_type} model has not been fitted"
             raise RuntimeError(msg)
 

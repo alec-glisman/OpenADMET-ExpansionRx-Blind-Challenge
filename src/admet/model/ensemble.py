@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 from admet.model.base import BaseModel
@@ -93,16 +92,19 @@ class Ensemble(MLflowMixin):
         BaseModel
             Unfitted model instance.
         """
-        model_config = OmegaConf.to_container(self.config, resolve=True)
+        model_config_dict = OmegaConf.to_container(self.config, resolve=True)
+        if not isinstance(model_config_dict, dict):
+            msg = "Config must resolve to a dictionary"
+            raise TypeError(msg)
 
         if seed is not None:
-            model_section = model_config.get("model", {})
+            model_section = model_config_dict.get("model", {})
             type_key = self.model_type
-            if type_key in model_section:
+            if isinstance(model_section, dict) and type_key in model_section:
                 model_section[type_key]["random_state"] = seed
                 model_section[type_key]["random_seed"] = seed
 
-        return ModelRegistry.create(OmegaConf.create(model_config))
+        return ModelRegistry.create(OmegaConf.create(model_config_dict))
 
     def fit(
         self,
@@ -143,7 +145,17 @@ class Ensemble(MLflowMixin):
             logger.info(f"Training model {i + 1}/{self.n_models} (seed={seed})")
 
             model = self._create_model(seed=seed)
-            model.fit(smiles, targets, sample_weight=sample_weight, **kwargs)
+            # Pass sample_weight only for models that support it (classical models)
+            if sample_weight is not None and hasattr(model, "fit"):
+                import inspect
+
+                sig = inspect.signature(model.fit)
+                if "sample_weight" in sig.parameters:
+                    model.fit(smiles, targets, sample_weight=sample_weight, **kwargs)  # type: ignore[call-arg]
+                else:
+                    model.fit(smiles, targets, **kwargs)
+            else:
+                model.fit(smiles, targets, **kwargs)
             self.models.append(model)
 
         if hasattr(self, "_mlflow_run") and self._mlflow_run:

@@ -14,7 +14,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration File Reference" href="config_reference.html"><link rel="prev" title="Dataset Splitting Methodology" href="splitting.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Configuration Guide - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -342,25 +342,28 @@ with structured defaults.</p>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">MBPB&quot;</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Log</span><span class="nv"> </span><span class="s">MGMB&quot;</span>
 <span class="w">  </span><span class="nt">target_weights</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.031</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2252</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.1368</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.1227</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.1174</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.7877</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.2722</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
 
-<span class="c1"># Model architecture</span>
+<span class="c1"># Model configuration (unified format)</span>
 <span class="nt">model</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                  </span><span class="c1"># Message passing iterations</span>
-<span class="w">  </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">   </span><span class="c1"># MPNN hidden dimension</span>
-<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">             </span><span class="c1"># FFN layers</span>
-<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">           </span><span class="c1"># FFN hidden dimension</span>
-<span class="w">  </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
-<span class="w">  </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;regression&quot;</span><span class="w">    </span><span class="c1"># or &quot;mixture_of_experts&quot;, &quot;branched&quot;</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span><span class="w">              </span><span class="c1"># Model type: chemprop, chemeleon, xgboost, lightgbm, catboost</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span><span class="w">                   </span><span class="c1"># Model-specific parameters</span>
+<span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                  </span><span class="c1"># Message passing iterations</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">   </span><span class="c1"># MPNN hidden dimension</span>
+<span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">             </span><span class="c1"># FFN layers</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">           </span><span class="c1"># FFN hidden dimension</span>
+<span class="w">    </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">    </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">regression</span><span class="w">      </span><span class="c1"># regression, mixture_of_experts, branched</span>
+<span class="w">    </span><span class="nt">aggregation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mean</span>
 
 <span class="c1"># Optimization settings</span>
 <span class="nt">optimization</span><span class="p">:</span>
@@ -382,9 +385,38 @@ with structured defaults.</p>
 </pre></div>
 </div>
 </section>
+<section id="supported-model-types">
+<h2>Supported Model Types<a class="headerlink" href="#supported-model-types" title="Link to this heading">¶</a></h2>
+<p>The unified configuration supports multiple model types via <code class="docutils literal notranslate"><span class="pre">model.type</span></code>:</p>
+<p><strong>PyTorch Models</strong> (support JointSampling):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">chemprop</span></code>: Message-passing neural network</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chemeleon</span></code>: Pretrained foundation model with fine-tuning</p></li>
+</ul>
+<p><strong>Classical Models</strong> (fingerprint-based, no JointSampling):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">xgboost</span></code>: XGBoost gradient boosting</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lightgbm</span></code>: LightGBM gradient boosting</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">catboost</span></code>: CatBoost gradient boosting</p></li>
+</ul>
+<p>Example for classical model (XGBoost):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xgboost</span>
+<span class="w">  </span><span class="nt">fingerprint</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">morgan</span>
+<span class="w">    </span><span class="nt">morgan</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">radius</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">      </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2048</span>
+<span class="w">  </span><span class="nt">xgboost</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">n_estimators</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">    </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">    </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
+</pre></div>
+</div>
+</section>
 <section id="ensemble-configuration">
 <h2>Ensemble Configuration<a class="headerlink" href="#ensemble-configuration" title="Link to this heading">¶</a></h2>
-<p>Example <code class="docutils literal notranslate"><span class="pre">configs/0-experiment/ensemble_chemprop_production.yaml</span></code>:</p>
+<p>Example <code class="docutils literal notranslate"><span class="pre">configs/4-more-models/chemprop.yaml</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Data root containing split_*/fold_*/ subdirectories</span>
 <span class="nt">data</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">data_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data&quot;</span>
@@ -393,7 +425,29 @@ with structured defaults.</p>
 <span class="w">  </span><span class="nt">splits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">    </span><span class="c1"># null = use all, or [0, 1, 2]</span>
 <span class="w">  </span><span class="nt">folds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">     </span><span class="c1"># null = use all, or [0, 1, 2, 3, 4]</span>
 
-<span class="c1"># Model and optimization same as single config...</span>
+<span class="c1"># Model configuration (unified format)</span>
+<span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chemprop</span>
+<span class="w">  </span><span class="nt">chemprop</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">message_hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">700</span>
+<span class="w">    </span><span class="nt">aggregation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">norm</span>
+<span class="w">    </span><span class="nt">ffn_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">regression</span>
+<span class="w">    </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">    </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">    </span><span class="nt">dropout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.15</span>
+<span class="w">    </span><span class="nt">batch_norm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="c1"># Optimization</span>
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">criterion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MAE</span>
+<span class="w">  </span><span class="nt">init_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.00113</span>
+<span class="w">  </span><span class="nt">max_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.000227</span>
+<span class="w">  </span><span class="nt">final_lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.000113</span>
+<span class="w">  </span><span class="nt">warmup_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">150</span>
+<span class="w">  </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 
 <span class="nt">mlflow</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -402,7 +456,7 @@ with structured defaults.</p>
 
 <span class="c1"># Ray parallelization settings</span>
 <span class="nt">ray</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">    </span><span class="c1"># Models trained concurrently</span>
+<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">    </span><span class="c1"># Models trained concurrently</span>
 <span class="w">  </span><span class="nt">num_cpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">     </span><span class="c1"># null = use all available</span>
 <span class="w">  </span><span class="nt">num_gpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">     </span><span class="c1"># null = auto-detect</span>
 
@@ -410,9 +464,9 @@ with structured defaults.</p>
 <span class="nt">joint_sampling</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">       </span><span class="c1"># Balance factor for task-aware sampling</span>
+<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.02</span><span class="w">      </span><span class="c1"># Balance factor for task-aware sampling</span>
 <span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
 <span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
@@ -424,20 +478,22 @@ with structured defaults.</p>
 <section id="programmatic-loading">
 <h2>Programmatic Loading<a class="headerlink" href="#programmatic-loading" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropConfig</span><span class="p">,</span> <span class="n">ChempropModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnifiedModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_model_from_config</span>
 
 <span class="c1"># Load and merge configuration</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/chemprop.yaml&quot;</span><span class="p">)</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">UnifiedModelConfig</span><span class="p">),</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/4-more-models/chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
-<span class="c1"># Access nested settings</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ffn_type</span><span class="p">)</span>      <span class="c1"># &quot;regression&quot;</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span><span class="p">)</span>  <span class="c1"># 0.001</span>
+<span class="c1"># Access nested settings (unified format)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>              <span class="c1"># &quot;chemprop&quot;</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">chemprop</span><span class="o">.</span><span class="n">depth</span><span class="p">)</span>    <span class="c1"># 3</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span><span class="p">)</span>     <span class="c1"># 0.000227</span>
 
-<span class="c1"># Create model from config</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="c1"># Create model from config (automatic type detection)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">create_model_from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -460,29 +516,81 @@ For example, if each model needs 0.5 GPU, set <code class="docutils literal notr
 </section>
 <section id="joint-sampling-configuration">
 <h2>Joint Sampling Configuration<a class="headerlink" href="#joint-sampling-configuration" title="Link to this heading">¶</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">joint_sampling</span></code> section enables unified task-aware oversampling and curriculum learning:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">joint_sampling</span></code> section enables unified task-aware oversampling and curriculum learning
+via the <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code>, which uses a two-stage sampling algorithm:</p>
+<p><strong>Two-Stage Sampling Algorithm:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Stage 1 (Task Selection):</strong> Sample task <code class="docutils literal notranslate"><span class="pre">t</span></code> with probability <code class="docutils literal notranslate"><span class="pre">p_t</span> <span class="pre">∝</span> <span class="pre">count_t^(-α)</span></code></p></li>
+<li><p><strong>Stage 2 (Within-Task):</strong> Sample molecule from task <code class="docutils literal notranslate"><span class="pre">t</span></code>’s valid indices, weighted by curriculum</p></li>
+</ol>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">joint_sampling</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="c1"># Task-aware oversampling configuration</span>
 <span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">         </span><span class="c1"># Balance factor (0=uniform, 1=fully weighted)</span>
+<span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">         </span><span class="c1"># [0, 1] - 0=uniform, 0.5=moderate, 1=full inverse-weighted</span>
+
+<span class="w">  </span><span class="c1"># Curriculum learning configuration</span>
 <span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
 <span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">        </span><span class="c1"># Epochs before quality phase change</span>
-<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span><span class="w">  </span><span class="c1"># or &quot;deterministic&quot;</span>
-<span class="w">    </span><span class="nt">reset_early_stopping_on_phase_change</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">        </span><span class="c1"># Epochs before phase transition</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sampled&quot;</span>
+
+<span class="w">    </span><span class="c1"># Count normalization (recommended for imbalanced datasets)</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">min_high_quality_proportion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+
+<span class="w">    </span><span class="c1"># Metric alignment</span>
+<span class="w">    </span><span class="nt">monitor_metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;val/mae/high&quot;</span>
+<span class="w">    </span><span class="nt">early_stopping_metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">  </span><span class="c1"># Uses monitor_metric if null</span>
+
+<span class="w">    </span><span class="c1"># Adaptive curriculum (auto-adjust proportions)</span>
+<span class="w">    </span><span class="nt">adaptive_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">adaptive_improvement_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.02</span>
+<span class="w">    </span><span class="nt">adaptive_max_adjustment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+<span class="w">    </span><span class="nt">adaptive_lookback_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+
+<span class="w">    </span><span class="c1"># Loss weighting (scale gradients by quality)</span>
+<span class="w">    </span><span class="nt">loss_weighting_enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">loss_weights</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">      </span><span class="nt">medium</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">      </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+
+<span class="w">    </span><span class="c1"># Optional: customize phase proportions</span>
+<span class="w">    </span><span class="c1"># warmup_proportions: [0.80, 0.15, 0.05]</span>
+<span class="w">    </span><span class="c1"># expand_proportions: [0.60, 0.30, 0.10]</span>
+<span class="w">    </span><span class="c1"># robust_proportions: [0.50, 0.35, 0.15]</span>
+<span class="w">    </span><span class="c1"># polish_proportions: [0.70, 0.20, 0.10]</span>
+
 <span class="w">    </span><span class="nt">log_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">    </span><span class="c1"># null = use full dataset size</span>
+<span class="w">    </span><span class="nt">reset_early_stopping_on_phase_change</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+
+<span class="w">  </span><span class="c1"># Global sampling settings</span>
+<span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">              </span><span class="c1"># null = use full dataset size per epoch</span>
 <span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
-<span class="w">  </span><span class="nt">increment_seed_per_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">increment_seed_per_epoch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Different samples each epoch</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># Log weight statistics</span>
 </pre></div>
 </div>
-<p><strong>Task Oversampling</strong>: Balances multi-task learning by oversampling tasks with fewer samples.
-The <code class="docutils literal notranslate"><span class="pre">alpha</span></code> parameter controls the balance: 0 = uniform sampling, 1 = fully inverse-weighted.</p>
-<p><strong>Curriculum Learning</strong>: Progressively trains on data of increasing difficulty (e.g., high → medium → low quality).
-The sampler automatically advances through quality phases based on validation performance and <code class="docutils literal notranslate"><span class="pre">patience</span></code>.</p>
+<p><strong>Task Oversampling (``task_oversampling.alpha``):</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">α=0</span></code>: Uniform task sampling (no rebalancing)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">α=0.5</span></code>: Moderate rebalancing (default, recommended)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">α=1.0</span></code>: Full inverse-proportional (rare tasks heavily favored)</p></li>
+</ul>
+<p><strong>Curriculum Learning:</strong> Progressively trains through four phases:</p>
+<ol class="arabic simple">
+<li><p><strong>warmup</strong>: Focus on high-quality data (default: 80% high, 15% medium, 5% low)</p></li>
+<li><p><strong>expand</strong>: Include medium-quality (default: 60% high, 30% medium, 10% low)</p></li>
+<li><p><strong>robust</strong>: Include low-quality for robustness (default: 50% high, 35% medium, 15% low)</p></li>
+<li><p><strong>polish</strong>: Return focus to high-quality while maintaining diversity (default: 70% high, 20% medium, 10% low)</p></li>
+</ol>
+<p><strong>Important:</strong> When using with <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> in DataLoader, the sampler state
+(epoch counter, curriculum phase) is NOT synchronized across workers. Use <code class="docutils literal notranslate"><span class="pre">num_workers=0</span></code>
+for reliable curriculum learning.</p>
 <p>See <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> for detailed curriculum learning documentation.</p>
 </section>
 <section id="configuration-classes">
@@ -494,7 +602,14 @@ The sampler automatically advances through quality phases based on validation pe
 <li><p><code class="docutils literal notranslate"><span class="pre">OptimizationConfig</span></code>: Training hyperparameters</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">MlflowConfig</span></code>: Experiment tracking settings</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">RayConfig</span></code>: Ray parallelization settings for ensemble training</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">JointSamplingConfig</span></code>: Unified task oversampling and curriculum learning</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JointSamplingConfig</span></code>: Unified task oversampling and curriculum learning</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">TaskOversamplingConfig</span></code>: Task-aware oversampling settings (alpha parameter)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CurriculumConfig</span></code>: Curriculum learning settings (phases, proportions, metrics)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">TaskAffinityConfig</span></code>: Legacy task affinity grouping (pre-training phase)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">InterTaskAffinityConfig</span></code>: Inter-task affinity computation during training</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ChempropConfig</span></code>: Combines all above for single model</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EnsembleDataConfig</span></code>: Extends DataConfig for ensemble</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EnsembleConfig</span></code>: Combines all for ensemble training</p></li>
@@ -584,6 +699,7 @@ The sampler automatically advances through quality phases based on validation pe
 <li><a class="reference internal" href="#configuration-system">Configuration System</a></li>
 <li><a class="reference internal" href="#available-configurations">Available Configurations</a></li>
 <li><a class="reference internal" href="#single-model-configuration">Single Model Configuration</a></li>
+<li><a class="reference internal" href="#supported-model-types">Supported Model Types</a></li>
 <li><a class="reference internal" href="#ensemble-configuration">Ensemble Configuration</a></li>
 <li><a class="reference internal" href="#programmatic-loading">Programmatic Loading</a></li>
 <li><a class="reference internal" href="#ray-parallelization-configuration">Ray Parallelization Configuration</a></li>
@@ -603,7 +719,7 @@ The sampler automatically advances through quality phases based on validation pe
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

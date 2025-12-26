@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from rdkit import Chem
-from rdkit.Chem import AllChem, MACCSkeys, rdMolDescriptors
+from rdkit.Chem import AllChem, MACCSkeys
 
 if TYPE_CHECKING:
     from rdkit.Chem import Mol

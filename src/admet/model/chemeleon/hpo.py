@@ -76,7 +76,7 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     target_columns = config.pop("target_columns")
     max_epochs = config.pop("max_epochs")
     metric = config.pop("metric")
-    seed = config.pop("seed", 42)
+    config.pop("seed", 42)  # Remove seed from config (not used directly)
     checkpoint_path = config.pop("checkpoint_path", "auto")
     freeze_encoder = config.pop("freeze_encoder", True)
 
@@ -118,7 +118,12 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
 
     # Create and train model
     model = ChemeleonModel(model_config)
-    model.fit(df_train, df_validation=df_val)
+    # Extract SMILES and targets from DataFrames
+    train_smiles = df_train[smiles_column].tolist()
+    train_y = df_train[target_columns].values
+    val_smiles = df_val[smiles_column].tolist() if df_val is not None else None
+    val_y = df_val[target_columns].values if df_val is not None else None
+    model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
 
     # Report metrics to Ray Tune
     metrics = model.get_validation_metrics() if hasattr(model, "get_validation_metrics") else {}
@@ -350,7 +355,7 @@ class ChemeleonHPO:
         k = k or self.config.transfer_learning.top_k
 
         top_configs = []
-        for result in self.results:
+        for result in self.results:  # type: ignore[attr-defined]
             if result.config:
                 top_configs.append(
                     {
@@ -385,7 +390,8 @@ def main() -> None:
     args = parser.parse_args()
 
     config_dict = OmegaConf.load(args.config)
-    config = OmegaConf.structured(ChemeleonHPOConfig(**config_dict))
+    config_container = OmegaConf.to_container(config_dict, resolve=True)
+    config = OmegaConf.structured(ChemeleonHPOConfig(**config_container))  # type: ignore[arg-type]
 
     hpo = ChemeleonHPO(config)
     results = hpo.run()

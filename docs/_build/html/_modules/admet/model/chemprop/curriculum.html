@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
         <link rel="prefetch" href="../../../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>admet.model.chemprop.curriculum - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=580074bf" />
@@ -290,12 +290,78 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for admet.model.chemprop.curriculum</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">deque</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="c1"># torch not required directly here; trainer metrics may include torch tensors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightning</span><span class="w"> </span><span class="kn">import</span> <span class="n">pytorch</span> <span class="k">as</span> <span class="n">pl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightning.pytorch.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">EarlyStopping</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CurriculumPhaseConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for curriculum learning phases and target sampling proportions.</span>
+
+<span class="sd">    Defines the progression of training phases and the TARGET sampling proportions</span>
+<span class="sd">    for each quality level during each phase. When `count_normalize=True` (default),</span>
+<span class="sd">    these proportions represent the actual fraction of training samples you want</span>
+<span class="sd">    from each quality level, regardless of dataset sizes.</span>
+
+<span class="sd">    For example, with datasets of High=5k, Medium=100k, Low=15k samples:</span>
+<span class="sd">    - proportion [0.8, 0.15, 0.05] means 80% of training batches will contain</span>
+<span class="sd">      high-quality samples, even though high-quality is only 4% of the raw data.</span>
+
+<span class="sd">    When `count_normalize=False`, weights are applied directly to each sample</span>
+<span class="sd">    (legacy behavior), which causes larger datasets to dominate training.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    count_normalize : bool, default=True</span>
+<span class="sd">        If True, interpret weights as target proportions and automatically</span>
+<span class="sd">        adjust for dataset size imbalance. If False, apply weights directly</span>
+<span class="sd">        to samples (legacy behavior - larger datasets dominate).</span>
+<span class="sd">    min_high_quality_proportion : float, default=0.25</span>
+<span class="sd">        Minimum proportion of high-quality data in any phase. Acts as a safety</span>
+<span class="sd">        floor to prevent catastrophic forgetting of high-quality patterns.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    Three quality levels [&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;] with count_normalize=True:</span>
+<span class="sd">    - warmup: [0.80, 0.15, 0.05] -&gt; 80% high, 15% medium, 5% low in actual batches</span>
+<span class="sd">    - expand: [0.60, 0.30, 0.10] -&gt; 60% high, 30% medium, 10% low</span>
+<span class="sd">    - robust: [0.50, 0.35, 0.15] -&gt; 50% high, 35% medium, 15% low</span>
+<span class="sd">    - polish: [0.70, 0.20, 0.10] -&gt; 70% high, 20% medium, 10% low (maintains diversity)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">available_phases</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;warmup&quot;</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">])</span>
+
+    <span class="n">count_normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">min_high_quality_proportion</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
+
+    <span class="n">two_quality</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">],</span>
+            <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.65</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">],</span>
+            <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">three_quality</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.80</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">],</span>
+            <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.60</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
+            <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">],</span>
+            <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.70</span><span class="p">,</span> <span class="mf">0.20</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
 
 
 <div class="viewcode-block" id="CurriculumState">
@@ -310,7 +376,12 @@
 <span class="sd">      - polish: re-focus on high-quality</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qualities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qualities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CurriculumPhaseConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a curriculum that can support arbitrary quality labels.</span>
 
 <span class="sd">        Parameters</span>
@@ -319,6 +390,8 @@
 <span class="sd">            Ordered list of quality levels, highest-to-lowest (e.g. [&quot;high&quot;,&quot;medium&quot;,&quot;low&quot;]).</span>
 <span class="sd">        patience</span>
 <span class="sd">            Number of epochs with no improvement before moving to the next phase.</span>
+<span class="sd">        config</span>
+<span class="sd">            Phase configuration (names and weights). If None, uses default configuration.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">qualities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">qualities</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">]</span>
@@ -326,10 +399,12 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`qualities` must be a non-empty list of names&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">qualities</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">CurriculumPhaseConfig</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="s2">&quot;warmup&quot;</span>
-        <span class="c1"># default initial weights derived from provided qualities</span>
         <span class="c1"># Start in warmup phase weights</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights_for_phase</span><span class="p">(</span><span class="s2">&quot;warmup&quot;</span><span class="p">)</span>
+        <span class="c1"># Store base weights for adaptive adjustments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_weights</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">best_val_top</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">best_epoch</span> <span class="o">=</span> <span class="mi">0</span>
@@ -338,12 +413,31 @@
 <div class="viewcode-block" id="CurriculumState.target_metric_key">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.target_metric_key">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">target_metric_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the metric key monitored by the curriculum (val_loss).</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the default metric key monitored by the curriculum.</span>
 
-<span class="sd">        Uses overall validation loss (not per-quality loss) for phase transitions</span>
-<span class="sd">        to ensure the model improves across all quality levels.</span>
+<span class="sd">        Returns &#39;val_loss&#39; by default. This can be overridden via the</span>
+<span class="sd">        monitor_metric parameter in CurriculumCallback.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="s2">&quot;val_loss&quot;</span></div>
+
+
+<div class="viewcode-block" id="CurriculumState.update_weights">
+<a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.update_weights">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_weights</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the current phase weights (for adaptive curriculum).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        new_weights : Dict[str, float]</span>
+<span class="sd">            New sampling weights for each quality level. Will be normalized.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Normalize weights</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">new_weights</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="o">/</span> <span class="n">total</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_weights</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">new_weights</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Curriculum weights updated to: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="CurriculumState.update_from_val_top">
@@ -385,52 +479,35 @@
         <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">phases</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="n">phases</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-        <span class="c1"># compute weights based on phase and number of qualities</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights_for_phase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span></div>
+            <span class="c1"># compute weights based on phase and number of qualities</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights_for_phase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>
+            <span class="c1"># Store base weights for adaptive adjustments</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_base_weights</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_weights_for_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a weight mapping for the given phase adapted to the number of qualities.&quot;&quot;&quot;</span>
         <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">)</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">_top_k_weights</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">top_weight</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-            <span class="c1"># k is number of qualities to include starting from top</span>
-            <span class="n">weights</span> <span class="o">=</span> <span class="p">{</span><span class="n">q</span><span class="p">:</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">}</span>
-            <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">weights</span>
-            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">weights</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">1.0</span>
-                <span class="k">return</span> <span class="n">weights</span>
-            <span class="n">top</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">top_weight</span><span class="p">)</span>
-            <span class="n">remaining</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">top</span>
-            <span class="n">per_other</span> <span class="o">=</span> <span class="n">remaining</span> <span class="o">/</span> <span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">idx_q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
-                <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="n">idx_q</span><span class="p">]</span>
-                <span class="n">weights</span><span class="p">[</span><span class="n">q</span><span class="p">]</span> <span class="o">=</span> <span class="n">top</span> <span class="k">if</span> <span class="n">idx_q</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">per_other</span>
-            <span class="k">return</span> <span class="n">weights</span>
-
-        <span class="c1"># Exact schedules for n == 1/2/3 to match original algorithm</span>
+        <span class="c1"># Single quality: no curriculum, always 100%</span>
         <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">1.0</span><span class="p">}</span>
+
+        <span class="c1"># Get weight list from config</span>
+        <span class="n">weight_list</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;warmup&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">0.9</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.1</span><span class="p">}</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">0.6</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.4</span><span class="p">}</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.0</span><span class="p">}</span>
-            <span class="c1"># fallback</span>
-            <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.0</span><span class="p">}</span>
-        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;warmup&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">0.9</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="mf">0.0</span><span class="p">}</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">0.6</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.35</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="mf">0.05</span><span class="p">}</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="mf">0.2</span><span class="p">}</span>
-            <span class="k">if</span> <span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="mf">0.0</span><span class="p">}</span>
-        <span class="c1"># fallback for n &gt; 3: equal weighting across qualities</span>
+            <span class="n">weight_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">two_quality</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">weight_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">three_quality</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+
+        <span class="c1"># Use configured weights if available</span>
+        <span class="k">if</span> <span class="n">weight_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">quality</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">):</span>
+                <span class="n">weights</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="n">weight_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">weight_list</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="k">return</span> <span class="n">weights</span>
+
+        <span class="c1"># Fallback for n &gt; 3 or unconfigured phases: equal weighting</span>
         <span class="n">equal</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">q</span><span class="p">:</span> <span class="n">equal</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">}</span>
 
@@ -484,6 +561,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">log_per_quality_metrics</span> <span class="o">=</span> <span class="n">log_per_quality_metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">quality_labels</span> <span class="o">=</span> <span class="n">quality_labels</span>
 
+        <span class="c1"># Warn about potential infinite training when reset_early_stopping_on_phase_change=True</span>
+        <span class="k">if</span> <span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;reset_early_stopping_on_phase_change=True: Early stopping patience will be reset &quot;</span>
+                <span class="s2">&quot;on each curriculum phase change. If curriculum transitions occur frequently and &quot;</span>
+                <span class="s2">&quot;curriculum patience &lt; early stopping patience, training may never stop. &quot;</span>
+                <span class="s2">&quot;Consider setting appropriate patience values or using max_epochs as a hard limit.&quot;</span>
+            <span class="p">)</span>
+
         <span class="c1"># Cache quality indices for efficient per-quality metric computation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_quality_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">quality_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -492,6 +581,32 @@
                 <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quality_indices</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_quality_indices</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_quality_indices</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CurriculumCallback.on_train_start">
+<a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.curriculum.CurriculumCallback.on_train_start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_train_start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log initial curriculum state at the start of training.&quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Starting curriculum learning: phase=</span><span class="si">%s</span><span class="s2">, weights=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Log initial curriculum state to MLflow</span>
+        <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/phase&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">phase_idx</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">quality</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;curriculum/weight/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span>
+                <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_reset_early_stopping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainer</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset early stopping callback&#39;s wait counter and best score.&quot;&quot;&quot;</span>
@@ -513,21 +628,31 @@
         <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log per-quality validation metrics if available.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log per-quality validation metrics if available.</span>
+
+<span class="sd">        Metrics are logged with hierarchical naming: val/&lt;metric&gt;/&lt;quality&gt;</span>
+<span class="sd">        For example: val/mae/high, val/rmse/medium, val/loss/low</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_per_quality_metrics</span><span class="p">:</span>
             <span class="k">return</span>
 
         <span class="c1"># Look for per-quality metrics that may have been computed by the model</span>
         <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
-            <span class="c1"># Check for metrics like val_mae_high, val_rmse_medium, etc.</span>
-            <span class="k">for</span> <span class="n">base_metric</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;val_mae&quot;</span><span class="p">,</span> <span class="s2">&quot;val_rmse&quot;</span><span class="p">,</span> <span class="s2">&quot;val_loss&quot;</span><span class="p">]:</span>
-                <span class="n">quality_metric_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_metric</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="k">if</span> <span class="n">quality_metric_key</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
-                    <span class="n">val</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="n">quality_metric_key</span><span class="p">]</span>
+            <span class="c1"># Check for metrics like val/mae/high, val/rmse/medium, etc.</span>
+            <span class="c1"># Also check legacy format for backward compatibility</span>
+            <span class="k">for</span> <span class="n">base_metric</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;mae&quot;</span><span class="p">,</span> <span class="s2">&quot;rmse&quot;</span><span class="p">,</span> <span class="s2">&quot;loss&quot;</span><span class="p">]:</span>
+                <span class="c1"># New hierarchical format: val/&lt;metric&gt;/&lt;quality&gt;</span>
+                <span class="n">new_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;val/</span><span class="si">{</span><span class="n">base_metric</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="c1"># Legacy underscore format</span>
+                <span class="n">legacy_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;val_</span><span class="si">{</span><span class="n">base_metric</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="n">metric_key</span> <span class="o">=</span> <span class="n">new_key</span> <span class="k">if</span> <span class="n">new_key</span> <span class="ow">in</span> <span class="n">metrics</span> <span class="k">else</span> <span class="n">legacy_key</span>
+                <span class="k">if</span> <span class="n">metric_key</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="n">metric_key</span><span class="p">]</span>
                     <span class="k">try</span><span class="p">:</span>
                         <span class="n">v</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
                         <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
-                            <span class="n">quality_metric_key</span><span class="p">,</span>
+                            <span class="n">new_key</span><span class="p">,</span>
                             <span class="n">v</span><span class="p">,</span>
                             <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                             <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -560,13 +685,28 @@
         <span class="c1"># Log per-quality metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_log_per_quality_metrics</span><span class="p">(</span><span class="n">trainer</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
 
-        <span class="c1"># Log phase transitions</span>
+        <span class="c1"># Always log current curriculum state to MLflow (not just on transitions)</span>
+        <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/phase&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">phase_idx</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Log current weights for each quality</span>
+        <span class="k">for</span> <span class="n">quality</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;curriculum/weight/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span>
+                <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Log phase transitions (with additional details)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_previous_phase</span><span class="p">:</span>
             <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 
+            <span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+
             <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Curriculum phase transition: </span><span class="si">%s</span><span class="s2"> -&gt; </span><span class="si">%s</span><span class="s2"> at epoch </span><span class="si">%d</span><span class="s2"> (step </span><span class="si">%d</span><span class="s2">), &quot;</span> <span class="s2">&quot;val_loss=</span><span class="si">%.4f</span><span class="s2">, weights=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Curriculum phase transition: </span><span class="si">%s</span><span class="s2"> -&gt; </span><span class="si">%s</span><span class="s2"> at epoch </span><span class="si">%d</span><span class="s2"> (step </span><span class="si">%d</span><span class="s2">), val_loss=</span><span class="si">%.4f</span><span class="s2">, weights=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_previous_phase</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span>
                 <span class="n">epoch</span><span class="p">,</span>
@@ -575,19 +715,21 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
             <span class="p">)</span>
 
-            <span class="c1"># Log phase transition to trainer&#39;s logger (goes to MLflow if enabled)</span>
-            <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum_phase&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">phase_idx</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum_phase_epoch&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Log phase transition metadata</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/phase_epoch&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/val_loss_at_transition&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-            <span class="c1"># Log current weights for each quality</span>
-            <span class="k">for</span> <span class="n">quality</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;curriculum_weight_</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="nb">float</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span>
-                    <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                    <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="p">)</span>
+            <span class="c1"># Log MLflow tag for curriculum stage transition (clear marker for training curves)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">():</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;curriculum_transition_epoch_</span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_previous_phase</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="c1"># Also log as a metric for visibility in training curves</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;curriculum/transition&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">phase_idx</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="n">global_step</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>  <span class="c1"># Silently ignore MLflow tagging failures</span>
 
             <span class="c1"># Reset early stopping if configured</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span>
@@ -596,6 +738,548 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_previous_phase</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span></div>
 </div>
 
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PerQualityMetricsCallback</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Callback</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute and log per-quality metrics during training and validation.</span>
+
+<span class="sd">    This callback computes predictions at the end of each validation epoch</span>
+<span class="sd">    and calculates MAE, MSE, RMSE for each data quality level.</span>
+
+<span class="sd">    Since Chemprop&#39;s validation_step doesn&#39;t return outputs, this callback</span>
+<span class="sd">    runs the model&#39;s predict_step on the validation dataloader at the end</span>
+<span class="sd">    of each epoch to compute per-quality metrics.</span>
+
+<span class="sd">    Metrics are logged with hierarchical naming for clear organization in MLflow:</span>
+<span class="sd">    - val/&lt;metric&gt;/&lt;quality&gt; (e.g., val/mae/high, val/rmse/medium)</span>
+<span class="sd">    - val/count/&lt;quality&gt; (number of samples per quality)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    val_quality_labels : List[str]</span>
+<span class="sd">        Quality label for each validation sample (e.g., [&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;, ...]).</span>
+<span class="sd">    qualities : List[str]</span>
+<span class="sd">        Ordered list of quality levels to track (e.g., [&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;]).</span>
+<span class="sd">    target_cols : List[str], optional</span>
+<span class="sd">        Target column names for per-target metrics. If provided, also logs</span>
+<span class="sd">        val/&lt;metric&gt;/&lt;quality&gt;/&lt;target&gt;, e.g., val/mae/high/LogD.</span>
+<span class="sd">    compute_every_n_epochs : int, default=1</span>
+<span class="sd">        Compute per-quality metrics every N epochs (to reduce overhead).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; callback = PerQualityMetricsCallback(</span>
+<span class="sd">    ...     val_quality_labels=df_val[&quot;Quality&quot;].tolist(),</span>
+<span class="sd">    ...     qualities=[&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;],</span>
+<span class="sd">    ...     target_cols=[&quot;LogD&quot;, &quot;KSOL&quot;],</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; trainer = pl.Trainer(callbacks=[callback])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">val_quality_labels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">target_cols</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">compute_every_n_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="c1"># Legacy parameter names for backward compatibility</span>
+        <span class="n">quality_labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">train_quality_labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># noqa: ARG002</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># Support legacy parameter name</span>
+        <span class="k">if</span> <span class="n">quality_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">val_quality_labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">val_quality_labels</span> <span class="o">=</span> <span class="n">quality_labels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_quality_labels</span> <span class="o">=</span> <span class="n">val_quality_labels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span> <span class="o">=</span> <span class="n">qualities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span> <span class="o">=</span> <span class="n">target_cols</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute_every_n_epochs</span> <span class="o">=</span> <span class="n">compute_every_n_epochs</span>
+
+        <span class="c1"># Build quality indices for efficient grouping (validation)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_val_quality_indices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="n">q</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qualities</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">val_quality_labels</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_val_quality_indices</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_val_quality_indices</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_and_log_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
+        <span class="n">all_preds</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">all_targets</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">quality_indices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+        <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute and log per-quality metrics for a given split (train/val).</span>
+
+<span class="sd">        Metrics are logged with format: &lt;split&gt;/&lt;metric&gt;/&lt;quality&gt;</span>
+<span class="sd">        e.g., val/mae/high, train/rmse/medium</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">quality_indices</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">quality</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">indices</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">q_preds</span> <span class="o">=</span> <span class="n">all_preds</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+            <span class="n">q_targets</span> <span class="o">=</span> <span class="n">all_targets</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+            <span class="c1"># Handle NaN values</span>
+            <span class="n">valid_mask</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_preds</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_targets</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">valid_mask</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">valid_mask</span> <span class="o">=</span> <span class="n">valid_mask</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="n">q_preds_valid</span> <span class="o">=</span> <span class="n">q_preds</span><span class="p">[</span><span class="n">valid_mask</span><span class="p">]</span>
+            <span class="n">q_targets_valid</span> <span class="o">=</span> <span class="n">q_targets</span><span class="p">[</span><span class="n">valid_mask</span><span class="p">]</span>
+
+            <span class="c1"># Flatten for overall metrics</span>
+            <span class="k">if</span> <span class="n">q_preds_valid</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">flat_mask</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_preds_valid</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_targets_valid</span><span class="p">))</span>
+                <span class="n">q_preds_flat</span> <span class="o">=</span> <span class="n">q_preds_valid</span><span class="p">[</span><span class="n">flat_mask</span><span class="p">]</span>
+                <span class="n">q_targets_flat</span> <span class="o">=</span> <span class="n">q_targets_valid</span><span class="p">[</span><span class="n">flat_mask</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">q_preds_flat</span> <span class="o">=</span> <span class="n">q_preds_valid</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+                <span class="n">q_targets_flat</span> <span class="o">=</span> <span class="n">q_targets_valid</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">q_preds_flat</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Compute metrics</span>
+            <span class="n">mae</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">q_preds_flat</span> <span class="o">-</span> <span class="n">q_targets_flat</span><span class="p">)))</span>
+            <span class="n">mse</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">q_preds_flat</span> <span class="o">-</span> <span class="n">q_targets_flat</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="n">rmse</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+
+            <span class="c1"># Log with hierarchical naming: &lt;split&gt;/&lt;metric&gt;/&lt;quality&gt;</span>
+            <span class="c1"># Use pl_module.log for Lightning integration</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mae/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mae</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mse</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/rmse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">rmse</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/count/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">q_preds_flat</span><span class="p">)),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># Also log directly to MLflow for immediate visibility</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">():</span>
+                    <span class="n">step</span> <span class="o">=</span> <span class="n">pl_module</span><span class="o">.</span><span class="n">current_epoch</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">pl_module</span><span class="p">,</span> <span class="s2">&quot;current_epoch&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mae/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mae</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mse</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/rmse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">rmse</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/count/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">q_preds_flat</span><span class="p">)),</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+            <span class="c1"># Per-target metrics: &lt;split&gt;/&lt;metric&gt;/&lt;quality&gt;/&lt;target&gt;</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">q_preds_valid</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">t_idx</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">t_idx</span> <span class="o">&gt;=</span> <span class="n">q_preds_valid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                        <span class="k">continue</span>
+
+                    <span class="n">t_preds</span> <span class="o">=</span> <span class="n">q_preds_valid</span><span class="p">[:,</span> <span class="n">t_idx</span><span class="p">]</span>
+                    <span class="n">t_targets</span> <span class="o">=</span> <span class="n">q_targets_valid</span><span class="p">[:,</span> <span class="n">t_idx</span><span class="p">]</span>
+
+                    <span class="n">t_valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">t_preds</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">t_targets</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">t_valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                        <span class="k">continue</span>
+
+                    <span class="n">t_preds_v</span> <span class="o">=</span> <span class="n">t_preds</span><span class="p">[</span><span class="n">t_valid</span><span class="p">]</span>
+                    <span class="n">t_targets_v</span> <span class="o">=</span> <span class="n">t_targets</span><span class="p">[</span><span class="n">t_valid</span><span class="p">]</span>
+
+                    <span class="n">t_mae</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">t_preds_v</span> <span class="o">-</span> <span class="n">t_targets_v</span><span class="p">)))</span>
+                    <span class="n">t_mse</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">t_preds_v</span> <span class="o">-</span> <span class="n">t_targets_v</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+                    <span class="n">t_rmse</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">t_mse</span><span class="p">))</span>
+
+                    <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mae/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t_mae</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t_mse</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/rmse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t_rmse</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">():</span>
+                            <span class="n">step</span> <span class="o">=</span> <span class="n">pl_module</span><span class="o">.</span><span class="n">current_epoch</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">pl_module</span><span class="p">,</span> <span class="s2">&quot;current_epoch&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+                            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mae/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t_mae</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+                            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/mse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t_mse</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+                            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">/rmse/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t_rmse</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_validation_epoch_end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute and log per-quality validation metrics at the end of validation epoch.&quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;PerQualityMetricsCallback.on_validation_epoch_end called&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Skip if not the right epoch</span>
+        <span class="n">current_epoch</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">current_epoch</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Current epoch: </span><span class="si">%d</span><span class="s2">, compute_every_n_epochs: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">current_epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_every_n_epochs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">current_epoch</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_every_n_epochs</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Skipping epoch </span><span class="si">%d</span><span class="s2"> (not divisible by </span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">current_epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_every_n_epochs</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Get validation dataloader</span>
+        <span class="n">val_dataloader</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">val_dataloaders</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Validation dataloader: </span><span class="si">%s</span><span class="s2">, is_none: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">val_dataloader</span><span class="p">),</span> <span class="n">val_dataloader</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val_dataloader</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No validation dataloader available&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Handle single dataloader case</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val_dataloader</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">val_dataloader</span> <span class="o">=</span> <span class="p">[</span><span class="n">val_dataloader</span><span class="p">]</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Number of dataloaders: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">val_dataloader</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">val_dataloader</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Quality labels count: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">val_quality_labels</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Target columns: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Collect predictions and targets from validation dataloader</span>
+            <span class="n">all_preds</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">all_targets</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Starting batch iteration for predictions...&quot;</span><span class="p">)</span>
+            <span class="n">batch_count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">dl_idx</span><span class="p">,</span> <span class="n">dl</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">val_dataloader</span><span class="p">):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Processing dataloader </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dl_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">val_dataloader</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dl</span><span class="p">):</span>
+                        <span class="n">batch_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="c1"># Chemprop batch format: (bmg, V_d, X_d, targets, weights, lt_mask, gt_mask)</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">4</span><span class="p">:</span>
+                            <span class="n">bmg</span><span class="p">,</span> <span class="n">V_d</span><span class="p">,</span> <span class="n">X_d</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;  Batch </span><span class="si">%d</span><span class="s2">: targets shape=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="n">targets</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+                            <span class="c1"># Move to device</span>
+                            <span class="c1"># Note: BatchMolGraph.to() modifies in-place and returns None</span>
+                            <span class="n">device</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">pl_module</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">device</span>
+                            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">bmg</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">):</span>
+                                <span class="n">bmg</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>  <span class="c1"># In-place modification</span>
+                            <span class="k">if</span> <span class="n">V_d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">V_d</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">):</span>
+                                <span class="n">V_d</span> <span class="o">=</span> <span class="n">V_d</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">X_d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X_d</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">):</span>
+                                <span class="n">X_d</span> <span class="o">=</span> <span class="n">X_d</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+                            <span class="c1"># Get predictions</span>
+                            <span class="n">preds</span> <span class="o">=</span> <span class="n">pl_module</span><span class="p">(</span><span class="n">bmg</span><span class="p">,</span> <span class="n">V_d</span><span class="p">,</span> <span class="n">X_d</span><span class="p">)</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Predictions shape: </span><span class="si">{</span><span class="n">preds</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                            <span class="c1"># Handle multi-target case where preds has extra dimension</span>
+                            <span class="k">if</span> <span class="n">preds</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">preds</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                                <span class="n">preds</span> <span class="o">=</span> <span class="n">preds</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+
+                            <span class="n">all_preds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">preds</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+                            <span class="n">all_targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">targets</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processed </span><span class="si">{</span><span class="n">batch_count</span><span class="si">}</span><span class="s2"> batches total&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Collected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_preds</span><span class="p">)</span><span class="si">}</span><span class="s2"> prediction batches&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">all_preds</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No predictions collected from validation dataloader&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="c1"># Concatenate all batches</span>
+            <span class="n">all_preds_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">all_preds</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">all_targets_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">all_targets</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Concatenated predictions shape: </span><span class="si">{</span><span class="n">all_preds_np</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Concatenated targets shape: </span><span class="si">{</span><span class="n">all_targets_np</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Verify sample count matches - raise error to avoid silent curriculum degradation</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_preds_np</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">val_quality_labels</span><span class="p">):</span>
+                <span class="n">error_msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Prediction/label count mismatch: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_preds_np</span><span class="p">)</span><span class="si">}</span><span class="s2"> predictions vs &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">val_quality_labels</span><span class="p">)</span><span class="si">}</span><span class="s2"> quality labels. This typically indicates &quot;</span>
+                    <span class="s2">&quot;a DataLoader configuration issue (e.g., drop_last=True dropping samples). &quot;</span>
+                    <span class="s2">&quot;Per-quality metrics cannot be computed, which may degrade curriculum learning. &quot;</span>
+                    <span class="s2">&quot;Ensure drop_last=False for validation DataLoader.&quot;</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
+
+            <span class="c1"># Compute and log metrics</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Computing per-quality metrics...&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compute_and_log_metrics</span><span class="p">(</span><span class="n">pl_module</span><span class="p">,</span> <span class="n">all_preds_np</span><span class="p">,</span> <span class="n">all_targets_np</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_val_quality_indices</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Per-quality validation metrics computed for epoch </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">current_epoch</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># Re-raise RuntimeError from our validation above</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to compute per-quality metrics: </span><span class="si">%s</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">JointSamplerStatsCallback</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Callback</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log JointSampler weight statistics to MLflow.</span>
+
+<span class="sd">    This callback logs sampling weight statistics (entropy, effective samples, etc.)</span>
+<span class="sd">    to MLflow at the start of each training epoch. The statistics are computed by</span>
+<span class="sd">    the JointSampler during data loading.</span>
+
+<span class="sd">    Metrics logged:</span>
+<span class="sd">    - sampling/weight_min - Minimum sample weight</span>
+<span class="sd">    - sampling/weight_max - Maximum sample weight</span>
+<span class="sd">    - sampling/weight_mean - Mean sample weight</span>
+<span class="sd">    - sampling/entropy - Entropy of weight distribution (higher = more uniform)</span>
+<span class="sd">    - sampling/effective_samples - Effective number of samples (1/sum(w²))</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sampler : JointSampler</span>
+<span class="sd">        The JointSampler instance from which to extract statistics.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampler</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span> <span class="o">=</span> <span class="n">sampler</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_train_epoch_start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log sampling statistics at the start of each training epoch.&quot;&quot;&quot;</span>
+        <span class="c1"># Check if sampler has computed statistics</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="p">,</span> <span class="s2">&quot;_last_weight_stats&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">_last_weight_stats</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">_last_weight_stats</span>
+
+        <span class="c1"># Log to PyTorch Lightning (which forwards to MLflow)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;sampling/weight_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
+                <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">AdaptiveCurriculumCallback</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Callback</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Adaptively adjust curriculum proportions based on per-quality performance.</span>
+
+<span class="sd">    This callback monitors per-quality validation metrics (e.g., val/mae/high,</span>
+<span class="sd">    val/mae/medium) and adjusts the curriculum sampling weights based on</span>
+<span class="sd">    relative performance improvements across quality levels.</span>
+
+<span class="sd">    The adaptive logic:</span>
+<span class="sd">    - If high-quality metric is improving while others stagnate → increase high weight</span>
+<span class="sd">    - If low-quality metric degrades significantly → decrease low weight</span>
+<span class="sd">    - Adjustments are bounded by max_adjustment to prevent instability</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    curr_state : CurriculumState</span>
+<span class="sd">        The curriculum state object to update.</span>
+<span class="sd">    qualities : List[str]</span>
+<span class="sd">        Ordered list of quality levels (e.g., [&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;]).</span>
+<span class="sd">    improvement_threshold : float, default=0.02</span>
+<span class="sd">        Minimum relative improvement (2%) required to trigger adjustment.</span>
+<span class="sd">    max_adjustment : float, default=0.1</span>
+<span class="sd">        Maximum proportion adjustment (10%) per epoch.</span>
+<span class="sd">    lookback_epochs : int, default=5</span>
+<span class="sd">        Number of epochs to look back when computing improvement trends.</span>
+<span class="sd">    min_high_quality_proportion : float, default=0.25</span>
+<span class="sd">        Safety floor: high-quality proportion never drops below this.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; callback = AdaptiveCurriculumCallback(</span>
+<span class="sd">    ...     curr_state=curriculum_state,</span>
+<span class="sd">    ...     qualities=[&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;],</span>
+<span class="sd">    ...     improvement_threshold=0.02,</span>
+<span class="sd">    ...     max_adjustment=0.1,</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">curr_state</span><span class="p">:</span> <span class="n">CurriculumState</span><span class="p">,</span>
+        <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">improvement_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">,</span>
+        <span class="n">max_adjustment</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">lookback_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">min_high_quality_proportion</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span> <span class="o">=</span> <span class="n">curr_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span> <span class="o">=</span> <span class="n">qualities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">improvement_threshold</span> <span class="o">=</span> <span class="n">improvement_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_adjustment</span> <span class="o">=</span> <span class="n">max_adjustment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookback_epochs</span> <span class="o">=</span> <span class="n">lookback_epochs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_high_quality_proportion</span> <span class="o">=</span> <span class="n">min_high_quality_proportion</span>
+
+        <span class="c1"># Track per-quality metric history</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_history</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">deque</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">q</span><span class="p">:</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="n">lookback_epochs</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qualities</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_adjustment_epoch</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_validation_epoch_end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate per-quality performance and adjust weights if needed.&quot;&quot;&quot;</span>
+        <span class="n">metrics</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">callback_metrics</span>
+        <span class="n">epoch</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">current_epoch</span>
+
+        <span class="c1"># Collect per-quality metrics (prefer MAE, fallback to loss)</span>
+        <span class="n">current_metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;mae&quot;</span><span class="p">,</span> <span class="s2">&quot;loss&quot;</span><span class="p">,</span> <span class="s2">&quot;rmse&quot;</span><span class="p">]:</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;val/</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">current_metrics</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                        <span class="k">break</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="k">pass</span>
+
+        <span class="c1"># Update history</span>
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">quality</span> <span class="ow">in</span> <span class="n">current_metrics</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_history</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current_metrics</span><span class="p">[</span><span class="n">quality</span><span class="p">])</span>
+
+        <span class="c1"># Need enough history to compute trends</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric_history</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Compute relative improvements for each quality</span>
+        <span class="n">improvements</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
+            <span class="n">history</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric_history</span><span class="p">[</span><span class="n">quality</span><span class="p">])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">history</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># Compare current to lookback (or earliest available)</span>
+                <span class="n">lookback_idx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">history</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookback_epochs</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">old_val</span> <span class="o">=</span> <span class="n">history</span><span class="p">[</span><span class="n">lookback_idx</span><span class="p">]</span>
+                <span class="n">new_val</span> <span class="o">=</span> <span class="n">history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">old_val</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+                    <span class="c1"># Positive improvement = metric decreased (good)</span>
+                    <span class="n">improvements</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">old_val</span> <span class="o">-</span> <span class="n">new_val</span><span class="p">)</span> <span class="o">/</span> <span class="n">old_val</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">improvements</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="c1"># Determine if adjustment is needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">improvements</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">high_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">high_improvement</span> <span class="o">=</span> <span class="n">improvements</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">high_quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="c1"># Compute average improvement of non-high qualities</span>
+        <span class="n">other_improvements</span> <span class="o">=</span> <span class="p">[</span><span class="n">improvements</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+        <span class="n">avg_other_improvement</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">other_improvements</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">other_improvements</span><span class="p">)</span> <span class="k">if</span> <span class="n">other_improvements</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="c1"># Adjust weights if high-quality improves significantly more than others</span>
+        <span class="n">improvement_gap</span> <span class="o">=</span> <span class="n">high_improvement</span> <span class="o">-</span> <span class="n">avg_other_improvement</span>
+
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">improvement_gap</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">improvement_threshold</span><span class="p">:</span>
+            <span class="c1"># Compute adjustment direction and magnitude</span>
+            <span class="n">adjustment</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">improvement_gap</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_adjustment</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">improvement_gap</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># High-quality improving faster → increase high weight</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_adjust_weights_toward_quality</span><span class="p">(</span><span class="n">high_quality</span><span class="p">,</span> <span class="n">adjustment</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># High-quality improving slower → decrease high weight (increase others)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_adjust_weights_away_from_quality</span><span class="p">(</span><span class="n">high_quality</span><span class="p">,</span> <span class="n">adjustment</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adjust_weights_toward_quality</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">target_quality</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">adjustment</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
+        <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Increase weight for target quality, decrease others proportionally.&quot;&quot;&quot;</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+        <span class="n">target_weight</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">target_quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">new_target_weight</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">target_weight</span> <span class="o">+</span> <span class="n">adjustment</span><span class="p">)</span>  <span class="c1"># Cap at 95%</span>
+
+        <span class="c1"># Distribute the increase from other qualities</span>
+        <span class="n">actual_increase</span> <span class="o">=</span> <span class="n">new_target_weight</span> <span class="o">-</span> <span class="n">target_weight</span>
+        <span class="k">if</span> <span class="n">actual_increase</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">other_total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span> <span class="k">if</span> <span class="n">q</span> <span class="o">!=</span> <span class="n">target_quality</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">other_total</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">new_weights</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">quality</span> <span class="o">==</span> <span class="n">target_quality</span><span class="p">:</span>
+                <span class="n">new_weights</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_target_weight</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Reduce proportionally</span>
+                <span class="n">old_weight</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+                <span class="n">reduction</span> <span class="o">=</span> <span class="n">actual_increase</span> <span class="o">*</span> <span class="p">(</span><span class="n">old_weight</span> <span class="o">/</span> <span class="n">other_total</span><span class="p">)</span>
+                <span class="n">new_weights</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">old_weight</span> <span class="o">-</span> <span class="n">reduction</span><span class="p">)</span>  <span class="c1"># Floor at 1%</span>
+
+        <span class="c1"># Enforce min_high_quality_proportion</span>
+        <span class="k">if</span> <span class="n">new_weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_high_quality_proportion</span><span class="p">:</span>
+            <span class="n">new_weights</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_high_quality_proportion</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">update_weights</span><span class="p">(</span><span class="n">new_weights</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_adjustment</span><span class="p">(</span><span class="n">pl_module</span><span class="p">,</span> <span class="n">epoch</span><span class="p">,</span> <span class="n">target_quality</span><span class="p">,</span> <span class="s2">&quot;increase&quot;</span><span class="p">,</span> <span class="n">adjustment</span><span class="p">,</span> <span class="n">new_weights</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adjust_weights_away_from_quality</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">target_quality</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">adjustment</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
+        <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decrease weight for target quality, increase others proportionally.&quot;&quot;&quot;</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+        <span class="n">target_weight</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">target_quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="c1"># Enforce floor for high-quality</span>
+        <span class="k">if</span> <span class="n">target_quality</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">min_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_high_quality_proportion</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">min_weight</span> <span class="o">=</span> <span class="mf">0.01</span>
+
+        <span class="n">new_target_weight</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">min_weight</span><span class="p">,</span> <span class="n">target_weight</span> <span class="o">-</span> <span class="n">adjustment</span><span class="p">)</span>
+        <span class="n">actual_decrease</span> <span class="o">=</span> <span class="n">target_weight</span> <span class="o">-</span> <span class="n">new_target_weight</span>
+        <span class="k">if</span> <span class="n">actual_decrease</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">other_total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span> <span class="k">if</span> <span class="n">q</span> <span class="o">!=</span> <span class="n">target_quality</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">other_total</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">new_weights</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">quality</span> <span class="o">==</span> <span class="n">target_quality</span><span class="p">:</span>
+                <span class="n">new_weights</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_target_weight</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Increase proportionally</span>
+                <span class="n">old_weight</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+                <span class="n">increase</span> <span class="o">=</span> <span class="n">actual_decrease</span> <span class="o">*</span> <span class="p">(</span><span class="n">old_weight</span> <span class="o">/</span> <span class="n">other_total</span><span class="p">)</span>
+                <span class="n">new_weights</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">old_weight</span> <span class="o">+</span> <span class="n">increase</span><span class="p">)</span>  <span class="c1"># Cap at 95%</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">update_weights</span><span class="p">(</span><span class="n">new_weights</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_adjustment</span><span class="p">(</span><span class="n">pl_module</span><span class="p">,</span> <span class="n">epoch</span><span class="p">,</span> <span class="n">target_quality</span><span class="p">,</span> <span class="s2">&quot;decrease&quot;</span><span class="p">,</span> <span class="n">adjustment</span><span class="p">,</span> <span class="n">new_weights</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_adjustment</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
+        <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">quality</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">direction</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">adjustment</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">new_weights</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log adaptive adjustment to console and MLflow.&quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Adaptive curriculum: </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> weight by </span><span class="si">%.2f%%</span><span class="s2"> at epoch </span><span class="si">%d</span><span class="s2"> -&gt; new weights: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">direction</span><span class="p">,</span>
+            <span class="n">quality</span><span class="p">,</span>
+            <span class="n">adjustment</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+            <span class="n">epoch</span><span class="p">,</span>
+            <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_weights</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Log to MLflow</span>
+        <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/adaptive_adjustment&quot;</span><span class="p">,</span> <span class="n">adjustment</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">new_weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;curriculum/adaptive_weight/</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
         </article>
       </div>
@@ -629,7 +1313,7 @@
     </aside>
   </div>
 </div><script src="../../../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>

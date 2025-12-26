@@ -7,14 +7,14 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/planning/curriculum_learning_integration.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="Overview: This document outlines a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The curriculum progressively adjusts the importance of data samples based..." />
+<meta property="og:description" content="⚠️ HISTORICAL DOCUMENT This document is a historical implementation plan that has been superseded by the unified JointSampler approach. For current documentation, see: Configuration Guide- joint_sa..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="Overview: This document outlines a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The curriculum progressively adjusts the importance of data samples based..." />
+<meta name="description" content="⚠️ HISTORICAL DOCUMENT This document is a historical implementation plan that has been superseded by the unified JointSampler approach. For current documentation, see: Configuration Guide- joint_sa..." />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Introduction" href="feature-chemprop-hpo.html"><link rel="prev" title="3. Features &amp; Implementation Plan" href="chemprop.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>Curriculum Learning Integration Plan - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
@@ -306,12 +306,104 @@
         <article role="main" id="furo-main-content">
           <section id="curriculum-learning-integration-plan">
 <h1>Curriculum Learning Integration Plan<a class="headerlink" href="#curriculum-learning-integration-plan" title="Link to this heading">¶</a></h1>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
-<p>This document outlines a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The curriculum progressively adjusts the importance of data samples based on their quality labels, helping models focus on high-quality data initially and gradually incorporate lower-quality data.</p>
+<blockquote>
+<div><p><strong>⚠️ HISTORICAL DOCUMENT</strong></p>
+<p>This document is a historical implementation plan that has been <strong>superseded</strong> by the
+unified <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> approach. For current documentation, see:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../guide/configuration.html"><span class="std std-doc">Configuration Guide</span></a> - <code class="docutils literal notranslate"><span class="pre">joint_sampling</span></code> configuration</p></li>
+<li><p><a class="reference internal" href="../guide/curriculum.html"><span class="std std-doc">Curriculum Learning Guide</span></a> - Two-stage sampling algorithm</p></li>
+<li><p><a class="reference internal" href="../guide/config_reference.html"><span class="std std-doc">Config Reference</span></a> - Complete parameter reference</p></li>
+</ul>
+</div></blockquote>
+<section id="status-implemented-superseded-by-jointsampler">
+<h2>Status: ✅ IMPLEMENTED (Superseded by JointSampler)<a class="headerlink" href="#status-implemented-superseded-by-jointsampler" title="Link to this heading">¶</a></h2>
+<p><strong>Last Updated:</strong> December 2024</p>
+<p>This document originally outlined a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The implementation is now complete with the unified <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> that combines task-aware oversampling with curriculum learning via a two-stage sampling algorithm.</p>
 </section>
-<section id="current-state">
-<h2>Current State<a class="headerlink" href="#current-state" title="Link to this heading">¶</a></h2>
+<section id="implementation-summary">
+<h2>Implementation Summary<a class="headerlink" href="#implementation-summary" title="Link to this heading">¶</a></h2>
+<section id="completed-features">
+<h3>Completed Features<a class="headerlink" href="#completed-features" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Count-Normalized Sampling</strong> (NEW)</p>
+<ul class="simple">
+<li><p>Target proportions are achieved regardless of dataset size imbalance</p></li>
+<li><p>Formula: <code class="docutils literal notranslate"><span class="pre">per_sample_weight</span> <span class="pre">=</span> <span class="pre">target_proportion</span> <span class="pre">/</span> <span class="pre">count</span></code></p></li>
+<li><p>Example: With High=5k, Medium=100k, Low=15k, setting warmup=[0.8, 0.15, 0.05]
+actually results in 80% high-quality samples in batches</p></li>
+</ul>
+</li>
+<li><p><strong>Conservative Default Proportions</strong></p>
+<ul class="simple">
+<li><p>Warmup: 80% high, 15% medium, 5% low</p></li>
+<li><p>Expand: 60% high, 30% medium, 10% low</p></li>
+<li><p>Robust: 50% high, 35% medium, 15% low</p></li>
+<li><p>Polish: 70% high, 20% medium, 10% low (maintains diversity)</p></li>
+</ul>
+</li>
+<li><p><strong>HPO-Friendly Parameters</strong></p>
+<ul class="simple">
+<li><p>Per-phase proportions configurable via YAML</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">count_normalize</span></code> toggle for backward compatibility</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_high_quality_proportion</span></code> safety floor (default: 0.25)</p></li>
+</ul>
+</li>
+<li><p><strong>Full Integration</strong></p>
+<ul class="simple">
+<li><p>Single model training via <code class="docutils literal notranslate"><span class="pre">ChempropModel</span></code></p></li>
+<li><p>Ensemble training via <code class="docutils literal notranslate"><span class="pre">ModelEnsemble</span></code></p></li>
+<li><p>HPO integration via Ray Tune</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="key-files">
+<h3>Key Files<a class="headerlink" href="#key-files" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">curriculum.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CurriculumPhaseConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">CurriculumState</span></code>, <code class="docutils literal notranslate"><span class="pre">CurriculumCallback</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">curriculum_sampler.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DynamicCurriculumSampler</span></code> with count normalization</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">config.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CurriculumConfig</span></code> with HPO-friendly parameters</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">model.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_build_phase_config()</span></code> helper for YAML → config conversion</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="usage">
+<h3>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/curriculum/chemprop_curriculum.yaml</span>
+<span class="nt">joint_sampling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Quality</span>
+<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">high</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">medium</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">low</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">min_high_quality_proportion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+<span class="w">    </span><span class="c1"># Optional: override phase proportions for HPO</span>
+<span class="w">    </span><span class="c1"># warmup_proportions: [0.80, 0.15, 0.05]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="original-state">
+<h2>Original State<a class="headerlink" href="#original-state" title="Link to this heading">¶</a></h2>
 <section id="existing-components">
 <h3>Existing Components<a class="headerlink" href="#existing-components" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
@@ -332,8 +424,8 @@
 </li>
 </ol>
 </section>
-<section id="integration-points">
-<h3>Integration Points<a class="headerlink" href="#integration-points" title="Link to this heading">¶</a></h3>
+<section id="integration-points-now-complete">
+<h3>Integration Points (NOW COMPLETE)<a class="headerlink" href="#integration-points-now-complete" title="Link to this heading">¶</a></h3>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
 <thead>
@@ -346,23 +438,23 @@
 <tbody>
 <tr class="row-even"><td><p>Single Model</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">model.py</span></code></p></td>
-<td><p>Not integrated</p></td>
-<td><p>Need to add quality column support and curriculum callback</p></td>
+<td><p>✅ Integrated</p></td>
+<td><p>Quality column support and curriculum callback</p></td>
 </tr>
 <tr class="row-odd"><td><p>Ensemble</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">ensemble.py</span></code></p></td>
-<td><p>Not integrated</p></td>
-<td><p>Pass curriculum config through to each model</p></td>
+<td><p>✅ Integrated</p></td>
+<td><p>Curriculum config passed through to each model</p></td>
 </tr>
 <tr class="row-even"><td><p>HPO</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">hpo_trainable.py</span></code></p></td>
-<td><p>Not integrated</p></td>
-<td><p>Add curriculum hyperparameters to search space</p></td>
+<td><p>✅ Integrated</p></td>
+<td><p>Curriculum hyperparameters in search space</p></td>
 </tr>
 <tr class="row-odd"><td><p>Config</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">config.py</span></code></p></td>
-<td><p>Not integrated</p></td>
-<td><p>Need <code class="docutils literal notranslate"><span class="pre">CurriculumConfig</span></code> dataclass</p></td>
+<td><p>✅ Integrated</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CurriculumConfig</span></code> dataclass with HPO params</p></td>
 </tr>
 </tbody>
 </table>
@@ -370,121 +462,58 @@
 </section>
 </section>
 <hr class="docutils" />
-<section id="implementation-plan">
-<h2>Implementation Plan<a class="headerlink" href="#implementation-plan" title="Link to this heading">¶</a></h2>
-<section id="phase-1-configuration-layer">
-<h3>Phase 1: Configuration Layer<a class="headerlink" href="#phase-1-configuration-layer" title="Link to this heading">¶</a></h3>
-<section id="create-curriculumconfig-dataclass">
-<h4>1.1 Create <code class="docutils literal notranslate"><span class="pre">CurriculumConfig</span></code> dataclass<a class="headerlink" href="#create-curriculumconfig-dataclass" title="Link to this heading">¶</a></h4>
-<p>Add to <code class="docutils literal notranslate"><span class="pre">config.py</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">CurriculumConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for quality-aware curriculum learning.</span>
-<span class="sd">    </span>
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    enabled : bool</span>
-<span class="sd">        Whether to use curriculum learning.</span>
-<span class="sd">    quality_col : str</span>
-<span class="sd">        Column name containing quality labels.</span>
-<span class="sd">    qualities : List[str]</span>
-<span class="sd">        Ordered list of quality levels (highest to lowest).</span>
-<span class="sd">    patience : int</span>
-<span class="sd">        Epochs without improvement before advancing phase.</span>
-<span class="sd">    strategy : str</span>
-<span class="sd">        Either &quot;weighted&quot; (loss weighting) or &quot;sampled&quot; (data sampling).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">quality_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Quality&quot;</span>
-    <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">])</span>
-    <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
-    <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;weighted&quot;</span>  <span class="c1"># &quot;weighted&quot; or &quot;sampled&quot;</span>
+<section id="original-implementation-plan-completed">
+<h2>Original Implementation Plan (COMPLETED)<a class="headerlink" href="#original-implementation-plan-completed" title="Link to this heading">¶</a></h2>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>weights: np.ndarray,
+num_samples: int,
 </pre></div>
 </div>
-</section>
-<section id="update-dataconfig-to-include-curriculum">
-<h4>1.2 Update <code class="docutils literal notranslate"><span class="pre">DataConfig</span></code> to include curriculum<a class="headerlink" href="#update-dataconfig-to-include-curriculum" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">DataConfig</span><span class="p">:</span>
-    <span class="c1"># ... existing fields ...</span>
-    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
-<hr class="docutils" />
-<section id="phase-2-data-layer-weighted-sampling-loss">
-<h3>Phase 2: Data Layer - Weighted Sampling/Loss<a class="headerlink" href="#phase-2-data-layer-weighted-sampling-loss" title="Link to this heading">¶</a></h3>
-<section id="create-curriculum-data-py-module">
-<h4>2.1 Create <code class="docutils literal notranslate"><span class="pre">curriculum_data.py</span></code> module<a class="headerlink" href="#create-curriculum-data-py-module" title="Link to this heading">¶</a></h4>
-<p>New file with utilities for quality-aware data handling:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># src/admet/model/chemprop/curriculum_data.py</span>
+<p>) -&gt; WeightedRandomSampler:
+“””Create a PyTorch WeightedRandomSampler for curriculum-aware batching.”””
+return WeightedRandomSampler(
+weights=torch.from_numpy(weights),
+num_samples=num_samples,
+replacement=True,
+)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+#### 2.2 Strategy Options
 
-<span class="k">def</span><span class="w"> </span><span class="nf">compute_quality_weights</span><span class="p">(</span>
-    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
-    <span class="n">quality_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">curriculum_state</span><span class="p">:</span> <span class="n">CurriculumState</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute per-sample weights based on quality and curriculum phase.</span>
-<span class="sd">    </span>
-<span class="sd">    Returns array of shape (n_samples,) with weights for each sample.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">probs</span> <span class="o">=</span> <span class="n">curriculum_state</span><span class="o">.</span><span class="n">sampling_probs</span><span class="p">()</span>
-    <span class="n">quality_labels</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">quality_col</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="n">weights</span> <span class="o">=</span> <span class="n">quality_labels</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">probs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span><span class="o">.</span><span class="n">values</span>
-    <span class="k">return</span> <span class="n">weights</span>
+**Option A: Weighted Loss (Recommended for initial implementation)**
 
-<span class="k">def</span><span class="w"> </span><span class="nf">create_weighted_sampler</span><span class="p">(</span>
-    <span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WeightedRandomSampler</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PyTorch WeightedRandomSampler for curriculum-aware batching.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">WeightedRandomSampler</span><span class="p">(</span>
-        <span class="n">weights</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">weights</span><span class="p">),</span>
-        <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
-        <span class="n">replacement</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="strategy-options">
-<h4>2.2 Strategy Options<a class="headerlink" href="#strategy-options" title="Link to this heading">¶</a></h4>
-<p><strong>Option A: Weighted Loss (Recommended for initial implementation)</strong></p>
-<ul class="simple">
-<li><p>Add sample-level weights to the loss computation</p></li>
-<li><p>Simpler to implement, doesn’t require dataloader changes</p></li>
-<li><p>Weight each sample’s contribution to the batch loss</p></li>
-</ul>
-<p><strong>Option B: Weighted Sampling</strong></p>
-<ul class="simple">
-<li><p>Use <code class="docutils literal notranslate"><span class="pre">WeightedRandomSampler</span></code> in DataLoader</p></li>
-<li><p>Samples are drawn proportionally to curriculum weights</p></li>
-<li><p>Requires rebuilding dataloader when curriculum phase changes</p></li>
-</ul>
-</section>
-</section>
-<hr class="docutils" />
-<section id="phase-3-single-model-integration">
-<h3>Phase 3: Single Model Integration<a class="headerlink" href="#phase-3-single-model-integration" title="Link to this heading">¶</a></h3>
-<section id="update-chempropmodel-init">
-<h4>3.1 Update <code class="docutils literal notranslate"><span class="pre">ChempropModel.__init__</span></code><a class="headerlink" href="#update-chempropmodel-init" title="Link to this heading">¶</a></h4>
-<p>Add curriculum-related parameters:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">,</span>
-    <span class="c1"># ... existing params ...</span>
-    <span class="n">curriculum_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CurriculumConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">):</span>
-    <span class="c1"># ...</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">curriculum_config</span> <span class="o">=</span> <span class="n">curriculum_config</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">curriculum_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CurriculumState</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+- Add sample-level weights to the loss computation
+- Simpler to implement, doesn&#39;t require dataloader changes
+- Weight each sample&#39;s contribution to the batch loss
+
+**Option B: Weighted Sampling**
+
+- Use `WeightedRandomSampler` in DataLoader
+- Samples are drawn proportionally to curriculum weights
+- Requires rebuilding dataloader when curriculum phase changes
+
+---
+
+### Phase 3: Single Model Integration
+
+#### 3.1 Update `ChempropModel.__init__`
+
+Add curriculum-related parameters:
+
+```python
+def __init__(
+    self,
+    # ... existing params ...
+    curriculum_config: Optional[CurriculumConfig] = None,
+):
+    # ...
+    self.curriculum_config = curriculum_config
+    self.curriculum_state: Optional[CurriculumState] = None
     
-    <span class="k">if</span> <span class="n">curriculum_config</span> <span class="ow">and</span> <span class="n">curriculum_config</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_init_curriculum</span><span class="p">()</span>
+    if curriculum_config and curriculum_config.enabled:
+        self._init_curriculum()
 </pre></div>
 </div>
-</section>
 <section id="add-curriculum-initialization-method">
-<h4>3.2 Add curriculum initialization method<a class="headerlink" href="#add-curriculum-initialization-method" title="Link to this heading">¶</a></h4>
+<h3>3.2 Add curriculum initialization method<a class="headerlink" href="#add-curriculum-initialization-method" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_init_curriculum</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize curriculum learning state and validate quality data.&quot;&quot;&quot;</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">curriculum_config</span>
@@ -505,7 +534,7 @@
 </div>
 </section>
 <section id="update-prepare-trainer">
-<h4>3.3 Update <code class="docutils literal notranslate"><span class="pre">_prepare_trainer</span></code><a class="headerlink" href="#update-prepare-trainer" title="Link to this heading">¶</a></h4>
+<h3>3.3 Update <code class="docutils literal notranslate"><span class="pre">_prepare_trainer</span></code><a class="headerlink" href="#update-prepare-trainer" title="Link to this heading">¶</a></h3>
 <p>Add <code class="docutils literal notranslate"><span class="pre">CurriculumCallback</span></code> to trainer callbacks:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_prepare_trainer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">callbacks_list</span> <span class="o">=</span> <span class="p">[</span>
@@ -523,7 +552,7 @@
 </div>
 </section>
 <section id="per-quality-validation-metrics">
-<h4>3.4 Per-Quality Validation Metrics<a class="headerlink" href="#per-quality-validation-metrics" title="Link to this heading">¶</a></h4>
+<h3>3.4 Per-Quality Validation Metrics<a class="headerlink" href="#per-quality-validation-metrics" title="Link to this heading">¶</a></h3>
 <p>Update model to compute separate validation metrics per quality level:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_compute_quality_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">quality_labels</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute validation metrics split by quality level.&quot;&quot;&quot;</span>
@@ -536,7 +565,6 @@
     <span class="k">return</span> <span class="n">metrics</span>
 </pre></div>
 </div>
-</section>
 </section>
 <hr class="docutils" />
 <section id="phase-4-ensemble-integration">
@@ -860,30 +888,22 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Curriculum Learning Integration Plan</a><ul>
-<li><a class="reference internal" href="#overview">Overview</a></li>
-<li><a class="reference internal" href="#current-state">Current State</a><ul>
+<li><a class="reference internal" href="#status-implemented-superseded-by-jointsampler">Status: ✅ IMPLEMENTED (Superseded by JointSampler)</a></li>
+<li><a class="reference internal" href="#implementation-summary">Implementation Summary</a><ul>
+<li><a class="reference internal" href="#completed-features">Completed Features</a></li>
+<li><a class="reference internal" href="#key-files">Key Files</a></li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#original-state">Original State</a><ul>
 <li><a class="reference internal" href="#existing-components">Existing Components</a></li>
-<li><a class="reference internal" href="#integration-points">Integration Points</a></li>
+<li><a class="reference internal" href="#integration-points-now-complete">Integration Points (NOW COMPLETE)</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#implementation-plan">Implementation Plan</a><ul>
-<li><a class="reference internal" href="#phase-1-configuration-layer">Phase 1: Configuration Layer</a><ul>
-<li><a class="reference internal" href="#create-curriculumconfig-dataclass">1.1 Create <code class="docutils literal notranslate"><span class="pre">CurriculumConfig</span></code> dataclass</a></li>
-<li><a class="reference internal" href="#update-dataconfig-to-include-curriculum">1.2 Update <code class="docutils literal notranslate"><span class="pre">DataConfig</span></code> to include curriculum</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#phase-2-data-layer-weighted-sampling-loss">Phase 2: Data Layer - Weighted Sampling/Loss</a><ul>
-<li><a class="reference internal" href="#create-curriculum-data-py-module">2.1 Create <code class="docutils literal notranslate"><span class="pre">curriculum_data.py</span></code> module</a></li>
-<li><a class="reference internal" href="#strategy-options">2.2 Strategy Options</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#phase-3-single-model-integration">Phase 3: Single Model Integration</a><ul>
-<li><a class="reference internal" href="#update-chempropmodel-init">3.1 Update <code class="docutils literal notranslate"><span class="pre">ChempropModel.__init__</span></code></a></li>
+<li><a class="reference internal" href="#original-implementation-plan-completed">Original Implementation Plan (COMPLETED)</a><ul>
 <li><a class="reference internal" href="#add-curriculum-initialization-method">3.2 Add curriculum initialization method</a></li>
 <li><a class="reference internal" href="#update-prepare-trainer">3.3 Update <code class="docutils literal notranslate"><span class="pre">_prepare_trainer</span></code></a></li>
 <li><a class="reference internal" href="#per-quality-validation-metrics">3.4 Per-Quality Validation Metrics</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#phase-4-ensemble-integration">Phase 4: Ensemble Integration</a><ul>
 <li><a class="reference internal" href="#update-ensembleconfig">4.1 Update <code class="docutils literal notranslate"><span class="pre">EnsembleConfig</span></code></a></li>
 <li><a class="reference internal" href="#update-create-single-model-config">4.2 Update <code class="docutils literal notranslate"><span class="pre">_create_single_model_config</span></code></a></li>
@@ -926,7 +946,7 @@
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

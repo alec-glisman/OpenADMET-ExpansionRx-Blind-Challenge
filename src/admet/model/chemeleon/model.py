@@ -27,7 +27,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
-import pandas as pd
 import torch
 from chemprop import data, featurizers, models, nn
 from lightning import pytorch as pl
@@ -39,7 +38,7 @@ from admet.model.base import BaseModel
 from admet.model.chemeleon.callbacks import GradualUnfreezeCallback
 from admet.model.chemprop.curriculum import CurriculumState
 from admet.model.chemprop.joint_sampler import JointSampler
-from admet.model.config import ChemeleonModelParams, UnfreezeScheduleConfig
+from admet.model.config import UnfreezeScheduleConfig
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.model.mlflow_mixin import MLflowMixin
 from admet.model.registry import ModelRegistry
@@ -368,8 +367,11 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self.log_params_from_config()
 
         # Train
+        if self.trainer is None:
+            msg = "Trainer not initialized"
+            raise RuntimeError(msg)
         self.trainer.fit(
-            self.mpnn,
+            self.mpnn,  # type: ignore[arg-type]
             train_loader,
             val_loader,
         )
@@ -455,7 +457,6 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             )
 
         # Get joint sampling configuration
-        opt_config = self.config.get("optimization", {})
         task_oversampling = js_config.get("task_oversampling", {})
         curriculum_config = js_config.get("curriculum", {})
 
@@ -503,9 +504,11 @@ class ChemeleonModel(BaseModel, MLflowMixin):
 
     def _setup_trainer(self) -> None:
         """Setup PyTorch Lightning trainer."""
+        from lightning.pytorch.callbacks import Callback
+
         opt_config = self.config.get("optimization", {})
 
-        callbacks = [self._unfreeze_callback]
+        callbacks: list[Callback] = [self._unfreeze_callback]
 
         # Early stopping
         if opt_config.get("patience", 0) > 0:
@@ -571,7 +574,8 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             return None
 
         # Try to get from ModelCheckpoint callback
-        for callback in self.trainer.callbacks:
+        callbacks = getattr(self.trainer, "callbacks", []) or []
+        for callback in callbacks:
             if isinstance(callback, ModelCheckpoint):
                 best_path = callback.best_model_path
                 if best_path and Path(best_path).exists():

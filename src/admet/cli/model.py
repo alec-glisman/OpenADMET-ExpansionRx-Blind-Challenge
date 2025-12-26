@@ -23,7 +23,6 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 import typer
-from omegaconf import OmegaConf
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 model_app = typer.Typer(
@@ -238,8 +237,6 @@ def train(
     """
     from omegaconf import OmegaConf
 
-    from admet.model.registry import ModelRegistry
-
     # Ensure all models are registered
     _register_all_models()
 
@@ -252,7 +249,8 @@ def train(
         cfg.model.type = model_type
 
     # Get model type from config
-    detected_type = cfg.get("model", {}).get("type", "chemprop")
+    model_cfg = OmegaConf.select(cfg, "model", default={})
+    detected_type = OmegaConf.select(model_cfg, "type", default="chemprop") if model_cfg else "chemprop"
 
     # For chemprop, use existing module main for backward compatibility
     if detected_type == "chemprop":

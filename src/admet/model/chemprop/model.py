@@ -48,7 +48,6 @@ import numpy as np
 import pandas as pd
 import torch
 from chemprop import data, featurizers, models, nn
-from chemprop.nn import RegressionFFN
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
@@ -78,7 +77,6 @@ from admet.model.chemprop.curriculum import (
     PerQualityMetricsCallback,
 )
 from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
-from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
@@ -1688,7 +1686,6 @@ class ChempropModel:
 
         failed_metrics = []
         for key, value in metrics.items():
-            logged = False
             for attempt in range(max_retries):
                 try:
                     self._mlflow_client.log_metric(
@@ -1697,7 +1694,6 @@ class ChempropModel:
                         value=float(value),
                         step=unique_step,
                     )
-                    logged = True
                     break
                 except Exception as e:
                     error_str = str(e).lower()
@@ -1837,7 +1833,7 @@ class ChempropModel:
                 # Collect metric for batch logging
                 safe_target = _sanitize_mlflow_metric_name(target)
                 mlflow_metric_name = f"{split_name}/{safe_target}/{metric_name}"
-                metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
+                metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[arg-type]
 
                 # Collect for mean calculation across targets
                 if metric_name not in all_metrics:
@@ -1920,7 +1916,7 @@ class ChempropModel:
                         # Collect quality-specific metrics for batch logging
                         safe_target = _sanitize_mlflow_metric_name(target)
                         mlflow_metric_name = f"{split_name}/{quality}/{safe_target}/{metric_name}"
-                        quality_metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
+                        quality_metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[arg-type]
 
             # Log quality-specific metrics in batch
             if quality_metrics_to_log and self._mlflow_client is not None and self.mlflow_run_id is not None:

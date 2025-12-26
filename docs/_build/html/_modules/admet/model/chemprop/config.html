@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
         <link rel="prefetch" href="../../../../_static/logo.svg" as="image">
 
-    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <link rel="shortcut icon" href="../../../../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
         <title>admet.model.chemprop.config - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=580074bf" />
@@ -296,6 +296,10 @@
 <span class="sd">This module provides structured configuration classes that can be loaded</span>
 <span class="sd">from YAML files using OmegaConf, allowing full specification of training runs.</span>
 
+<span class="sd">Note: Training strategy configs (JointSamplingConfig, CurriculumConfig, etc.)</span>
+<span class="sd">are now defined in admet.model.config and re-exported here for backward</span>
+<span class="sd">compatibility.</span>
+
 <span class="sd">Examples</span>
 <span class="sd">--------</span>
 <span class="sd">&gt;&gt;&gt; from omegaconf import OmegaConf</span>
@@ -314,6 +318,33 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">MISSING</span>
 
+<span class="c1"># Import training strategy configs from model-agnostic location</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CurriculumConfig</span><span class="p">,</span>
+    <span class="n">InterTaskAffinityConfig</span><span class="p">,</span>
+    <span class="n">JointSamplingConfig</span><span class="p">,</span>
+    <span class="n">RayConfig</span><span class="p">,</span>
+    <span class="n">TaskAffinityConfig</span><span class="p">,</span>
+    <span class="n">TaskOversamplingConfig</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Re-export for backward compatibility</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;DataConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OptimizationConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MlflowConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TaskOversamplingConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CurriculumConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;JointSamplingConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TaskAffinityConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;InterTaskAffinityConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ChempropConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;EnsembleDataConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RayConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;EnsembleConfig&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
 
 <div class="viewcode-block" id="DataConfig">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.DataConfig">[docs]</a>
@@ -327,6 +358,10 @@
 <span class="sd">    data_dir : str</span>
 <span class="sd">        Directory containing train.csv and validation.csv files.</span>
 <span class="sd">        Expected structure: {data_dir}/train.csv and {data_dir}/validation.csv</span>
+<span class="sd">    splits : List[int], optional</span>
+<span class="sd">        List of split indices to use. If None, uses all splits found in data_dir.</span>
+<span class="sd">    folds : List[int], optional</span>
+<span class="sd">        List of fold indices to use within each split. If None, uses all folds.</span>
 <span class="sd">    test_file : str, optional</span>
 <span class="sd">        Path to test data CSV file.</span>
 <span class="sd">    blind_file : str, optional</span>
@@ -344,6 +379,8 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">data_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">MISSING</span>
+    <span class="n">splits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">folds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">test_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">blind_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">smiles_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;SMILES&quot;</span>
@@ -429,7 +466,7 @@
 <span class="sd">        Training batch size.</span>
 <span class="sd">    num_workers : int, default=0</span>
 <span class="sd">        Number of data loader workers.</span>
-<span class="sd">    seed : int, default=12345</span>
+<span class="sd">    seed : int, default=42</span>
 <span class="sd">        Random seed for reproducibility.</span>
 <span class="sd">    progress_bar : bool, default=False</span>
 <span class="sd">        Whether to show training progress bar.</span>
@@ -444,7 +481,7 @@
     <span class="n">max_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12345</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
     <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 
@@ -486,275 +523,9 @@
 
 
 
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">TaskOversamplingConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for task-aware oversampling of sparse tasks.</span>
-
-<span class="sd">    Task oversampling adjusts sampling weights using inverse-power scheduling</span>
-<span class="sd">    to give more weight to samples with labels for rare tasks, helping to</span>
-<span class="sd">    balance learning across tasks with very different label counts.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    alpha : float, default=0.5</span>
-<span class="sd">        Power law exponent controlling oversampling strength.</span>
-<span class="sd">        - alpha=0: Uniform task sampling (no rebalancing)</span>
-<span class="sd">        - alpha=0.5: Moderate rebalancing (default)</span>
-<span class="sd">        - alpha=1: Full inverse-proportional (rare tasks heavily favored)</span>
-<span class="sd">        Valid range [0, 1]. Values outside this range will trigger a warning.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">CurriculumConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for quality-aware curriculum learning.</span>
-
-<span class="sd">    Curriculum learning progressively adjusts the sampling of training data</span>
-<span class="sd">    based on quality labels. The curriculum proceeds through phases:</span>
-<span class="sd">    - warmup: Focus on high-quality data</span>
-<span class="sd">    - expand: Gradually include medium-quality data</span>
-<span class="sd">    - robust: Include low-quality data for robustness</span>
-<span class="sd">    - polish: Return focus to high-quality data</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    enabled : bool, default=False</span>
-<span class="sd">        Whether to enable curriculum learning. When disabled, all samples</span>
-<span class="sd">        are weighted equally regardless of quality.</span>
-<span class="sd">    quality_col : str, default=&quot;Quality&quot;</span>
-<span class="sd">        Column name in the data containing quality labels (e.g., &quot;high&quot;,</span>
-<span class="sd">        &quot;medium&quot;, &quot;low&quot;).</span>
-<span class="sd">    qualities : List[str], default=[&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;]</span>
-<span class="sd">        Ordered list of quality levels from highest to lowest quality.</span>
-<span class="sd">        The curriculum adapts to the number of qualities provided.</span>
-<span class="sd">    patience : int, default=5</span>
-<span class="sd">        Number of epochs without improvement in overall validation loss</span>
-<span class="sd">        before advancing to the next curriculum phase.</span>
-<span class="sd">    seed : int, default=42</span>
-<span class="sd">        Random seed for reproducible curriculum sampling.</span>
-<span class="sd">    strategy : str, default=&quot;sampled&quot;</span>
-<span class="sd">        Curriculum strategy: &quot;sampled&quot; uses weighted random sampling to</span>
-<span class="sd">        control which data points appear in each batch; &quot;weighted&quot; applies</span>
-<span class="sd">        quality-based loss weights (not yet implemented).</span>
-<span class="sd">    reset_early_stopping_on_phase_change : bool, default=False</span>
-<span class="sd">        Whether to reset early stopping patience when advancing to a new</span>
-<span class="sd">        curriculum phase. This allows the model more time to adapt to</span>
-<span class="sd">        the new data distribution.</span>
-<span class="sd">    log_per_quality_metrics : bool, default=True</span>
-<span class="sd">        Whether to log per-quality validation metrics (e.g., val_loss_high,</span>
-<span class="sd">        val_loss_medium) in addition to overall metrics.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">quality_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Quality&quot;</span>
-    <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">])</span>
-    <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
-    <span class="n">save_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">plot_dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
-    <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sampled&quot;</span>
-    <span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">log_per_quality_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">JointSamplingConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for unified sampling combining task-aware and curriculum-aware strategies.</span>
-
-<span class="sd">    JointSampling combines two complementary sampling strategies via multiplicative</span>
-<span class="sd">    weight composition:</span>
-
-<span class="sd">    1. **Task oversampling**: Rebalances sampling across tasks with different label</span>
-<span class="sd">       counts using inverse-power weighting (controlled by alpha).</span>
-<span class="sd">    2. **Curriculum learning**: Adjusts sampling based on data quality labels that</span>
-<span class="sd">       change with curriculum phase progression.</span>
-
-<span class="sd">    The joint weight for sample i is computed as:</span>
-<span class="sd">        w_joint[i] = w_task[i] × w_curriculum[i]</span>
-
-<span class="sd">    For multi-task samples, the &quot;primary&quot; task (used for weight computation) is</span>
-<span class="sd">    the rarest task among those the sample has labels for.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    enabled : bool, default=False</span>
-<span class="sd">        Master switch for joint sampling. When False, standard shuffling is used.</span>
-<span class="sd">    task_oversampling : TaskOversamplingConfig</span>
-<span class="sd">        Configuration for task-aware oversampling.</span>
-<span class="sd">    curriculum : CurriculumConfig</span>
-<span class="sd">        Configuration for curriculum-aware sampling.</span>
-<span class="sd">    num_samples : Optional[int], default=None</span>
-<span class="sd">        Number of samples per epoch. If None, uses dataset length.</span>
-<span class="sd">    seed : int, default=42</span>
-<span class="sd">        Base random seed for sampling reproducibility.</span>
-<span class="sd">    increment_seed_per_epoch : bool, default=True</span>
-<span class="sd">        If True, increments seed each epoch for sampling variety.</span>
-<span class="sd">        If False, uses same seed each epoch for reproducibility.</span>
-<span class="sd">    log_to_mlflow : bool, default=True</span>
-<span class="sd">        Whether to log sampling statistics (entropy, effective samples, etc.)</span>
-<span class="sd">        to MLflow each epoch.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; from admet.model.chemprop.config import JointSamplingConfig</span>
-<span class="sd">    &gt;&gt;&gt;</span>
-<span class="sd">    &gt;&gt;&gt; # Task oversampling only</span>
-<span class="sd">    &gt;&gt;&gt; config = JointSamplingConfig(</span>
-<span class="sd">    ...     enabled=True,</span>
-<span class="sd">    ...     task_oversampling=TaskOversamplingConfig(alpha=0.3),</span>
-<span class="sd">    ...     curriculum=CurriculumConfig(enabled=False),</span>
-<span class="sd">    ... )</span>
-<span class="sd">    &gt;&gt;&gt;</span>
-<span class="sd">    &gt;&gt;&gt; # Curriculum learning only</span>
-<span class="sd">    &gt;&gt;&gt; config = JointSamplingConfig(</span>
-<span class="sd">    ...     enabled=True,</span>
-<span class="sd">    ...     task_oversampling=TaskOversamplingConfig(alpha=0.0),</span>
-<span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
-<span class="sd">    ... )</span>
-<span class="sd">    &gt;&gt;&gt;</span>
-<span class="sd">    &gt;&gt;&gt; # Both strategies combined</span>
-<span class="sd">    &gt;&gt;&gt; config = JointSamplingConfig(</span>
-<span class="sd">    ...     enabled=True,</span>
-<span class="sd">    ...     task_oversampling=TaskOversamplingConfig(alpha=0.5),</span>
-<span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
-<span class="sd">    ... )</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">task_oversampling</span><span class="p">:</span> <span class="n">TaskOversamplingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskOversamplingConfig</span><span class="p">)</span>
-    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
-    <span class="n">num_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
-    <span class="n">increment_seed_per_epoch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">log_to_mlflow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">TaskAffinityConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for task affinity grouping (legacy pre-training approach).</span>
-
-<span class="sd">    Task affinity grouping implements the TAG algorithm from</span>
-<span class="sd">    &quot;Efficiently Identifying Task Groupings for Multi-Task Learning&quot;</span>
-<span class="sd">    (Fifty et al., NeurIPS 2021). It computes inter-task affinity scores</span>
-<span class="sd">    by measuring gradient similarity between tasks during a short training</span>
-<span class="sd">    run, then clusters tasks into groups that benefit from being trained</span>
-<span class="sd">    together.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    enabled : bool, default=False</span>
-<span class="sd">        Whether to enable task affinity grouping. When enabled, a short</span>
-<span class="sd">        pre-training phase computes task affinities before the main</span>
-<span class="sd">        training loop.</span>
-<span class="sd">    affinity_epochs : int, default=1</span>
-<span class="sd">        Number of epochs for the affinity computation phase.</span>
-<span class="sd">    affinity_batch_size : int, default=64</span>
-<span class="sd">        Batch size during affinity computation.</span>
-<span class="sd">    affinity_lr : float, default=1e-3</span>
-<span class="sd">        Learning rate during affinity computation.</span>
-<span class="sd">    n_groups : int, default=3</span>
-<span class="sd">        Number of task groups to create via clustering.</span>
-<span class="sd">    clustering_method : str, default=&quot;agglomerative&quot;</span>
-<span class="sd">        Clustering algorithm: &quot;agglomerative&quot; or &quot;spectral&quot;.</span>
-<span class="sd">    affinity_type : str, default=&quot;cosine&quot;</span>
-<span class="sd">        Type of affinity to compute: &quot;cosine&quot; or &quot;dot_product&quot;.</span>
-<span class="sd">    seed : int, default=42</span>
-<span class="sd">        Random seed for reproducibility.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">affinity_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">affinity_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span>
-    <span class="n">affinity_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0e-3</span>
-    <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
-    <span class="n">clustering_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;agglomerative&quot;</span>
-    <span class="n">affinity_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cosine&quot;</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">InterTaskAffinityConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for inter-task affinity computation during training.</span>
-
-<span class="sd">    This implements the lookahead-based inter-task affinity from the TAG paper:</span>
-
-<span class="sd">        Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)</span>
-
-<span class="sd">    Where θ^{t+1}_{s|i} = θ^t_s - η∇_{θ_s} L_i is the shared parameter update</span>
-<span class="sd">    from task i&#39;s gradient. This measures how task i&#39;s update affects task j.</span>
-
-<span class="sd">    Unlike the legacy :class:`TaskAffinityConfig`, this computes affinity</span>
-<span class="sd">    during the main training loop (not as a separate pre-training phase) and</span>
-<span class="sd">    logs per-step and epoch-level metrics to MLflow.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    enabled : bool, default=False</span>
-<span class="sd">        Whether to enable inter-task affinity computation during training.</span>
-<span class="sd">    compute_every_n_steps : int, default=1</span>
-<span class="sd">        Compute affinity every N training steps. Higher values reduce</span>
-<span class="sd">        computational overhead but provide less granular measurements.</span>
-<span class="sd">    log_every_n_steps : int, default=100</span>
-<span class="sd">        Log running average affinity to MLflow every N steps.</span>
-<span class="sd">    log_epoch_summary : bool, default=True</span>
-<span class="sd">        Log epoch-level summary statistics (mean, std) of affinity matrix.</span>
-<span class="sd">    log_step_matrices : bool, default=False</span>
-<span class="sd">        Log individual step affinity matrices. WARNING: High volume.</span>
-<span class="sd">    lookahead_lr : float, default=0.001</span>
-<span class="sd">        Learning rate η for computing the lookahead parameter update.</span>
-<span class="sd">    use_optimizer_lr : bool, default=True</span>
-<span class="sd">        If True, uses the current optimizer learning rate for lookahead.</span>
-<span class="sd">    shared_param_patterns : List[str], optional</span>
-<span class="sd">        Patterns that explicitly mark encoder parameters as shared.</span>
-<span class="sd">    exclude_param_patterns : List[str]</span>
-<span class="sd">        Patterns to exclude from shared parameters (task-specific layers).</span>
-<span class="sd">    n_groups : Optional[int], default=None</span>
-<span class="sd">        If provided, cluster tasks into this many groups using the final</span>
-<span class="sd">        affinity matrix (TAG paper grouping step).</span>
-<span class="sd">    clustering_method : str, default=&quot;agglomerative&quot;</span>
-<span class="sd">        Clustering algorithm for grouping: &quot;agglomerative&quot; or &quot;spectral&quot;.</span>
-<span class="sd">    clustering_linkage : str, default=&quot;average&quot;</span>
-<span class="sd">        Linkage for agglomerative clustering when grouping tasks.</span>
-<span class="sd">    device : str, default=&quot;auto&quot;</span>
-<span class="sd">        Device hint for affinity computation. &quot;auto&quot; selects CUDA if available.</span>
-<span class="sd">    log_to_mlflow : bool, default=True</span>
-<span class="sd">        Whether to log affinity metrics to MLflow.</span>
-<span class="sd">    save_plots : bool, default=False</span>
-<span class="sd">        Save affinity matrix plots as MLflow artifacts when enabled.</span>
-<span class="sd">    plot_formats : List[str], default=[&quot;png&quot;]</span>
-<span class="sd">        Image formats to emit when saving affinity plots.</span>
-<span class="sd">    plot_dpi : int, default=150</span>
-<span class="sd">        DPI for any saved plots.</span>
-
-<span class="sd">    See Also</span>
-<span class="sd">    --------</span>
-<span class="sd">    admet.model.chemprop.inter_task_affinity : Full implementation details.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">compute_every_n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">log_every_n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
-    <span class="n">log_epoch_summary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">log_step_matrices</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">lookahead_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.001</span>
-    <span class="n">use_optimizer_lr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">shared_param_patterns</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
-    <span class="n">exclude_param_patterns</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">,</span> <span class="s2">&quot;ffn&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="s2">&quot;readout&quot;</span><span class="p">])</span>
-    <span class="n">n_groups</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">clustering_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;agglomerative&quot;</span>
-    <span class="n">clustering_linkage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;average&quot;</span>
-    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
-    <span class="n">log_to_mlflow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">save_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">plot_formats</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;png&quot;</span><span class="p">])</span>
-    <span class="n">plot_dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
+<span class="c1"># NOTE: TaskOversamplingConfig, CurriculumConfig, JointSamplingConfig,</span>
+<span class="c1"># TaskAffinityConfig, InterTaskAffinityConfig, and RayConfig are imported</span>
+<span class="c1"># from admet.model.config (model-agnostic location).</span>
 
 
 <div class="viewcode-block" id="ChempropConfig">
@@ -865,32 +636,6 @@
     <span class="n">folds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">RayConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Configuration for Ray parallelization settings.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    max_parallel : int, default=1</span>
-<span class="sd">        Maximum number of models to train in parallel.</span>
-<span class="sd">        Set based on available GPU memory. For example, if you have</span>
-<span class="sd">        1 GPU and each model needs 0.5 GPU, set max_parallel=2.</span>
-<span class="sd">    num_cpus : int, optional</span>
-<span class="sd">        Number of CPUs to allocate to Ray. If None, uses all available CPUs.</span>
-<span class="sd">    num_gpus : int, optional</span>
-<span class="sd">        Number of GPUs to allocate to Ray. If None, auto-detects available GPUs.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; ray = RayConfig(max_parallel=2, num_cpus=8, num_gpus=1)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">max_parallel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">num_cpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">num_gpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
-
 <div class="viewcode-block" id="EnsembleConfig">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.EnsembleConfig">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -928,7 +673,7 @@
 <span class="sd">    ...     OmegaConf.structured(EnsembleConfig),</span>
 <span class="sd">    ...     OmegaConf.load(&quot;ensemble_config.yaml&quot;)</span>
 <span class="sd">    ... )</span>
-<span class="sd">    &gt;&gt;&gt; ensemble = ChempropEnsemble.from_config(config)</span>
+<span class="sd">    &gt;&gt;&gt; ensemble = ModelEnsemble.from_config(config)</span>
 <span class="sd">    &gt;&gt;&gt; ensemble.train_all()</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -974,7 +719,7 @@
     </aside>
   </div>
 </div><script src="../../../../_static/documentation_options.js?v=8a448e45"></script>
-    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
