@@ -1,47 +1,115 @@
-# CheMeleon HPO configuration
-# ===========================
+# CheMeleon HPO Configuration
+# ============================
 #
-# Hyperparameter optimization for CheMeleon model using Ray Tune with ASHA.
-# Searches over FFN architectures (regression, MoE, branched) and training params.
+# Hyperparameter optimization for CheMeleon model using Ray Tune with ASHA scheduler.
+# CheMeleon uses a pre-trained frozen encoder with a trainable FFN head.
+#
+# Search space derived from top-100 Chemprop HPO results:
+#   - FFN types: regression (41%), moe (35%), branched (24%)
+#   - Dropout: 0.0-0.25 performs best (lower is better)
+#   - Batch sizes: 32-64 dominate top configs
+#   - FFN layers: 0-4 layers (0 = linear head)
+#   - Hidden dims: Wide range, 200-1200 with 300-800 most frequent
+#
+# Key differences from Chemprop HPO:
+#   - No message passing params (depth, message_hidden_dim, aggregation)
+#   - Encoder is frozen, so training is faster per trial
+#   - Added weight_decay search (important for FFN-only training)
+#   - Uses continuous distributions where beneficial
 #
 # Usage:
 #   python -m admet.model.chemeleon.hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
 
-experiment_name: chemeleon_hpo
+experiment_name: chemeleon-hpo
+output_dir: /media/aglisman/Data/models/admet-chemeleon-hpo
+ray_storage_path: /media/aglisman/Data/ray-tune-chemeleon
+mlflow_tracking_uri: http://127.0.0.1:8084
 
-# Data paths
+# Data configuration (identical to Chemprop HPO)
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
-val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/val.csv
+val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
 target_columns:
   - LogD
   - Log KSOL
-  - Log SFM
-  - Log HLM
-  - Log RLM
-  - Log Papp
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
+target_weights:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 
-output_dir: outputs/hpo_chemeleon
+seed: 42
 
-# CheMeleon-specific
-checkpoint_path: auto
-freeze_encoder: true
+# CheMeleon-specific settings
+checkpoint_path: auto # Auto-download from Zenodo
+freeze_encoder: true # Keep encoder frozen (transfer learning)
 
-# Search space
+# Search space (informed by top-100 Chemprop HPO results + CheMeleon-specific tuning)
 search_space:
-  # Learning rate
+  # Learning rate - wider range since FFN-only training can handle higher LR
+  # loguniform provides good coverage across orders of magnitude
   learning_rate:
     type: loguniform
-    low: 1.0e-5
-    high: 1.0e-3
+    low: 0.0001
+    high: 0.03
 
-  # Regularization
+  # LR warmup ratio: init_lr = max_lr * warmup_ratio
+  # loguniform explores both small (0.1) and large (10.0) warmup multipliers
+  lr_warmup_ratio:
+    type: loguniform
+    low: 0.1
+    high: 10.0
+
+  # LR final ratio: final_lr = max_lr * final_ratio
+  # loguniform better for ratios spanning orders of magnitude
+  lr_final_ratio:
+    type: loguniform
+    low: 0.001
+    high: 1.0
+
+  # Weight decay - important for FFN-only training to prevent overfitting
+  # loguniform to explore both very small and moderate values
+  weight_decay:
+    type: loguniform
+    low: 1.0e-6
+    high: 0.1
+
+  # Dropout - uniform distribution, top configs favor 0.0-0.25
   dropout:
     type: uniform
     low: 0.0
     high: 0.3
 
-  # FFN architecture search
+  # Batch size - discrete choices (must be power of 2 for efficiency)
+  # 32-64 dominate top configs, include 128/256 for exploration
+  batch_size:
+    type: choice
+    values:
+      - 32
+      - 64
+      - 128
+      - 256
+
+  # Batch normalization toggle
+  batch_norm:
+    type: choice
+    values:
+      - true
+      - false
+
+  # FFN architecture - distribution from top-100: regression(41%), moe(35%), branched(24%)
   ffn_type:
     type: choice
     values:
@@ -49,75 +117,124 @@ search_space:
       - mixture_of_experts
       - branched
 
+  # FFN layers - 0-4 (0 = linear projection, no hidden layers)
+  # Matches Chemprop HPO range
   ffn_num_layers:
     type: randint
-    low: 1
-    high: 4
+    low: 0
+    high: 5
 
+  # FFN hidden dim - quniform samples any multiple of 100 in range
+  # More exploration than discrete choice, covers 200-1200 range
   ffn_hidden_dim:
-    type: choice
-    values:
-      - 128
-      - 256
-      - 300
-      - 512
+    type: quniform
+    low: 200
+    high: 1200
+    q: 100
 
-  batch_size:
-    type: choice
-    values:
-      - 16
-      - 32
-      - 64
-
-  # MoE params (conditional on ffn_type)
+  # MoE params (conditional on ffn_type=mixture_of_experts)
+  # qrandint with q=2 gives even numbers: 2, 4, 6, 8
   n_experts:
-    type: randint
+    type: qrandint
     low: 2
     high: 8
+    q: 2
     conditional_on: ffn_type
     conditional_values:
       - mixture_of_experts
 
-  # Branched params (conditional on ffn_type)
-  trunk_n_layers:
+  # Branched params (conditional on ffn_type=branched)
+  # trunk_depth 0-4 (0 = no shared trunk, immediate branching)
+  trunk_depth:
     type: randint
-    low: 1
-    high: 3
+    low: 0
+    high: 5
     conditional_on: ffn_type
     conditional_values:
       - branched
 
+  # Trunk hidden dim - quniform for continuous exploration
   trunk_hidden_dim:
-    type: choice
-    values:
-      - 128
-      - 256
-      - 384
-      - 512
+    type: quniform
+    low: 100
+    high: 1200
+    q: 100
     conditional_on: ffn_type
     conditional_values:
       - branched
 
-# ASHA scheduler
+  # Joint sampling search (identical to Chemprop HPO)
+  joint_sampling:
+    enabled:
+      type: choice
+      values:
+        - true
+        - false
+    task_oversampling:
+      # Alpha controls task rebalancing: 0 = uniform, 1 = full inverse frequency
+      # uniform distribution for fine-grained exploration
+      alpha:
+        type: uniform
+        low: 0.0
+        high: 1.0
+
+# ASHA scheduler configuration (identical to Chemprop HPO)
 asha:
   metric: val_mae
   mode: min
-  max_t: 100
-  grace_period: 15
+  max_t: 120 # Max epochs per trial
+  grace_period: 15 # Min epochs before early stopping
   reduction_factor: 3
   brackets: 1
 
-# Resources
+# Resource allocation
 resources:
-  num_samples: 50
-  cpus_per_trial: 4
+  num_samples: 1000 # 1000 HPO trials for thorough search
+  cpus_per_trial: 5 # Match Chemprop HPO
   gpus_per_trial: 0.25
-  max_concurrent_trials: null
+  max_concurrent_trials: null # Auto-determine based on available resources
 
 # Transfer learning from top configs
 transfer_learning:
-  top_k: 5
-  full_epochs: 100
-  ensemble_size: 5
+  top_k: 100 # Keep top 100 configs (match Chemprop)
+  full_epochs: 60 # Full training epochs for top configs
+  ensemble_size: 5 # Create ensemble from top diverse configs
 
-seed: 42
+# Inter-task affinity (disabled by default for CheMeleon)
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 10
+  log_every_n_steps: 100
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+  log_to_mlflow: true
+
+# Joint sampling defaults (can be overridden by search space)
+joint_sampling:
+  enabled: false
+  task_oversampling:
+    alpha: 0.0
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
