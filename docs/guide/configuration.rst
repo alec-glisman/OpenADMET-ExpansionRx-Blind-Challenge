@@ -164,32 +164,83 @@ Key parameters:
 Joint Sampling Configuration
 ----------------------------
 
-The ``joint_sampling`` section enables unified task-aware oversampling and curriculum learning:
+The ``joint_sampling`` section enables unified task-aware oversampling and curriculum learning
+via the ``JointSampler``, which uses a two-stage sampling algorithm:
+
+**Two-Stage Sampling Algorithm:**
+
+1. **Stage 1 (Task Selection):** Sample task ``t`` with probability ``p_t ∝ count_t^(-α)``
+2. **Stage 2 (Within-Task):** Sample molecule from task ``t``'s valid indices, weighted by curriculum
 
 .. code-block:: yaml
 
    joint_sampling:
      enabled: true
+
+     # Task-aware oversampling configuration
      task_oversampling:
-       alpha: 0.5         # Balance factor (0=uniform, 1=fully weighted)
+       alpha: 0.5         # [0, 1] - 0=uniform, 0.5=moderate, 1=full inverse-weighted
+
+     # Curriculum learning configuration
      curriculum:
        enabled: true
        quality_col: "Quality"
        qualities: ["high", "medium", "low"]
-       patience: 5        # Epochs before quality phase change
-       strategy: "sampled"  # or "deterministic"
-       reset_early_stopping_on_phase_change: false
+       patience: 5        # Epochs before phase transition
+       strategy: "sampled"
+
+       # Count normalization (recommended for imbalanced datasets)
+       count_normalize: true
+       min_high_quality_proportion: 0.25
+
+       # Metric alignment
+       monitor_metric: "val/mae/high"
+       early_stopping_metric: null  # Uses monitor_metric if null
+
+       # Adaptive curriculum (auto-adjust proportions)
+       adaptive_enabled: false
+       adaptive_improvement_threshold: 0.02
+       adaptive_max_adjustment: 0.1
+       adaptive_lookback_epochs: 5
+
+       # Loss weighting (scale gradients by quality)
+       loss_weighting_enabled: false
+       loss_weights:
+         high: 1.0
+         medium: 0.5
+         low: 0.3
+
+       # Optional: customize phase proportions
+       # warmup_proportions: [0.80, 0.15, 0.05]
+       # expand_proportions: [0.60, 0.30, 0.10]
+       # robust_proportions: [0.50, 0.35, 0.15]
+       # polish_proportions: [0.70, 0.20, 0.10]
+
        log_per_quality_metrics: true
-     num_samples: null    # null = use full dataset size
+       reset_early_stopping_on_phase_change: false
+
+     # Global sampling settings
+     num_samples: null              # null = use full dataset size per epoch
      seed: 42
-     increment_seed_per_epoch: true
-     log_to_mlflow: true
+     increment_seed_per_epoch: true # Different samples each epoch
+     log_to_mlflow: true            # Log weight statistics
 
-**Task Oversampling**: Balances multi-task learning by oversampling tasks with fewer samples.
-The ``alpha`` parameter controls the balance: 0 = uniform sampling, 1 = fully inverse-weighted.
+**Task Oversampling (``task_oversampling.alpha``):**
 
-**Curriculum Learning**: Progressively trains on data of increasing difficulty (e.g., high → medium → low quality).
-The sampler automatically advances through quality phases based on validation performance and ``patience``.
+- ``α=0``: Uniform task sampling (no rebalancing)
+- ``α=0.5``: Moderate rebalancing (default, recommended)
+- ``α=1.0``: Full inverse-proportional (rare tasks heavily favored)
+
+**Curriculum Learning:** Progressively trains through four phases:
+
+1. **warmup**: Focus on high-quality data (default: 80% high, 15% medium, 5% low)
+2. **expand**: Include medium-quality (default: 60% high, 30% medium, 10% low)
+3. **robust**: Include low-quality for robustness (default: 50% high, 35% medium, 15% low)
+4. **polish**: Return focus to high-quality while maintaining diversity (default: 70% high, 20% medium, 10% low)
+
+**Important:** When using with ``num_workers > 0`` in DataLoader, the sampler state
+(epoch counter, curriculum phase) is NOT synchronized across workers. Use ``num_workers=0``
+for reliable curriculum learning.
 
 See :doc:`curriculum` for detailed curriculum learning documentation.
 
@@ -204,6 +255,12 @@ The dataclass hierarchy:
 - ``MlflowConfig``: Experiment tracking settings
 - ``RayConfig``: Ray parallelization settings for ensemble training
 - ``JointSamplingConfig``: Unified task oversampling and curriculum learning
+
+  - ``TaskOversamplingConfig``: Task-aware oversampling settings (alpha parameter)
+  - ``CurriculumConfig``: Curriculum learning settings (phases, proportions, metrics)
+
+- ``TaskAffinityConfig``: Legacy task affinity grouping (pre-training phase)
+- ``InterTaskAffinityConfig``: Inter-task affinity computation during training
 - ``ChempropConfig``: Combines all above for single model
 - ``EnsembleDataConfig``: Extends DataConfig for ensemble
 - ``EnsembleConfig``: Combines all for ensemble training

@@ -106,9 +106,10 @@ flowchart LR
 | `admet data split` | Generate train/val splits | `admet data split data.csv --cluster-method bitbirch` |
 | `admet model train` | Train single model | `admet model train -c configs/0-experiment/chemprop.yaml` |
 | `admet model ensemble` | Train ensemble | `admet model ensemble -c configs/3-production/ensemble.yaml` |
-| `admet model hpo` | Hyperparameter search | `admet model hpo -c configs/1-hpo-single/hpo.yaml --num-samples 50` |
+| `admet model hpo` | Hyperparameter search | `admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50` |
+| `admet model list` | List available models | `admet model list` |
 | `admet leaderboard scrape` | Download leaderboard | `admet leaderboard scrape --user username` |
-| `admet leaderboard report` | Generate report | `admet leaderboard report assets/submissions/latest/data` |
+| `admet leaderboard report` | Generate report | `admet leaderboard report assets/submissions/latest/data --user username` |
 
 **Full documentation:** See [INSTALLATION.md](./INSTALLATION.md) for setup and [docs/guide/cli.rst](./docs/guide/cli.rst) for detailed CLI usage.
 
@@ -160,8 +161,10 @@ flowchart LR
 - **Ensemble:** 5 Butina splits × 5 CV folds = 25 models
 - **HPO:** Ray Tune with ASHA scheduler (~2,000 trials)
 - **Early Stopping:** 15 epochs patience on validation MAE
-- **Task Sampling:** α-weighted oversampling for sparse endpoints
-- **Curriculum Learning:** Progressive inclusion of lower-quality data from other public datasets with count-normalized sampling
+- **Joint Sampling:** Unified two-stage sampling combining:
+  - **Task Oversampling:** α-weighted inverse-power sampling for sparse endpoints (α ∈ [0,1])
+  - **Curriculum Learning:** Progressive quality-based inclusion (warmup → expand → robust → polish)
+  - Count-normalized sampling ensures target proportions regardless of dataset size imbalance
 - **Task Affinity Grouping:** Automatic grouping of related endpoints for joint training
 
 **Challenge Evaluation:** MA-RAE (Macro-Averaged Relative Absolute Error) ranking with per-endpoint MAE. See [Challenge Hugging Face Page](https://huggingface.co/spaces/openadmet/OpenADMET-ExpansionRx-Challenge) for full criteria.
@@ -303,15 +306,15 @@ flowchart TB
         TaskAff -->|yes| TAModule["<b>TaskAffinityModule</b><br/>compute_task_affinity()<br/>Agglomerative/Spectral<br/>Clustering"]
         TaskAff -->|no| Standard["Standard<br/>Multi-task"]
 
-        Config --> Curriculum{"Curriculum<br/>Learning?"}
-        Curriculum -->|yes| CurrSampler["<b>CurriculumSampler</b><br/>Progressive quality<br/>inclusion strategy"]
-        Curriculum -->|no| JointSampler["<b>JointTaskSampler</b><br/>α-weighted<br/>oversampling"]
+        Config --> JointSamp{"Joint<br/>Sampling?"}
+        JointSamp -->|yes| JointSampler["<b>JointSampler</b><br/>Two-stage sampling:<br/>1. Task selection (α-weighted)<br/>2. Within-task curriculum"]
+        JointSamp -->|no| StandardShuffle["Standard shuffle<br/>or legacy samplers"]
 
-        CurrSampler --> LossWeight{"Loss<br/>Weighting?"}
+        JointSampler --> LossWeight{"Loss<br/>Weighting?"}
         LossWeight -->|yes| PerSampleW["<b>Per-Sample Weights</b><br/>high=1.0, med=0.5, low=0.3<br/>via MoleculeDatapoint"]
         LossWeight -->|no| EqualWeight["Equal weights"]
 
-        CurrSampler --> Adaptive{"Adaptive<br/>Curriculum?"}
+        JointSampler --> Adaptive{"Adaptive<br/>Curriculum?"}
         Adaptive -->|yes| AdaptiveCallback["<b>AdaptiveCurriculumCallback</b><br/>Track per-quality MAE<br/>Adjust proportions dynamically"]
         Adaptive -->|no| FixedPhases["Fixed phase proportions"]
     end
@@ -319,7 +322,7 @@ flowchart TB
     subgraph Training["Training Loop"]
         MLP & MoE & Branched --> Optimizer["<b>AdamW</b><br/>Warmup + Cosine<br/>LR Schedule"]
         TAModule & Standard --> Optimizer
-        CurrSampler & JointSampler --> Loader["<b>DataLoader</b><br/>Batch sampling"]
+        JointSampler & StandardShuffle --> Loader["<b>DataLoader</b><br/>Batch sampling"]
         PerSampleW & EqualWeight --> Loader
         Loader --> Optimizer
         Optimizer --> Loss["<b>Weighted MSE Loss</b><br/>Per-task masking<br/>Per-sample weights"]
@@ -593,16 +596,16 @@ flowchart TB
         MonitorMetric --> Checkpoint["<b>ModelCheckpoint</b><br/>Save best high-quality model"]
     end
 
-    subgraph JointSampling["Joint Task Sampling"]
+    subgraph JointSampling["Joint Sampling (Two-Stage)"]
         Data --> TaskFreq["<b>Task Frequency Analysis</b><br/>Count non-NaN per endpoint"]
-        TaskFreq --> Weights["<b>α-weighted oversampling</b><br/>Boost sparse endpoints<br/>α ∈ [0, 1]"]
-        Weights --> JointSampler["<b>JointTaskSampler</b><br/>Balanced batch construction<br/>Ensure sparse task coverage"]
+        TaskFreq --> Stage1["<b>Stage 1: Task Selection</b><br/>p_t ∝ count_t^(-α)<br/>α ∈ [0, 1]"]
+        Stage1 --> Stage2["<b>Stage 2: Within-Task Sampling</b><br/>Curriculum weights<br/>based on quality phase"]
+        Stage2 --> JointSamplerDiag["<b>JointSampler</b><br/>Unified task + curriculum<br/>sampling"]
     end
 
     subgraph Training["Enhanced Training Loop"]
         Head1 & Head2 & Head3 --> Loss["<b>Multi-task Loss</b>"]
-        Sampler --> BatchData["Curriculum-based<br/>batches"]
-        JointSampler --> BatchData
+        JointSamplerDiag --> BatchData["Two-stage sampled<br/>batches"]
         WeightedLoss --> BatchData
         BatchData --> Loss
         Loss --> Backward["<b>Backpropagation</b><br/>Task-grouped gradients<br/>Per-sample weighted"]
@@ -637,7 +640,7 @@ Task affinity automatically groups related tasks (e.g., solubility, permeability
 Run distributed HPO with Ray Tune + ASHA:
 
 ```bash
-admet model hpo -c configs/1-hpo-single/hpo.yaml --num-samples 100 --gpus-per-trial 0.5
+admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 100
 ```
 
 **Features:** ASHA early stopping, conditional search spaces (FFN type, MoE experts), MLflow tracking
@@ -699,8 +702,7 @@ flowchart TB
 
     subgraph Advanced["Advanced Features"]
         AllSplits -.->|optional| TaskAff["<b>Task Affinity Grouping</b><br/>Gradient-based clustering<br/>Multi-head architecture"]
-        AllSplits -.->|optional| Curriculum["<b>Curriculum Learning</b><br/>Progressive quality inclusion<br/>High → Medium → Low"]
-        AllSplits -.->|optional| JointSample["<b>Joint Task Sampling</b><br/>α-weighted oversampling<br/>Balance sparse endpoints"]
+        AllSplits -.->|optional| JointSample["<b>JointSampler</b><br/>Two-stage sampling:<br/>1. Task selection (α-weighted)<br/>2. Curriculum weighting"]
     end
 
     subgraph Prediction["Ensemble Prediction"]

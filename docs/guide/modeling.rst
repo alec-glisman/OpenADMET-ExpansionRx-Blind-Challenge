@@ -59,9 +59,14 @@ FFN Architecture Options
 
 The ``ffn_type`` parameter controls the prediction head:
 
-- ``regression``: Standard multi-layer perceptron (default)
-- ``mixture_of_experts``: Mixture of experts for heterogeneous data
-- ``branched``: Branched architecture with shared and task-specific layers
+- ``regression``: Standard multi-layer perceptron (default, best overall performance)
+- ``mixture_of_experts``: Mixture of experts for heterogeneous data (MoE)
+- ``branched``: Branched architecture with shared trunk and task-specific branches
+
+.. note::
+
+   In HPO search spaces, shorthand values ``mlp``, ``moe``, and ``branched`` are
+   automatically mapped to the full config values.
 
 Configuration example:
 
@@ -69,8 +74,10 @@ Configuration example:
 
    model:
      ffn_type: mixture_of_experts
-     ffn_hidden_dim: 300
-     ffn_num_layers: 3
+     hidden_dim: 300
+     num_layers: 3
+     # MoE-specific
+     n_experts: 4
 
 Hyperparameter Optimization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,39 +101,40 @@ Use Ray Tune with ASHA scheduler for HPO:
 For comprehensive HPO documentation including search space configuration,
 ASHA scheduler tuning, and best practices, see :doc:`hpo`.
 
-Curriculum Learning
--------------------
+Joint Sampling
+--------------
 
-Quality-aware curriculum learning progressively incorporates data based on
-quality tiers with count-normalized sampling:
+The ``JointSampler`` provides unified two-stage sampling that combines task-aware
+oversampling with curriculum learning:
 
-.. code-block:: python
+**Two-Stage Algorithm:**
 
-   from admet.model.chemprop import CurriculumState, CurriculumCallback, CurriculumPhaseConfig
+1. **Stage 1 (Task Selection):** Sample task ``t`` with probability ``p_t ∝ count_t^(-α)``
+2. **Stage 2 (Within-Task):** Sample molecule from task's indices, weighted by curriculum phase
 
-   # Configure curriculum with count normalization (recommended)
-   config = CurriculumPhaseConfig(
-       count_normalize=True,  # Adjust for dataset size imbalance
-       min_high_quality_proportion=0.25,  # Safety floor
-   )
+**Configuration via YAML:**
 
-   curriculum = CurriculumState(
-       qualities=["high", "medium", "low"],
-       patience=5,  # Epochs without improvement before advancing
-       config=config,
-   )
+.. code-block:: yaml
 
-   # Add callback to model training
-   callback = CurriculumCallback(curr_state=curriculum)
+   joint_sampling:
+     enabled: true
+     task_oversampling:
+       alpha: 0.5  # [0, 1] task rebalancing strength
+     curriculum:
+       enabled: true
+       quality_col: "Quality"
+       qualities: ["high", "medium", "low"]
+       patience: 5
+       count_normalize: true
 
-Curriculum phases with conservative default proportions:
+**Curriculum Phases** (when curriculum enabled):
 
 1. **Warmup**: 80% high, 15% medium, 5% low - learn core patterns
 2. **Expand**: 60% high, 30% medium, 10% low - incorporate more data
 3. **Robust**: 50% high, 35% medium, 15% low - build robustness
 4. **Polish**: 70% high, 20% medium, 10% low - fine-tune while maintaining diversity
 
-For detailed configuration and count normalization explanation, see :doc:`curriculum`.
+For detailed configuration and algorithm explanation, see :doc:`curriculum`.
 
 MLflow Integration
 ------------------

@@ -1,10 +1,18 @@
 # Curriculum Learning Integration Plan
 
-## Status: ✅ IMPLEMENTED
+> **⚠️ HISTORICAL DOCUMENT**
+>
+> This document is a historical implementation plan that has been **superseded** by the
+> unified `JointSampler` approach. For current documentation, see:
+> - [Configuration Guide](../guide/configuration.rst) - `joint_sampling` configuration
+> - [Curriculum Learning Guide](../guide/curriculum.rst) - Two-stage sampling algorithm
+> - [Config Reference](../guide/config_reference.rst) - Complete parameter reference
+
+## Status: ✅ IMPLEMENTED (Superseded by JointSampler)
 
 **Last Updated:** December 2024
 
-This document originally outlined a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The implementation is now complete with count-normalized sampling.
+This document originally outlined a plan to integrate quality-aware curriculum learning into the Chemprop training pipeline. The implementation is now complete with the unified `JointSampler` that combines task-aware oversampling with curriculum learning via a two-stage sampling algorithm.
 
 ## Implementation Summary
 

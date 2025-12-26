@@ -33,6 +33,10 @@ class DataConfig:
     data_dir : str
         Directory containing train.csv and validation.csv files.
         Expected structure: {data_dir}/train.csv and {data_dir}/validation.csv
+    splits : List[int], optional
+        List of split indices to use. If None, uses all splits found in data_dir.
+    folds : List[int], optional
+        List of fold indices to use within each split. If None, uses all folds.
     test_file : str, optional
         Path to test data CSV file.
     blind_file : str, optional
@@ -50,6 +54,8 @@ class DataConfig:
     """
 
     data_dir: str = MISSING
+    splits: Optional[List[int]] = None
+    folds: Optional[List[int]] = None
     test_file: Optional[str] = None
     blind_file: Optional[str] = None
     smiles_col: str = "SMILES"

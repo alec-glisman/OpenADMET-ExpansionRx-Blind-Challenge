@@ -74,7 +74,7 @@ Runs hyperparameter optimization (HPO) for Chemprop models using Ray Tune with A
 
 **Options:**
 
-- `--config PATH` - Path to HPO config file (default: `configs/hpo_chemprop.yaml`)
+- `--config PATH` - Path to HPO config file (default: `configs/1-hpo-single/hpo_chemprop.yaml`)
 - `--num-samples N` - Number of HPO trials to run (default: from config)
 - `--gpus-per-trial N` - GPUs per trial (default: 0.25)
 - `--cpus-per-trial N` - CPUs per trial (default: 2)
@@ -384,9 +384,10 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 Training scripts use configuration files from the `configs/` directory:
 
-- `configs/ensemble_chemprop.yaml` - Ensemble training configuration
-- `configs/single_chemprop.yaml` - Single model training configuration
-- `configs/hpo_chemprop.yaml` - Hyperparameter optimization configuration
+- `configs/0-experiment/chemprop.yaml` - Single model training configuration
+- `configs/0-experiment/ensemble_chemprop_production.yaml` - Ensemble training configuration
+- `configs/1-hpo-single/hpo_chemprop.yaml` - Hyperparameter optimization configuration
+- `configs/3-production/` - Production ensemble configurations
 
 ## Data Directory Structure
 

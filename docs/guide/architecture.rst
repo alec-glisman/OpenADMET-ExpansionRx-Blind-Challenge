@@ -33,7 +33,7 @@ The typical end-to-end pipeline follows these stages:
 
    raw data --> standardization / cleaning --> SMILES canonicalization
              --> cluster-based splitting (BitBirch + stratification)
-             --> model training (Chemprop + curriculum learning)
+             --> model training (Chemprop + JointSampler)
              --> ensemble predictions (with uncertainty)
              --> evaluation (metrics) --> visualization
 
@@ -56,7 +56,8 @@ Modeling Layer
 - ``admet.model.chemprop.model``: ``ChempropModel`` class for single model training
 - ``admet.model.chemprop.ensemble``: ``ModelEnsemble`` for multi-fold training
 - ``admet.model.chemprop.hpo``: ``ChempropHPO`` for hyperparameter optimization
-- ``admet.model.chemprop.curriculum``: Curriculum learning with quality awareness
+- ``admet.model.chemprop.joint_sampler``: ``JointSampler`` for unified two-stage sampling
+- ``admet.model.chemprop.curriculum``: Curriculum state and callbacks
 - ``admet.model.chemprop.ffn``: Custom FFN architectures (MoE, Branched)
 - ``admet.model.chemprop.config``: OmegaConf dataclass configurations
 - ``admet.model.classical``: Classical ML model wrappers
@@ -97,6 +98,7 @@ Key configuration classes:
 - ``DataConfig``: Dataset paths and column names
 - ``ModelConfig``: Model architecture parameters
 - ``OptimizationConfig``: Training hyperparameters
+- ``JointSamplingConfig``: Unified task + curriculum sampling settings
 - ``MlflowConfig``: Experiment tracking settings
 
 Extensibility Points

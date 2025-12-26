@@ -393,11 +393,69 @@ Quality labels should be lowercase strings matching exactly the values in
 How It Works
 ------------
 
-Sampling-Based Curriculum
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Two-Stage Sampling with JointSampler
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The curriculum uses weighted random sampling to control which data points
-appear in each training batch:
+The ``JointSampler`` provides unified sampling that combines task-aware oversampling
+with curriculum learning via a two-stage algorithm:
+
+**Stage 1: Task Selection**
+
+Sample a task ``t`` according to inverse-power probabilities:
+
+.. math::
+
+   p_t \propto count_t^{-\alpha}
+
+Where:
+
+- ``count_t`` = number of samples with labels for task ``t``
+- ``α ∈ [0, 1]`` controls rebalancing strength:
+  - ``α=0``: Uniform task sampling (no rebalancing)
+  - ``α=0.5``: Moderate rebalancing (default, recommended)
+  - ``α=1.0``: Full inverse-proportional (rare tasks heavily favored)
+
+**Stage 2: Within-Task Sampling**
+
+Sample a molecule from task ``t``'s valid indices, weighted by curriculum:
+
+.. math::
+
+   p_i \propto w_{curriculum}[i]
+
+Where ``w_curriculum[i]`` is determined by the sample's quality label and
+the current curriculum phase proportions.
+
+**Weight Composition**
+
+The joint weight for sample ``i`` is computed as:
+
+.. math::
+
+   w_{joint}[i] = w_{task}[i] \times w_{curriculum}[i]
+
+This preserves backward compatibility:
+
+- When curriculum is disabled: reduces to task oversampling only
+- When ``task_alpha=0``: curriculum weights control all sampling
+- When both enabled: multiplicative composition balances both strategies
+
+**Important: num_workers Limitation**
+
+.. warning::
+
+   When using ``JointSampler`` with ``num_workers > 0`` in DataLoader, each
+   worker gets its own copy of the sampler. The internal ``_current_epoch``
+   counter and curriculum phase state will NOT be synchronized across workers,
+   potentially causing inconsistent sampling behavior.
+
+   **Recommendation**: Use ``num_workers=0`` for reliable curriculum learning.
+
+Sampling-Based Curriculum (Legacy)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The legacy ``DynamicCurriculumSampler`` uses weighted random sampling to control
+which data points appear in each training batch:
 
 1. **WeightedRandomSampler**: Each sample gets a weight based on its quality
    and the current curriculum phase
@@ -405,6 +463,9 @@ appear in each training batch:
    so high-quality samples appear more frequently in early phases
 3. **Phase-dependent weights**: Weights are updated when phases change
 4. **Count normalization**: Weights are adjusted for dataset size imbalance
+
+The ``JointSampler`` is the preferred approach as it unifies task and curriculum
+sampling in a single, well-tested implementation.
 
 Count-Normalized Sampling
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -478,6 +539,37 @@ Phase transitions are logged to both the console and MLflow:
 
    INFO - Curriculum phase transition: warmup -> expand at epoch 12 (step 1440),
           val_loss=0.4523, weights={'high': 0.6, 'medium': 0.35, 'low': 0.05}
+
+Weight Statistics Monitoring
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``JointSampler`` computes and logs comprehensive weight statistics each epoch
+to help monitor sampling behavior:
+
+.. code-block:: python
+
+   def get_weight_statistics(weights: np.ndarray) -> dict[str, float]:
+       return {
+           "min": float,           # Minimum weight
+           "max": float,           # Maximum weight
+           "mean": float,          # Mean weight
+           "entropy": float,       # Distribution uniformity (H = -sum(p*log(p)))
+           "effective_samples": float,  # 1/sum(weights^2) - higher = more uniform
+       }
+
+**Interpretation:**
+
+- **entropy**: Higher values indicate more uniform sampling; lower values indicate
+  concentration on specific samples
+- **effective_samples**: The "effective" number of samples being used. A value close
+  to the dataset size indicates uniform sampling; a low value indicates sampling is
+  concentrated on a small subset
+
+These statistics are logged as:
+
+.. code-block:: text
+
+   Weight stats: min=0.000001, max=0.000160, mean=0.000008, entropy=11.234, effective_samples=4523.1
 
 MLflow Metrics
 ^^^^^^^^^^^^^^
@@ -691,9 +783,10 @@ API Reference
 
 See the API documentation for detailed class and function references:
 
+- :mod:`admet.model.chemprop.joint_sampler` - JointSampler (unified two-stage sampling)
 - :mod:`admet.model.chemprop.curriculum` - CurriculumState and CurriculumCallback
-- :mod:`admet.model.chemprop.curriculum_sampler` - Weighted sampler utilities
-- :mod:`admet.model.chemprop.config` - CurriculumConfig dataclass
+- :mod:`admet.model.chemprop.curriculum_sampler` - DynamicCurriculumSampler (legacy)
+- :mod:`admet.model.chemprop.config` - JointSamplingConfig, CurriculumConfig dataclasses
 
 Cross-References
 ----------------

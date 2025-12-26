@@ -514,33 +514,61 @@ Task grouping for improved multi-task learning (optional).
       seed: 42
       log_affinity_matrix: true
 
-Curriculum Learning Section
-----------------------------
+Joint Sampling Section
+----------------------
 
-Quality-aware curriculum learning with count-normalized sampling.
+Unified two-stage sampling combining task-aware oversampling and curriculum learning
+via the ``JointSampler``.
+
+**Algorithm:**
+
+1. **Stage 1 (Task Selection):** Sample task ``t`` with probability ``p_t ∝ count_t^(-α)``
+2. **Stage 2 (Within-Task):** Sample molecule from task ``t``'s valid indices, weighted by curriculum
 
 .. code-block:: yaml
 
     joint_sampling:
-      enabled: true
-      curriculum:
-        enabled: false              # Set to true to enable
+      enabled: true                  # Master switch for joint sampling
 
-        # Quality configuration
+      # Task-aware oversampling
+      task_oversampling:
+        alpha: 0.5                   # [0, 1] - task rebalancing strength
+                                     # 0=uniform, 0.5=moderate, 1=full inverse
+
+      # Curriculum learning
+      curriculum:
+        enabled: true                # Enable curriculum-aware sampling
         quality_col: "Quality"
-        qualities:                  # Ordered highest to lowest
+        qualities:                   # Ordered highest to lowest
           - "high"
           - "medium"
           - "low"
 
         # Phase transitions
-        patience: 5                 # Epochs without improvement before advancing
-        strategy: "sampled"         # "sampled" or "weighted"
+        patience: 5                  # Epochs without improvement before advancing
+        strategy: "sampled"          # "sampled" or "weighted"
         reset_early_stopping_on_phase_change: false
 
         # Count normalization (recommended for imbalanced datasets)
-        count_normalize: true       # Adjust for dataset size imbalance
+        count_normalize: true        # Adjust for dataset size imbalance
         min_high_quality_proportion: 0.25  # Safety floor
+
+        # Metric alignment
+        monitor_metric: "val/mae/high"    # Metric for phase transitions
+        early_stopping_metric: null       # Uses monitor_metric if null
+
+        # Adaptive curriculum (auto-adjust proportions)
+        adaptive_enabled: false
+        adaptive_improvement_threshold: 0.02  # 2% relative improvement required
+        adaptive_max_adjustment: 0.1          # Max 10% adjustment per transition
+        adaptive_lookback_epochs: 5           # Compare current vs N epochs ago
+
+        # Loss weighting (scale gradients by quality)
+        loss_weighting_enabled: false
+        loss_weights:
+          high: 1.0
+          medium: 0.5
+          low: 0.3
 
         # HPO-friendly phase proportions (optional overrides)
         # Default proportions: warmup=[0.80, 0.15, 0.05], expand=[0.60, 0.30, 0.10],
@@ -553,6 +581,100 @@ Quality-aware curriculum learning with count-normalized sampling.
         # Logging
         log_per_quality_metrics: true
         seed: 42
+
+      # Global sampling settings
+      num_samples: null              # null = use full dataset size per epoch
+      seed: 42
+      increment_seed_per_epoch: true # Different samples each epoch (recommended)
+      log_to_mlflow: true            # Log weight statistics
+
+**Important Limitation:** When using with ``num_workers > 0`` in DataLoader, the
+sampler state is NOT synchronized across workers. Use ``num_workers=0`` for reliable
+curriculum learning.
+
+JointSamplingConfig Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - Parameter
+     - Default
+     - Description
+   * - ``enabled``
+     - ``false``
+     - Master switch for joint sampling
+   * - ``task_oversampling.alpha``
+     - ``0.5``
+     - Task rebalancing strength [0, 1]
+   * - ``num_samples``
+     - ``null``
+     - Samples per epoch (null = dataset size)
+   * - ``seed``
+     - ``42``
+     - Base random seed
+   * - ``increment_seed_per_epoch``
+     - ``true``
+     - Vary sampling across epochs
+   * - ``log_to_mlflow``
+     - ``true``
+     - Log weight statistics to MLflow
+
+Curriculum Learning Section
+----------------------------
+
+Quality-aware curriculum learning with count-normalized sampling (part of JointSampling).
+
+CurriculumConfig Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Parameter
+     - Default
+     - Description
+   * - ``enabled``
+     - ``false``
+     - Enable curriculum learning
+   * - ``quality_col``
+     - ``"Quality"``
+     - Column containing quality labels
+   * - ``qualities``
+     - ``["high", "medium", "low"]``
+     - Quality levels (highest to lowest)
+   * - ``patience``
+     - ``5``
+     - Epochs without improvement before phase transition
+   * - ``count_normalize``
+     - ``true``
+     - Adjust for dataset size imbalance
+   * - ``min_high_quality_proportion``
+     - ``0.25``
+     - Safety floor for high-quality proportion
+   * - ``monitor_metric``
+     - ``"val_loss"``
+     - Metric for phase transitions
+   * - ``adaptive_enabled``
+     - ``false``
+     - Auto-adjust proportions based on performance
+   * - ``loss_weighting_enabled``
+     - ``false``
+     - Scale gradients by quality level
+   * - ``warmup_proportions``
+     - ``[0.80, 0.15, 0.05]``
+     - Warmup phase proportions [high, medium, low]
+   * - ``expand_proportions``
+     - ``[0.60, 0.30, 0.10]``
+     - Expand phase proportions
+   * - ``robust_proportions``
+     - ``[0.50, 0.35, 0.15]``
+     - Robust phase proportions
+   * - ``polish_proportions``
+     - ``[0.70, 0.20, 0.10]``
+     - Polish phase proportions
 
 MLflow Section
 --------------
@@ -710,8 +832,14 @@ Choose your configuration based on your goal:
    * - Ensemble training
      - ``ensemble_chemprop_production.yaml``
      - All splits/folds
-   * - Curriculum learning
+   * - Joint sampling (task + curriculum)
      - ``chemprop_curriculum.yaml``
+     - Two-stage sampling with JointSampler
+   * - Task oversampling only
+     - Set ``joint_sampling.task_oversampling.alpha``
+     - α=0.5 recommended
+   * - Curriculum learning only
+     - Set ``joint_sampling.curriculum.enabled``
      - Quality-based pacing
    * - Hyperparameter search
      - ``hpo_chemprop.yaml``
