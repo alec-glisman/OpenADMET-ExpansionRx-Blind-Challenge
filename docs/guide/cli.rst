@@ -69,14 +69,14 @@ Or programmatically:
 .. code-block:: python
 
    from omegaconf import OmegaConf
-   from admet.model.chemprop import ChempropEnsemble, EnsembleConfig
+   from admet.model.chemprop import ModelEnsemble, EnsembleConfig
 
    config = OmegaConf.merge(
        OmegaConf.structured(EnsembleConfig),
        OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
    )
 
-   ensemble = ChempropEnsemble.from_config(config)
+   ensemble = ModelEnsemble.from_config(config)
    ensemble.train_all()
 
 **Hyperparameter Optimization**
@@ -86,7 +86,18 @@ Run HPO with Ray Tune and ASHA scheduler:
 .. code-block:: bash
 
    # Using the admet CLI
-   admet model hpo --config configs/hpo_chemprop.yaml
+   admet model hpo --config configs/1-hpo-single/hpo_chemprop.yaml
+
+**List Available Models**
+
+View all registered model types:
+
+.. code-block:: bash
+
+   admet model list
+
+This shows the available model backends: ``chemprop``, ``chemeleon``, ``xgboost``,
+``lightgbm``, ``catboost``.
 
 Configuration Files
 -------------------
@@ -100,6 +111,7 @@ Split datasets and generate cluster-aware train/validation assignments using the
 
    # Run the high-level split pipeline and save augmented dataframe
    admet data split data/admet_train.csv --output outputs/ --smiles-col SMILES
+
 Testing the CLI
 ---------------
 
@@ -124,10 +136,13 @@ behavior and unexpected errors.
 
 Configuration files are located in ``configs/``:
 
-- ``single_chemprop.yaml``: Single model training configuration
-- ``ensemble_chemprop.yaml``: Ensemble training across splits/folds
-- ``hpo_chemprop.yaml``: Hyperparameter optimization settings
-- ``chemprop_curriculum.yaml``: Curriculum learning configuration
+- ``0-experiment/chemprop.yaml``: Single model training configuration
+- ``0-experiment/ensemble_chemprop_production.yaml``: Ensemble training across splits/folds
+- ``0-experiment/ensemble_joint_sampling_example.yaml``: Joint sampling example
+- ``1-hpo-single/hpo_chemprop.yaml``: Hyperparameter optimization settings
+- ``curriculum/``: Curriculum learning configurations
+- ``task-affinity/``: Task affinity configurations
+- ``3-production/``: Production ensemble configurations
 
 MLflow Tracking
 ---------------

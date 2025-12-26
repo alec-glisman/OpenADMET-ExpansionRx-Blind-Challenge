@@ -210,11 +210,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/leaderboard.html">Leaderboard API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/cli.html">CLI Usage</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/development.html">Development Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/architecture.html">Architecture Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/data_sources.html">Data Sources &amp; Curation</a></li>
@@ -226,6 +228,35 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 
 </div>
@@ -308,14 +339,13 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ChempropConfig</span><span class="p">,</span>
-    <span class="n">CurriculumConfig</span><span class="p">,</span>
     <span class="n">DataConfig</span><span class="p">,</span>
     <span class="n">EnsembleConfig</span><span class="p">,</span>
+    <span class="n">InterTaskAffinityConfig</span><span class="p">,</span>
     <span class="n">MlflowConfig</span><span class="p">,</span>
     <span class="n">ModelConfig</span><span class="p">,</span>
     <span class="n">OptimizationConfig</span><span class="p">,</span>
     <span class="n">TaskAffinityConfig</span><span class="p">,</span>
-    <span class="n">InterTaskAffinityConfig</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.latex</span><span class="w"> </span><span class="kn">import</span> <span class="n">latex_sanitize</span>
@@ -325,6 +355,47 @@
 
 <span class="c1"># Configure module-level logger</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.ensemble&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_metric_label</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sanitize label for use in MLflow metric names.</span>
+
+<span class="sd">    Converts labels to lowercase and replaces special characters with underscores</span>
+<span class="sd">    to ensure valid MLflow metric names.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    label : str</span>
+<span class="sd">        Raw label (e.g., &quot;Log KSOL&quot;, &quot;Spearman $\\rho$&quot;)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Sanitized label (e.g., &quot;log_ksol&quot;, &quot;spearman_rho&quot;)</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; _sanitize_metric_label(&quot;Log KSOL&quot;)</span>
+<span class="sd">    &#39;log_ksol&#39;</span>
+<span class="sd">    &gt;&gt;&gt; _sanitize_metric_label(&quot;Spearman $\\rho$&quot;)</span>
+<span class="sd">    &#39;spearman_rho&#39;</span>
+<span class="sd">    &gt;&gt;&gt; _sanitize_metric_label(&quot;$R^2$&quot;)</span>
+<span class="sd">    &#39;r2&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;gt&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;lt&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;^&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;ρ&quot;</span><span class="p">,</span> <span class="s2">&quot;rho&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;τ&quot;</span><span class="p">,</span> <span class="s2">&quot;tau&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;²&quot;</span><span class="p">,</span> <span class="s2">&quot;2&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
@@ -618,7 +689,6 @@
                 <span class="n">num_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
                 <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
                 <span class="n">progress_bar</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">,</span>
-                <span class="n">task_sampling_alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">task_sampling_alpha</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="n">mlflow</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">(</span>
                 <span class="n">tracking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Enable MLflow tracking in model</span>
@@ -629,13 +699,7 @@
                 <span class="n">parent_run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Will be set by caller for ensemble runs</span>
                 <span class="n">nested</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Will be set by caller for ensemble runs</span>
             <span class="p">),</span>
-            <span class="n">curriculum</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">(</span>
-                <span class="n">enabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">enabled</span><span class="p">,</span>
-                <span class="n">quality_col</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">quality_col</span><span class="p">,</span>
-                <span class="n">qualities</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">qualities</span><span class="p">),</span>
-                <span class="n">patience</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">patience</span><span class="p">,</span>
-                <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">curriculum</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
-            <span class="p">),</span>
+            <span class="n">joint_sampling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">joint_sampling</span><span class="p">,</span>
             <span class="n">task_affinity</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">(</span>
                 <span class="n">enabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">enabled</span><span class="p">,</span>
                 <span class="n">affinity_epochs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="o">.</span><span class="n">affinity_epochs</span><span class="p">,</span>
@@ -677,9 +741,9 @@
 <span class="sd">        ----------</span>
 <span class="sd">        max_parallel : int, optional</span>
 <span class="sd">            Maximum number of models to train in parallel.</span>
-<span class="sd">            Overrides config.max_parallel if provided.</span>
+<span class="sd">            Overrides config.ray.max_parallel if provided.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">max_parallel</span> <span class="o">=</span> <span class="n">max_parallel</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_parallel</span>
+        <span class="n">max_parallel</span> <span class="o">=</span> <span class="n">max_parallel</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray</span><span class="o">.</span><span class="n">max_parallel</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_fold_infos</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">discover_splits_folds</span><span class="p">()</span>
@@ -692,10 +756,10 @@
 
         <span class="c1"># Initialize Ray</span>
         <span class="n">ray_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray_num_cpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">ray_kwargs</span><span class="p">[</span><span class="s2">&quot;num_cpus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray_num_cpus</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray_num_gpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">ray_kwargs</span><span class="p">[</span><span class="s2">&quot;num_gpus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray_num_gpus</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray</span><span class="o">.</span><span class="n">num_cpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ray_kwargs</span><span class="p">[</span><span class="s2">&quot;num_cpus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray</span><span class="o">.</span><span class="n">num_cpus</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray</span><span class="o">.</span><span class="n">num_gpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ray_kwargs</span><span class="p">[</span><span class="s2">&quot;num_gpus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray</span><span class="o">.</span><span class="n">num_gpus</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
             <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="o">**</span><span class="n">ray_kwargs</span><span class="p">,</span> <span class="n">ignore_reinit_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -740,14 +804,14 @@
             <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.ensemble&quot;</span><span class="p">)</span>
             <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Config values - depth=</span><span class="si">%s</span><span class="s2">, dropout=</span><span class="si">%s</span><span class="s2">, hidden_dim=</span><span class="si">%s</span><span class="s2">, &quot;</span>
-                <span class="s2">&quot;batch_size=</span><span class="si">%s</span><span class="s2">, max_lr=</span><span class="si">%s</span><span class="s2">, task_sampling_alpha=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;batch_size=</span><span class="si">%s</span><span class="s2">, max_lr=</span><span class="si">%s</span><span class="s2">, joint_sampling=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="n">model_key</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">dropout</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span><span class="p">,</span>
-                <span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">task_sampling_alpha</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">joint_sampling</span><span class="o">.</span><span class="n">enabled</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">joint_sampling</span> <span class="k">else</span> <span class="kc">False</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># Configure model to create a nested MLflow run</span>
@@ -1068,6 +1132,79 @@
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generated unlabeled ensemble plots for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_plot_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">safe_metric</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">labels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">means</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">errors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">n_models</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Log bar plot data as MLflow metrics under plots/ prefix using batch API.</span>
+
+<span class="sd">        This method logs all bar values and standard errors in a single batch operation</span>
+<span class="sd">        for better performance. It also includes metadata about the ensemble size.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split_name : str</span>
+<span class="sd">            Split name (e.g., &quot;test&quot;, &quot;blind&quot;)</span>
+<span class="sd">        metric_type : str</span>
+<span class="sd">            Display metric type (e.g., &quot;MAE&quot;, r&quot;$R^2$&quot;)</span>
+<span class="sd">        safe_metric : str</span>
+<span class="sd">            Sanitized metric name for MLflow (e.g., &quot;MAE&quot;, &quot;R2&quot;)</span>
+<span class="sd">        labels : List[str]</span>
+<span class="sd">            Bar labels (target names + &quot;Mean&quot;)</span>
+<span class="sd">        means : List[float]</span>
+<span class="sd">            Bar values (metric means across models)</span>
+<span class="sd">        errors : List[float]</span>
+<span class="sd">            Error bar values (standard errors)</span>
+<span class="sd">        n_models : int</span>
+<span class="sd">            Number of models in the ensemble</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Metrics are logged under the hierarchical structure:</span>
+<span class="sd">        - plots/{split_name}/{safe_metric}/{target}</span>
+<span class="sd">        - plots/{split_name}/{safe_metric}/{target}_stderr</span>
+<span class="sd">        - plots/{split_name}/{safe_metric}/n_models</span>
+
+<span class="sd">        NaN values are skipped with a warning. All metrics are logged in a single</span>
+<span class="sd">        batch call for performance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Prepare batch metrics dictionary</span>
+        <span class="n">metrics_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Log each bar&#39;s value and stderr</span>
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">mean_val</span><span class="p">,</span> <span class="n">stderr_val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">means</span><span class="p">,</span> <span class="n">errors</span><span class="p">):</span>
+            <span class="c1"># Handle NaN values</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mean_val</span><span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping NaN metric for </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">metric_type</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Sanitize label using shared utility</span>
+            <span class="n">safe_label</span> <span class="o">=</span> <span class="n">_sanitize_metric_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+
+            <span class="c1"># Add to batch</span>
+            <span class="n">metrics_dict</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;plots/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_metric</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mean_val</span><span class="p">)</span>
+            <span class="n">metrics_dict</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;plots/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_metric</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_label</span><span class="si">}</span><span class="s2">_stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">stderr_val</span><span class="p">)</span>
+
+        <span class="c1"># Add metadata: number of models</span>
+        <span class="n">metrics_dict</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;plots/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_metric</span><span class="si">}</span><span class="s2">/n_models&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">n_models</span><span class="p">)</span>
+
+        <span class="c1"># Log all metrics in a single batch</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">metrics_dict</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Logged </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">metrics_dict</span><span class="p">)</span><span class="si">}</span><span class="s2"> plot metrics for </span><span class="si">{</span><span class="n">safe_metric</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to log plot metrics for </span><span class="si">{</span><span class="n">safe_metric</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_generate_ensemble_plots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predictions</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generate ensemble visualizations with error bars.</span>
@@ -1322,6 +1459,19 @@
             <span class="p">)</span>
             <span class="n">plot_path</span> <span class="o">=</span> <span class="n">plot_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;ensemble_</span><span class="si">{</span><span class="n">safe_metric_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">.png&quot;</span>
             <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">plot_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Log plot data as MLflow metrics under plots/ prefix</span>
+            <span class="n">safe_metric</span> <span class="o">=</span> <span class="n">metric_name_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_type</span><span class="p">,</span> <span class="n">metric_type</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log_plot_metrics</span><span class="p">(</span>
+                <span class="n">split_name</span><span class="o">=</span><span class="n">split_name</span><span class="p">,</span>
+                <span class="n">metric_type</span><span class="o">=</span><span class="n">metric_type</span><span class="p">,</span>
+                <span class="n">safe_metric</span><span class="o">=</span><span class="n">safe_metric</span><span class="p">,</span>
+                <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+                <span class="n">means</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">means</span><span class="p">],</span>
+                <span class="n">errors</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">errors</span><span class="p">],</span>
+                <span class="n">n_models</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">model_predictions</span><span class="p">),</span>
+            <span class="p">)</span>
+
             <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_ensemble_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1462,7 +1612,10 @@
 <span class="s2">  model: {...}</span>
 <span class="s2">  optimization: {...}</span>
 <span class="s2">  mlflow: {...}</span>
-<span class="s2">  max_parallel: 2</span>
+<span class="s2">  ray:</span>
+<span class="s2">    max_parallel: 2</span>
+<span class="s2">    num_cpus: null</span>
+<span class="s2">    num_gpus: null</span>
 <span class="s2">        &quot;&quot;&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>

@@ -1,113 +1,60 @@
-# Ensemble ChempropModel Configuration (HPO Rank 33)
-# =====================================
-# Generated from top_k_configs.json rank 33
-# Validation MAE: 0.4756810665130615
-#
-# This YAML file configures ensemble training across multiple splits and folds.
-# The script will automatically discover split_*/fold_*/ subdirectories and
-# train a model on each, then aggregate predictions with uncertainty estimates.
-#
-# Usage:
-#   python -m admet.model.chemprop.ensemble --config configs/ensemble_chemprop_hpo_033.yaml
-#   python -m admet.model.chemprop.ensemble -c configs/ensemble_chemprop_hpo_033.yaml --max-parallel 2
-
-# Data configuration for ensemble
 data:
-  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data"
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data
   splits: null
   folds: null
-
-  test_file: "assets/dataset/set/local_test.csv"
-  blind_file: "assets/dataset/set/blind_test.csv"
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
-
-  smiles_col: "SMILES"
+  smiles_col: SMILES
   target_cols:
-    - "LogD"
-    - "Log KSOL"
-    - "Log HLM CLint"
-    - "Log MLM CLint"
-    - "Log Caco-2 Permeability Papp A>B"
-    - "Log Caco-2 Permeability Efflux"
-    - "Log MPPB"
-    - "Log MBPB"
-    - "Log MGMB"
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
   target_weights:
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 model:
-  depth: 5
-  message_hidden_dim: 1100
-  aggregation: "norm"
-  ffn_type: "regression"
-  num_layers: 2
-  hidden_dim: 900
-  dropout: 0.05
-  batch_norm: true
-
+  type: chemprop
+  chemprop:
+    depth: 5
+    message_hidden_dim: 1100
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 2
+    hidden_dim: 900
+    dropout: 0.05
+    batch_norm: true
 optimization:
-  criterion: "MAE"
-  init_lr: 1.49e-03
-  max_lr: 1.49e-04
-  final_lr: 1.49e-04
+  criterion: MAE
+  init_lr: 0.00149
+  max_lr: 0.000149
+  final_lr: 0.000149
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
   batch_size: 128
   num_workers: 0
-  seed: 12345
+  seed: 42
   progress_bar: false
-  task_sampling_alpha: 0.0
-
 mlflow:
   tracking: true
-  tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_chemprop_hpo_topk"
-  run_name: "rank_033"
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: ensemble_chemprop_hpo_topk
+  run_name: rank_033
   nested: true
-
-max_parallel: 1
-ray_num_cpus: null
-ray_num_gpus: null
-
-# Curriculum learning configuration
-# =================================
-# Quality-aware curriculum learning is disabled by default.
-# Enable it when training on mixed-quality datasets.
-# For a full curriculum learning ensemble config, see ensemble_curriculum.yaml.
-curriculum:
-  enabled: false
-  quality_col: "Quality"
-  qualities:
-    - "high"
-    - "medium"
-    - "low"
-  patience: 5
-  seed: 42
-  # Curriculum strategy: "sampled" (weighted random sampling) or "weighted" (loss weights)
-  strategy: "sampled"
-  # Reset early stopping when advancing curriculum phases
-  reset_early_stopping_on_phase_change: false
-  # Log per-quality validation metrics (val_loss_high, val_loss_medium, etc.)
-  log_per_quality_metrics: true
-
-# =============================================================================
-# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
-# =============================================================================
-# Computes inter-task affinity during training using the lookahead method from:
-# "Efficiently Identifying Task Groupings for Multi-Task Learning"
-# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
-#
-# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
-# =============================================================================
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 2
@@ -117,9 +64,33 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-    - predictor
-    - ffn
-    - output
-    - head
-    - readout
+  - predictor
+  - ffn
+  - output
+  - head
+  - readout
   log_to_mlflow: true
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.0
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+    - high
+    - medium
+    - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+ray:
+  max_parallel: 1
+  num_cpus: null
+  num_gpus: null

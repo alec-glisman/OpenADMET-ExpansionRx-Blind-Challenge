@@ -1,0 +1,98 @@
+data:
+  data_dir: assets/dataset/splits/quality_stratified_v1/split_0/fold_0
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+  target_weights: []
+  output_dir: outputs/joint_sampling_example
+model:
+  type: chemprop
+  chemprop:
+    depth: 5
+    message_hidden_dim: 600
+    dropout: 0.1
+    num_layers: 2
+    hidden_dim: 600
+    batch_norm: true
+    ffn_type: regression
+    trunk_n_layers: 2
+    trunk_hidden_dim: 600
+    n_experts: 4
+    aggregation: mean
+optimization:
+  criterion: MAE
+  init_lr: 0.0001
+  max_lr: 0.001
+  final_lr: 0.0001
+  warmup_epochs: 5
+  patience: 15
+  max_epochs: 150
+  batch_size: 32
+  num_workers: 4
+  seed: 42
+  progress_bar: false
+mlflow:
+  tracking: true
+  tracking_uri: null
+  experiment_name: joint_sampling_example
+  run_name: joint_task_curriculum
+  run_id: null
+  parent_run_id: null
+  nested: false
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.3
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 5
+    seed: 42
+    save_plots: false
+    plot_dpi: 150
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+task_affinity:
+  enabled: false
+  affinity_epochs: 1
+  affinity_batch_size: 64
+  affinity_lr: 0.001
+  n_groups: 3
+  clustering_method: agglomerative
+  affinity_type: cosine
+  seed: 42
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 1
+  log_every_n_steps: 100
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  shared_param_patterns: []
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+  n_groups: null
+  clustering_method: agglomerative
+  clustering_linkage: average
+  device: auto
+  log_to_mlflow: true
+  save_plots: false
+  plot_formats:
+    - png
+  plot_dpi: 150

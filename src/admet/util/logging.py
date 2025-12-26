@@ -27,6 +27,73 @@ from pathlib import Path
 from typing import Dict, Optional
 
 
+class ColorFormatter(logging.Formatter):
+    """ANSI color formatter for console output.
+
+    Adds color codes to log level names for improved readability in terminals.
+    Falls back gracefully when running in non-TTY environments.
+
+    Colors
+    ------
+    - DEBUG: Cyan
+    - INFO: Green
+    - WARNING: Yellow
+    - ERROR: Red
+    - CRITICAL: Bold Red
+
+    Notes
+    -----
+    Colors are only applied when output is to a TTY. When redirected to
+    files or non-interactive environments, plain text is used.
+    """
+
+    # ANSI color codes
+    COLORS = {
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[1;31m",  # Bold Red
+    }
+    RESET = "\033[0m"
+
+    def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None, use_colors: bool = True) -> None:
+        """Initialize the ColorFormatter.
+
+        Parameters
+        ----------
+        fmt : str, optional
+            Log format string.
+        datefmt : str, optional
+            Date format string.
+        use_colors : bool, default=True
+            Whether to apply ANSI colors. Set to False for non-TTY output.
+        """
+        super().__init__(fmt, datefmt)
+        self.use_colors = use_colors
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format a log record with optional ANSI colors.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            The record emitted by the logger.
+
+        Returns
+        -------
+        str
+            Formatted log string, optionally with ANSI color codes.
+        """
+        # Create a copy to avoid modifying the original record
+        record = logging.makeLogRecord(record.__dict__)
+
+        if self.use_colors and record.levelname in self.COLORS:
+            record.levelname = f"{self.COLORS[record.levelname]}{record.levelname}{self.RESET}"
+
+        return super().format(record)
+
+
 class JsonFormatter(logging.Formatter):
     """Minimal JSON log formatter.
 
@@ -67,11 +134,12 @@ def configure_logging(
     fmt: Optional[str] = None,
     file: Optional[str] = None,
     structured: bool = False,
+    color: bool = True,
 ) -> None:
     """Configure application-wide logging.
 
     Sets the root logger level, replaces existing handlers, and optionally
-    enables structured JSON logging.
+    enables structured JSON logging or colored console output.
 
     Parameters
     ----------
@@ -83,12 +151,19 @@ def configure_logging(
         Path to a file to append logs to (same formatter as stderr).
     structured : bool, default=False
         If ``True`` use :class:`JsonFormatter` for structured logs.
+        Takes precedence over ``color``.
+    color : bool, default=True
+        If ``True`` use :class:`ColorFormatter` for colored console output.
+        Ignored when ``structured=True``. Colors are automatically disabled
+        when output is not a TTY.
 
     Returns
     -------
     None
         This function configures global state and returns nothing.
     """
+    import sys
+
     try:
         lvl = getattr(logging, str(level).upper())
     except AttributeError:
@@ -99,14 +174,21 @@ def configure_logging(
     for h in list(root.handlers):
         root.removeHandler(h)
 
+    fmt_str = fmt or "%(asctime)s %(name)-20s %(levelname)-8s %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+
     # Use JSON formatter when structured logging requested
     if structured:
         handler = logging.StreamHandler()
-        handler.setFormatter(JsonFormatter(datefmt="%Y-%m-%d %H:%M:%S"))
+        handler.setFormatter(JsonFormatter(datefmt=datefmt))
     else:
         handler = logging.StreamHandler()
-        fmt_str = fmt or "%(asctime)s %(name)-20s %(levelname)-8s %(message)s"
-        handler.setFormatter(logging.Formatter(fmt_str, datefmt="%Y-%m-%d %H:%M:%S"))
+        # Check if stdout is a TTY for color support
+        use_colors = color and hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
+        if use_colors:
+            handler.setFormatter(ColorFormatter(fmt_str, datefmt=datefmt, use_colors=True))
+        else:
+            handler.setFormatter(logging.Formatter(fmt_str, datefmt=datefmt))
     handler.setLevel(lvl)
     root.addHandler(handler)
     root.setLevel(lvl)
@@ -117,21 +199,26 @@ def configure_logging(
         lib_logger = logging.getLogger(noisy_logger)
         lib_logger.setLevel(logging.INFO)
 
-    # Optional file logging using same formatter
+    # Also clamp PyTorch Lightning verbose loggers
+    for noisy_logger in ("lightning.pytorch.utilities.rank_zero",):
+        lib_logger = logging.getLogger(noisy_logger)
+        if lvl > logging.DEBUG:
+            lib_logger.setLevel(logging.WARNING)
+
+    # Optional file logging (never use colors in files)
     if file:
         fpath = Path(file)
         fpath.parent.mkdir(parents=True, exist_ok=True)
         fh = logging.FileHandler(fpath)
         if structured:
-            fh.setFormatter(JsonFormatter(datefmt="%Y-%m-%d %H:%M:%S"))
+            fh.setFormatter(JsonFormatter(datefmt=datefmt))
         else:
-            fmt_str = fmt or "%(asctime)s %(name)-20s %(levelname)-8s %(message)s"
-            fh.setFormatter(logging.Formatter(fmt_str, datefmt="%Y-%m-%d %H:%M:%S"))
+            fh.setFormatter(logging.Formatter(fmt_str, datefmt=datefmt))
         fh.setLevel(lvl)
         root.addHandler(fh)
 
 
-__all__ = ["configure_logging", "JsonFormatter", "get_logging_config"]
+__all__ = ["configure_logging", "ColorFormatter", "JsonFormatter", "get_logging_config"]
 
 
 def get_logging_config() -> Dict[str, object]:

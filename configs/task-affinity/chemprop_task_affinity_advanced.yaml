@@ -116,16 +116,18 @@ inter_task_affinity:
 
 # Model architecture
 model:
-  # Larger model for complex task relationships
-  depth: 6
-  message_hidden_dim: 800
+  type: chemprop
+  chemprop:
+    # Larger model for complex task relationships
+    depth: 6
+    message_hidden_dim: 800
 
-  num_layers: 3
-  hidden_dim: 800
-  dropout: 0.15
-  batch_norm: true
+    num_layers: 3
+    hidden_dim: 800
+    dropout: 0.15
+    batch_norm: true
 
-  ffn_type: "regression"
+    ffn_type: "regression"
 
 # Optimization
 optimization:

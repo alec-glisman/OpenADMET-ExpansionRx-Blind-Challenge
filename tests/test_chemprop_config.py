@@ -13,9 +13,11 @@ from admet.model.chemprop.config import (
     DataConfig,
     EnsembleConfig,
     EnsembleDataConfig,
+    JointSamplingConfig,
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
+    RayConfig,
 )
 
 
@@ -153,7 +155,7 @@ class TestOptimizationConfig:
         assert config.patience == 15
         assert config.max_epochs == 150
         assert config.batch_size == 32
-        assert config.seed == 12345
+        assert config.seed == 42
 
     def test_custom_learning_rates(self) -> None:
         """Test custom learning rate schedule."""
@@ -198,15 +200,16 @@ class TestChempropConfig:
         assert isinstance(config.model, ModelConfig)
         assert isinstance(config.optimization, OptimizationConfig)
         assert isinstance(config.mlflow, MlflowConfig)
-        assert isinstance(config.curriculum, CurriculumConfig)
+        assert isinstance(config.joint_sampling, JointSamplingConfig)
+        assert config.joint_sampling.enabled is False
 
     def test_curriculum_enabled(self) -> None:
         """Test ChempropConfig with curriculum enabled."""
         config = ChempropConfig(
-            curriculum=CurriculumConfig(enabled=True, patience=3),
+            joint_sampling=JointSamplingConfig(curriculum=CurriculumConfig(enabled=True, patience=3)),
         )
-        assert config.curriculum.enabled is True
-        assert config.curriculum.patience == 3
+        assert config.joint_sampling.curriculum.enabled is True
+        assert config.joint_sampling.curriculum.patience == 3
 
     def test_full_config_from_omegaconf(self) -> None:
         """Test loading full config from OmegaConf."""
@@ -225,9 +228,10 @@ class TestChempropConfig:
           patience: 10
         mlflow:
           experiment_name: test_experiment
-        curriculum:
-          enabled: true
-          patience: 5
+        joint_sampling:
+          curriculum:
+            enabled: true
+            patience: 5
         """
         base = OmegaConf.structured(ChempropConfig)
         override = OmegaConf.create(yaml_str)
@@ -237,7 +241,7 @@ class TestChempropConfig:
         assert len(config.data.target_cols) == 2
         assert config.model.depth == 4
         assert config.optimization.max_epochs == 100
-        assert config.curriculum.enabled is True
+        assert config.joint_sampling.curriculum.enabled is True
 
 
 class TestEnsembleConfig:
@@ -250,17 +254,19 @@ class TestEnsembleConfig:
         assert isinstance(config.model, ModelConfig)
         assert isinstance(config.optimization, OptimizationConfig)
         assert isinstance(config.mlflow, MlflowConfig)
-        assert isinstance(config.curriculum, CurriculumConfig)
-        assert config.max_parallel == 1
+        assert isinstance(config.joint_sampling, JointSamplingConfig)
+        assert config.joint_sampling.enabled is False
+        assert isinstance(config.ray, RayConfig)
+        assert config.ray.max_parallel == 1
 
     def test_ensemble_with_curriculum(self) -> None:
         """Test EnsembleConfig with curriculum learning."""
         config = EnsembleConfig(
-            curriculum=CurriculumConfig(enabled=True),
-            max_parallel=4,
+            joint_sampling=JointSamplingConfig(curriculum=CurriculumConfig(enabled=True)),
+            ray=RayConfig(max_parallel=4),
         )
-        assert config.curriculum.enabled is True
-        assert config.max_parallel == 4
+        assert config.joint_sampling.curriculum.enabled is True
+        assert config.ray.max_parallel == 4
 
     def test_splits_and_folds_filtering(self) -> None:
         """Test ensemble data config with split/fold filtering."""

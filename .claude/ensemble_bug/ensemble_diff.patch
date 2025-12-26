@@ -1,0 +1,91 @@
+diff --git a/src/admet/model/chemprop/ensemble.py b/src/admet/model/chemprop/ensemble.py
+index 17ba821..0f564b5 100644
+--- a/src/admet/model/chemprop/ensemble.py
++++ b/src/admet/model/chemprop/ensemble.py
+@@ -47,7 +47,6 @@ from omegaconf import DictConfig, OmegaConf
+
+ from admet.model.chemprop.config import (
+     ChempropConfig,
+-    CurriculumConfig,
+     DataConfig,
+     EnsembleConfig,
+     InterTaskAffinityConfig,
+@@ -390,7 +389,6 @@ class ChempropEnsemble:
+                 num_workers=self.config.optimization.num_workers,
+                 seed=self.config.optimization.seed,
+                 progress_bar=self.config.optimization.progress_bar,
+-                task_sampling_alpha=self.config.optimization.task_sampling_alpha,
+             ),
+             mlflow=MlflowConfig(
+                 tracking=True,  # Enable MLflow tracking in model
+@@ -401,13 +399,7 @@ class ChempropEnsemble:
+                 parent_run_id=None,  # Will be set by caller for ensemble runs
+                 nested=False,  # Will be set by caller for ensemble runs
+             ),
+-            curriculum=CurriculumConfig(
+-                enabled=self.config.curriculum.enabled,
+-                quality_col=self.config.curriculum.quality_col,
+-                qualities=list(self.config.curriculum.qualities),
+-                patience=self.config.curriculum.patience,
+-                seed=self.config.curriculum.seed,
+-            ),
++            joint_sampling=self.config.joint_sampling,
+             task_affinity=TaskAffinityConfig(
+                 enabled=self.config.task_affinity.enabled,
+                 affinity_epochs=self.config.task_affinity.affinity_epochs,
+@@ -447,9 +439,9 @@ class ChempropEnsemble:
+         ----------
+         max_parallel : int, optional
+             Maximum number of models to train in parallel.
+-            Overrides config.max_parallel if provided.
++            Overrides config.ray.max_parallel if provided.
+         """
+-        max_parallel = max_parallel or self.config.max_parallel
++        max_parallel = max_parallel or self.config.ray.max_parallel
+
+         if not self.split_fold_infos:
+             self.discover_splits_folds()
+@@ -462,10 +454,10 @@ class ChempropEnsemble:
+
+         # Initialize Ray
+         ray_kwargs: Dict[str, Any] = {}
+-        if self.config.ray_num_cpus is not None:
+-            ray_kwargs["num_cpus"] = self.config.ray_num_cpus
+-        if self.config.ray_num_gpus is not None:
+-            ray_kwargs["num_gpus"] = self.config.ray_num_gpus
++        if self.config.ray.num_cpus is not None:
++            ray_kwargs["num_cpus"] = self.config.ray.num_cpus
++        if self.config.ray.num_gpus is not None:
++            ray_kwargs["num_gpus"] = self.config.ray.num_gpus
+
+         if not ray.is_initialized():
+             ray.init(**ray_kwargs, ignore_reinit_error=True)
+@@ -510,14 +502,14 @@ class ChempropEnsemble:
+             _logger = logging.getLogger("admet.model.chemprop.ensemble")
+             _logger.info(
+                 "[%s] Config values - depth=%s, dropout=%s, hidden_dim=%s, "
+-                "batch_size=%s, max_lr=%s, task_sampling_alpha=%s",
++                "batch_size=%s, max_lr=%s, joint_sampling=%s",
+                 model_key,
+                 config.model.depth,
+                 config.model.dropout,
+                 config.model.hidden_dim,
+                 config.optimization.batch_size,
+                 config.optimization.max_lr,
+-                config.optimization.task_sampling_alpha,
++                config.joint_sampling.enabled if config.joint_sampling else False,
+             )
+
+             # Configure model to create a nested MLflow run
+@@ -1310,7 +1302,10 @@ Configuration file should have the structure:
+   model: {...}
+   optimization: {...}
+   mlflow: {...}
+-  max_parallel: 2
++  ray:
++    max_parallel: 2
++    num_cpus: null
++    num_gpus: null
+         """,
+     )
+     parser.add_argument(

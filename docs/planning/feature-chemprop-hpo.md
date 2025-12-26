@@ -919,7 +919,7 @@ class ChempropHPO:
             logger.warning("No best configs available, run HPO first")
             return
         
-        from admet.model.chemprop.ensemble import ChempropEnsemble
+        from admet.model.chemprop.ensemble import ModelEnsemble
         
         logger.info("Training ensembles with top %d configurations", len(self.best_configs))
         
@@ -931,7 +931,7 @@ class ChempropHPO:
             ensemble_config = self._build_ensemble_config(best["config"], rank=i + 1)
             
             # Train ensemble
-            ensemble = ChempropEnsemble.from_config(ensemble_config)
+            ensemble = ModelEnsemble.from_config(ensemble_config)
             ensemble.train_all()
             ensemble.close()
             
@@ -1198,7 +1198,7 @@ fi
 - **DEP-001**: `ray[tune]>=2.9.0` - Ray Tune framework
 - **DEP-002**: `optuna>=3.0.0` - Optional, for Bayesian search algorithm
 - **DEP-003**: Existing `ChempropModel` and `ChempropHyperparams` classes
-- **DEP-004**: Existing `ChempropEnsemble` for transfer learning
+- **DEP-004**: Existing `ModelEnsemble` for transfer learning
 - **DEP-005**: MLflow for experiment tracking
 - **DEP-006**: OmegaConf for configuration management
 

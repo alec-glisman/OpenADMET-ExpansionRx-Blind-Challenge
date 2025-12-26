@@ -11,7 +11,7 @@
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
 <meta name="description" content="High Level Overview: Load pre-split datasets: Load the datasets that have been split using various clustering methods (random, scaffold-based, k-means, Butina).- Input: Pre-split datasets from prev..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Overview" href="model_visualization.html"><link rel="prev" title="Introduction" href="feature-chemprop-hpo.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
@@ -219,11 +219,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Usage</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
@@ -235,6 +237,35 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">Planning</a><input aria-label="Toggle navigation of Planning" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Planned Model Training Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 
 </div>
@@ -1016,8 +1047,26 @@
       <footer>
         
         <div class="related-pages">
-          
-          
+          <a class="next-page" href="model_visualization.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Overview</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="feature-chemprop-hpo.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Introduction</div>
+                
+              </div>
+            </a>
         </div>
         <div class="bottom-of-page">
           <div class="left-details">

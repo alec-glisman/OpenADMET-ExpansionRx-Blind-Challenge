@@ -39,10 +39,13 @@ flowchart LR
 | Step | Description | Status |
 |------|-------------|--------|
 | HPO | Ray Tune ASHA ~2,000 trials | ✅ Used |
-| Task Sampling | α-weighted oversampling of sparse endpoints | ✅ Used |
+| Joint Sampling | Unified two-stage sampling via `JointSampler` | ✅ Used |
 | FFN Variants | MLP, MoE, Branched architectures explored | ✅ Evaluated |
 | Supplementary Data | KERMT, PharmaBench integration | 🔮 Future |
-| Curriculum Learning | Quality-aware phased training | 🔮 Future |
+
+**Joint Sampling** combines:
+- **Task Oversampling (Stage 1):** α-weighted inverse-power sampling for sparse endpoints
+- **Curriculum Learning (Stage 2):** Quality-aware within-task sampling (warmup → expand → robust → polish)
 
 ### Training Performance
 
@@ -122,7 +125,9 @@ The MoE and Branched architectures are implemented in [`src/admet/model/chemprop
 - **Output:** 9 endpoints predicted simultaneously
 - **Loss:** MSE with NaN masking (missing endpoints ignored in gradient)
 - **Task Weights:** Uniform (1.0 for all endpoints)
-- **Task Sampling:** α-weighted to compensate for equal loss weighting and balance sparse endpoints
+- **Joint Sampling:** Unified `JointSampler` with two-stage algorithm:
+  1. **Stage 1 (Task Selection):** Sample task `t` with probability `p_t ∝ count_t^(-α)` to balance sparse endpoints
+  2. **Stage 2 (Within-Task):** Sample molecule from task's valid indices, weighted by curriculum phase
 
 ---
 
@@ -334,21 +339,36 @@ Data quality is assigned per-endpoint based on:
 - Moderate dropout (0.05–0.15) preferred
 - Deeper message passing (4–7) with moderate dimensions (700–1100)
 
-### Task Sampling Alpha
+### Joint Sampling Strategy
 
-**Purpose:** Compensates for uniform task weights in the loss function by oversampling sparse endpoints.
+**Purpose:** Unified sampling combining task-aware oversampling with curriculum learning via the `JointSampler` class.
 
-Since all endpoints have equal weight (1.0) in the MSE loss, task sampling alpha rebalances training to give more gradient updates to endpoints with fewer labeled examples.
+**Two-Stage Algorithm:**
 
-Oversamples sparse endpoints using inverse-power weighting:
+1. **Stage 1 (Task Selection):** Sample task `t` with probability:
+   $$p_t \propto count_t^{-\alpha}$$
+   where `count_t` = samples with labels for task `t`
 
-$$p_i \propto n_i^{-\alpha}$$
+2. **Stage 2 (Within-Task):** Sample molecule from task's indices, weighted by curriculum phase proportions
+
+**Task Sampling Alpha (`task_oversampling.alpha`):**
 
 | α Value | Effect |
 |---------|--------|
 | 0.0 | Uniform task sampling (no rebalancing) |
 | 0.02–0.1 | Mild rebalancing (recommended; used in top configs) |
 | 0.5–1.0 | Aggressive; may hurt overall MAE |
+
+**Configuration:**
+
+```yaml
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.5  # [0, 1] task rebalancing strength
+  curriculum:
+    enabled: true  # Quality-aware within-task sampling
+```
 
 ---
 
@@ -443,7 +463,7 @@ All three correlation metrics range from -1 (perfect negative correlation) to +1
 | Feature | Description | Status |
 |---------|-------------|--------|
 | Supplementary Data | KERMT, PharmaBench integration with harmonization | 🔮 Planned |
-| Curriculum Learning | Quality-aware phased training | 🔮 Implemented, disabled |
+| Joint Sampling | Unified `JointSampler` with two-stage algorithm | ✅ Implemented |
 | Alternative Models | XGBoost, LightGBM, CheMeleon ensemble | 🔮 Planned |
 | Uncertainty | Conformal prediction, Bayesian methods | 🔮 Planned |
 | Task Weights | HPO-optimized per-endpoint loss weights (currently uniform) | 🔮 Planned |

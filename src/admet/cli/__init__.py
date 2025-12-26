@@ -6,6 +6,7 @@ app = typer.Typer(
     name="admet",
     help="ADMET modeling and analysis tools",
     no_args_is_help=True,
+    pretty_exceptions_enable=False,
 )
 
 from admet.cli.data import data_app  # noqa: E402

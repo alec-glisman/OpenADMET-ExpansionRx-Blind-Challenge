@@ -12,6 +12,7 @@ dependencies = [
     "chemprop>=2",
     "rdkit",
     "useful_rdkit_utils",
+    "mordredcommunity>=2.0.0",
     # machine learning
     "statsmodels==0.14.5",
     "scikit-learn>=1.1",
@@ -20,6 +21,7 @@ dependencies = [
     "hdbscan==0.8.40",
     "lightgbm==4.6.0",
     "xgboost>=1.7",
+    "catboost>=1.2",
     # deep learning
     "torch>=2.1",
     "torchvision>=0.10",
@@ -28,11 +30,10 @@ dependencies = [
     "ray[data,train,tune,serve]",
     # ML infra
     "mlflow>=2.0",
-    "ray[tune]>=2.4",
     "nvidia-ml-py==13.580.82",
     "psutil",
     "psycopg2-binary",
-    "psycopg2",
+    # "psycopg2",
     "transformers>=4.30",
     "gradio-client==2.0.1",
     # visualization
@@ -58,9 +59,9 @@ dependencies = [
     "ipympl",
     "ipywidgets",
     "ipykernel",
-    # marimo
-    "marimo",
-    "altair",
+    # # marimo
+    # "marimo",
+    # "altair",
 ]
 name = "openadmet-challenge"
 authors = [{ name = "Alec Glisman" }]
@@ -128,6 +129,19 @@ version = { attr = "admet.__version__" }
 where = ["src"]
 exclude = ["tests*"]
 
+[tool.uv]
+extra-index-url = ["https://download.pytorch.org/whl/cu130"]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+torchaudio = { index = "pytorch-cu130" }
+
 [tool.isort]
 profile = "black"
 line_length = 120
@@ -164,6 +178,10 @@ ignore_missing_imports = true
 warn_unused_configs = true
 strict = false
 exclude = ["tests/.*", "src/bitbirch", "archive"]
+# Performance optimizations
+cache_dir = ".mypy_cache"
+incremental = true
+skip_version_check = true
 
 [tool.mypy-rdkit]
 follow_imports = "skip"

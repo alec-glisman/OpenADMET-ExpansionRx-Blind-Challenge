@@ -11,7 +11,7 @@ The primary modeling approach uses Chemprop message-passing neural networks
 via the ``admet.model.chemprop`` subpackage. Key classes include:
 
 - **ChempropModel**: Single model training with configurable FFN architectures
-- **ChempropEnsemble**: Ensemble training across multiple splits/folds
+- **ModelEnsemble**: Ensemble training across multiple splits/folds
 - **ChempropHPO**: Hyperparameter optimization with Ray Tune
 
 Single Model Training
@@ -40,7 +40,7 @@ For production use, train multiple models across different data splits:
 
 .. code-block:: python
 
-   from admet.model.chemprop import ChempropEnsemble, EnsembleConfig
+   from admet.model.chemprop import ModelEnsemble, EnsembleConfig
    from omegaconf import OmegaConf
 
    # Load ensemble configuration
@@ -48,7 +48,7 @@ For production use, train multiple models across different data splits:
    cfg = OmegaConf.structured(EnsembleConfig(**config))
 
    # Train ensemble (parallelized with Ray)
-   ensemble = ChempropEnsemble.from_config(cfg)
+   ensemble = ModelEnsemble.from_config(cfg)
    ensemble.train_all()
 
    # Make ensemble predictions with uncertainty
@@ -59,9 +59,14 @@ FFN Architecture Options
 
 The ``ffn_type`` parameter controls the prediction head:
 
-- ``regression``: Standard multi-layer perceptron (default)
-- ``mixture_of_experts``: Mixture of experts for heterogeneous data
-- ``branched``: Branched architecture with shared and task-specific layers
+- ``regression``: Standard multi-layer perceptron (default, best overall performance)
+- ``mixture_of_experts``: Mixture of experts for heterogeneous data (MoE)
+- ``branched``: Branched architecture with shared trunk and task-specific branches
+
+.. note::
+
+   In HPO search spaces, shorthand values ``mlp``, ``moe``, and ``branched`` are
+   automatically mapped to the full config values.
 
 Configuration example:
 
@@ -69,8 +74,10 @@ Configuration example:
 
    model:
      ffn_type: mixture_of_experts
-     ffn_hidden_dim: 300
-     ffn_num_layers: 3
+     hidden_dim: 300
+     num_layers: 3
+     # MoE-specific
+     n_experts: 4
 
 Hyperparameter Optimization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,33 +101,40 @@ Use Ray Tune with ASHA scheduler for HPO:
 For comprehensive HPO documentation including search space configuration,
 ASHA scheduler tuning, and best practices, see :doc:`hpo`.
 
-Curriculum Learning
--------------------
+Joint Sampling
+--------------
 
-Quality-aware curriculum learning progressively incorporates data based on
-quality tiers:
+The ``JointSampler`` provides unified two-stage sampling that combines task-aware
+oversampling with curriculum learning:
 
-.. code-block:: python
+**Two-Stage Algorithm:**
 
-   from admet.model.chemprop import CurriculumState, CurriculumCallback
+1. **Stage 1 (Task Selection):** Sample task ``t`` with probability ``p_t ∝ count_t^(-α)``
+2. **Stage 2 (Within-Task):** Sample molecule from task's indices, weighted by curriculum phase
 
-   # Configure curriculum phases
-   curriculum = CurriculumState(
-       warmup_epochs=5,      # Use only high-quality data
-       expand_epochs=10,     # Gradually add medium-quality data
-       robust_epochs=15,     # Include all data
-       polish_epochs=5,      # Fine-tune on high-quality data
-   )
+**Configuration via YAML:**
 
-   # Add callback to model training
-   callback = CurriculumCallback(curriculum_state=curriculum)
+.. code-block:: yaml
 
-Curriculum phases:
+   joint_sampling:
+     enabled: true
+     task_oversampling:
+       alpha: 0.5  # [0, 1] task rebalancing strength
+     curriculum:
+       enabled: true
+       quality_col: "Quality"
+       qualities: ["high", "medium", "low"]
+       patience: 5
+       count_normalize: true
 
-1. **Warmup**: Train only on highest-quality data
-2. **Expand**: Gradually incorporate lower-quality data
-3. **Robust**: Use all available data with quality-based weighting
-4. **Polish**: Fine-tune on high-quality data
+**Curriculum Phases** (when curriculum enabled):
+
+1. **Warmup**: 80% high, 15% medium, 5% low - learn core patterns
+2. **Expand**: 60% high, 30% medium, 10% low - incorporate more data
+3. **Robust**: 50% high, 35% medium, 15% low - build robustness
+4. **Polish**: 70% high, 20% medium, 10% low - fine-tune while maintaining diversity
+
+For detailed configuration and algorithm explanation, see :doc:`curriculum`.
 
 MLflow Integration
 ------------------

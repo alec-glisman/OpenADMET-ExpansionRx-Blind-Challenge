@@ -1,190 +1,123 @@
-# Curriculum Learning Configuration for ChempropModel (Single Model)
-# ====================================================================
-# This YAML file demonstrates curriculum learning configuration for quality-aware
-# training of a single model. For ensemble training with curriculum learning,
-# see configs/curriculum/ensemble_curriculum.yaml.
-#
-# Curriculum learning progressively adjusts sampling from high-quality
-# to lower-quality data based on validation loss improvements.
-#
-# Curriculum Phases:
-#   1. warmup: Focus on high-quality data (e.g., 90% high, 10% medium, 0% low)
-#   2. expand: Gradually include medium-quality data (e.g., 60% high, 35% medium, 5% low)
-#   3. robust: Include low-quality data for robustness (e.g., 40% high, 40% medium, 20% low)
-#   4. polish: Return focus to high-quality data (e.g., 100% high)
-#
-# Phase transitions occur when overall validation loss stops improving for
-# `patience` epochs.
-#
-# Usage:
-#   python -m admet.model.chemprop.model --config configs/curriculum/chemprop_curriculum.yaml
-#
-# Or programmatically:
-#   from omegaconf import OmegaConf
-#   from admet.model.chemprop.config import ChempropConfig
-#   from admet.model.chemprop.model import ChempropModel
-#
-#   config = OmegaConf.merge(
-#       OmegaConf.structured(ChempropConfig),
-#       OmegaConf.load("configs/curriculum/chemprop_curriculum.yaml")
-#   )
-#   model = ChempropModel.from_config(config)
-#   model.fit()
-
-# Data configuration
 data:
-  # Directory containing train.csv and validation.csv with Quality column
-  data_dir: "assets/dataset/split_train_val/v3/all_quality/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
-
-  # Optional test and blind files
-  test_file: "assets/dataset/set/local_test.csv"
-  blind_file: "assets/dataset/set/blind_test.csv"
-
-  # Output directory (null for temp directory)
+  data_dir: assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
-
-  # Column configuration
-  smiles_col: "SMILES"
+  smiles_col: SMILES
   target_cols:
-    - "LogD"
-    - "Log KSOL"
-    - "Log HLM CLint"
-    - "Log MLM CLint"
-    - "Log Caco-2 Permeability Papp A>B"
-    - "Log Caco-2 Permeability Efflux"
-    - "Log MPPB"
-    - "Log MBPB"
-    - "Log MGMB"
-
-  # Per-task loss weights (optional, defaults to 1.0 for each)
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-    - 1.0310
-    - 1.0000
-    - 1.2252
-    - 1.1368
-    - 2.1227
-    - 2.1174
-    - 3.7877
-    - 5.2722
-    - 10.000
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 
-# Model architecture configuration
-model:
-  depth: 5
-  message_hidden_dim: 600
-  num_layers: 2
-  hidden_dim: 600
-  dropout: 0.1
-  batch_norm: true
-  ffn_type: "regression"
-  trunk_n_layers: 2
-  trunk_hidden_dim: 600
-  n_experts: 4
-
-# Optimization configuration
 optimization:
-  criterion: "MSE"
-  init_lr: 1.0e-4
-  max_lr: 1.0e-3
-  final_lr: 1.0e-4
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
   warmup_epochs: 5
-  max_epochs: 150
+  max_epochs: 400
   patience: 15
-  batch_size: 32
+  batch_size: 128
   num_workers: 0
-  task_sampling_alpha: 0.5
   seed: 12345
-  progress_bar: true
+  progress_bar: false
 
-# MLflow experiment tracking configuration
-mlflow:
-  tracking: true
-  tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "chemprop_curriculum"
-  run_name: null
-
-# Curriculum learning configuration
-# =================================
-# Enable quality-aware curriculum learning to progressively train on
-# data from high to low quality levels.
-curriculum:
-  # Enable/disable curriculum learning
+joint_sampling:
   enabled: true
-
-  # Column in train/validation CSV containing quality labels
-  # Values should match the qualities list below
-  quality_col: "Quality"
-
-  # Quality levels ordered from highest to lowest quality
-  # The curriculum adapts to the number of qualities provided:
-  #   - 1 quality: warmup → polish
-  #   - 2 qualities: warmup → expand → polish
-  #   - 3+ qualities: warmup → expand → robust → polish
-  qualities:
-    - "high"
-    - "medium"
-    - "low"
-
-  # Number of epochs without improvement in overall validation loss
-  # before advancing to the next curriculum phase
-  patience: 5
-
-  # Random seed for reproducible curriculum sampling
+  num_samples: null
   seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
 
-  # Curriculum strategy:
-  #   - "sampled": Use weighted random sampling (recommended)
-  #   - "weighted": Apply quality-based loss weights (not yet implemented)
-  strategy: "sampled"
+  task_oversampling:
+    alpha: 0.02
 
-  # Whether to reset early stopping patience when advancing to a new
-  # curriculum phase. This allows the model more time to adapt to
-  # the new data distribution after phase transitions.
-  reset_early_stopping_on_phase_change: false
+  curriculum:
+    enabled: true
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: true
+    log_per_quality_metrics: true
+    seed: 42
 
-  # Whether to log per-quality validation metrics (e.g., val_loss_high,
-  # val_loss_medium) in addition to overall metrics.
-  log_per_quality_metrics: true
+    # Count normalization: ensures target proportions are achieved regardless of dataset sizes
+    # With High=5k, Medium=100k, Low=15k samples, setting warmup to [0.8, 0.15, 0.05]
+    # means 80% of training batches will contain high-quality samples
+    count_normalize: true
+    min_high_quality_proportion: 0.25
 
-# =============================================================================
-# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
-# =============================================================================
-# Computes inter-task affinity during training using the lookahead method from:
-# "Efficiently Identifying Task Groupings for Multi-Task Learning"
-# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
-#
-# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
-# This measures how task i's gradient update affects task j's loss.
-# =============================================================================
+    # Metric alignment: which metric to monitor for phase transitions and early stopping
+    # Options: "val_loss" (default), "val/mae/high", "val/rmse/high", etc.
+    monitor_metric: "val/mae/high" # Monitor high-quality validation MAE
+    early_stopping_metric: null # If null, uses monitor_metric
+
+    # Adaptive curriculum: auto-adjust proportions based on per-quality performance
+    adaptive_enabled: false
+    adaptive_improvement_threshold: 0.02 # 2% relative improvement required
+    adaptive_max_adjustment: 0.1 # Max 10% adjustment per epoch
+    adaptive_lookback_epochs: 5 # Compare current vs N epochs ago
+
+    # Loss weighting: scale gradients by quality level
+    loss_weighting_enabled: false
+    loss_weights:
+      high: 1.0
+      medium: 0.5
+      low: 0.3
+
+    # HPO-friendly target proportions for each phase
+    # These represent the actual fraction of training samples from each quality level
+    # Comment out to use defaults: warmup=[0.80, 0.15, 0.05], expand=[0.60, 0.30, 0.10],
+    #                              robust=[0.50, 0.35, 0.15], polish=[0.70, 0.20, 0.10]
+    # warmup_proportions: [0.80, 0.15, 0.05]
+    # expand_proportions: [0.60, 0.30, 0.10]
+    # robust_proportions: [0.50, 0.35, 0.15]
+    # polish_proportions: [0.70, 0.20, 0.10]
+
 inter_task_affinity:
-  # Enable/disable inter-task affinity computation during training
   enabled: false
-
-  # Compute affinity every N training steps (1 = every step)
-  compute_every_n_steps: 10
-
-  # Log running average affinity to MLflow every N steps
-  log_every_n_steps: 100
-
-  # Log epoch-level summary statistics
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
   log_epoch_summary: true
-
-  # Log individual step affinity matrices (WARNING: high volume)
   log_step_matrices: false
-
-  # Learning rate for lookahead computation
   lookahead_lr: 0.001
-
-  # Use current optimizer learning rate for lookahead
   use_optimizer_lr: true
-
-  # Patterns to exclude from shared parameters (task-specific layers)
   exclude_param_patterns:
     - predictor
     - ffn
     - output
     - head
     - readout
-
-  # Log affinity metrics to MLflow
   log_to_mlflow: true
+
+# ray:
+#   max_parallel: 1
+#   num_cpus: null
+#   num_gpus: null
+
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: chemprop_curriculum_test
+  run_name: null
+  nested: false

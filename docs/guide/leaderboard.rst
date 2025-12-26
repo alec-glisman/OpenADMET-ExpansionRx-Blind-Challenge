@@ -35,6 +35,9 @@ The easiest way to use the leaderboard tools is through the command-line interfa
    # Use a different HuggingFace Space
    admet leaderboard scrape --user your_username --space owner/space-name
 
+   # Generate report from previously cached data
+   admet leaderboard report assets/submissions/2025-12-16/data --user your_username
+
 Python API Usage
 ~~~~~~~~~~~~~~~~
 

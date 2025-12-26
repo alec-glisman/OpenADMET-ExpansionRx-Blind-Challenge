@@ -18,7 +18,7 @@ Examples
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from omegaconf import MISSING
 
@@ -33,6 +33,10 @@ class DataConfig:
     data_dir : str
         Directory containing train.csv and validation.csv files.
         Expected structure: {data_dir}/train.csv and {data_dir}/validation.csv
+    splits : List[int], optional
+        List of split indices to use. If None, uses all splits found in data_dir.
+    folds : List[int], optional
+        List of fold indices to use within each split. If None, uses all folds.
     test_file : str, optional
         Path to test data CSV file.
     blind_file : str, optional
@@ -50,6 +54,8 @@ class DataConfig:
     """
 
     data_dir: str = MISSING
+    splits: Optional[List[int]] = None
+    folds: Optional[List[int]] = None
     test_file: Optional[str] = None
     blind_file: Optional[str] = None
     smiles_col: str = "SMILES"
@@ -129,11 +135,10 @@ class OptimizationConfig:
         Training batch size.
     num_workers : int, default=0
         Number of data loader workers.
-    seed : int, default=12345
+    seed : int, default=42
         Random seed for reproducibility.
     progress_bar : bool, default=False
         Whether to show training progress bar.
-    task_sampling_alpha: Optional[float] = None
     """
 
     criterion: str = "MAE"
@@ -145,9 +150,8 @@ class OptimizationConfig:
     max_epochs: int = 150
     batch_size: int = 32
     num_workers: int = 0
-    seed: int = 12345
+    seed: int = 42
     progress_bar: bool = False
-    task_sampling_alpha: Optional[float] = None
 
 
 @dataclass
@@ -185,6 +189,28 @@ class MlflowConfig:
 
 
 @dataclass
+class TaskOversamplingConfig:
+    """
+    Configuration for task-aware oversampling of sparse tasks.
+
+    Task oversampling adjusts sampling weights using inverse-power scheduling
+    to give more weight to samples with labels for rare tasks, helping to
+    balance learning across tasks with very different label counts.
+
+    Parameters
+    ----------
+    alpha : float, default=0.5
+        Power law exponent controlling oversampling strength.
+        - alpha=0: Uniform task sampling (no rebalancing)
+        - alpha=0.5: Moderate rebalancing (default)
+        - alpha=1: Full inverse-proportional (rare tasks heavily favored)
+        Valid range [0, 1]. Values outside this range will trigger a warning.
+    """
+
+    alpha: float = 0.5
+
+
+@dataclass
 class CurriculumConfig:
     """
     Configuration for quality-aware curriculum learning.
@@ -194,7 +220,17 @@ class CurriculumConfig:
     - warmup: Focus on high-quality data
     - expand: Gradually include medium-quality data
     - robust: Include low-quality data for robustness
-    - polish: Return focus to high-quality data
+    - polish: Return focus to high-quality data (but maintain some diversity)
+
+    Count Normalization
+    -------------------
+    When `count_normalize=True` (default), the phase proportions represent the
+    actual fraction of training samples you want from each quality level,
+    regardless of dataset sizes. This compensates for imbalanced datasets.
+
+    For example, with High=5k, Medium=100k, Low=15k samples:
+    - warmup_proportions: [0.8, 0.15, 0.05] means 80% of batches contain
+      high-quality samples, even though high-quality is only 4% of raw data.
 
     Parameters
     ----------
@@ -223,6 +259,29 @@ class CurriculumConfig:
     log_per_quality_metrics : bool, default=True
         Whether to log per-quality validation metrics (e.g., val_loss_high,
         val_loss_medium) in addition to overall metrics.
+    count_normalize : bool, default=True
+        If True, interpret weights as target proportions and automatically
+        adjust for dataset size imbalance. If False, apply weights directly
+        to samples (legacy behavior where larger datasets dominate).
+    min_high_quality_proportion : float, default=0.25
+        Minimum proportion of high-quality data in any phase. Acts as a safety
+        floor to prevent catastrophic forgetting of high-quality patterns.
+    warmup_proportions : List[float], optional
+        Target proportions for warmup phase [high, medium, low].
+        Default: [0.80, 0.15, 0.05] for 3 qualities.
+    expand_proportions : List[float], optional
+        Target proportions for expand phase [high, medium, low].
+        Default: [0.60, 0.30, 0.10] for 3 qualities.
+    robust_proportions : List[float], optional
+        Target proportions for robust phase [high, medium, low].
+        Default: [0.50, 0.35, 0.15] for 3 qualities.
+    polish_proportions : List[float], optional
+        Target proportions for polish phase [high, medium, low].
+        Default: [0.70, 0.20, 0.10] for 3 qualities.
+    phase_weights_two_quality : Dict[str, List[float]], optional
+        Custom phase weights for 2 quality levels. If None, uses defaults.
+    phase_weights_three_quality : Dict[str, List[float]], optional
+        Custom phase weights for 3 quality levels. If None, uses defaults.
     """
 
     enabled: bool = False
@@ -235,6 +294,107 @@ class CurriculumConfig:
     strategy: str = "sampled"
     reset_early_stopping_on_phase_change: bool = False
     log_per_quality_metrics: bool = True
+    phase_weights_two_quality: Optional[Dict[str, List[float]]] = None
+    phase_weights_three_quality: Optional[Dict[str, List[float]]] = None
+
+    # Count normalization settings
+    count_normalize: bool = True
+    min_high_quality_proportion: float = 0.25
+
+    # HPO-friendly target proportions for each phase (when count_normalize=True)
+    # These are the actual proportions of training samples you want from each quality
+    warmup_proportions: Optional[List[float]] = None
+    expand_proportions: Optional[List[float]] = None
+    robust_proportions: Optional[List[float]] = None
+    polish_proportions: Optional[List[float]] = None
+
+    # Metric alignment: monitor high-quality metrics for curriculum and early stopping
+    # Examples: "val/mae/high", "val_loss", "val/rmse/high"
+    monitor_metric: str = "val_loss"
+    early_stopping_metric: Optional[str] = None  # If None, uses monitor_metric
+
+    # Adaptive curriculum: auto-adjust proportions based on per-quality performance
+    adaptive_enabled: bool = False
+    adaptive_improvement_threshold: float = 0.02  # 2% relative improvement required
+    adaptive_max_adjustment: float = 0.1  # Max 10% adjustment per phase transition
+    adaptive_lookback_epochs: int = 5  # Compare current vs N epochs ago
+
+    # Loss weighting: scale gradients by quality level
+    loss_weighting_enabled: bool = False
+    loss_weights: Optional[Dict[str, float]] = None  # e.g., {"high": 1.0, "medium": 0.5, "low": 0.3}
+
+
+@dataclass
+class JointSamplingConfig:
+    """
+    Configuration for unified sampling combining task-aware and curriculum-aware strategies.
+
+    JointSampling combines two complementary sampling strategies via multiplicative
+    weight composition:
+
+    1. **Task oversampling**: Rebalances sampling across tasks with different label
+       counts using inverse-power weighting (controlled by alpha).
+    2. **Curriculum learning**: Adjusts sampling based on data quality labels that
+       change with curriculum phase progression.
+
+    The joint weight for sample i is computed as:
+        w_joint[i] = w_task[i] × w_curriculum[i]
+
+    For multi-task samples, the "primary" task (used for weight computation) is
+    the rarest task among those the sample has labels for.
+
+    Parameters
+    ----------
+    enabled : bool, default=False
+        Master switch for joint sampling. When False, standard shuffling is used.
+    task_oversampling : TaskOversamplingConfig
+        Configuration for task-aware oversampling.
+    curriculum : CurriculumConfig
+        Configuration for curriculum-aware sampling.
+    num_samples : Optional[int], default=None
+        Number of samples per epoch. If None, uses dataset length.
+    seed : int, default=42
+        Base random seed for sampling reproducibility.
+    increment_seed_per_epoch : bool, default=True
+        If True, increments seed each epoch for sampling variety.
+        If False, uses same seed each epoch for reproducibility.
+    log_to_mlflow : bool, default=True
+        Whether to log sampling statistics (entropy, effective samples, etc.)
+        to MLflow each epoch.
+
+    Examples
+    --------
+    >>> from admet.model.chemprop.config import JointSamplingConfig
+    >>>
+    >>> # Task oversampling only
+    >>> config = JointSamplingConfig(
+    ...     enabled=True,
+    ...     task_oversampling=TaskOversamplingConfig(alpha=0.3),
+    ...     curriculum=CurriculumConfig(enabled=False),
+    ... )
+    >>>
+    >>> # Curriculum learning only
+    >>> config = JointSamplingConfig(
+    ...     enabled=True,
+    ...     task_oversampling=TaskOversamplingConfig(alpha=0.0),
+    ...     curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
+    ... )
+    >>>
+    >>> # Both strategies combined
+    >>> config = JointSamplingConfig(
+    ...     enabled=True,
+    ...     task_oversampling=TaskOversamplingConfig(alpha=0.5),
+    ...     curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
+    ... )
+    """
+
+    enabled: bool = False
+    task_oversampling: TaskOversamplingConfig = field(default_factory=TaskOversamplingConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    num_samples: Optional[int] = None
+    seed: int = 42
+    increment_seed_per_epoch: bool = True
+    log_to_mlflow: bool = True
 
 
 @dataclass
@@ -379,8 +539,8 @@ class ChempropConfig:
         Training optimization configuration.
     mlflow : MlflowConfig
         MLflow tracking configuration.
-    curriculum : CurriculumConfig
-        Curriculum learning configuration for quality-aware sampling.
+    joint_sampling : JointSamplingConfig
+        Unified configuration for task-aware oversampling and curriculum learning.
     task_affinity : TaskAffinityConfig
         Task affinity grouping configuration for multi-task learning.
     inter_task_affinity : InterTaskAffinityConfig
@@ -406,7 +566,11 @@ class ChempropConfig:
     ...     model=ModelConfig(depth=4, hidden_dim=512),
     ...     optimization=OptimizationConfig(max_epochs=100),
     ...     mlflow=MlflowConfig(experiment_name="my_experiment"),
-    ...     curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
+    ...     joint_sampling=JointSamplingConfig(
+    ...         enabled=True,
+    ...         task_oversampling=TaskOversamplingConfig(alpha=0.5),
+    ...         curriculum=CurriculumConfig(enabled=True, quality_col="Quality"),
+    ...     ),
     ...     task_affinity=TaskAffinityConfig(enabled=True, n_groups=2),
     ...     inter_task_affinity=InterTaskAffinityConfig(enabled=True),
     ... )
@@ -416,7 +580,7 @@ class ChempropConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
-    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
 
@@ -462,6 +626,32 @@ class EnsembleDataConfig:
 
 
 @dataclass
+class RayConfig:
+    """
+    Configuration for Ray parallelization settings.
+
+    Parameters
+    ----------
+    max_parallel : int, default=1
+        Maximum number of models to train in parallel.
+        Set based on available GPU memory. For example, if you have
+        1 GPU and each model needs 0.5 GPU, set max_parallel=2.
+    num_cpus : int, optional
+        Number of CPUs to allocate to Ray. If None, uses all available CPUs.
+    num_gpus : int, optional
+        Number of GPUs to allocate to Ray. If None, auto-detects available GPUs.
+
+    Examples
+    --------
+    >>> ray = RayConfig(max_parallel=2, num_cpus=8, num_gpus=1)
+    """
+
+    max_parallel: int = 1
+    num_cpus: Optional[int] = None
+    num_gpus: Optional[int] = None
+
+
+@dataclass
 class EnsembleConfig:
     """
     Complete configuration for ensemble Chemprop training.
@@ -480,17 +670,12 @@ class EnsembleConfig:
         Training optimization configuration (shared across ensemble).
     mlflow : MlflowConfig
         MLflow tracking configuration.
-    curriculum : CurriculumConfig
-        Curriculum learning configuration. When enabled, all ensemble
-        members share the same curriculum schedule for consistent
-        quality-aware sampling.
-    max_parallel : int, default=1
-        Maximum number of models to train in parallel.
-        Set based on available GPU memory.
-    ray_num_cpus : int, optional
-        Number of CPUs to allocate to Ray. If None, uses all available.
-    ray_num_gpus : int, optional
-        Number of GPUs to allocate to Ray. If None, auto-detects.
+    joint_sampling : JointSamplingConfig
+        Unified configuration for task-aware oversampling and curriculum learning.
+        When curriculum is enabled, all ensemble members share the same curriculum
+        schedule for consistent quality-aware sampling.
+    ray : RayConfig
+        Ray parallelization configuration for distributed ensemble training.
 
     Examples
     --------
@@ -501,7 +686,7 @@ class EnsembleConfig:
     ...     OmegaConf.structured(EnsembleConfig),
     ...     OmegaConf.load("ensemble_config.yaml")
     ... )
-    >>> ensemble = ChempropEnsemble.from_config(config)
+    >>> ensemble = ModelEnsemble.from_config(config)
     >>> ensemble.train_all()
     """
 
@@ -509,9 +694,7 @@ class EnsembleConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
-    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
-    max_parallel: int = 1
-    ray_num_cpus: Optional[int] = None
-    ray_num_gpus: Optional[int] = None
+    ray: RayConfig = field(default_factory=RayConfig)

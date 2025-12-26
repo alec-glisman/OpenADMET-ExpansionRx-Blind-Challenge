@@ -110,15 +110,17 @@ inter_task_affinity:
 
 # Model architecture - balanced for quick training
 model:
-  depth: 4
-  message_hidden_dim: 400
+  type: chemprop
+  chemprop:
+    depth: 4
+    message_hidden_dim: 400
 
-  num_layers: 2
-  hidden_dim: 400
-  dropout: 0.1
-  batch_norm: true
+    num_layers: 2
+    hidden_dim: 400
+    dropout: 0.1
+    batch_norm: true
 
-  ffn_type: "regression"
+    ffn_type: "regression"
 
 # Optimization - shorter training for exploration
 optimization:

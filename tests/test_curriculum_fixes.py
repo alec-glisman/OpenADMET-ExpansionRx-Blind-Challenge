@@ -39,7 +39,8 @@ class TestDynamicCurriculumSampler:
             seed=42,
         )
 
-        # In warmup phase: high=0.9, medium=0.1, low=0.0
+        # In warmup phase with count normalization: target [0.80, 0.15, 0.05]
+        # These become the actual sampling proportions
         assert state.phase == "warmup"
         indices_warmup = list(sampler)
 
@@ -48,10 +49,11 @@ class TestDynamicCurriculumSampler:
         for idx in indices_warmup:
             counts[quality_labels[idx]] += 1
 
-        # High-quality should dominate in warmup
+        # High-quality should dominate in warmup (~80%)
         assert counts["high"] > counts["medium"]
-        # Low-quality should have zero samples (weight=0)
-        assert counts["low"] == 0
+        # Low-quality should have some samples (~5%) due to new defaults
+        # (previously was 0, now it's 0.05)
+        assert counts["low"] < counts["medium"]
 
     def test_sampler_responds_to_phase_change(self) -> None:
         """Test that sampler picks up new weights after phase change."""
@@ -85,12 +87,12 @@ class TestDynamicCurriculumSampler:
         expand_high = sum(1 for idx in indices_expand if quality_labels[idx] == "high")
 
         # Expand should have more medium samples than warmup
-        # (warmup: 90% high, expand: 60% high)
+        # (warmup: 85% high, expand: 65% high for 2-quality)
         warmup_ratio = warmup_high / 1000
         expand_ratio = expand_high / 1000
 
-        assert warmup_ratio > 0.85, f"Warmup high ratio should be ~0.9, got {warmup_ratio}"
-        assert expand_ratio < 0.70, f"Expand high ratio should be ~0.6, got {expand_ratio}"
+        assert warmup_ratio > 0.80, f"Warmup high ratio should be ~0.85, got {warmup_ratio}"
+        assert expand_ratio < 0.70, f"Expand high ratio should be ~0.65, got {expand_ratio}"
 
     def test_sampler_computes_weights_dynamically(self) -> None:
         """Test that _compute_weights reads from current state."""
@@ -102,17 +104,96 @@ class TestDynamicCurriculumSampler:
             curriculum_state=state,
         )
 
-        # Get weights in warmup
+        # Get weights in warmup (target [0.80, 0.15, 0.05])
         weights_warmup = sampler._compute_weights()
-        assert weights_warmup[0] > 0.8  # high weight
+        assert weights_warmup[0] >= 0.75  # high weight should be ~0.8
 
         # Change phase
         state.phase = "robust"
         state.weights = state._weights_for_phase("robust")
 
-        # Weights should change
+        # Weights should change (robust target [0.50, 0.35, 0.15])
         weights_robust = sampler._compute_weights()
-        assert weights_robust[0] < 0.5  # high weight lower in robust
+        assert weights_robust[0] < 0.55  # high weight lower in robust
+
+    def test_sampler_produces_different_samples_per_epoch_by_default(self) -> None:
+        """Test that sampler produces different samples when iterating multiple times.
+
+        By default, increment_seed_per_epoch=True, so each __iter__ call should
+        use a different seed and produce different sample indices.
+        """
+        quality_labels = ["high"] * 50 + ["medium"] * 50
+        state = CurriculumState(qualities=["high", "medium"], patience=1)
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=state,
+            num_samples=100,
+            seed=42,
+            increment_seed_per_epoch=True,  # Default is True
+        )
+
+        # Get samples from two consecutive "epochs" (iterations)
+        indices_epoch1 = list(sampler)
+        indices_epoch2 = list(sampler)
+
+        # Samples should be different across epochs
+        assert indices_epoch1 != indices_epoch2, "Samples should differ between epochs"
+
+        # Both should still have similar quality distributions (high should dominate)
+        epoch1_high = sum(1 for idx in indices_epoch1 if quality_labels[idx] == "high")
+        epoch2_high = sum(1 for idx in indices_epoch2 if quality_labels[idx] == "high")
+
+        # Both should favor high quality samples (warmup phase: ~90% high)
+        assert epoch1_high > 60, f"Epoch 1 should have >60% high, got {epoch1_high}"
+        assert epoch2_high > 60, f"Epoch 2 should have >60% high, got {epoch2_high}"
+
+    def test_sampler_produces_same_samples_when_increment_disabled(self) -> None:
+        """Test that sampler produces same samples when increment_seed_per_epoch=False."""
+        quality_labels = ["high"] * 50 + ["medium"] * 50
+        state = CurriculumState(qualities=["high", "medium"], patience=1)
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=state,
+            num_samples=100,
+            seed=42,
+            increment_seed_per_epoch=False,
+        )
+
+        # Get samples from two consecutive "epochs"
+        indices_epoch1 = list(sampler)
+        indices_epoch2 = list(sampler)
+
+        # Samples should be identical when increment is disabled
+        assert indices_epoch1 == indices_epoch2, "Samples should be identical"
+
+    def test_epoch_counter_increments_correctly(self) -> None:
+        """Test that the internal epoch counter increments on each iteration."""
+        quality_labels = ["high"] * 30 + ["medium"] * 30 + ["low"] * 30
+        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=state,
+            num_samples=50,
+            seed=42,
+            increment_seed_per_epoch=True,
+        )
+
+        assert sampler._current_epoch == 0, "Should start at epoch 0"
+
+        # First iteration
+        list(sampler)
+        assert sampler._current_epoch == 1, "Should be epoch 1 after first iteration"
+
+        # Second iteration
+        list(sampler)
+        assert sampler._current_epoch == 2, "Should be epoch 2 after second iteration"
+
+        # Third iteration
+        list(sampler)
+        assert sampler._current_epoch == 3, "Should be epoch 3 after third iteration"
 
 
 # =============================================================================
@@ -135,9 +216,9 @@ class TestPerQualityMetricsLogging:
         mock_trainer = MagicMock()
         mock_trainer.callback_metrics = {
             "val_loss": 0.5,
-            "val_mae_high": 0.3,
-            "val_mae_medium": 0.5,
-            "val_mae_low": 0.8,
+            "val/mae/high": 0.3,
+            "val/mae/medium": 0.5,
+            "val/mae/low": 0.8,
         }
         mock_trainer.current_epoch = 0
         mock_trainer.global_step = 100
@@ -147,12 +228,12 @@ class TestPerQualityMetricsLogging:
         # Call the callback
         callback.on_validation_epoch_end(mock_trainer, mock_module)
 
-        # Check that per-quality metrics were logged
+        # Check that per-quality metrics were logged with hierarchical naming
         logged_metrics = {call[0][0]: call[0][1] for call in mock_module.log.call_args_list}
 
-        # Should have logged per-quality metrics
-        assert "val_mae_high" in logged_metrics
-        assert "val_mae_medium" in logged_metrics
+        # Should have logged per-quality metrics with hierarchical naming: val/<metric>/<quality>
+        assert "val/mae/high" in logged_metrics
+        assert "val/mae/medium" in logged_metrics
 
     def test_callback_skips_per_quality_when_disabled(self) -> None:
         """Test that callback does not log per-quality metrics when disabled."""
@@ -165,7 +246,7 @@ class TestPerQualityMetricsLogging:
         mock_trainer = MagicMock()
         mock_trainer.callback_metrics = {
             "val_loss": 0.5,
-            "val_mae_high": 0.3,
+            "val/mae/high": 0.3,
         }
         mock_trainer.current_epoch = 0
         mock_trainer.global_step = 100
@@ -176,7 +257,7 @@ class TestPerQualityMetricsLogging:
 
         # Should not have logged per-quality metrics
         logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
-        assert "val_mae_high" not in logged_keys
+        assert "val/mae/high" not in logged_keys
 
     def test_callback_logs_curriculum_weights_on_phase_change(self) -> None:
         """Test that callback logs curriculum weights when phase changes."""
@@ -196,11 +277,11 @@ class TestPerQualityMetricsLogging:
 
         callback.on_validation_epoch_end(mock_trainer, mock_module)
 
-        # Should have logged curriculum weights for each quality
+        # Should have logged curriculum weights for each quality with hierarchical naming
         logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
-        assert "curriculum_weight_high" in logged_keys
-        assert "curriculum_weight_medium" in logged_keys
-        assert "curriculum_weight_low" in logged_keys
+        assert "curriculum/weight/high" in logged_keys
+        assert "curriculum/weight/medium" in logged_keys
+        assert "curriculum/weight/low" in logged_keys
 
 
 # =============================================================================
@@ -402,7 +483,359 @@ class TestCurriculumIntegration:
         # Sampler should see the new phase
         assert sampler.curriculum_state.phase == "polish"
         weights = sampler._compute_weights()
-        # In polish: only high quality has weight
-        assert weights[0] > 0.99  # high
-        assert weights[1] < 0.01  # medium
-        assert weights[2] < 0.01  # low
+        # In polish with new defaults: [0.70, 0.20, 0.10] - maintains diversity
+        assert weights[0] > 0.65  # high ~70%
+        assert weights[1] > 0.15  # medium ~20%
+        assert weights[2] > 0.05  # low ~10%
+
+
+# =============================================================================
+# Test PerQualityMetricsCallback
+# =============================================================================
+
+
+class TestPerQualityMetricsCallback:
+    """Tests for PerQualityMetricsCallback that computes per-quality metrics during training."""
+
+    def test_callback_initialization(self) -> None:
+        """Test callback initializes correctly with quality labels."""
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "high", "medium", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+            target_cols=["LogD", "KSOL"],
+        )
+
+        assert callback.val_quality_labels == quality_labels
+        assert callback.qualities == qualities
+        assert callback.target_cols == ["LogD", "KSOL"]
+        assert "high" in callback._val_quality_indices
+        assert callback._val_quality_indices["high"] == [0, 1]
+        assert callback._val_quality_indices["medium"] == [2, 3]
+        assert callback._val_quality_indices["low"] == [4]
+
+    def test_callback_compute_and_log_metrics(self) -> None:
+        """Test _compute_and_log_metrics computes MAE, MSE, RMSE correctly."""
+        import numpy as np
+
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "high", "medium", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+        )
+
+        # Create mock module
+        mock_module = MagicMock()
+        mock_module.current_epoch = 0
+
+        # Create test data
+        all_preds = np.array([[1.0], [2.0], [3.0], [4.0], [5.0]])
+        all_targets = np.array([[1.1], [2.2], [2.8], [4.1], [5.5]])
+
+        # Call _compute_and_log_metrics directly (mlflow is patched inside)
+        with patch("mlflow.active_run", return_value=None):
+            callback._compute_and_log_metrics(mock_module, all_preds, all_targets, callback._val_quality_indices, "val")
+
+        # Verify metrics were logged with hierarchical naming: <split>/<metric>/<quality>
+        logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
+
+        assert "val/mae/high" in logged_keys
+        assert "val/mse/high" in logged_keys
+        assert "val/rmse/high" in logged_keys
+        assert "val/mae/medium" in logged_keys
+        assert "val/mae/low" in logged_keys
+
+    def test_callback_handles_no_dataloader(self) -> None:
+        """Test callback handles case when no validation dataloader available."""
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+        )
+
+        mock_module = MagicMock()
+        mock_trainer = MagicMock()
+        mock_trainer.current_epoch = 0
+        mock_trainer.val_dataloaders = None
+
+        # Should not raise
+        callback.on_validation_epoch_end(mock_trainer, mock_module)
+
+        # Should not log anything
+        assert mock_module.log.call_count == 0
+
+    def test_callback_with_mock_dataloader_single_target(self) -> None:
+        """Test callback with realistic mock dataloader for single target."""
+        import torch
+
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        # Setup: 5 samples with quality labels
+        quality_labels = ["high", "high", "medium", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+            target_cols=["LogD"],
+        )
+
+        # Create mock module that simulates Chemprop MPNN
+        mock_module = MagicMock()
+        mock_module.current_epoch = 0
+
+        # Mock the forward pass to return predictions
+        def mock_forward(bmg, V_d, X_d):
+            # Return 5 predictions, shape (5, 1)
+            return torch.tensor([[1.0], [2.0], [3.0], [4.0], [5.0]])
+
+        mock_module.side_effect = mock_forward
+        mock_module.__call__ = mock_forward
+
+        # Mock parameters().device
+        mock_param = MagicMock()
+        mock_param.device = torch.device("cpu")
+        mock_module.parameters.return_value = iter([mock_param])
+        mock_module.eval = MagicMock()
+
+        # Create mock trainer with dataloader
+        mock_trainer = MagicMock()
+        mock_trainer.current_epoch = 0
+
+        # Create mock batches (Chemprop format: bmg, V_d, X_d, targets, weights, lt_mask, gt_mask)
+        batch_targets = torch.tensor([[1.1], [2.2], [2.8], [4.1], [5.5]])
+        mock_batch = (
+            MagicMock(),  # bmg
+            None,  # V_d
+            None,  # X_d
+            batch_targets,  # targets
+            torch.ones(5, 1),  # weights
+            None,  # lt_mask
+            None,  # gt_mask
+        )
+
+        # Make bmg, V_d, X_d respond to .to() calls
+        mock_batch[0].to = MagicMock(return_value=mock_batch[0])
+
+        # Mock dataloader must be iterable (returns batches when iterated)
+        # Create a proper iterable that yields batches
+        def batch_generator():
+            yield mock_batch
+
+        class MockDataLoader:
+            def __iter__(self):
+                return batch_generator()
+
+        mock_trainer.val_dataloaders = MockDataLoader()
+
+        # Call the callback
+        with patch("mlflow.active_run", return_value=None):
+            callback.on_validation_epoch_end(mock_trainer, mock_module)
+
+        # Verify metrics were logged
+        logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
+
+        assert "val/mae/high" in logged_keys
+        assert "val/mse/high" in logged_keys
+        assert "val/rmse/high" in logged_keys
+        assert "val/count/high" in logged_keys
+        assert "val/mae/medium" in logged_keys
+        assert "val/mae/low" in logged_keys
+
+        # Check per-target metrics
+        assert "val/mae/high/LogD" in logged_keys
+
+    def test_callback_with_mock_dataloader_multi_target(self) -> None:
+        """Test callback with realistic mock dataloader for multiple targets."""
+        import torch
+
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        # Setup: 4 samples with quality labels, 2 targets
+        quality_labels = ["high", "high", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+            target_cols=["LogD", "KSOL"],
+        )
+
+        # Create mock module
+        # Mock forward to return 2-target predictions
+        mock_preds = torch.tensor([[1.0, 2.0], [2.0, 3.0], [3.0, 4.0], [4.0, 5.0]])
+
+        mock_module = MagicMock()
+        mock_module.current_epoch = 0
+        mock_module.return_value = mock_preds  # MagicMock returns this when called
+
+        mock_param = MagicMock()
+        mock_param.device = torch.device("cpu")
+        mock_module.parameters.return_value = iter([mock_param])
+        mock_module.eval = MagicMock()
+
+        # Create mock trainer
+        mock_trainer = MagicMock()
+        mock_trainer.current_epoch = 0
+
+        # Create batch with 2 targets
+        batch_targets = torch.tensor([[1.1, 2.1], [2.2, 3.2], [2.9, 4.1], [4.2, 5.3]])
+        mock_batch = (
+            MagicMock(),
+            None,
+            None,
+            batch_targets,
+            torch.ones(4, 2),
+            None,
+            None,
+        )
+        mock_batch[0].to = MagicMock(return_value=mock_batch[0])
+
+        # Mock dataloader must be iterable (returns batches when iterated)
+        class MockDataLoader:
+            def __iter__(self):
+                yield mock_batch
+
+        mock_trainer.val_dataloaders = MockDataLoader()
+
+        # Call the callback
+        with patch("mlflow.active_run", return_value=None):
+            callback.on_validation_epoch_end(mock_trainer, mock_module)
+
+        # Verify metrics were logged
+        logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
+
+        # Check overall per-quality metrics
+        assert "val/mae/high" in logged_keys
+        assert "val/mae/medium" in logged_keys
+        assert "val/mae/low" in logged_keys
+
+        # Check per-target, per-quality metrics
+        assert "val/mae/high/LogD" in logged_keys
+        assert "val/mae/high/KSOL" in logged_keys
+        assert "val/rmse/medium/LogD" in logged_keys
+
+    def test_callback_respects_compute_every_n_epochs(self) -> None:
+        """Test callback only computes metrics on specified epochs."""
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+            compute_every_n_epochs=3,
+        )
+
+        mock_module = MagicMock()
+        mock_trainer = MagicMock()
+        mock_trainer.val_dataloaders = None
+
+        # Epoch 0: should not compute (0 % 3 == 0, so it WILL compute)
+        mock_trainer.current_epoch = 0
+        callback.on_validation_epoch_end(mock_trainer, mock_module)
+        # No dataloader, so no logs
+
+        # Epoch 1: should skip (1 % 3 != 0)
+        mock_trainer.current_epoch = 1
+        callback.on_validation_epoch_end(mock_trainer, mock_module)
+
+        # Epoch 2: should skip (2 % 3 != 0)
+        mock_trainer.current_epoch = 2
+        callback.on_validation_epoch_end(mock_trainer, mock_module)
+
+        # Epoch 3: should compute (3 % 3 == 0)
+        mock_trainer.current_epoch = 3
+        callback.on_validation_epoch_end(mock_trainer, mock_module)
+
+        # Should have returned early for epochs 1 and 2 (before checking dataloader)
+        assert mock_module.log.call_count == 0
+
+    def test_callback_handles_nan_values(self) -> None:
+        """Test callback properly handles NaN values in predictions and targets."""
+        import numpy as np
+
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "high", "medium", "medium"]
+        qualities = ["high", "medium"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+        )
+
+        mock_module = MagicMock()
+        mock_module.current_epoch = 0
+
+        # Create test data with NaN values
+        all_preds = np.array([[1.0], [np.nan], [3.0], [4.0]])
+        all_targets = np.array([[1.1], [2.2], [np.nan], [4.1]])
+
+        # Call _compute_and_log_metrics
+        with patch("mlflow.active_run", return_value=None):
+            callback._compute_and_log_metrics(mock_module, all_preds, all_targets, callback._val_quality_indices, "val")
+
+        # Should still log metrics for valid samples
+        logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
+
+        # High quality: only first sample is valid (second has NaN pred)
+        assert "val/mae/high" in logged_keys
+        # Medium quality: only last sample is valid (third has NaN target)
+        assert "val/mae/medium" in logged_keys
+
+    def test_callback_logs_to_mlflow_when_active(self) -> None:
+        """Test callback logs directly to MLflow when run is active."""
+        import numpy as np
+
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "medium", "low"]
+        qualities = ["high", "medium", "low"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+        )
+
+        mock_module = MagicMock()
+        mock_module.current_epoch = 5
+
+        all_preds = np.array([[1.0], [2.0], [3.0]])
+        all_targets = np.array([[1.1], [2.2], [3.3]])
+
+        # Mock MLflow as active
+        mock_run = MagicMock()
+        with patch("mlflow.active_run", return_value=mock_run):
+            with patch("mlflow.log_metric") as mock_log_metric:
+                callback._compute_and_log_metrics(
+                    mock_module, all_preds, all_targets, callback._val_quality_indices, "val"
+                )
+
+                # Verify MLflow was called directly
+                assert mock_log_metric.call_count > 0
+
+                # Check that metrics were logged with correct step
+                calls = mock_log_metric.call_args_list
+                metric_names = [call[0][0] for call in calls]
+
+                assert "val/mae/high" in metric_names
+                assert "val/mae/medium" in metric_names
+                assert "val/mae/low" in metric_names
+
+                # Check step parameter
+                for call in calls:
+                    assert call[1]["step"] == 5

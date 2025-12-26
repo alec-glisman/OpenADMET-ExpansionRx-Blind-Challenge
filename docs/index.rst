@@ -95,6 +95,7 @@ Documentation sections
    guide/curriculum
    guide/task_affinity
    guide/mlflow_artifacts
+   planning/index
 
 
 To build the docs locally, follow one of these methods:

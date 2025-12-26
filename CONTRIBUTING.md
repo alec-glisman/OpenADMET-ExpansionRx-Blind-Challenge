@@ -4,92 +4,275 @@
 
 This file documents how to contribute to this machine-learning project. It covers repository workflow, environment and dependency setup, data handling, experiments, testing, and norms for pull requests and issues. Follow these guidelines to keep contributions reproducible, reviewable, and safe.
 
-## Getting started
+## Table of Contents
 
-## Branching and commit messages
+1. [Getting Started](#getting-started)
+2. [Pre-commit Hooks](#pre-commit-hooks)
+3. [Branching and Commits](#branching-and-commits)
+4. [Testing and CI](#testing-and-ci)
+5. [Code Quality](#code-quality)
+6. [Documentation](#documentation)
+7. [Data and Artifacts](#data-and-artifacts)
+8. [Experiments and Reproducibility](#experiments-and-reproducibility)
+9. [Contributor Checklist](#contributor-checklist)
 
-- Use a short, descriptive branch name: `feature/<short-desc>`, `fix/<short-desc>`, or `experiment/<short-desc>`.
-- Keep commits small and focused. Squash or rebase locally before opening a pull request if it helps keep history clean.
-- Write concise commit messages with a one-line summary and optional body. Follow conventional commits if possible (e.g., `feat:`, `fix:`, `docs:`).
+## Getting Started
 
-## Pull request process
+### Initial Setup
 
-1. Open an issue first for non-trivial work or experiments that may affect other contributors.
-1. Create a PR from your branch and target `main` (or the branch named in the issue).
-1. Include the following in the PR description:
-   - Summary of the change.
-   - How to run or validate the change (commands, notebooks, small dataset subset).
-   - Any new dependencies or environment changes.
-   - If the change affects model results, include a short reproducibility checklist (dataset version, random seed, hyperparameters).
-1. Add reviewers and wait for at least one approval before merging. Address review comments with new commits.
+1. Follow [INSTALLATION.md](./INSTALLATION.md) to set up your environment
+2. Install pre-commit hooks: `pre-commit install`
+3. Familiarize yourself with the [README.md](./README.md) and project structure
+4. Run tests to verify setup: `pytest tests -q`
 
-### PR checklist
+### Project Structure
 
-- [ ] Code is linted and formatted.
-- [ ] Unit tests and/or small integration tests were added or updated.
-- [ ] Changes to datasets or models are documented and saved under `assets/` (see Data & Artifacts).
-- [ ] Any long-running experiments include a short note on compute used and runtime.
+```
+.
+├── src/admet/          # Main package
+│   ├── cli/            # CLI commands (admet data/model/leaderboard)
+│   ├── model/          # Model implementations (Chemprop, ensemble, HPO)
+│   ├── data/           # Data loading, splitting, preprocessing
+│   ├── evaluation/     # Metrics, visualization, leaderboard
+│   └── train/          # Training loops, callbacks, curriculum learning
+├── configs/            # YAML configs for experiments, HPO, ensemble
+├── scripts/            # Bash scripts for training, data prep, analysis
+├── tests/              # Pytest test suite
+├── docs/               # Sphinx documentation
+└── notebooks/          # Jupyter/Marimo notebooks for EDA
+```
 
-## Issues
+### Key Components
 
-- Use issues for bugs, feature requests, or proposing large experiments.
-- Provide a minimal reproduction when reporting a bug (error messages, stack traces, commands).
-- Label issues clearly: `bug`, `enhancement`, `experiment`, `data`, `question`.
+- **CLI**: Typer-based `admet` command with subcommands for data, model, leaderboard
+- **ML Framework**: PyTorch with Chemprop for molecular property prediction
+- **Experiment Tracking**: MLflow for logging experiments, metrics, and artifacts
+- **Parallelization**: Ray for distributed HPO and ensemble training
+- **Testing**: Pytest with markers for unit/integration/slow tests
+- **Package Management**: uv for dependency management
+
+## Pre-commit Hooks
+
+This project uses pre-commit hooks to maintain code quality and consistency. Hooks run automatically on `git commit` and block commits if checks fail.
+
+### Installing Hooks
+
+```bash
+# Install pre-commit framework (included in dev dependencies)
+uv pip install pre-commit
+
+# Install git hooks
+uv run pre-commit install                    # For pre-commit stage
+uv run pre-commit install --hook-type commit-msg  # For commit message linting
+
+# Verify installation
+uv run pre-commit --version
+
+# Run hooks on all files initially
+uv run pre-commit run --all-files
+```
+
+### Configured Hooks
+
+See [.pre-commit-config.yaml](./.pre-commit-config.yaml) for complete configuration. Key hooks include:
+
+**Standard Checks**: Trailing whitespace, merge conflicts, private keys, large files (>1MB), syntax validation
+
+**Formatting**: black (Python), isort (imports), prettier (YAML/TOML), beautysh/shfmt (shell scripts)
+
+**Linting**: flake8, pylint (≥9.0 score), mypy (static type checking)
+
+**Testing**: pytest (fast unit tests only, parallel execution)
+
+**Notebooks**: nbstripout (removes outputs before commit)
+
+**Commit Messages**: commitizen (enforces conventional commit format)
+
+### Performance Tips
+
+**Typical timing**: Formatters/linters (<5s), mypy/pylint (5-30s, cached), pytest (30s-2min)
+
+**Speed up commits**: Run `pre-commit run` (changed files only) or skip temporarily with `SKIP=pytest,mypy git commit -m "message"`
+
+**Excluded paths**: `src/bitbirch/`, `docs/`, `notebooks/`, `archive/`
+
+## Branching and Commits
+
+### Branch Naming
+
+Use descriptive prefixes:
+
+- `feature/<description>` - New functionality (e.g., `feature/task-affinity`)
+- `fix/<description>` - Bug fixes (e.g., `fix/validation-mae-calculation`)
+- `experiment/<description>` - Experimental changes (e.g., `experiment/moe-ffn`)
+- `docs/<description>` - Documentation updates
+- `refactor/<description>` - Code restructuring without functional changes
+
+### Commit Message Format
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) enforced by commitizen:
+
+```text
+<type>: <short summary>
+
+<optional body>
+
+<optional footer>
+```
+
+**Types:**
+
+- `feat:` - New feature (e.g., `feat: add MoE FFN decoder`)
+- `fix:` - Bug fix (e.g., `fix: correct ASHA early stopping logic`)
+- `docs:` - Documentation only (e.g., `docs: update HPO guide`)
+- `style:` - Formatting changes (e.g., `style: apply black formatting`)
+- `refactor:` - Code restructuring (e.g., `refactor: extract data splitting logic`)
+- `test:` - Adding/updating tests (e.g., `test: add curriculum sampler tests`)
+- `chore:` - Maintenance tasks (e.g., `chore: update dependencies`)
+- `perf:` - Performance improvements (e.g., `perf: optimize Ray parallelization`)
+
+**Multi-line commits:**
+
+```bash
+git commit -m "feat: add ensemble prediction aggregation
+
+Implements mean and std aggregation across 25 models.
+Includes epistemic uncertainty estimation.
+
+Closes #42"
+```
+
+### PR Checklist
+
+- [ ] Pre-commit hooks pass (`pre-commit run --all-files`)
+- [ ] All tests pass (`pytest tests/ -q`)
+- [ ] New code has appropriate tests (aim for >80% coverage)
+- [ ] CLI changes include updated help text and examples
+- [ ] Config changes include example YAML files in `configs/`
+- [ ] Changes to datasets/models are documented (see Data & Artifacts section)
+- [ ] Experiments include:
+  - [ ] MLflow run ID and experiment name
+  - [ ] Dataset version/commit
+  - [ ] Hyperparameters (or config file path)
+  - [ ] Key metrics (MAE, RMSE, etc.)
+  - [ ] Compute resources used (GPUs, runtime)
+- [ ] Documentation updated if public API changed:
+  - [ ] Docstrings updated (NumPy style)
+  - [ ] README updated if CLI or major features changed
+  - [ ] docs/ updated if architectural changes
 
 ## Testing and CI
 
-- Add fast unit tests for deterministic code paths. Heavy model training should not run in CI unless it is a short smoke test.
-- Use `pytest` for tests. Keep CI jobs fast by running only unit tests and linters; reserve longer integration tests for scheduled pipelines.
+### Issues and Bug Reports
 
-Testing the CLI
+- Use issues for bugs, feature requests, or proposing experiments
+- Provide minimal reproduction (error messages, stack traces, commands)
+- Label clearly: `bug`, `enhancement`, `experiment`, `data`, `question`
 
-- The Typer app is available as ``admet.cli.app`` and subcommands are registered at import time. When writing CLI tests, prefer invoking the top-level app with Typer's ``CliRunner`` to ensure parsing matches the installed console script:
+### Test Markers
+
+Tests use pytest markers (see `pyproject.toml`): `slow`, `integration`, `unit`, `no_mlflow_runs`
+
+**Run specific tests**: `pytest -m slow` or `pytest -m "not slow"`
+
+## Code Quality
+
+### Formatting Standards
+
+**Automatically enforced by pre-commit hooks:**
+
+- **Line length**: 120 characters, Python 3.11, Black-compatible style
+- **Tools**: black (Python), isort (imports), beautysh/shfmt (shell), prettier (YAML/TOML)
+
+**Manual formatting**: `black src/ tests/ && isort src/ tests/` or `pre-commit run --all-files`
+
+### Linting
+
+**flake8**: Style enforcement (max line 120, ignores E203/W503)
+
+**pylint**: Deep analysis (must score ≥9.0, see `pyproject.toml`)
+
+**mypy**: Static type checking (Python 3.11, non-strict mode)
+
+**Run linters**: `flake8 src/ tests/ && pylint src/admet/ && mypy src/admet/`
+
+### Type Annotations
+
+**Add types to**: Public API functions/classes, complex functions, non-obvious return types
+**Skip types for**: Test functions
+
+## Documentation
+
+### Docstring Standards
+
+**Use NumPy-style docstrings** for all public modules, functions, and classes:
 
 ```python
-from typer.testing import CliRunner
-from admet.cli import app as main_app
+def train_model(
+    config: ChempropConfig,
+    train_data: pd.DataFrame,
+    val_data: Optional[pd.DataFrame] = None,
+    output_dir: Optional[Path] = None
+) -> ChempropModel:
+    """Train a Chemprop model with given configuration.
 
-runner = CliRunner()
-result = runner.invoke(main_app, ["data", "split", "--output", "./out", "data.csv"])
-assert result.exit_code == 0
+    Trains a message passing neural network (MPNN) for molecular property
+    prediction using the provided training data and configuration.
+
+    Parameters
+    ----------
+    config : ChempropConfig
+        Model configuration including architecture, training parameters,
+        and hyperparameters.
+    train_data : pd.DataFrame
+        Training dataset with columns [SMILES, <target_columns>].
+        Shape: (n_samples, n_columns).
+    val_data : Optional[pd.DataFrame], default=None
+        Validation dataset with same schema as train_data.
+        If None, uses 10% of train_data for validation.
+    output_dir : Optional[Path], default=None
+        Directory to save model checkpoints and logs.
+        If None, uses temporary directory.
+
+    Returns
+    -------
+    ChempropModel
+        Trained model ready for prediction.
+
+    Raises
+    ------
+    ValueError
+        If train_data is empty or missing required columns.
+    FileNotFoundError
+        If output_dir doesn't exist and cannot be created.
+
+    Notes
+    -----
+    - Uses MLflow for experiment tracking if configured
+    - Automatically handles missing values (NaN) in targets
+    - Saves best model based on validation MAE
+
+    Examples
+    --------
+    >>> config = ChempropConfig(epochs=50, hidden_size=300)
+    >>> model = train_model(config, train_df, val_df)
+    >>> predictions = model.predict(test_df)
+
+    See Also
+    --------
+    ModelEnsemble : Train ensemble of models
+    ChempropHPO : Hyperparameter optimization
+    """
+    ...
 ```
 
-- Avoid invoking sub-``Typer`` instances (for example ``data_app``) directly in tests because argument parsing behavior may differ.
+### Building Documentation
 
-Note: Tests that require MLflow (e.g., start MLflow runs) are marked with `no_mlflow_runs` and are excluded by default from CI and standard `pytest` runs. To run them explicitly, use:
+**Sphinx docs** in `docs/`: Run `make -C docs html` or `sphinx-autobuild docs docs/_build/html` for live-reload
 
-```bash
-pytest -m no_mlflow_runs -q
-```
+**CLI help**: Keep concise with usage examples
 
-Example local test run:
-
-```bash
-pytest tests/ -q
-```
-
-## Style and linting
-
-- Prefer tools like `black`, `isort`, and `flake8` (or project-specific equivalents). Run formatters before committing.
-- Python typing is encouraged for public APIs and large modules.
-
-Format example:
-
-```bash
-black .
-isort .
-flake8
-```
-
-### Documentation Standard
-
-All Python modules now follow a unified style:
-
-- Module headers: RST sections listing purpose, key components, examples.
-- Functions / classes: NumPy‑style docstrings with Parameters / Returns / Raises sections (and Notes / Examples where helpful).
-- Shape and schema conventions explicitly documented for data loading, model interfaces, splitting logic, and visualization utilities.
-
-## Data and artifacts
+## Data and Artifacts
 
 Handling datasets and model artifacts is the most sensitive part of an ML repository. Follow these rules:
 
@@ -107,7 +290,7 @@ preprocessing: canonicalized SMILES, filtered by MW < 800
 note: training/validation/test split uses stratified splits by endpoint
 ```
 
-## Experiments and reproducibility
+## Experiments and Reproducibility
 
 - Record experiment details: dataset version (or commit/hash that produced the processed dataset), random seed, hyperparameters, and environment (Python version, key package versions).
 - Prefer experiment tracking (MLflow, Weights & Biases, or a simple CSV) so results can be compared and reproduced.
@@ -124,35 +307,15 @@ hyperparameters: {...}
 metrics: {"rmse": 0.32}
 ```
 
-## Notebooks
+## Contributor Checklist
 
-- Keep notebooks focused and small. Include a short text summary at the top describing goal and inputs.
-- Clear outputs and remove very large inline outputs before committing. Prefer linking to rendered notebook artifacts (nbviewer, GitHub-rendered) or converting to MD when useful.
+- [ ] Read README and CONTRIBUTING guide
+- [ ] Changes are scoped and documented
+- [ ] Pre-commit hooks pass (`pre-commit run --all-files`)
+- [ ] Tests pass (`pytest tests/ -q`)
+- [ ] Documentation updated (docstrings, CLI help, README, docs/)
+- [ ] Experiments include MLflow run ID, dataset version, metrics, and config
 
-## Security, licensing, and data privacy
+---
 
-- Check upstream dataset licenses before using or redistributing data. Add license notes to `assets/dataset/README.md`.
-- Never commit secrets, API keys, or credentials. Use environment variables or a secrets manager for CI.
-
-## When you find technical debt
-
-- Create an issue documenting the debt, its impact, and a suggested remediation. Tag it with `technical-debt` and a priority.
-- If the debt is small and well-scoped, include a follow-up PR that fixes it.
-
-## Communication and reviews
-
-- Be respectful during code review. Provide concrete, actionable feedback.
-- When requesting a review, add a clear summary and testing steps so reviewers can validate quickly.
-
-## Contact
-
-If you have questions about contributing, open an issue with the `question` label or contact the maintainers listed in `README.md`.
-
-## Small checklist for contributors
-
-- [ ] I have read the repo README and this CONTRIBUTING guide.
-- [ ] My changes are limited in scope and documented.
-- [ ] I ran linters and tests locally.
-- [ ] I added or updated documentation where applicable.
-
-Thank you for contributing!
+**Thank you for contributing!** Questions? Open an issue or contact maintainers in [README.md](./README.md).

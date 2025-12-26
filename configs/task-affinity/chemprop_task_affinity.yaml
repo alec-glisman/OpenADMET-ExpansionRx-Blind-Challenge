@@ -125,25 +125,27 @@ inter_task_affinity:
 
 # Model architecture configuration
 model:
-  # Message passing network
-  depth: 5
-  message_hidden_dim: 600
+  type: chemprop
+  chemprop:
+    # Message passing network
+    depth: 5
+    message_hidden_dim: 600
 
-  # Feed-forward network
-  num_layers: 2
-  hidden_dim: 600
-  dropout: 0.1
-  batch_norm: true
+    # Feed-forward network
+    num_layers: 2
+    hidden_dim: 600
+    dropout: 0.1
+    batch_norm: true
 
-  # FFN type: 'regression', 'mixture_of_experts', 'branched'
-  ffn_type: "regression"
+    # FFN type: 'regression', 'mixture_of_experts', 'branched'
+    ffn_type: "regression"
 
-  # Branched FFN settings (used when ffn_type='branched')
-  trunk_n_layers: 2
-  trunk_hidden_dim: 600
+    # Branched FFN settings (used when ffn_type='branched')
+    trunk_n_layers: 2
+    trunk_hidden_dim: 600
 
-  # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
-  n_experts: 4
+    # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
+    n_experts: 4
 
 # Optimization configuration
 optimization:

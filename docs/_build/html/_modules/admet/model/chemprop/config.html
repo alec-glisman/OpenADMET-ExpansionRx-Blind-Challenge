@@ -210,11 +210,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/leaderboard.html">Leaderboard API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/cli.html">CLI Usage</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/development.html">Development Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/architecture.html">Architecture Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/data_sources.html">Data Sources &amp; Curation</a></li>
@@ -226,6 +228,35 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 
 </div>
@@ -402,7 +433,6 @@
 <span class="sd">        Random seed for reproducibility.</span>
 <span class="sd">    progress_bar : bool, default=False</span>
 <span class="sd">        Whether to show training progress bar.</span>
-<span class="sd">    task_sampling_alpha: Optional[float] = None</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">criterion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MAE&quot;</span>
@@ -415,8 +445,7 @@
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12345</span>
-    <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">task_sampling_alpha</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+    <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 
 
@@ -455,6 +484,28 @@
     <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">nested</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TaskOversamplingConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for task-aware oversampling of sparse tasks.</span>
+
+<span class="sd">    Task oversampling adjusts sampling weights using inverse-power scheduling</span>
+<span class="sd">    to give more weight to samples with labels for rare tasks, helping to</span>
+<span class="sd">    balance learning across tasks with very different label counts.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    alpha : float, default=0.5</span>
+<span class="sd">        Power law exponent controlling oversampling strength.</span>
+<span class="sd">        - alpha=0: Uniform task sampling (no rebalancing)</span>
+<span class="sd">        - alpha=0.5: Moderate rebalancing (default)</span>
+<span class="sd">        - alpha=1: Full inverse-proportional (rare tasks heavily favored)</span>
+<span class="sd">        Valid range [0, 1]. Values outside this range will trigger a warning.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
 
 
 <span class="nd">@dataclass</span>
@@ -511,6 +562,79 @@
 
 
 <span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">JointSamplingConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for unified sampling combining task-aware and curriculum-aware strategies.</span>
+
+<span class="sd">    JointSampling combines two complementary sampling strategies via multiplicative</span>
+<span class="sd">    weight composition:</span>
+
+<span class="sd">    1. **Task oversampling**: Rebalances sampling across tasks with different label</span>
+<span class="sd">       counts using inverse-power weighting (controlled by alpha).</span>
+<span class="sd">    2. **Curriculum learning**: Adjusts sampling based on data quality labels that</span>
+<span class="sd">       change with curriculum phase progression.</span>
+
+<span class="sd">    The joint weight for sample i is computed as:</span>
+<span class="sd">        w_joint[i] = w_task[i] × w_curriculum[i]</span>
+
+<span class="sd">    For multi-task samples, the &quot;primary&quot; task (used for weight computation) is</span>
+<span class="sd">    the rarest task among those the sample has labels for.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    enabled : bool, default=False</span>
+<span class="sd">        Master switch for joint sampling. When False, standard shuffling is used.</span>
+<span class="sd">    task_oversampling : TaskOversamplingConfig</span>
+<span class="sd">        Configuration for task-aware oversampling.</span>
+<span class="sd">    curriculum : CurriculumConfig</span>
+<span class="sd">        Configuration for curriculum-aware sampling.</span>
+<span class="sd">    num_samples : Optional[int], default=None</span>
+<span class="sd">        Number of samples per epoch. If None, uses dataset length.</span>
+<span class="sd">    seed : int, default=42</span>
+<span class="sd">        Base random seed for sampling reproducibility.</span>
+<span class="sd">    increment_seed_per_epoch : bool, default=True</span>
+<span class="sd">        If True, increments seed each epoch for sampling variety.</span>
+<span class="sd">        If False, uses same seed each epoch for reproducibility.</span>
+<span class="sd">    log_to_mlflow : bool, default=True</span>
+<span class="sd">        Whether to log sampling statistics (entropy, effective samples, etc.)</span>
+<span class="sd">        to MLflow each epoch.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from admet.model.chemprop.config import JointSamplingConfig</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Task oversampling only</span>
+<span class="sd">    &gt;&gt;&gt; config = JointSamplingConfig(</span>
+<span class="sd">    ...     enabled=True,</span>
+<span class="sd">    ...     task_oversampling=TaskOversamplingConfig(alpha=0.3),</span>
+<span class="sd">    ...     curriculum=CurriculumConfig(enabled=False),</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Curriculum learning only</span>
+<span class="sd">    &gt;&gt;&gt; config = JointSamplingConfig(</span>
+<span class="sd">    ...     enabled=True,</span>
+<span class="sd">    ...     task_oversampling=TaskOversamplingConfig(alpha=0.0),</span>
+<span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Both strategies combined</span>
+<span class="sd">    &gt;&gt;&gt; config = JointSamplingConfig(</span>
+<span class="sd">    ...     enabled=True,</span>
+<span class="sd">    ...     task_oversampling=TaskOversamplingConfig(alpha=0.5),</span>
+<span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">task_oversampling</span><span class="p">:</span> <span class="n">TaskOversamplingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskOversamplingConfig</span><span class="p">)</span>
+    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
+    <span class="n">num_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+    <span class="n">increment_seed_per_epoch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">log_to_mlflow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+
+<span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">TaskAffinityConfig</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Configuration for task affinity grouping (legacy pre-training approach).</span>
@@ -521,12 +645,6 @@
 <span class="sd">    by measuring gradient similarity between tasks during a short training</span>
 <span class="sd">    run, then clusters tasks into groups that benefit from being trained</span>
 <span class="sd">    together.</span>
-
-<span class="sd">    .. deprecated::</span>
-<span class="sd">        This configuration uses the legacy gradient-cosine approach for</span>
-<span class="sd">        pre-training task grouping. For the paper-accurate lookahead-based</span>
-<span class="sd">        inter-task affinity computation during training, use</span>
-<span class="sd">        :class:`InterTaskAffinityConfig` instead.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -660,8 +778,8 @@
 <span class="sd">        Training optimization configuration.</span>
 <span class="sd">    mlflow : MlflowConfig</span>
 <span class="sd">        MLflow tracking configuration.</span>
-<span class="sd">    curriculum : CurriculumConfig</span>
-<span class="sd">        Curriculum learning configuration for quality-aware sampling.</span>
+<span class="sd">    joint_sampling : JointSamplingConfig</span>
+<span class="sd">        Unified configuration for task-aware oversampling and curriculum learning.</span>
 <span class="sd">    task_affinity : TaskAffinityConfig</span>
 <span class="sd">        Task affinity grouping configuration for multi-task learning.</span>
 <span class="sd">    inter_task_affinity : InterTaskAffinityConfig</span>
@@ -687,7 +805,11 @@
 <span class="sd">    ...     model=ModelConfig(depth=4, hidden_dim=512),</span>
 <span class="sd">    ...     optimization=OptimizationConfig(max_epochs=100),</span>
 <span class="sd">    ...     mlflow=MlflowConfig(experiment_name=&quot;my_experiment&quot;),</span>
-<span class="sd">    ...     curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
+<span class="sd">    ...     joint_sampling=JointSamplingConfig(</span>
+<span class="sd">    ...         enabled=True,</span>
+<span class="sd">    ...         task_oversampling=TaskOversamplingConfig(alpha=0.5),</span>
+<span class="sd">    ...         curriculum=CurriculumConfig(enabled=True, quality_col=&quot;Quality&quot;),</span>
+<span class="sd">    ...     ),</span>
 <span class="sd">    ...     task_affinity=TaskAffinityConfig(enabled=True, n_groups=2),</span>
 <span class="sd">    ...     inter_task_affinity=InterTaskAffinityConfig(enabled=True),</span>
 <span class="sd">    ... )</span>
@@ -697,7 +819,7 @@
     <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">)</span>
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
-    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
+    <span class="n">joint_sampling</span><span class="p">:</span> <span class="n">JointSamplingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">JointSamplingConfig</span><span class="p">)</span>
     <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
     <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span></div>
 
@@ -743,6 +865,32 @@
     <span class="n">folds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RayConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for Ray parallelization settings.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    max_parallel : int, default=1</span>
+<span class="sd">        Maximum number of models to train in parallel.</span>
+<span class="sd">        Set based on available GPU memory. For example, if you have</span>
+<span class="sd">        1 GPU and each model needs 0.5 GPU, set max_parallel=2.</span>
+<span class="sd">    num_cpus : int, optional</span>
+<span class="sd">        Number of CPUs to allocate to Ray. If None, uses all available CPUs.</span>
+<span class="sd">    num_gpus : int, optional</span>
+<span class="sd">        Number of GPUs to allocate to Ray. If None, auto-detects available GPUs.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ray = RayConfig(max_parallel=2, num_cpus=8, num_gpus=1)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">max_parallel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">num_cpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">num_gpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+
 <div class="viewcode-block" id="EnsembleConfig">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.EnsembleConfig">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -764,17 +912,12 @@
 <span class="sd">        Training optimization configuration (shared across ensemble).</span>
 <span class="sd">    mlflow : MlflowConfig</span>
 <span class="sd">        MLflow tracking configuration.</span>
-<span class="sd">    curriculum : CurriculumConfig</span>
-<span class="sd">        Curriculum learning configuration. When enabled, all ensemble</span>
-<span class="sd">        members share the same curriculum schedule for consistent</span>
-<span class="sd">        quality-aware sampling.</span>
-<span class="sd">    max_parallel : int, default=1</span>
-<span class="sd">        Maximum number of models to train in parallel.</span>
-<span class="sd">        Set based on available GPU memory.</span>
-<span class="sd">    ray_num_cpus : int, optional</span>
-<span class="sd">        Number of CPUs to allocate to Ray. If None, uses all available.</span>
-<span class="sd">    ray_num_gpus : int, optional</span>
-<span class="sd">        Number of GPUs to allocate to Ray. If None, auto-detects.</span>
+<span class="sd">    joint_sampling : JointSamplingConfig</span>
+<span class="sd">        Unified configuration for task-aware oversampling and curriculum learning.</span>
+<span class="sd">        When curriculum is enabled, all ensemble members share the same curriculum</span>
+<span class="sd">        schedule for consistent quality-aware sampling.</span>
+<span class="sd">    ray : RayConfig</span>
+<span class="sd">        Ray parallelization configuration for distributed ensemble training.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -793,12 +936,10 @@
     <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">)</span>
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
-    <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
+    <span class="n">joint_sampling</span><span class="p">:</span> <span class="n">JointSamplingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">JointSamplingConfig</span><span class="p">)</span>
     <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
     <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span>
-    <span class="n">max_parallel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">ray_num_cpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">ray_num_gpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+    <span class="n">ray</span><span class="p">:</span> <span class="n">RayConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayConfig</span><span class="p">)</span></div>
 
 </pre></div>
         </article>

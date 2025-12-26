@@ -1,221 +1,136 @@
-# Ensemble Curriculum Learning Configuration
-# ============================================
-# This YAML file configures ensemble training with quality-aware curriculum
-# learning across multiple splits and folds. The script will automatically
-# discover split_*/fold_*/ subdirectories and train a model on each, using
-# curriculum learning to progressively adjust sampling from high-quality
-# to lower-quality data.
-#
-# Curriculum Phases:
-#   1. warmup: Focus on high-quality data (e.g., 90% high, 10% medium, 0% low)
-#   2. expand: Gradually include medium-quality data (e.g., 60% high, 35% medium, 5% low)
-#   3. robust: Include low-quality data for robustness (e.g., 40% high, 40% medium, 20% low)
-#   4. polish: Return focus to high-quality data (e.g., 100% high)
-#
-# Phase transitions occur when overall validation loss stops improving for
-# `patience` epochs.
-#
-# Usage:
-#   python -m admet.model.chemprop.ensemble --config configs/curriculum/ensemble_curriculum.yaml
-#   python -m admet.model.chemprop.ensemble -c configs/curriculum/ensemble_curriculum.yaml --max-parallel 2
-
-# Data configuration for ensemble with curriculum learning
 data:
-  # Root directory containing split_*/fold_*/ subdirectories
-  # Expected structure:
-  #   data_dir/
-  #     split_0/
-  #       fold_0/
-  #         train.csv      # Must include Quality column
-  #         validation.csv # Must include Quality column
-  #       fold_1/
-  #         ...
-  #     split_1/
-  #       ...
-  #
-  # NOTE: Use all_quality dataset which includes high/medium/low quality labels
-  data_dir: "assets/dataset/split_train_val/v3/all_quality/bitbirch/multilabel_stratified_kfold/data"
-
-  # Global test and blind files (same for all ensemble members)
-  test_file: "assets/dataset/set/local_test.csv"
-  blind_file: "assets/dataset/set/blind_test.csv"
-
-  # Output directory for ensemble results (null for temp directory)
+  data_dir: assets/dataset/split_train_val/v3/quality_high_medium/bitbirch/multilabel_stratified_kfold/data
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
-
-  # Column configuration
-  smiles_col: "SMILES"
+  smiles_col: SMILES
   target_cols:
-    - "LogD"
-    - "Log KSOL"
-    - "Log HLM CLint"
-    - "Log MLM CLint"
-    - "Log Caco-2 Permeability Papp A>B"
-    - "Log Caco-2 Permeability Efflux"
-    - "Log MPPB"
-    - "Log MBPB"
-    - "Log MGMB"
-
-  # Per-task loss weights (optional, defaults to 1.0 for each)
-  # Higher weights for tasks with fewer samples or higher importance
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-    - 1.0310
-    - 1.0000
-    - 1.2252
-    - 1.1368
-    - 2.1227
-    - 2.1174
-    - 3.7877
-    - 5.2722
-    - 10.000
-
-  # Optional: filter specific splits/folds (null = use all found)
-  # splits: [0, 1, 2]  # Only use splits 0, 1, 2
-  # folds: [0, 1, 2, 3, 4]  # Only use folds 0-4
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
   splits: null
   folds: null
 
-# Model architecture configuration (shared across ensemble)
 model:
-  depth: 5
-  message_hidden_dim: 600
-  num_layers: 2
-  hidden_dim: 600
-  dropout: 0.1
-  batch_norm: true
-  ffn_type: "regression"
-  trunk_n_layers: 2
-  trunk_hidden_dim: 600
-  n_experts: 4
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
+    ffn_type: regression
+    aggregation: norm
 
-# Optimization configuration (shared across ensemble)
 optimization:
-  criterion: "MSE"
-  init_lr: 1.0e-4
-  max_lr: 1.0e-3
-  final_lr: 1.0e-4
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
-  batch_size: 32
+  batch_size: 128
   num_workers: 0
-  task_sampling_alpha: 0.5
-  seed: 12345
-  progress_bar: false # Disable for ensemble (too noisy with parallel training)
-
-# MLflow experiment tracking configuration
-mlflow:
-  tracking: true
-  tracking_uri: "http://127.0.0.1:8084"
-  experiment_name: "ensemble_curriculum"
-  run_name: null # Auto-generated parent run name
-  nested: true # Enable nested runs for ensemble members
-
-# Ensemble-specific settings
-# Maximum models to train in parallel (adjust based on GPU memory)
-# Each model will get 1/max_parallel of the GPU
-max_parallel: 5
-
-# Ray cluster configuration (optional)
-# ray_num_cpus: 8  # Limit CPUs for Ray
-# ray_num_gpus: 1  # Number of GPUs available
-ray_num_cpus: null
-ray_num_gpus: null
-
-# Curriculum learning configuration
-# =================================
-# Enable quality-aware curriculum learning to progressively train on
-# data from high to low quality levels. Each ensemble member follows
-# its own curriculum progression independently.
-curriculum:
-  # Enable/disable curriculum learning
-  enabled: true
-
-  # Column in train/validation CSV containing quality labels
-  # Values should match the qualities list below
-  quality_col: "Quality"
-
-  # Quality levels ordered from highest to lowest quality
-  # The curriculum adapts to the number of qualities provided:
-  #   - 1 quality: warmup → polish
-  #   - 2 qualities: warmup → expand → polish
-  #   - 3+ qualities: warmup → expand → robust → polish
-  qualities:
-    - "high"
-    - "medium"
-    - "low"
-
-  # Number of epochs without improvement in overall validation loss
-  # before advancing to the next curriculum phase
-  patience: 5
-
-  # Random seed for reproducible curriculum sampling
-  # Note: Each ensemble member uses seed + split_idx * 1000 + fold_idx for diversity
   seed: 42
+  progress_bar: false
 
-  # Curriculum strategy:
-  #   - "sampled": Use weighted random sampling (recommended)
-  #     The DynamicCurriculumSampler adjusts sampling weights on each epoch
-  #     based on the current curriculum phase.
-  #   - "weighted": Apply quality-based loss weights (not yet implemented)
-  strategy: "sampled"
+joint_sampling:
+  enabled: true
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
 
-  # Whether to reset early stopping patience when advancing to a new
-  # curriculum phase. This allows the model more time to adapt to
-  # the new data distribution after phase transitions.
-  # Recommended: true for curriculum learning to give each phase adequate time
-  reset_early_stopping_on_phase_change: true
+  task_oversampling:
+    alpha: 0.02
 
-  # Whether to log per-quality validation metrics (e.g., val_loss_high,
-  # val_loss_medium) in addition to overall metrics. Useful for monitoring
-  # how the model performs on each quality tier.
-  log_per_quality_metrics: true
+  curriculum:
+    enabled: true
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: true
+    log_per_quality_metrics: true
+    seed: 42
 
-# =============================================================================
-# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
-# =============================================================================
-# Computes inter-task affinity during training using the lookahead method from:
-# "Efficiently Identifying Task Groupings for Multi-Task Learning"
-# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
-#
-# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
-#
-# This measures how task i's gradient update on shared parameters affects
-# task j's loss. Positive values indicate beneficial transfer; negative
-# values indicate harmful interference.
-#
-# Note: When combined with curriculum learning, affinity measurements capture
-# task relationships across different data quality phases.
-# =============================================================================
+    # Count normalization: ensures target proportions are achieved regardless of dataset sizes
+    # With imbalanced datasets (e.g., High=5k, Medium=100k, Low=15k), this is essential
+    count_normalize: true
+    min_high_quality_proportion: 0.25
+
+    # Metric alignment: which metric to monitor for phase transitions and early stopping
+    # Options: "val_loss" (default), "val/mae/high", "val/rmse/high", etc.
+    monitor_metric: "val/mae/high" # Monitor high-quality validation MAE
+    early_stopping_metric: null # If null, uses monitor_metric
+
+    # Adaptive curriculum: auto-adjust proportions based on per-quality performance
+    adaptive_enabled: false
+    adaptive_improvement_threshold: 0.02 # 2% relative improvement required
+    adaptive_max_adjustment: 0.1 # Max 10% adjustment per epoch
+    adaptive_lookback_epochs: 5 # Compare current vs N epochs ago
+
+    # Loss weighting: scale gradients by quality level
+    loss_weighting_enabled: false
+    loss_weights:
+      high: 1.0
+      medium: 0.5
+      low: 0.3
+
+    # HPO-friendly target proportions for each phase
+    # These represent the actual fraction of training samples from each quality level
+    # Comment out to use defaults: warmup=[0.80, 0.15, 0.05], expand=[0.60, 0.30, 0.10],
+    #                              robust=[0.50, 0.35, 0.15], polish=[0.70, 0.20, 0.10]
+    # warmup_proportions: [0.80, 0.15, 0.05]
+    # expand_proportions: [0.60, 0.30, 0.10]
+    # robust_proportions: [0.50, 0.35, 0.15]
+    # polish_proportions: [0.70, 0.20, 0.10]
+
 inter_task_affinity:
-  # Enable/disable inter-task affinity computation during training
   enabled: false
-
-  # Compute affinity every N training steps (1 = every step)
-  compute_every_n_steps: 10
-
-  # Log running average affinity to MLflow every N steps
-  log_every_n_steps: 100
-
-  # Log epoch-level summary statistics
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
   log_epoch_summary: true
-
-  # Log individual step affinity matrices (WARNING: high volume)
   log_step_matrices: false
-
-  # Learning rate for lookahead computation
   lookahead_lr: 0.001
-
-  # Use current optimizer learning rate for lookahead
   use_optimizer_lr: true
-
-  # Patterns to exclude from shared parameters (task-specific layers)
   exclude_param_patterns:
     - predictor
     - ffn
     - output
     - head
     - readout
-
-  # Log affinity metrics to MLflow
   log_to_mlflow: true
+
+ray:
+  max_parallel: 1
+  num_cpus: null
+  num_gpus: null
+
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: ensemble_chemprop_hpo_topk
+  run_name: rank_001
+  nested: true

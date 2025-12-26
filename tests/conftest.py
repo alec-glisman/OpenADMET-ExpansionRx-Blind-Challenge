@@ -7,6 +7,25 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+import torch
+
+
+@pytest.fixture(autouse=True)
+def reset_torch_deterministic_mode():
+    """Reset PyTorch deterministic mode before and after each test.
+
+    Some tests (e.g., ChempropModel training) enable deterministic mode via
+    Lightning's Trainer(deterministic=True), which globally sets
+    torch.use_deterministic_algorithms(True). This can cause failures in
+    subsequent tests that use operations without deterministic implementations.
+
+    This fixture ensures deterministic mode is disabled before and after each test.
+    """
+    # Disable deterministic mode before test starts
+    torch.use_deterministic_algorithms(False)
+    yield
+    # Disable deterministic mode after test completes
+    torch.use_deterministic_algorithms(False)
 
 
 @pytest.fixture

@@ -242,6 +242,11 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
                 - seed: Random seed
                     - report_every_n_epochs: Epoch cadence for Ray reports (default: 5)
     """
+    import time
+
+    # Stagger trial starts to avoid race conditions when multiple trials load datasets simultaneously
+    time.sleep(1)
+
     # Extract fixed parameters
     data_path = config.get("data_path")
     val_data_path = config.get("val_data_path")
@@ -259,6 +264,10 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         )
         report_every_n_epochs = 5
     seed = config.get("seed", 42)
+
+    # Seed everything for reproducibility before any other operations
+    pl.seed_everything(seed, workers=True)
+    logger.info("Seeded HPO trial with seed=%d for reproducibility", seed)
 
     # Load data
     df_train = pd.read_csv(data_path)
@@ -443,8 +452,5 @@ def _build_hyperparams(
 
     if "trunk_hidden_dim" in config and config["trunk_hidden_dim"] is not None:
         params["trunk_hidden_dim"] = int(config["trunk_hidden_dim"])
-
-    if "task_sampling_alpha" in config and config["task_sampling_alpha"] is not None:
-        params["task_sampling_alpha"] = float(config["task_sampling_alpha"])
 
     return ChempropHyperparams(**params)

@@ -39,6 +39,7 @@ from ray.tune.schedulers import ASHAScheduler
 from admet.model.chemprop.hpo_config import HPOConfig
 from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
+from admet.util.logging import configure_logging
 
 
 def _trial_dirname_creator(trial) -> str:
@@ -117,6 +118,11 @@ class ChempropHPO:
         # Convert to absolute path if relative
         storage_path = str(Path(storage_path).resolve())
 
+        # Create a dedicated temp directory inside the storage path to avoid issues
+        # when system /tmp is cleaned during long-running HPO jobs
+        ray_temp_dir = str(Path(storage_path) / "_ray_tmp")
+        Path(ray_temp_dir).mkdir(parents=True, exist_ok=True)
+
         # Initialize Ray with custom temp dir if storage path is provided
         # This helps avoid FileNotFoundError during sync when /tmp is cleaned
         # Disable dashboard to avoid MetricsHead startup failures on some systems
@@ -124,9 +130,10 @@ class ChempropHPO:
 
         if not ray.is_initialized():
             ray.init(
-                _temp_dir=storage_path,
+                _temp_dir=ray_temp_dir,
                 include_dashboard=False,  # Disable dashboard to avoid startup errors
             )
+            logger.info("Ray initialized with temp dir: %s", ray_temp_dir)
 
         # Run HPO
         logger.info(
@@ -225,9 +232,6 @@ class ChempropHPO:
         # Pass fixed target weights if provided
         if self.config.target_weights is not None:
             space["target_weights"] = self.config.target_weights
-
-        if self.config.task_sampling_alpha is not None:
-            space["task_sampling_alpha"] = self.config.task_sampling_alpha
 
         return space
 
@@ -441,8 +445,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    configure_logging(level="INFO")
     main()
