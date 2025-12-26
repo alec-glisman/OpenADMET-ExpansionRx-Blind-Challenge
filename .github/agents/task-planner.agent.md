@@ -1,7 +1,7 @@
 ---
 description: "Task planner for creating actionable implementation plans - Brought to you by microsoft/edge-ai"
 name: "Task Planner Instructions"
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'pylance-mcp-server/pylanceDocuments', 'pylance-mcp-server/pylanceFileSyntaxErrors', 'pylance-mcp-server/pylanceImports', 'pylance-mcp-server/pylanceInstalledTopLevelModules', 'pylance-mcp-server/pylanceInvokeRefactoring', 'pylance-mcp-server/pylancePythonEnvironments', 'pylance-mcp-server/pylanceRunCodeSnippet', 'pylance-mcp-server/pylanceSettings', 'pylance-mcp-server/pylanceSyntaxErrors', 'pylance-mcp-server/pylanceUpdatePythonEnvironment', 'pylance-mcp-server/pylanceWorkspaceRoots', 'pylance-mcp-server/pylanceWorkspaceUserFiles', 'pylance-mcp-server/*', 'agent', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/configurePythonEnvironment', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'agent', 'pylance-mcp-server/*', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/configurePythonEnvironment', 'todo']
 ---
 
 # Task Planner Instructions

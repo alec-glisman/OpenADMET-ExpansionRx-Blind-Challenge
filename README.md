@@ -138,6 +138,7 @@ flowchart LR
 | Model | Architecture | Status |
 | ------- | -------------- | -------- |
 | **Chemprop MPNN** | Message-passing neural network | Primary model |
+| **CheMeleon** | Pretrained MPNN encoder + FFN | Implemented |
 
 #### Decoder
 
@@ -147,13 +148,14 @@ flowchart LR
 | **MoE FFN** | Mixture of Experts | Evaluated (competitive) |
 | **Branched FFN** | Task-specific branches | Evaluated (competitive) |
 
+> **Note:** Both Chemprop and CheMeleon support all three FFN architectures (MLP, MoE, Branched).
+
 ### Planned
 
 | Model | Architecture | Status |
 | ------- | -------------- | -------- |
 | XGBoost | Gradient boosting | Future |
 | LightGBM | Gradient boosting | Future |
-| CheMeleon | Pretrained MPNN | Future |
 | ChemBERTa-3 | Transformer | Future |
 
 ## Training Strategy

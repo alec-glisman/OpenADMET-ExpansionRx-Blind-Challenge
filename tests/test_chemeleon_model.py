@@ -272,3 +272,94 @@ class TestChemeleonModel:
 
         # Clean up
         model._checkpoint_dir.cleanup()
+
+
+class TestChemeleonFFNTypes:
+    """Tests for CheMeleon FFN architecture support."""
+
+    def test_default_ffn_type_is_regression(self):
+        """Test that default ffn_type is regression."""
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        ffn_type = model._get_model_param("ffn_type", "regression")
+        assert ffn_type == "regression"
+
+    @pytest.mark.parametrize(
+        "ffn_type",
+        ["regression", "mixture_of_experts", "branched"],
+    )
+    def test_ffn_type_config_accepted(self, ffn_type: str):
+        """Test that all FFN types are accepted in config."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "ffn_type": ffn_type,
+                        "n_experts": 4 if ffn_type == "mixture_of_experts" else None,
+                        "trunk_n_layers": 2 if ffn_type == "branched" else None,
+                    },
+                },
+                "data": {"target_cols": ["target_0", "target_1"]},
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("ffn_type", "regression") == ffn_type
+
+    def test_moe_n_experts_config(self):
+        """Test n_experts parameter is accessible."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "ffn_type": "mixture_of_experts",
+                        "n_experts": 6,
+                    },
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("n_experts", None) == 6
+
+    def test_branched_trunk_config(self):
+        """Test branched trunk parameters are accessible."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "ffn_type": "branched",
+                        "trunk_n_layers": 3,
+                        "trunk_hidden_dim": 400,
+                    },
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("trunk_n_layers", None) == 3
+        assert model._get_model_param("trunk_hidden_dim", None) == 400
+
+    def test_batch_norm_config(self):
+        """Test batch_norm parameter is accessible."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "batch_norm": True,
+                    },
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("batch_norm", False) is True

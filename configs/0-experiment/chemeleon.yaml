@@ -1,0 +1,59 @@
+# CheMeleon model configuration
+# ==============================
+#
+# CheMeleon uses a pre-trained message passing encoder from Zenodo with a
+# trainable FFN prediction head. The encoder is frozen by default.
+#
+# FFN Architecture Options:
+# - regression: Standard multi-layer FFN (default)
+# - mixture_of_experts: MoE with gating network for multi-task learning
+# - branched: Shared trunk with task-specific branches
+
+model:
+  type: chemeleon
+  chemeleon:
+    # Checkpoint path or "auto" to download from Zenodo
+    checkpoint_path: auto
+
+    # FFN Architecture
+    # Options: regression, mixture_of_experts, branched
+    ffn_type: regression
+    ffn_hidden_dim: 300
+    ffn_num_layers: 2
+    dropout: 0.0
+    batch_norm: false
+
+    # MoE-specific (when ffn_type: mixture_of_experts)
+    # n_experts: 4
+
+    # Branched-specific (when ffn_type: branched)
+    # trunk_n_layers: 2
+    # trunk_hidden_dim: 300
+
+    # Unfreeze schedule (optional gradual unfreezing)
+    unfreeze_schedule:
+      freeze_encoder: true
+      unfreeze_encoder_epoch: null # Set to epoch number to unfreeze
+      unfreeze_encoder_lr_multiplier: 0.1
+
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log SFM
+    - Log HLM
+    - Log RLM
+    - Log Papp
+
+optimization:
+  max_epochs: 100
+  batch_size: 32
+  patience: 15
+  learning_rate: 1.0e-4
+
+mlflow:
+  enabled: true
+  experiment_name: chemeleon
+  tracking_uri: null # Uses default MLflow tracking

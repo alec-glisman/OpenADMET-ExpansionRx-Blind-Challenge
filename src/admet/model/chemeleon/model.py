@@ -38,6 +38,7 @@ from torch.utils.data import DataLoader
 from admet.model.base import BaseModel
 from admet.model.chemeleon.callbacks import GradualUnfreezeCallback
 from admet.model.config import ChemeleonModelParams, UnfreezeScheduleConfig
+from admet.model.ffn_factory import create_ffn_predictor
 from admet.model.mlflow_mixin import MLflowMixin
 from admet.model.registry import ModelRegistry
 
@@ -183,13 +184,18 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self.featurizer = featurizers.SimpleMoleculeMolGraphFeaturizer()
         self.agg = nn.MeanAggregation()
 
-        # Initialize FFN
-        self.ffn = nn.RegressionFFN(
+        # Initialize FFN using shared factory
+        ffn_type = self._get_model_param("ffn_type", "regression")
+        self.ffn = create_ffn_predictor(
+            ffn_type=ffn_type,
             input_dim=self.mp.output_dim,
+            n_tasks=n_tasks,
             hidden_dim=self._get_model_param("ffn_hidden_dim", 300),
             n_layers=self._get_model_param("ffn_num_layers", 2),
             dropout=self._get_model_param("dropout", 0.0),
-            n_tasks=n_tasks,
+            n_experts=self._get_model_param("n_experts", None),
+            trunk_n_layers=self._get_model_param("trunk_n_layers", None),
+            trunk_hidden_dim=self._get_model_param("trunk_hidden_dim", None),
         )
 
         # Create MPNN

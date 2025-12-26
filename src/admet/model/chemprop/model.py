@@ -80,6 +80,7 @@ from admet.model.chemprop.curriculum import (
 from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.model.chemprop.joint_sampler import JointSampler
+from admet.model.ffn_factory import create_ffn_predictor
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
@@ -1027,9 +1028,9 @@ class ChempropModel:
         """
         Build the MPNN model based on hyperparameters.
 
-        Constructs the feed-forward network (FFN) based on ``ffn_type``
-        hyperparameter and assembles the full MPNN with message passing,
-        aggregation, and prediction components.
+        Constructs the feed-forward network (FFN) using the shared factory
+        based on ``ffn_type`` hyperparameter and assembles the full MPNN
+        with message passing, aggregation, and prediction components.
 
         Raises
         ------
@@ -1040,49 +1041,29 @@ class ChempropModel:
         task_weights = torch.tensor(self.target_weights) if self.target_weights else None
         criterion = CriterionName.resolve(self.hyperparams.criterion, task_weights=task_weights)
 
-        if self.hyperparams.ffn_type == "mixture_of_experts":
-            self.ffn = MixtureOfExpertsRegressionFFN(
-                n_tasks=len(self.target_cols),
-                n_experts=self.hyperparams.n_experts or 4,
-                input_dim=self.hyperparams.message_hidden_dim,
-                hidden_dim=self.hyperparams.hidden_dim,
-                n_layers=self.hyperparams.num_layers,
-                dropout=self.hyperparams.dropout,
-                criterion=criterion,
-                task_weights=task_weights,
-                output_transform=self.transform,
-            )
-        elif self.hyperparams.ffn_type == "branched":
-            # Use task groups from affinity if available, otherwise one task per group
+        # Determine task groups for branched FFN
+        task_groups = None
+        if self.hyperparams.ffn_type == "branched":
             if self.task_group_indices:
-                task_groups_to_use = self.task_group_indices
+                task_groups = self.task_group_indices
             else:
-                task_groups_to_use = [[i] for i in range(len(self.target_cols))]
-            self.ffn = BranchedFFN(
-                task_groups=task_groups_to_use,
-                n_tasks=len(self.target_cols),
-                input_dim=self.hyperparams.message_hidden_dim,
-                hidden_dim=self.hyperparams.hidden_dim,
-                trunk_n_layers=self.hyperparams.trunk_n_layers or 2,
-                trunk_hidden_dim=self.hyperparams.trunk_hidden_dim or 600,
-                trunk_dropout=self.hyperparams.dropout,
-                criterion=criterion,
-                task_weights=task_weights,
-                output_transform=self.transform,
-            )
-        elif self.hyperparams.ffn_type == "regression":
-            self.ffn = RegressionFFN(
-                n_tasks=len(self.target_cols),
-                input_dim=self.hyperparams.message_hidden_dim,
-                hidden_dim=self.hyperparams.hidden_dim,
-                n_layers=self.hyperparams.num_layers,
-                dropout=self.hyperparams.dropout,
-                criterion=criterion,
-                task_weights=self.target_weights,
-                output_transform=self.transform,
-            )
-        else:
-            raise ValueError(f"Unsupported ffn_type: {self.hyperparams.ffn_type}")
+                task_groups = [[i] for i in range(len(self.target_cols))]
+
+        self.ffn = create_ffn_predictor(
+            ffn_type=self.hyperparams.ffn_type,
+            input_dim=self.hyperparams.message_hidden_dim,
+            n_tasks=len(self.target_cols),
+            hidden_dim=self.hyperparams.hidden_dim,
+            n_layers=self.hyperparams.num_layers,
+            dropout=self.hyperparams.dropout,
+            n_experts=self.hyperparams.n_experts,
+            trunk_n_layers=self.hyperparams.trunk_n_layers,
+            trunk_hidden_dim=self.hyperparams.trunk_hidden_dim,
+            task_groups=task_groups,
+            criterion=criterion,
+            task_weights=task_weights,
+            output_transform=self.transform,
+        )
 
         self.mpnn = models.MPNN(
             message_passing=self.mp,

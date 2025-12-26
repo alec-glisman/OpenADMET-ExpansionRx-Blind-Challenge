@@ -1,0 +1,123 @@
+# CheMeleon HPO configuration
+# ===========================
+#
+# Hyperparameter optimization for CheMeleon model using Ray Tune with ASHA.
+# Searches over FFN architectures (regression, MoE, branched) and training params.
+#
+# Usage:
+#   python -m admet.model.chemeleon.hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
+
+experiment_name: chemeleon_hpo
+
+# Data paths
+data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
+val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/val.csv
+smiles_column: SMILES
+target_columns:
+  - LogD
+  - Log KSOL
+  - Log SFM
+  - Log HLM
+  - Log RLM
+  - Log Papp
+
+output_dir: outputs/hpo_chemeleon
+
+# CheMeleon-specific
+checkpoint_path: auto
+freeze_encoder: true
+
+# Search space
+search_space:
+  # Learning rate
+  learning_rate:
+    type: loguniform
+    low: 1.0e-5
+    high: 1.0e-3
+
+  # Regularization
+  dropout:
+    type: uniform
+    low: 0.0
+    high: 0.3
+
+  # FFN architecture search
+  ffn_type:
+    type: choice
+    values:
+      - regression
+      - mixture_of_experts
+      - branched
+
+  ffn_num_layers:
+    type: randint
+    low: 1
+    high: 4
+
+  ffn_hidden_dim:
+    type: choice
+    values:
+      - 128
+      - 256
+      - 300
+      - 512
+
+  batch_size:
+    type: choice
+    values:
+      - 16
+      - 32
+      - 64
+
+  # MoE params (conditional on ffn_type)
+  n_experts:
+    type: randint
+    low: 2
+    high: 8
+    conditional_on: ffn_type
+    conditional_values:
+      - mixture_of_experts
+
+  # Branched params (conditional on ffn_type)
+  trunk_n_layers:
+    type: randint
+    low: 1
+    high: 3
+    conditional_on: ffn_type
+    conditional_values:
+      - branched
+
+  trunk_hidden_dim:
+    type: choice
+    values:
+      - 128
+      - 256
+      - 384
+      - 512
+    conditional_on: ffn_type
+    conditional_values:
+      - branched
+
+# ASHA scheduler
+asha:
+  metric: val_mae
+  mode: min
+  max_t: 100
+  grace_period: 15
+  reduction_factor: 3
+  brackets: 1
+
+# Resources
+resources:
+  num_samples: 50
+  cpus_per_trial: 4
+  gpus_per_trial: 0.25
+  max_concurrent_trials: null
+
+# Transfer learning from top configs
+transfer_learning:
+  top_k: 5
+  full_epochs: 100
+  ensemble_size: 5
+
+seed: 42

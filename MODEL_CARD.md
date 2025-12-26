@@ -44,6 +44,7 @@ flowchart LR
 | Supplementary Data | KERMT, PharmaBench integration | 🔮 Future |
 
 **Joint Sampling** combines:
+
 - **Task Oversampling (Stage 1):** α-weighted inverse-power sampling for sparse endpoints
 - **Curriculum Learning (Stage 2):** Quality-aware within-task sampling (warmup → expand → robust → polish)
 
@@ -119,6 +120,17 @@ Three FFN types were evaluated during HPO:
 | **Branched** | Shared trunk + task-specific branches | Competitive (rank 5, 6, 10 in top-10) |
 
 The MoE and Branched architectures are implemented in [`src/admet/model/chemprop/ffn.py`](src/admet/model/chemprop/ffn.py).
+
+### CheMeleon Model
+
+CheMeleon uses a pre-trained message passing encoder with a trainable FFN head:
+
+- **Encoder:** Pre-trained Chemprop message passing network (frozen by default)
+- **Checkpoint:** Auto-downloaded from Zenodo
+- **FFN Head:** Supports all three architectures (MLP, MoE, Branched)
+- **Transfer Learning:** Optionally unfreeze encoder for fine-tuning
+
+CheMeleon and Chemprop share a unified FFN factory ([`src/admet/model/ffn_factory.py`](src/admet/model/ffn_factory.py)) for consistent architecture support.
 
 ### Multi-Task Learning
 

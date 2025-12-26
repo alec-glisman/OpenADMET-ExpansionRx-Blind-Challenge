@@ -162,6 +162,73 @@ Logged artifacts include:
    For detailed information about MLflow artifact organization, file formats,
    and how to access predictions and submission files, see :doc:`mlflow_artifacts`.
 
+CheMeleon Models
+----------------
+
+CheMeleon is a pre-trained molecular encoder that learns transferable representations
+from large-scale chemical datasets. The encoder is frozen during training, while
+a trainable FFN head performs task-specific predictions.
+
+**Key Features:**
+
+- **Pre-trained Encoder:** Frozen message passing network trained on millions of molecules
+- **Flexible FFN Head:** Supports all three FFN architecture types (regression, mixture_of_experts, branched)
+- **Fast Training:** Only the FFN head parameters are optimized, enabling rapid adaptation
+
+**Basic Training:**
+
+.. code-block:: python
+
+   from admet.model.chemeleon import ChemeleonModel
+   from admet.model.config import ChemeleonModelParams
+
+   params = ChemeleonModelParams(
+       smiles_col="SMILES",
+       target_cols=["LogD"],
+       ffn_type="regression",  # or "mixture_of_experts", "branched"
+       ffn_hidden_dim=128,
+       ffn_n_layers=2,
+       dropout=0.1,
+   )
+   model = ChemeleonModel(params)
+   model.fit(train_df)
+
+**FFN Architecture Options:**
+
+CheMeleon supports the same FFN architectures as Chemprop:
+
+- ``regression``: Standard feedforward network (default)
+- ``mixture_of_experts``: Multiple specialized sub-networks with learned gating
+- ``branched``: Shared trunk with task-specific branches for multi-task learning
+
+.. code-block:: yaml
+
+   # Example: Mixture of Experts for multi-task
+   ffn_type: mixture_of_experts
+   n_experts: 4
+   ffn_hidden_dim: 256
+   ffn_n_layers: 3
+
+**HPO Support:**
+
+CheMeleon includes hyperparameter optimization via Ray Tune:
+
+.. code-block:: python
+
+   from admet.model.chemeleon import ChemeleonHPO
+   from admet.model.chemeleon.hpo_config import ChemeleonHPOConfig
+
+   config = ChemeleonHPOConfig(
+       train_data_path="data/train.csv",
+       num_samples=50,
+       max_epochs=100,
+   )
+   hpo = ChemeleonHPO(config)
+   best_config, results = hpo.run()
+
+For FFN-specific parameters during HPO, set ``tune_ffn_type=True`` in the search
+space configuration to explore all architecture variants.
+
 Classical ML Models
 -------------------
 

@@ -279,16 +279,26 @@ class ChemeleonModelParams:
     Parameters:
         checkpoint_path: Path to pretrained checkpoint or "auto" for download.
         unfreeze_schedule: Gradual unfreezing configuration.
+        ffn_type: FFN architecture type ('regression', 'mixture_of_experts', 'branched').
         ffn_hidden_dim: Hidden dimension for FFN layers.
         ffn_num_layers: Number of FFN layers.
         dropout: Dropout probability.
+        batch_norm: Whether to use batch normalization.
+        n_experts: Number of experts for MoE architecture (only used when ffn_type='mixture_of_experts').
+        trunk_n_layers: Number of trunk layers for branched architecture (only used when ffn_type='branched').
+        trunk_hidden_dim: Hidden dimension for trunk in branched architecture.
     """
 
     checkpoint_path: str = "auto"
     unfreeze_schedule: UnfreezeScheduleConfig = field(default_factory=UnfreezeScheduleConfig)
+    ffn_type: str = "regression"
     ffn_hidden_dim: int = 300
     ffn_num_layers: int = 2
     dropout: float = 0.0
+    batch_norm: bool = False
+    n_experts: int | None = None
+    trunk_n_layers: int | None = None
+    trunk_hidden_dim: int | None = None
 
 
 # ============================================================================
