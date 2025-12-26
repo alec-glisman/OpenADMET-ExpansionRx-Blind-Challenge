@@ -69,14 +69,14 @@ Or programmatically:
 .. code-block:: python
 
    from omegaconf import OmegaConf
-   from admet.model.chemprop import ChempropEnsemble, EnsembleConfig
+   from admet.model.chemprop import ModelEnsemble, EnsembleConfig
 
    config = OmegaConf.merge(
        OmegaConf.structured(EnsembleConfig),
        OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
    )
 
-   ensemble = ChempropEnsemble.from_config(config)
+   ensemble = ModelEnsemble.from_config(config)
    ensemble.train_all()
 
 **Hyperparameter Optimization**

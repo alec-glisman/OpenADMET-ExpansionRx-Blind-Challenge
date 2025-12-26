@@ -242,6 +242,11 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
                 - seed: Random seed
                     - report_every_n_epochs: Epoch cadence for Ray reports (default: 5)
     """
+    import time
+
+    # Stagger trial starts to avoid race conditions when multiple trials load datasets simultaneously
+    time.sleep(1)
+
     # Extract fixed parameters
     data_path = config.get("data_path")
     val_data_path = config.get("val_data_path")

@@ -18,7 +18,7 @@ Examples
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from omegaconf import MISSING
 
@@ -214,7 +214,17 @@ class CurriculumConfig:
     - warmup: Focus on high-quality data
     - expand: Gradually include medium-quality data
     - robust: Include low-quality data for robustness
-    - polish: Return focus to high-quality data
+    - polish: Return focus to high-quality data (but maintain some diversity)
+
+    Count Normalization
+    -------------------
+    When `count_normalize=True` (default), the phase proportions represent the
+    actual fraction of training samples you want from each quality level,
+    regardless of dataset sizes. This compensates for imbalanced datasets.
+
+    For example, with High=5k, Medium=100k, Low=15k samples:
+    - warmup_proportions: [0.8, 0.15, 0.05] means 80% of batches contain
+      high-quality samples, even though high-quality is only 4% of raw data.
 
     Parameters
     ----------
@@ -243,6 +253,29 @@ class CurriculumConfig:
     log_per_quality_metrics : bool, default=True
         Whether to log per-quality validation metrics (e.g., val_loss_high,
         val_loss_medium) in addition to overall metrics.
+    count_normalize : bool, default=True
+        If True, interpret weights as target proportions and automatically
+        adjust for dataset size imbalance. If False, apply weights directly
+        to samples (legacy behavior where larger datasets dominate).
+    min_high_quality_proportion : float, default=0.25
+        Minimum proportion of high-quality data in any phase. Acts as a safety
+        floor to prevent catastrophic forgetting of high-quality patterns.
+    warmup_proportions : List[float], optional
+        Target proportions for warmup phase [high, medium, low].
+        Default: [0.80, 0.15, 0.05] for 3 qualities.
+    expand_proportions : List[float], optional
+        Target proportions for expand phase [high, medium, low].
+        Default: [0.60, 0.30, 0.10] for 3 qualities.
+    robust_proportions : List[float], optional
+        Target proportions for robust phase [high, medium, low].
+        Default: [0.50, 0.35, 0.15] for 3 qualities.
+    polish_proportions : List[float], optional
+        Target proportions for polish phase [high, medium, low].
+        Default: [0.70, 0.20, 0.10] for 3 qualities.
+    phase_weights_two_quality : Dict[str, List[float]], optional
+        Custom phase weights for 2 quality levels. If None, uses defaults.
+    phase_weights_three_quality : Dict[str, List[float]], optional
+        Custom phase weights for 3 quality levels. If None, uses defaults.
     """
 
     enabled: bool = False
@@ -255,6 +288,34 @@ class CurriculumConfig:
     strategy: str = "sampled"
     reset_early_stopping_on_phase_change: bool = False
     log_per_quality_metrics: bool = True
+    phase_weights_two_quality: Optional[Dict[str, List[float]]] = None
+    phase_weights_three_quality: Optional[Dict[str, List[float]]] = None
+
+    # Count normalization settings
+    count_normalize: bool = True
+    min_high_quality_proportion: float = 0.25
+
+    # HPO-friendly target proportions for each phase (when count_normalize=True)
+    # These are the actual proportions of training samples you want from each quality
+    warmup_proportions: Optional[List[float]] = None
+    expand_proportions: Optional[List[float]] = None
+    robust_proportions: Optional[List[float]] = None
+    polish_proportions: Optional[List[float]] = None
+
+    # Metric alignment: monitor high-quality metrics for curriculum and early stopping
+    # Examples: "val/mae/high", "val_loss", "val/rmse/high"
+    monitor_metric: str = "val_loss"
+    early_stopping_metric: Optional[str] = None  # If None, uses monitor_metric
+
+    # Adaptive curriculum: auto-adjust proportions based on per-quality performance
+    adaptive_enabled: bool = False
+    adaptive_improvement_threshold: float = 0.02  # 2% relative improvement required
+    adaptive_max_adjustment: float = 0.1  # Max 10% adjustment per phase transition
+    adaptive_lookback_epochs: int = 5  # Compare current vs N epochs ago
+
+    # Loss weighting: scale gradients by quality level
+    loss_weighting_enabled: bool = False
+    loss_weights: Optional[Dict[str, float]] = None  # e.g., {"high": 1.0, "medium": 0.5, "low": 0.3}
 
 
 @dataclass
@@ -619,7 +680,7 @@ class EnsembleConfig:
     ...     OmegaConf.structured(EnsembleConfig),
     ...     OmegaConf.load("ensemble_config.yaml")
     ... )
-    >>> ensemble = ChempropEnsemble.from_config(config)
+    >>> ensemble = ModelEnsemble.from_config(config)
     >>> ensemble.train_all()
     """
 

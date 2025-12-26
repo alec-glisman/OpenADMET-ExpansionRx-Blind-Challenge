@@ -27,15 +27,17 @@ data:
   - 1.0
   - 1.0
 model:
-  depth: 5
-  message_hidden_dim: 1200
-  aggregation: norm
-  ffn_type: moe
-  num_layers: 1
-  hidden_dim: 500
-  n_experts: 4
-  dropout: 0.0
-  batch_norm: true
+  type: chemprop
+  chemprop:
+    depth: 5
+    message_hidden_dim: 1200
+    aggregation: norm
+    ffn_type: moe
+    num_layers: 1
+    hidden_dim: 500
+    n_experts: 4
+    dropout: 0.0
+    batch_norm: true
 optimization:
   criterion: MAE
   init_lr: 0.0006

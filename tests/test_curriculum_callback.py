@@ -33,9 +33,9 @@ def test_curriculum_state_weights_and_phases():
     state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
     # Initial phase is warmup
     assert state.phase == "warmup"
-    # Warmup weights
+    # Warmup weights - new defaults [0.80, 0.15, 0.05]
     w = state.sampling_probs()
-    assert abs(w["high"] - 0.9) < 1e-6
+    assert abs(w["high"] - 0.80) < 1e-6
 
     # Simulate improvement and advancement
     state.update_from_val_top(epoch=0, top_loss=0.5)
@@ -67,9 +67,9 @@ def test_curriculum_callback_updates_phase_and_logs(caplog):
     state.best_epoch = 0  # previously best at epoch 0
     cb.on_validation_epoch_end(trainer, pl_module)
 
-    # If advanced, curriculum_phase logged to module
+    # If advanced, curriculum/phase logged to module (hierarchical naming)
     if state.phase != cb._previous_phase:
-        assert "curriculum_phase" in pl_module.logged
+        assert "curriculum/phase" in pl_module.logged
 
 
 def test_callback_ignores_nan_values():

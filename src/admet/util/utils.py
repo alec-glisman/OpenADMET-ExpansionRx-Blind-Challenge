@@ -125,7 +125,7 @@ def parse_data_dir_params(data_dir: Union[str, Path]) -> dict[str, Optional[str]
         Dictionary containing parsed parameters:
         - split_type: Type of data split (e.g., "train_val", "train_val_local_test")
         - version: Version string (e.g., "v3")
-        - quality: Quality level (e.g., "high", "all_quality")
+        - quality: Quality level (e.g., "high", "quality_high_medium_low")
         - cluster_method: Clustering method (e.g., "bitbirch", "random")
         - split_method: Split method (e.g., "multilabel_stratified_kfold")
         - split: Split index as string (e.g., "0")

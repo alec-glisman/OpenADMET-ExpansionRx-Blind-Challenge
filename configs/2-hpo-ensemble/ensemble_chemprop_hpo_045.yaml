@@ -27,14 +27,16 @@ data:
   - 1.0
   - 1.0
 model:
-  depth: 7
-  message_hidden_dim: 400
-  aggregation: norm
-  ffn_type: regression
-  num_layers: 4
-  hidden_dim: 200
-  dropout: 0.05
-  batch_norm: true
+  type: chemprop
+  chemprop:
+    depth: 7
+    message_hidden_dim: 400
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.05
+    batch_norm: true
 optimization:
   criterion: MAE
   init_lr: 0.00182

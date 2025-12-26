@@ -60,7 +60,7 @@ chemprop.yaml
       num_layers: 2
       hidden_dim: 600
       ffn_type: "regression"
-    
+
     optimization:
       epochs: 100
       batch_size: 64
@@ -135,7 +135,7 @@ chemprop_task_affinity_advanced.yaml
       affinity_epochs: 2
       affinity_batch_size: 32
       affinity_lr: 0.0005
-    
+
     model:
       depth: 6
       message_hidden_dim: 800
@@ -177,7 +177,7 @@ chemprop_task_affinity_explore.yaml
       enabled: true
       n_groups: 3  # Override via CLI
       affinity_epochs: 2
-    
+
     optimization:
       epochs: 30  # Short for exploration
 
@@ -212,7 +212,7 @@ task_affinity_compute.yaml
       affinity_epochs: 2
       n_groups: 3
       log_affinity_matrix: true
-    
+
     output:
       affinity_matrix_path: "results/task_affinity_matrix.npz"
       heatmap_path: "results/task_affinity_heatmap.png"
@@ -250,7 +250,7 @@ ensemble_chemprop_1.yaml
       data_dir: "assets/dataset/splits/data"
       splits: null  # null = use all
       folds: null   # null = use all
-    
+
     # max_parallel set via CLI or in config
 
 ensemble_chemprop_2.yaml, ensemble_chemprop_3.yaml
@@ -290,26 +290,39 @@ chemprop_curriculum.yaml
 **Key features**:
 
 - Curriculum learning based on data quality
-- Pacing function to control difficulty progression
-- Quality-based sample weighting
-- Same base architecture as standard config
+- Count-normalized sampling for imbalanced datasets
+- Phase-based progression (warmup → expand → robust → polish)
+- HPO-friendly per-phase proportion parameters
+- Quality-based sample weighting with adjustable proportions
 
 **Usage**:
 
 .. code-block:: bash
 
-    python -m admet.model.chemprop.model --config configs/chemprop_curriculum.yaml
+    python -m admet.model.chemprop.model --config configs/curriculum/chemprop_curriculum.yaml
 
 **Key parameters**:
 
 .. code-block:: yaml
 
-    curriculum:
+    joint_sampling:
       enabled: true
-      pacing_function: "linear"
-      quality_column: "Quality"
-      start_epoch: 0
-      end_epoch: 50
+      curriculum:
+        enabled: true
+        quality_col: "Quality"
+        qualities: ["high", "medium", "low"]
+        patience: 5
+        strategy: "sampled"
+
+        # Count normalization (recommended for imbalanced datasets)
+        count_normalize: true
+        min_high_quality_proportion: 0.25
+
+        # HPO-friendly phase proportions (optional overrides)
+        # warmup_proportions: [0.80, 0.15, 0.05]
+        # expand_proportions: [0.60, 0.30, 0.10]
+        # robust_proportions: [0.50, 0.35, 0.15]
+        # polish_proportions: [0.70, 0.20, 0.10]
 
 **See also**: :doc:`curriculum` for detailed documentation.
 
@@ -323,6 +336,7 @@ ensemble_curriculum.yaml
 **Key features**:
 
 - Curriculum learning across all ensemble members
+- Count-normalized sampling for consistent quality proportions
 - Consistent pacing across splits/folds
 - Ensemble predictions after curriculum training
 
@@ -366,7 +380,7 @@ hpo_chemprop.yaml
       reduction_factor: 3
       metric: "val_loss"
       mode: "min"
-    
+
     search_space:
       depth: [3, 4, 5, 6]
       message_hidden_dim: [300, 400, 600, 800]
@@ -390,24 +404,24 @@ Controls data loading, column mapping, and file paths.
     data:
       # Single model
       data_dir: "path/to/train_val"  # Contains train.csv, val.csv
-      
+
       # OR Ensemble
       data_dir: "path/to/splits"     # Contains split_*/fold_*/
       splits: null                    # null = all, or [0, 1, 2]
       folds: null                     # null = all, or [0, 1, 2, 3, 4]
-      
+
       # Common
       test_file: "path/to/test.csv"
       blind_file: "path/to/blind.csv"
       output_dir: null                # null = temp directory
-      
+
       # Columns
       smiles_col: "SMILES"
       target_cols:
         - "LogD"
         - "Log KSOL"
         # ... more targets
-      
+
       # Optional per-target weights
       target_weights:
         - 1.0
@@ -426,17 +440,17 @@ Defines model architecture parameters.
       depth: 5                    # Message passing iterations
       message_hidden_dim: 600     # MPNN hidden size
       batch_norm: true            # Batch normalization
-      
+
       # Feed-Forward Network
       ffn_type: "regression"      # "regression", "mixture_of_experts", "branched"
       num_layers: 2               # FFN layers
       hidden_dim: 600             # FFN hidden size
       dropout: 0.1                # Dropout probability
-      
+
       # Branched FFN (when ffn_type="branched")
       trunk_n_layers: 2
       trunk_hidden_dim: 600
-      
+
       # Mixture of Experts (when ffn_type="mixture_of_experts")
       n_experts: 4
 
@@ -450,23 +464,23 @@ Training hyperparameters and learning rate schedule.
     optimization:
       # Loss and metrics
       criterion: "MSE"            # "MAE", "MSE", "RMSE"
-      
+
       # Training duration
       epochs: 100
       batch_size: 64
-      
+
       # Learning rate
       learning_rate: 0.001
       scheduler: "cosine"         # "constant", "cosine", "exponential", "step"
       warmup_epochs: 5
       max_lr: 0.001
       final_lr: 0.0001
-      
+
       # Optimizer
       optimizer: "Adam"
       weight_decay: 0.0
       gradient_clip: null         # null or float (e.g., 1.0)
-      
+
       # Early stopping
       patience: 20
       min_delta: 0.0001
@@ -480,20 +494,20 @@ Task grouping for improved multi-task learning (optional).
 
     task_affinity:
       enabled: false              # Set to true to enable
-      
+
       # Grouping
       n_groups: 3
       clustering_method: "agglomerative"  # "agglomerative" or "spectral"
-      
+
       # Affinity computation
       affinity_epochs: 1
       affinity_batch_size: 64
       affinity_lr: 0.001
-      
+
       # Scoring
       affinity_type: "cosine"     # "cosine" or "dot_product"
       normalize_gradients: true
-      
+
       # Advanced
       encoder_param_patterns: []
       device: "auto"
@@ -503,26 +517,42 @@ Task grouping for improved multi-task learning (optional).
 Curriculum Learning Section
 ----------------------------
 
-Gradual learning based on sample difficulty (optional).
+Quality-aware curriculum learning with count-normalized sampling.
 
 .. code-block:: yaml
 
-    curriculum:
-      enabled: false              # Set to true to enable
-      
-      # Pacing
-      pacing_function: "linear"   # "linear", "exponential", "step"
-      start_epoch: 0
-      end_epoch: 50
-      
-      # Data
-      quality_column: "Quality"
-      sort_ascending: true        # true = easy to hard
-      
-      # Weighting
-      use_sample_weights: true
-      min_weight: 0.1
-      max_weight: 1.0
+    joint_sampling:
+      enabled: true
+      curriculum:
+        enabled: false              # Set to true to enable
+
+        # Quality configuration
+        quality_col: "Quality"
+        qualities:                  # Ordered highest to lowest
+          - "high"
+          - "medium"
+          - "low"
+
+        # Phase transitions
+        patience: 5                 # Epochs without improvement before advancing
+        strategy: "sampled"         # "sampled" or "weighted"
+        reset_early_stopping_on_phase_change: false
+
+        # Count normalization (recommended for imbalanced datasets)
+        count_normalize: true       # Adjust for dataset size imbalance
+        min_high_quality_proportion: 0.25  # Safety floor
+
+        # HPO-friendly phase proportions (optional overrides)
+        # Default proportions: warmup=[0.80, 0.15, 0.05], expand=[0.60, 0.30, 0.10],
+        #                      robust=[0.50, 0.35, 0.15], polish=[0.70, 0.20, 0.10]
+        # warmup_proportions: [0.80, 0.15, 0.05]
+        # expand_proportions: [0.60, 0.30, 0.10]
+        # robust_proportions: [0.50, 0.35, 0.15]
+        # polish_proportions: [0.70, 0.20, 0.10]
+
+        # Logging
+        log_per_quality_metrics: true
+        seed: 42
 
 MLflow Section
 --------------
@@ -536,12 +566,12 @@ Experiment tracking configuration.
       experiment_name: "chemprop_experiment"
       run_name: null              # Auto-generated if null
       tracking_uri: "mlruns"      # Local or "http://host:port"
-      
+
       # Logging
       log_models: true
       log_plots: true
       log_frequency: 10           # Log every N batches
-      
+
       # Ensemble-specific
       nested: true                # Use nested runs for ensemble
 
@@ -554,10 +584,10 @@ Hardware and reproducibility settings.
 
     # Device
     device: "auto"                # "auto", "cpu", "cuda", "cuda:N"
-    
+
     # Reproducibility
     seed: 42
-    
+
     # Logging
     log_level: "INFO"             # "DEBUG", "INFO", "WARNING", "ERROR"
     log_frequency: 10
@@ -574,13 +604,13 @@ Loading Configurations
 
     from omegaconf import OmegaConf
     from admet.model.chemprop import ChempropConfig, ChempropModel
-    
+
     # Load config
     config = OmegaConf.merge(
         OmegaConf.structured(ChempropConfig),
         OmegaConf.load("configs/chemprop.yaml")
     )
-    
+
     # Use config
     model = ChempropModel.from_config(config)
 
@@ -620,11 +650,11 @@ Merging Multiple Configs
 .. code-block:: python
 
     from omegaconf import OmegaConf
-    
+
     # Load base and override configs
     base = OmegaConf.load("configs/chemprop.yaml")
     override = OmegaConf.load("configs/my_overrides.yaml")
-    
+
     # Merge (override takes precedence)
     config = OmegaConf.merge(base, override)
 

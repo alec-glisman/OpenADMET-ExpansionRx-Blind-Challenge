@@ -36,7 +36,7 @@ Key Classes
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: admet.model.chemprop.ChempropEnsemble
+.. autoclass:: admet.model.chemprop.ModelEnsemble
    :members:
    :undoc-members:
    :show-inheritance:

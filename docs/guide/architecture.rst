@@ -54,7 +54,7 @@ Modeling Layer
 ^^^^^^^^^^^^^^
 
 - ``admet.model.chemprop.model``: ``ChempropModel`` class for single model training
-- ``admet.model.chemprop.ensemble``: ``ChempropEnsemble`` for multi-fold training
+- ``admet.model.chemprop.ensemble``: ``ModelEnsemble`` for multi-fold training
 - ``admet.model.chemprop.hpo``: ``ChempropHPO`` for hyperparameter optimization
 - ``admet.model.chemprop.curriculum``: Curriculum learning with quality awareness
 - ``admet.model.chemprop.ffn``: Custom FFN architectures (MoE, Branched)

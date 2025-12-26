@@ -7,34 +7,36 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 model:
-  depth: 3
-  message_hidden_dim: 700
-  aggregation: norm
-  ffn_type: regression
-  num_layers: 4
-  hidden_dim: 200
-  dropout: 0.15
-  batch_norm: true
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
 optimization:
   criterion: MAE
   init_lr: 0.00113
@@ -50,7 +52,7 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: production_ensemble_chemprop_hpo_topk
+  experiment_name: test_performance
   run_name: rank_001
   nested: true
 inter_task_affinity:
@@ -62,11 +64,11 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
 joint_sampling:
   enabled: true
@@ -76,9 +78,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     strategy: sampled
     reset_early_stopping_on_phase_change: false

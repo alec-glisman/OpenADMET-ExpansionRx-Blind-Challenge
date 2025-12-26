@@ -7,34 +7,36 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 model:
-  depth: 4
-  message_hidden_dim: 200
-  aggregation: norm
-  ffn_type: regression
-  num_layers: 2
-  hidden_dim: 100
-  dropout: 0.0
-  batch_norm: true
+  type: chemprop
+  chemprop:
+    depth: 4
+    message_hidden_dim: 200
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 2
+    hidden_dim: 100
+    dropout: 0.0
+    batch_norm: true
 optimization:
   criterion: MAE
   init_lr: 1.04e-05
@@ -66,13 +68,13 @@ inter_task_affinity:
   clustering_linkage: average
   shared_param_patterns: []
   exclude_param_patterns:
-  - predictor
-  - output
-  - head
+    - predictor
+    - output
+    - head
   log_to_mlflow: true
   save_plots: true
   plot_formats:
-  - png
+    - png
   plot_dpi: 150
 joint_sampling:
   enabled: true
@@ -82,9 +84,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     strategy: sampled
     reset_early_stopping_on_phase_change: false

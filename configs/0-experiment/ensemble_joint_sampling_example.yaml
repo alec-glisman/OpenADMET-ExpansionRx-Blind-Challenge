@@ -2,23 +2,25 @@ data:
   data_dir: assets/dataset/splits/quality_stratified_v1/split_0/fold_0
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
   target_weights: []
   output_dir: outputs/joint_sampling_example
 model:
-  depth: 5
-  message_hidden_dim: 600
-  dropout: 0.1
-  num_layers: 2
-  hidden_dim: 600
-  batch_norm: true
-  ffn_type: regression
-  trunk_n_layers: 2
-  trunk_hidden_dim: 600
-  n_experts: 4
-  aggregation: mean
+  type: chemprop
+  chemprop:
+    depth: 5
+    message_hidden_dim: 600
+    dropout: 0.1
+    num_layers: 2
+    hidden_dim: 600
+    batch_norm: true
+    ffn_type: regression
+    trunk_n_layers: 2
+    trunk_hidden_dim: 600
+    n_experts: 4
+    aggregation: mean
 optimization:
   criterion: MAE
   init_lr: 0.0001
@@ -47,9 +49,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     seed: 42
     save_plots: false
@@ -80,11 +82,11 @@ inter_task_affinity:
   use_optimizer_lr: true
   shared_param_patterns: []
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   n_groups: null
   clustering_method: agglomerative
   clustering_linkage: average
@@ -92,5 +94,5 @@ inter_task_affinity:
   log_to_mlflow: true
   save_plots: false
   plot_formats:
-  - png
+    - png
   plot_dpi: 150

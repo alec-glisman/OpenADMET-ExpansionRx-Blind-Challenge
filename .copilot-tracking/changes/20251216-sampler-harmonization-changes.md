@@ -26,35 +26,42 @@ Successfully integrated task-aware and curriculum-aware sampling into a unified 
 ## Implementation Status
 
 ### ✅ Phase 1: Configuration Schema - COMPLETED
+
 - Created TaskOversamplingConfig and JointSamplingConfig dataclasses
 - Updated ChempropConfig and EnsembleConfig
 
 ### ✅ Phase 2: JointSampler Implementation - COMPLETED
+
 - Multiplicative weight composition
 - Rarest task selection for multi-label samples
 - Dynamic weight recomputation
 - Weight statistics logging
 
 ### ✅ Phase 3: Model Integration - COMPLETED
+
 - Added joint_sampling_config parameter
 - Updated _prepare_dataloaders() with priority order
 - Maintained backward compatibility
 
 ### ✅ Phase 4: Testing - COMPLETED
+
 - 20+ tests covering all scenarios
 - Task-only, curriculum-only, and combined tests
 - Edge case and error handling tests
 
 ### ✅ Phase 5: Documentation - COMPLETED
+
 - Example YAML config with annotations
 - Comprehensive docstrings
 - Migration guide
 
 ### 🔄 Phase 6: HPO Integration and MLflow - PARTIAL
+
 - ✅ Weight statistics logging implemented
 - ⏸️ HPO search space integration deferred
 
 ### ✅ Phase 7: Configuration Migration - COMPLETED
+
 - Automated migration script created
 - Example config migrated
 - Batch migration available via script
@@ -62,6 +69,7 @@ Successfully integrated task-aware and curriculum-aware sampling into a unified 
 ## Key Features
 
 ### Multiplicative Weight Composition
+
 ```
 w_joint[i] = w_task[i] × w_curriculum[i]
 
@@ -73,15 +81,23 @@ where:
 
 ### Per-Quality Metrics
 
-Curriculum learning tracks metrics separately for each quality level:
+Curriculum learning tracks metrics separately for each quality level with hierarchical MLflow naming:
 
 **During Training:**
-- `val_mae_high`, `val_rmse_high`, `val_loss_high`
-- `val_mae_medium`, `val_rmse_medium`, `val_loss_medium`
-- `val_mae_low`, `val_rmse_low`, `val_loss_low`
+
+- `val/<quality>/<metric>`: e.g., `val/high/mae`, `val/medium/rmse`, `val/low/loss`
+
+**Curriculum State Metrics:**
+
+- `curriculum/phase`: Numeric phase indicator (0=warmup, 1=expand, 2=robust, 3=polish)
+- `curriculum/phase_epoch`: Epoch when phase transition occurred
+- `curriculum/val_loss_at_transition`: Validation loss at transition
+- `curriculum/transition`: Phase transition marker for training curves
+- `curriculum/weight/<quality>`: Sampling weights per quality level
 
 **Post-Training:**
-- Comprehensive correlation metrics per quality
+
+- Comprehensive correlation metrics per quality: `val/<quality>/<target>/<metric>`
 - CSV artifacts logged to MLflow
 
 ### Backward Compatibility
@@ -93,6 +109,7 @@ Curriculum learning tracks metrics separately for each quality level:
 ## Usage Examples
 
 **Task Oversampling Only:**
+
 ```yaml
 joint_sampling:
   enabled: true
@@ -103,6 +120,7 @@ joint_sampling:
 ```
 
 **Both Strategies Combined:**
+
 ```yaml
 joint_sampling:
   enabled: true

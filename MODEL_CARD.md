@@ -42,7 +42,7 @@ flowchart LR
 | Task Sampling | α-weighted oversampling of sparse endpoints | ✅ Used |
 | FFN Variants | MLP, MoE, Branched architectures explored | ✅ Evaluated |
 | Supplementary Data | KERMT, PharmaBench integration | 🔮 Future |
-| Curriculum Learning | Quality-aware phased training | 🔮 Future |
+| Curriculum Learning | Quality-aware phased training | ✅ Implemented |
 
 ### Training Performance
 
@@ -443,7 +443,7 @@ All three correlation metrics range from -1 (perfect negative correlation) to +1
 | Feature | Description | Status |
 |---------|-------------|--------|
 | Supplementary Data | KERMT, PharmaBench integration with harmonization | 🔮 Planned |
-| Curriculum Learning | Quality-aware phased training | 🔮 Implemented, disabled |
+| Curriculum Learning | Quality-aware count-normalized sampling | ✅ Implemented, needs validation |
 | Alternative Models | XGBoost, LightGBM, CheMeleon ensemble | 🔮 Planned |
 | Uncertainty | Conformal prediction, Bayesian methods | 🔮 Planned |
 | Task Weights | HPO-optimized per-endpoint loss weights (currently uniform) | 🔮 Planned |

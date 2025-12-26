@@ -46,9 +46,9 @@ def test_curriculum_state_weights_for_phases():
     weights_expand = state._weights_for_phase("expand")
     assert weights_expand["high"] > weights_expand["medium"]
 
-    # Polish returns high-only
+    # Polish maintains diversity with new defaults: [0.75, 0.25]
     weights_polish = state._weights_for_phase("polish")
-    assert weights_polish["high"] == 1.0 and weights_polish["medium"] == 0.0
+    assert weights_polish["high"] == 0.75 and weights_polish["medium"] == 0.25
 
 
 def test_curriculum_state_single_quality():
@@ -80,9 +80,9 @@ def test_curriculum_callback_logs(caplog):
     # on validation end should update and advance; with patience=0 it should move immediately
     cb.on_validation_epoch_end(trainer, pl_module)
 
-    # Ensure the module logged phase and epoch
-    assert "curriculum_phase" in pl_module.logged
-    assert "curriculum_phase_epoch" in pl_module.logged
+    # Ensure the module logged phase and epoch with hierarchical naming
+    assert "curriculum/phase" in pl_module.logged
+    assert "curriculum/phase_epoch" in pl_module.logged
 
     # Now simulate a transition by changing val_loss and epoch large enough
     prev_phase = state.phase

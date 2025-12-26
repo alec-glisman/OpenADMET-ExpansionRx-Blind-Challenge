@@ -72,6 +72,7 @@ from admet.plot.split import (
     plot_train_cluster_size_boxplots,
     plot_train_val_dataset_sizes,
 )
+from admet.util.logging import configure_logging
 from bitbirch.bitbirch import bitbirch as bb
 
 # -------------------------------------------------------------------
@@ -1296,9 +1297,9 @@ def example_default_pipeline(
 
 
 if __name__ == "__main__":
-    LOGGER.info("split.py invoked as main; running example_default_pipeline via argparse CLI")
     args = parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level))
+    configure_logging(level=args.log_level)
+    LOGGER.info("split.py invoked as main; running example_default_pipeline via argparse CLI")
     example_default_pipeline(
         args.input,
         args.output,

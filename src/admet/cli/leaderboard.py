@@ -11,12 +11,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from admet.leaderboard import LeaderboardClient, LeaderboardConfig, find_user_rank
-from admet.leaderboard.report import (
-    ResultsData,
-    generate_markdown_report,
-    save_csv_data,
-    save_summary_statistics,
-)
+from admet.leaderboard.report import ResultsData, generate_markdown_report, save_csv_data, save_summary_statistics
 from admet.plot.leaderboard import generate_all_plots
 from admet.util.logging import configure_logging
 
@@ -27,6 +22,7 @@ leaderboard_app = typer.Typer(
     name="leaderboard",
     help="Scrape and analyze leaderboard data",
     no_args_is_help=True,
+    pretty_exceptions_enable=False,
 )
 
 

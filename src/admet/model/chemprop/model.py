@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import mlflow
 import mlflow.data
+import mlflow.entities
 import mlflow.pytorch
 import numpy as np
 import pandas as pd
@@ -70,12 +71,18 @@ from admet.model.chemprop.config import (
     OptimizationConfig,
     TaskAffinityConfig,
 )
-from admet.model.chemprop.curriculum import CurriculumCallback, CurriculumState
+from admet.model.chemprop.curriculum import (
+    CurriculumCallback,
+    CurriculumPhaseConfig,
+    CurriculumState,
+    PerQualityMetricsCallback,
+)
 from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
 from admet.model.chemprop.ffn import BranchedFFN, MixtureOfExpertsRegressionFFN
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
+from admet.util.logging import configure_logging
 
 # Module logger
 logger = logging.getLogger("admet.model.chemprop.model")
@@ -494,15 +501,19 @@ class ChempropModel:
         if joint_sampling_config is not None and joint_sampling_config.enabled:
             if joint_sampling_config.curriculum.enabled:
                 if self.curriculum_state is None:
+                    phase_config = self._build_phase_config(joint_sampling_config.curriculum)
                     self.curriculum_state = CurriculumState(
                         qualities=list(joint_sampling_config.curriculum.qualities),
                         patience=joint_sampling_config.curriculum.patience,
+                        config=phase_config,
                     )
         elif self.curriculum_config is not None and self.curriculum_config.enabled:
             if self.curriculum_state is None:
+                phase_config = self._build_phase_config(self.curriculum_config)
                 self.curriculum_state = CurriculumState(
                     qualities=list(self.curriculum_config.qualities),
                     patience=self.curriculum_config.patience,
+                    config=phase_config,
                 )
 
         # Task affinity configuration (legacy pre-training approach)
@@ -578,9 +589,73 @@ class ChempropModel:
         self.scaler: Any = None
         self.transform: Any = None
 
+        # Joint sampler reference for MLflow stats callback
+        self._joint_sampler: Optional[JointSampler] = None
+
         self._prepare_dataloaders()
         self._prepare_model()
         self._prepare_trainer()
+
+    def _build_phase_config(self, curriculum_config: CurriculumConfig) -> CurriculumPhaseConfig:
+        """Build CurriculumPhaseConfig from CurriculumConfig.
+
+        Converts the YAML-friendly CurriculumConfig into the internal
+        CurriculumPhaseConfig format, handling HPO-friendly per-phase
+        proportions and count normalization settings.
+
+        Parameters
+        ----------
+        curriculum_config : CurriculumConfig
+            Configuration from YAML containing curriculum settings.
+
+        Returns
+        -------
+        CurriculumPhaseConfig
+            Phase config with weights/proportions and normalization settings.
+        """
+        n_qualities = len(curriculum_config.qualities)
+
+        phase_config = CurriculumPhaseConfig(
+            count_normalize=curriculum_config.count_normalize,
+            min_high_quality_proportion=curriculum_config.min_high_quality_proportion,
+        )
+
+        # Build phase weights from HPO-friendly proportions if provided
+        if n_qualities == 2:
+            if curriculum_config.phase_weights_two_quality is not None:
+                phase_config.two_quality = curriculum_config.phase_weights_two_quality
+            else:
+                # Build from per-phase proportions if provided
+                custom_weights = {}
+                if curriculum_config.warmup_proportions is not None:
+                    custom_weights["warmup"] = curriculum_config.warmup_proportions
+                if curriculum_config.expand_proportions is not None:
+                    custom_weights["expand"] = curriculum_config.expand_proportions
+                if curriculum_config.polish_proportions is not None:
+                    custom_weights["polish"] = curriculum_config.polish_proportions
+                if custom_weights:
+                    # Merge with defaults
+                    phase_config.two_quality = {**phase_config.two_quality, **custom_weights}
+
+        elif n_qualities == 3:
+            if curriculum_config.phase_weights_three_quality is not None:
+                phase_config.three_quality = curriculum_config.phase_weights_three_quality
+            else:
+                # Build from per-phase proportions if provided
+                custom_weights = {}
+                if curriculum_config.warmup_proportions is not None:
+                    custom_weights["warmup"] = curriculum_config.warmup_proportions
+                if curriculum_config.expand_proportions is not None:
+                    custom_weights["expand"] = curriculum_config.expand_proportions
+                if curriculum_config.robust_proportions is not None:
+                    custom_weights["robust"] = curriculum_config.robust_proportions
+                if curriculum_config.polish_proportions is not None:
+                    custom_weights["polish"] = curriculum_config.polish_proportions
+                if custom_weights:
+                    # Merge with defaults
+                    phase_config.three_quality = {**phase_config.three_quality, **custom_weights}
+
+        return phase_config
 
     @classmethod
     def from_config(
@@ -814,7 +889,31 @@ class ChempropModel:
             if self.quality_col is not None and self.quality_col in df.columns:
                 self._quality_labels[split] = df[self.quality_col].tolist()
 
-            datapoints[split] = [data.MoleculeDatapoint.from_smi(smi, y) for smi, y in zip(smis, ys)]
+            # Compute per-sample loss weights based on quality (if enabled)
+            sample_weights = None
+            if (
+                split == "train"
+                and self.curriculum_config is not None
+                and self.curriculum_config.loss_weighting_enabled
+                and self.curriculum_config.loss_weights is not None
+                and self._quality_labels[split] is not None
+            ):
+                loss_weights_map = self.curriculum_config.loss_weights
+                quality_labels = self._quality_labels[split]
+                assert quality_labels is not None
+                sample_weights = [loss_weights_map.get(label, 1.0) for label in quality_labels]
+                logger.info(
+                    "Loss weighting enabled for training: weights=%s",
+                    {k: v for k, v in loss_weights_map.items()},
+                )
+
+            # Create datapoints with optional per-sample weights
+            if sample_weights is not None:
+                datapoints[split] = [
+                    data.MoleculeDatapoint.from_smi(smi, y, weight=w) for smi, y, w in zip(smis, ys, sample_weights)
+                ]
+            else:
+                datapoints[split] = [data.MoleculeDatapoint.from_smi(smi, y) for smi, y in zip(smis, ys)]
             datasets[split] = data.MoleculeDataset(datapoints[split], self.featurizer)
 
             if split == "train":
@@ -852,7 +951,17 @@ class ChempropModel:
                         increment_seed_per_epoch=self.joint_sampling_config.increment_seed_per_epoch,
                         log_weight_stats=True,  # Always log for monitoring
                     )
-                    drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                    self._joint_sampler = sampler  # Store for MLflow stats callback
+                    # Never drop last batch to preserve all samples for per-quality metrics
+                    drop_last = False
+                    # Warn if using num_workers > 0 with curriculum sampler
+                    if self.hyperparams.num_workers > 0 and curriculum_enabled:
+                        logger.warning(
+                            "Using JointSampler with num_workers=%d > 0 and curriculum enabled. "
+                            "Sampler state (epoch counter, phase) is not synchronized across workers. "
+                            "For reliable curriculum learning, set num_workers=0.",
+                            self.hyperparams.num_workers,
+                        )
                     self.dataloaders[split] = DataLoader(
                         datasets[split],
                         batch_size=self.hyperparams.batch_size,
@@ -878,8 +987,18 @@ class ChempropModel:
                     curriculum_state=self.curriculum_state,
                     num_samples=len(datasets[split]),
                     seed=seed,
+                    increment_seed_per_epoch=True,  # Vary sampling across epochs
                 )
-                drop_last = (len(datasets[split]) % self.hyperparams.batch_size) == 1
+                # Never drop last batch to preserve all samples for per-quality metrics
+                drop_last = False
+                # Warn if using num_workers > 0 with curriculum sampler
+                if self.hyperparams.num_workers > 0:
+                    logger.warning(
+                        "Using DynamicCurriculumSampler with num_workers=%d > 0. "
+                        "Sampler state (epoch counter, phase) is not synchronized across workers. "
+                        "For reliable curriculum learning, set num_workers=0.",
+                        self.hyperparams.num_workers,
+                    )
                 self.dataloaders[split] = DataLoader(
                     datasets[split],
                     batch_size=self.hyperparams.batch_size,
@@ -1003,7 +1122,18 @@ class ChempropModel:
         mlflow.set_experiment(self.mlflow_experiment_name)
 
         # Enable system metrics logging (CPU, memory, GPU, etc.)
-        mlflow.enable_system_metrics_logging()
+        # NOTE: Only enable for standalone runs, not nested runs in ensemble training.
+        # For ensemble runs, system metrics are logged to the parent run only (see
+        # ModelEnsemble._init_mlflow). This prevents database constraint violations
+        # when multiple parallel workers log metrics simultaneously to PostgreSQL.
+        if not self.mlflow_nested:
+            mlflow.enable_system_metrics_logging()
+        else:
+            # Explicitly disable for nested runs - parent run handles system metrics
+            try:
+                mlflow.disable_system_metrics_logging()
+            except Exception:
+                pass
 
         # Determine which mode to use
         if self.mlflow_run_id is not None:
@@ -1090,15 +1220,45 @@ class ChempropModel:
         """
         torch.set_float32_matmul_precision("medium")
 
+        # Determine which metric to monitor for early stopping
+        # Priority: curriculum config > default "val_loss"
+        early_stopping_monitor = "val_loss"
+        if self.curriculum_config is not None and self.curriculum_config.enabled:
+            # Use early_stopping_metric if set, otherwise fall back to monitor_metric
+            if self.curriculum_config.early_stopping_metric:
+                early_stopping_monitor = self.curriculum_config.early_stopping_metric
+            elif self.curriculum_config.monitor_metric != "val_loss":
+                early_stopping_monitor = self.curriculum_config.monitor_metric
+            logger.info("Early stopping will monitor: %s", early_stopping_monitor)
+
         earlystopping = EarlyStopping(
-            monitor="val_loss",
+            monitor=early_stopping_monitor,
             patience=self.hyperparams.patience,
             mode="min",
         )
 
+        # Simple callback to log epoch progress
+        class EpochProgressCallback(pl.Callback):
+            """Log epoch progress for visibility when progress bar is disabled."""
+
+            def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                logger.info("=" * 60)
+                logger.info("EPOCH %d/%d STARTING", trainer.current_epoch + 1, trainer.max_epochs)
+
+            def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                logger.info("EPOCH %d TRAIN COMPLETE", trainer.current_epoch + 1)
+
+            def on_validation_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                logger.info("EPOCH %d VALIDATION STARTING", trainer.current_epoch + 1)
+
+            def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                # Log current metrics
+                metrics = {k: v for k, v in trainer.callback_metrics.items() if not k.startswith("_")}
+                logger.info("EPOCH %d VALIDATION COMPLETE - metrics: %s", trainer.current_epoch + 1, metrics)
+
         # Configure logger and checkpointing based on mlflow_tracking setting
         pl_logger: MLFlowLogger | bool
-        callbacks_list: List[Any] = [earlystopping]
+        callbacks_list: List[Any] = [earlystopping, EpochProgressCallback()]
 
         if self.mlflow_tracking and self.mlflow_run_id is not None:
             # Use existing MLflow run started in _init_mlflow()
@@ -1126,8 +1286,8 @@ class ChempropModel:
                 mlflow_client=self._mlflow_client,  # type: ignore[arg-type]
                 run_id=self.mlflow_run_id,
                 dirpath=checkpoint_dir,
-                filename="best-{epoch:04}-{val_loss:.2f}",
-                monitor="val_loss",
+                filename=f"best-{{epoch:04}}-{{{early_stopping_monitor}:.2f}}",
+                monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
             )
@@ -1141,8 +1301,8 @@ class ChempropModel:
             # Standard checkpointing without MLflow
             checkpointing = ModelCheckpoint(  # type: ignore[no-redef,assignment]
                 dirpath=self.output_dir,
-                filename="best-{epoch:04}-{val_loss:.2f}",
-                monitor="val_loss",
+                filename=f"best-{{epoch:04}}-{{{early_stopping_monitor}:.2f}}",
+                monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
             )
@@ -1155,19 +1315,65 @@ class ChempropModel:
             log_per_quality = self.curriculum_config.log_per_quality_metrics if self.curriculum_config else True
             val_quality_labels = self._quality_labels.get("validation") if hasattr(self, "_quality_labels") else None
 
+            # Determine curriculum phase transition monitor metric
+            curriculum_monitor = self.curriculum_config.monitor_metric if self.curriculum_config else "val_loss"
+
             curriculum_callback = CurriculumCallback(
                 curr_state=self.curriculum_state,
-                monitor_metric="val_loss",  # Use overall validation loss
+                monitor_metric=curriculum_monitor,
                 reset_early_stopping_on_phase_change=reset_es,
                 log_per_quality_metrics=log_per_quality,
                 quality_labels=val_quality_labels,
             )
             callbacks_list.append(curriculum_callback)
             logger.info(
-                "Curriculum callback added: monitoring 'val_loss', " "reset_early_stopping=%s, log_per_quality=%s",
+                "Curriculum callback added: monitoring '%s', reset_early_stopping=%s, log_per_quality=%s",
+                curriculum_monitor,
                 reset_es,
                 log_per_quality,
             )
+
+            # Add per-quality metrics callback for training curve visibility
+            if log_per_quality and val_quality_labels is not None:
+                per_quality_callback = PerQualityMetricsCallback(
+                    val_quality_labels=val_quality_labels,
+                    qualities=self.curriculum_state.qualities,
+                    target_cols=self.target_cols,
+                )
+                callbacks_list.append(per_quality_callback)
+                logger.info(
+                    "Per-quality metrics callback added: qualities=%s, targets=%s",
+                    self.curriculum_state.qualities,
+                    self.target_cols,
+                )
+
+            # Add adaptive curriculum callback if enabled
+            if self.curriculum_config and self.curriculum_config.adaptive_enabled:
+                from admet.model.chemprop.curriculum import AdaptiveCurriculumCallback
+
+                adaptive_callback = AdaptiveCurriculumCallback(
+                    curr_state=self.curriculum_state,
+                    qualities=self.curriculum_state.qualities,
+                    improvement_threshold=self.curriculum_config.adaptive_improvement_threshold,
+                    max_adjustment=self.curriculum_config.adaptive_max_adjustment,
+                    lookback_epochs=self.curriculum_config.adaptive_lookback_epochs,
+                    min_high_quality_proportion=self.curriculum_config.min_high_quality_proportion,
+                )
+                callbacks_list.append(adaptive_callback)
+                logger.info(
+                    "Adaptive curriculum callback added: threshold=%.2f%%, max_adjust=%.2f%%, lookback=%d",
+                    self.curriculum_config.adaptive_improvement_threshold * 100,
+                    self.curriculum_config.adaptive_max_adjustment * 100,
+                    self.curriculum_config.adaptive_lookback_epochs,
+                )
+
+        # Add JointSampler stats callback for MLflow logging
+        if self._joint_sampler is not None:
+            from admet.model.chemprop.curriculum import JointSamplerStatsCallback
+
+            sampler_stats_callback = JointSamplerStatsCallback(sampler=self._joint_sampler)
+            callbacks_list.append(sampler_stats_callback)
+            logger.info("JointSampler stats callback added for MLflow logging")
 
         # Add inter-task affinity callback if enabled
         if self.inter_task_affinity_config is not None and self.inter_task_affinity_config.enabled:
@@ -1184,6 +1390,38 @@ class ChempropModel:
                 self.inter_task_affinity_config.log_every_n_steps,
             )
 
+        # Add a simple epoch logging callback for visibility when progress_bar is disabled
+        class EpochLoggingCallback(pl.Callback):
+            """Simple callback to print epoch progress when progress bar is disabled."""
+
+            def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                import sys
+
+                epoch = trainer.current_epoch + 1
+                max_epochs = trainer.max_epochs
+                print(f"\n[Epoch {epoch}/{max_epochs}] Training...", file=sys.stderr, flush=True)
+
+            def on_validation_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                import sys
+
+                epoch = trainer.current_epoch + 1
+                print(f"[Epoch {epoch}] Validating...", file=sys.stderr, flush=True)
+
+            def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+                import sys
+
+                epoch = trainer.current_epoch + 1
+                val_loss = trainer.callback_metrics.get("val_loss", None)
+                if val_loss is not None:
+                    print(f"[Epoch {epoch}] val_loss={val_loss:.4f}", file=sys.stderr, flush=True)
+                else:
+                    msg = f"[Epoch {epoch}] Validation complete (no val_loss)"
+                    print(msg, file=sys.stderr, flush=True)
+
+        if not self.progress_bar:
+            callbacks_list.append(EpochLoggingCallback())
+            logger.info("Epoch logging callback added (progress_bar disabled)")
+
         self.trainer = pl.Trainer(
             logger=pl_logger,
             enable_checkpointing=True,
@@ -1192,6 +1430,8 @@ class ChempropModel:
             devices=1,
             max_epochs=self.hyperparams.max_epochs,
             callbacks=callbacks_list,
+            log_every_n_steps=1,  # Log metrics every step for visibility
+            deterministic=True,  # Enable deterministic algorithms for reproducibility
         )
 
     def fit(self) -> bool:
@@ -1216,9 +1456,10 @@ class ChempropModel:
         bool
             True if training completed normally, False if interrupted.
         """
-        # Seed everything for reproducibility
+        # Set random seeds for reproducibility across all libraries
+        # This ensures deterministic training when the same seed is used
         pl.seed_everything(self.hyperparams.seed, workers=True)
-        logger.info("Seeded all RNGs with seed=%d for reproducibility", self.hyperparams.seed)
+        logger.info("Random seed set to %d for reproducibility", self.hyperparams.seed)
 
         # Compute task affinity before preparing model (if enabled)
         self._compute_task_affinity()
@@ -1238,6 +1479,9 @@ class ChempropModel:
         completed = False
         try:
             logger.info("Starting training...")
+            logger.info("Train dataloader: %d batches", len(self.dataloaders["train"]))
+            logger.info("Validation dataloader: %d batches", len(self.dataloaders["validation"]))
+            logger.info("Callbacks: %s", [type(cb).__name__ for cb in self.trainer.callbacks])
             self.trainer.fit(
                 self.mpnn,
                 train_dataloaders=self.dataloaders["train"],
@@ -1256,6 +1500,18 @@ class ChempropModel:
             raise e
         finally:
             logger.info("Training finished: completed=%s", completed)
+
+            # Disable system metrics logging before final artifact logging
+            # to prevent database contention issues with PostgreSQL backend
+            try:
+                mlflow.disable_system_metrics_logging()
+            except Exception:
+                pass
+
+            # Small delay to let any pending system metrics flush before we log
+            import time
+
+            time.sleep(0.1)
 
             # Log evaluation metrics and final artifacts
             if self.mlflow_tracking and self._mlflow_logger is not None:
@@ -1294,7 +1550,7 @@ class ChempropModel:
         df_train = self.dataframes.get("train")
         if df_train is not None:
             try:
-                train_preds = self.predict(df_train)
+                train_preds = self.predict(df_train, log_metrics=False)
                 self._generate_evaluation_plots(df_train, train_preds, split="train")
             except Exception as e:
                 logger.warning("Failed to generate training plots: %s", e)
@@ -1303,7 +1559,7 @@ class ChempropModel:
         df_validation = self.dataframes.get("validation")
         if df_validation is not None:
             try:
-                val_preds = self.predict(df_validation)
+                val_preds = self.predict(df_validation, log_metrics=False)
                 self._generate_evaluation_plots(df_validation, val_preds, split="validation")
             except Exception as e:
                 logger.warning("Failed to generate validation plots: %s", e)
@@ -1340,6 +1596,29 @@ class ChempropModel:
             for key, value in data_params.items():
                 if value is not None:
                     params[f"data.{key}"] = value
+
+        # Log joint sampling configuration
+        if self.joint_sampling_config is not None and self.joint_sampling_config.enabled:
+            params["joint_sampling.enabled"] = True
+            params["joint_sampling.task_alpha"] = self.joint_sampling_config.task_oversampling.alpha
+            params["joint_sampling.curriculum_enabled"] = self.joint_sampling_config.curriculum.enabled
+            if self.joint_sampling_config.curriculum.enabled:
+                params["joint_sampling.curriculum_qualities"] = str(
+                    list(self.joint_sampling_config.curriculum.qualities)
+                )
+                params["joint_sampling.curriculum_patience"] = self.joint_sampling_config.curriculum.patience
+
+        # Log curriculum configuration (legacy)
+        if self.curriculum_config is not None and self.curriculum_config.enabled:
+            params["curriculum.enabled"] = True
+            params["curriculum.qualities"] = str(list(self.curriculum_config.qualities))
+            params["curriculum.patience"] = self.curriculum_config.patience
+
+        # Log inter-task affinity configuration
+        if self.inter_task_affinity_config is not None and self.inter_task_affinity_config.enabled:
+            params["inter_task_affinity.enabled"] = True
+            params["inter_task_affinity.compute_every_n_steps"] = self.inter_task_affinity_config.compute_every_n_steps
+            params["inter_task_affinity.log_every_n_steps"] = self.inter_task_affinity_config.log_every_n_steps
 
         self._mlflow_logger.log_hyperparams(params)
 
@@ -1397,11 +1676,73 @@ class ChempropModel:
                 csv_path.unlink(missing_ok=True)
                 temp_dir.rmdir()
 
+    def _log_metrics_with_retry(
+        self, metrics: Dict[str, float], max_retries: int = 3, initial_delay: float = 0.1
+    ) -> None:
+        """
+        Log metrics to MLflow individually with retry logic for database contention.
+
+        This method logs metrics one at a time to avoid batch conflicts with
+        training metrics that may still be in MLflow's internal buffer.
+        Uses unique step values based on timestamp to avoid primary key collisions.
+
+        Parameters
+        ----------
+        metrics : Dict[str, float]
+            Dictionary of metric names to values.
+        max_retries : int
+            Maximum number of retry attempts per metric.
+        initial_delay : float
+            Initial delay in seconds before first retry (doubles each retry).
+        """
+        import random
+        import time
+
+        if not metrics or self._mlflow_client is None or self.mlflow_run_id is None:
+            return
+
+        # Use a unique step value based on current time to avoid conflicts with training metrics
+        # Training uses step=0,1,2..., we use a large offset based on timestamp
+        unique_step = int(time.time()) % 1000000  # Use seconds as step offset
+
+        failed_metrics = []
+        for key, value in metrics.items():
+            logged = False
+            for attempt in range(max_retries):
+                try:
+                    self._mlflow_client.log_metric(
+                        run_id=self.mlflow_run_id,
+                        key=key,
+                        value=float(value),
+                        step=unique_step,
+                    )
+                    logged = True
+                    break
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "duplicate" in error_str or "constraint" in error_str or "unique" in error_str:
+                        if attempt < max_retries - 1:
+                            delay = initial_delay * (2**attempt) + random.uniform(0, 0.05)
+                            time.sleep(delay)
+                            # Try with a different step value on retry
+                            unique_step += 1
+                        else:
+                            failed_metrics.append(key)
+                    else:
+                        failed_metrics.append(key)
+                        break
+
+        if failed_metrics:
+            logger.debug(
+                "Some metrics could not be logged to MLflow (saved to CSV): %s",
+                failed_metrics[:5],  # Only show first 5
+            )
+
     def _log_evaluation_metrics(self) -> None:
         """
-        Compute and log correlation metrics on validation set.
+        Compute and log correlation metrics on validation and test sets.
 
-        Generates predictions on the validation set and computes
+        Generates predictions on the validation and test sets and computes
         correlation metrics (MAE, RMSE, R2, Pearson, Spearman, Kendall)
         for each target column using the stats.correlation function.
 
@@ -1411,24 +1752,89 @@ class ChempropModel:
         if self._mlflow_client is None or self.mlflow_run_id is None:
             return
 
-        df_validation = self.dataframes.get("validation")
-        if df_validation is None:
-            return
-
-        # Generate predictions on validation set
+        # Disable system metrics logging to prevent interference during evaluation
         try:
-            preds_df = self.predict(df_validation)
+            mlflow.disable_system_metrics_logging()
+        except Exception:
+            pass
+
+        # Flush any pending async metrics to avoid conflicts with our batch logging
+        # This ensures training metrics are committed before we log evaluation metrics
+        try:
+            mlflow.flush_async_logging()
+        except Exception:
+            pass
+
+        # Small delay to ensure flushing completes
+        import time
+
+        time.sleep(0.2)
+
+        df_out = pd.DataFrame()
+
+        # Process validation set
+        df_validation = self.dataframes.get("validation")
+        if df_validation is not None:
+            df_out = self._compute_split_metrics(df_validation, "validation", df_out, log_per_quality=True)
+
+        # Process test set
+        df_test = self.dataframes.get("test")
+        if df_test is not None:
+            df_out = self._compute_split_metrics(df_test, "test", df_out, log_per_quality=False)
+
+        # Log metrics as CSV artifact
+        if not df_out.empty:
+            df_out.reset_index(drop=True, inplace=True)
+            temp_dir = Path(tempfile.mkdtemp())
+            csv_path = temp_dir / "evaluation_metrics.csv"
+            df_out.to_csv(csv_path, index=False)
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(csv_path), artifact_path="metrics")
+            csv_path.unlink(missing_ok=True)
+            temp_dir.rmdir()
+
+    def _compute_split_metrics(
+        self,
+        df_split: pd.DataFrame,
+        split_name: str,
+        df_out: pd.DataFrame,
+        log_per_quality: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Compute and log metrics for a single data split.
+
+        Parameters
+        ----------
+        df_split : pd.DataFrame
+            The dataframe for this split (validation or test).
+        split_name : str
+            Name of the split ('validation' or 'test').
+        df_out : pd.DataFrame
+            Accumulator dataframe for all metrics.
+        log_per_quality : bool
+            Whether to compute per-quality metrics (only for validation).
+
+        Returns
+        -------
+        pd.DataFrame
+            Updated accumulator with this split's metrics.
+        """
+        # Generate predictions (disable metric logging here since we log metrics ourselves)
+        try:
+            preds_df = self.predict(df_split, log_metrics=False)
         except Exception as e:
-            logger.warning("Failed to generate validation predictions: %s", e)
-            return
+            logger.warning("Failed to generate %s predictions: %s", split_name, e)
+            return df_out
+
+        # Collect metrics for batch logging to avoid database contention
+        metrics_to_log: Dict[str, float] = {}
+        all_metrics: Dict[str, List[float]] = {}  # For computing mean across targets
 
         # Compute correlation metrics for each target (overall)
-        df_out = pd.DataFrame()
         for target in self.target_cols:
-            if target not in df_validation.columns:
+            if target not in df_split.columns:
                 continue
 
-            y_true = np.asarray(df_validation[target].values)
+            y_true = np.asarray(df_split[target].values)
             y_pred = np.asarray(preds_df[target].values)
 
             # Compute correlation metrics using stats module
@@ -1438,7 +1844,7 @@ class ChempropModel:
             for metric_name, metric_value in metrics.items():
                 row = pd.DataFrame(
                     {
-                        "split": ["validation"],
+                        "split": [split_name],
                         "target": [target],
                         "quality": ["overall"],
                         "metric": [metric_name],
@@ -1447,21 +1853,60 @@ class ChempropModel:
                 )
                 df_out = pd.concat([df_out, row], ignore_index=True)
 
-        # Compute per-quality metrics if curriculum learning is enabled
+                # Collect metric for batch logging
+                safe_target = _sanitize_mlflow_metric_name(target)
+                mlflow_metric_name = f"{split_name}/{safe_target}/{metric_name}"
+                metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
+
+                # Collect for mean calculation across targets
+                if metric_name not in all_metrics:
+                    all_metrics[metric_name] = []
+                metric_val_float = float(metric_value)  # type: ignore[arg-type]
+                if not np.isnan(metric_val_float):
+                    all_metrics[metric_name].append(metric_val_float)
+
+        # Calculate and log mean metrics across all targets
+        for metric_name, values in all_metrics.items():
+            if values:
+                mean_value = float(np.mean(values))
+                mlflow_metric_name = f"{split_name}/mean/{metric_name}"
+                metrics_to_log[mlflow_metric_name] = mean_value
+
+                # Add to output dataframe
+                row = pd.DataFrame(
+                    {
+                        "split": [split_name],
+                        "target": ["mean"],
+                        "quality": ["overall"],
+                        "metric": [metric_name],
+                        "value": [mean_value],
+                    }
+                )
+                df_out = pd.concat([df_out, row], ignore_index=True)
+
+        # Log overall metrics in batch
+        if metrics_to_log and self._mlflow_client is not None and self.mlflow_run_id is not None:
+            self._log_metrics_with_retry(metrics_to_log)
+
+        # Compute per-quality metrics if enabled and curriculum learning is active
         if (
-            self.quality_col is not None
-            and self.quality_col in df_validation.columns
+            log_per_quality
+            and self.quality_col is not None
+            and self.quality_col in df_split.columns
             and self.curriculum_state is not None
         ):
-            quality_labels = df_validation[self.quality_col].tolist()
+            quality_labels = df_split[self.quality_col].tolist()
             quality_indices = get_quality_indices(quality_labels, self.curriculum_state.qualities)
+
+            # Collect quality-specific metrics for batch logging
+            quality_metrics_to_log: Dict[str, float] = {}
 
             for quality, indices in quality_indices.items():
                 if not indices:
                     continue
 
-                # Subset the validation data for this quality
-                df_quality = df_validation.iloc[indices]
+                # Subset the data for this quality
+                df_quality = df_split.iloc[indices]
                 preds_quality = preds_df.iloc[indices]
 
                 for target in self.target_cols:
@@ -1482,7 +1927,7 @@ class ChempropModel:
                     for metric_name, metric_value in metrics.items():
                         row = pd.DataFrame(
                             {
-                                "split": ["validation"],
+                                "split": [split_name],
                                 "target": [target],
                                 "quality": [quality],
                                 "metric": [metric_name],
@@ -1491,28 +1936,20 @@ class ChempropModel:
                         )
                         df_out = pd.concat([df_out, row], ignore_index=True)
 
-                        # Also log quality-specific metrics directly to MLflow
-                        mlflow_metric_name = _sanitize_mlflow_metric_name(f"val_{quality}_{target}_{metric_name}")
-                        try:
-                            self._mlflow_client.log_metric(
-                                self.mlflow_run_id, mlflow_metric_name, float(metric_value)  # type: ignore[arg-type]
-                            )
-                        except Exception:
-                            pass  # Silently ignore metric logging failures
+                        # Collect quality-specific metrics for batch logging
+                        safe_target = _sanitize_mlflow_metric_name(target)
+                        mlflow_metric_name = f"{split_name}/{quality}/{safe_target}/{metric_name}"
+                        quality_metrics_to_log[mlflow_metric_name] = float(metric_value)  # type: ignore[assignment]
 
-            # Log quality distribution in validation set
+            # Log quality-specific metrics in batch
+            if quality_metrics_to_log and self._mlflow_client is not None and self.mlflow_run_id is not None:
+                self._log_metrics_with_retry(quality_metrics_to_log)
+
+            # Log quality distribution
             quality_counts = {q: len(indices) for q, indices in quality_indices.items() if indices}
-            logger.info("Validation quality distribution: %s", quality_counts)
+            logger.info("%s quality distribution: %s", split_name.capitalize(), quality_counts)
 
-        # Log metrics as CSV artifact
-        if not df_out.empty:
-            df_out.reset_index(drop=True, inplace=True)
-            temp_dir = Path(tempfile.mkdtemp())
-            csv_path = temp_dir / "validation_metrics.csv"
-            df_out.to_csv(csv_path, index=False)
-            self._mlflow_client.log_artifact(self.mlflow_run_id, str(csv_path), artifact_path="metrics")
-            csv_path.unlink(missing_ok=True)
-            temp_dir.rmdir()
+        return df_out
 
     def _log_task_affinity_artifacts(self) -> None:
         """
@@ -1663,20 +2100,76 @@ class ChempropModel:
         yaml_path.unlink(missing_ok=True)
         temp_dir.rmdir()
 
+        # Restore best model weights before logging to MLflow
+        # PyTorch Lightning's ModelCheckpoint saves best weights to disk but does NOT
+        # restore them to the model in memory after training. We must do this manually.
+        best_checkpoint_path = self._get_best_checkpoint_path()
+        if best_checkpoint_path is not None and self.mpnn is not None:
+            try:
+                logger.info("Restoring best model weights from checkpoint: %s", best_checkpoint_path)
+                checkpoint = torch.load(best_checkpoint_path, map_location="cpu", weights_only=False)
+                self.mpnn.load_state_dict(checkpoint["state_dict"])
+                logger.info("Successfully restored best model weights (val_loss at checkpoint)")
+            except Exception as e:
+                logger.warning("Failed to restore best model weights: %s. Using last epoch weights.", e)
+
         # Register the model with MLflow (run is already active from _init_mlflow)
         if completed and self.mpnn is not None:
+            # Ensure system metrics are disabled before log_model to prevent DB conflicts
+            try:
+                mlflow.disable_system_metrics_logging()
+            except Exception:
+                pass
+
+            import time
+
+            time.sleep(0.1)  # Let any pending metrics flush
+
             mlflow.pytorch.log_model(
                 self.mpnn,
                 artifact_path="model",
                 registered_model_name=None,  # Don't auto-register to model registry
             )
-            logger.debug("Registered PyTorch model with MLflow")
+            logger.debug("Registered PyTorch model with MLflow (using best checkpoint weights)")
+
+    def _get_best_checkpoint_path(self) -> Optional[Path]:
+        """
+        Get the path to the best model checkpoint.
+
+        Attempts to find the best checkpoint in multiple ways:
+        1. From the ModelCheckpoint callback's best_model_path attribute
+        2. From the checkpoint directory by finding best-*.ckpt files
+
+        Returns
+        -------
+        Optional[Path]
+            Path to the best checkpoint file, or None if not found.
+        """
+        # First, try to get from the ModelCheckpoint callback
+        if self.trainer is not None:
+            for callback in self.trainer.callbacks:
+                if isinstance(callback, ModelCheckpoint):
+                    if callback.best_model_path and Path(callback.best_model_path).exists():
+                        return Path(callback.best_model_path)
+
+        # Fallback: search checkpoint directory for best-*.ckpt files
+        checkpoint_dir = self.output_dir if self.output_dir is not None else self._checkpoint_temp_dir
+        if checkpoint_dir is not None and checkpoint_dir.exists():
+            best_checkpoints = list(checkpoint_dir.glob("best-*.ckpt"))
+            if best_checkpoints:
+                # Sort by modification time to get the most recent
+                best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                return best_checkpoints[0]
+
+        logger.warning("Could not find best checkpoint path")
+        return None
 
     def predict(
         self,
         df: pd.DataFrame,
         generate_plots: bool = False,
         split_name: str = "test",
+        log_metrics: bool = True,
     ) -> pd.DataFrame:
         """
         Generate predictions for a dataframe.
@@ -1691,6 +2184,9 @@ class ChempropModel:
             ground truth is available.
         split_name : str, default='test'
             Split name for labeling plots when generate_plots is True.
+        log_metrics : bool, default=True
+            Whether to log prediction metrics to MLflow. Set to False
+            when metrics will be logged separately (e.g., from _compute_split_metrics).
 
         Returns
         -------
@@ -1735,8 +2231,8 @@ class ChempropModel:
         all_preds_arr = np.vstack(all_preds)
         pred_df = pd.DataFrame(all_preds_arr, columns=[f"{t}" for t in self.target_cols])
 
-        # Log prediction metrics if ground truth is available and MLflow tracking is enabled
-        if self.mlflow_tracking and self._mlflow_logger is not None:
+        # Log prediction metrics if enabled, ground truth is available, and MLflow tracking is enabled
+        if log_metrics and self.mlflow_tracking and self._mlflow_logger is not None:
             self._log_prediction_metrics(df, pred_df, split=split_name)
 
         # Generate plots if requested and ground truth is available
@@ -1912,11 +2408,11 @@ class ChempropModel:
             # Compute correlation metrics using stats module
             metrics = correlation(y_true, y_pred)
 
-            # Log each metric to MLflow directly with test/ prefix
+            # Log each metric to MLflow directly with hierarchical split/target/metric format
             for metric_name, metric_value in metrics.items():
-                # Create sanitized metric key: test/<target>_<metric>
+                # Create sanitized metric key: split/<target>/<metric>
                 safe_target = _sanitize_mlflow_metric_name(target)
-                mlflow_key = f"{split}/{safe_target}_{metric_name}"
+                mlflow_key = f"{split}/{safe_target}/{metric_name}"
                 try:
                     self._mlflow_client.log_metric(
                         self.mlflow_run_id, mlflow_key, float(metric_value)  # type: ignore[arg-type]
@@ -1937,11 +2433,11 @@ class ChempropModel:
                 )
                 df_out = pd.concat([df_out, row], ignore_index=True)
 
-        # Log mean metrics across all targets
+        # Log mean metrics across all targets with hierarchical naming
         for metric_name, values in all_metrics.items():
             if values:
                 mean_value = float(np.mean(values))
-                mlflow_key = f"{split}/mean_{metric_name}"
+                mlflow_key = f"{split}/mean/{metric_name}"
                 try:
                     self._mlflow_client.log_metric(self.mlflow_run_id, mlflow_key, mean_value)
                 except Exception:
@@ -2101,13 +2597,8 @@ def train_from_config(config_path: str, log_level: str = "INFO") -> None:
     >>> train_from_config("configs/example_chemprop.yaml")
     >>> train_from_config("configs/experiment.yaml", log_level="DEBUG")
     """
-    # Configure logging
-    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
-    logger.setLevel(numeric_level)
-    logging.basicConfig(
-        level=numeric_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Configure logging with colored output
+    configure_logging(level=log_level)
 
     logger.info("Loading configuration from: %s", config_path)
 

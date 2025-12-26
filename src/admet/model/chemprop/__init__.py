@@ -34,9 +34,11 @@ __all__ = [
     "TransferLearningConfig",
     # Model classes
     "ChempropModel",
+    "ChempropModelAdapter",
     "ChempropHyperparams",
     # Ensemble classes
-    "ChempropEnsemble",
+    "ModelEnsemble",
+    "ChempropEnsemble",  # Backward compatibility alias
     # HPO classes
     "ChempropHPO",
     "RayTuneReportCallback",
@@ -68,6 +70,7 @@ if TYPE_CHECKING:
         model,
         task_affinity,
     )
+    from .adapter import ChempropModelAdapter
     from .config import (
         ChempropConfig,
         DataConfig,
@@ -78,7 +81,7 @@ if TYPE_CHECKING:
         ModelConfig,
         OptimizationConfig,
     )
-    from .ensemble import ChempropEnsemble
+    from .ensemble import ModelEnsemble, ModelEnsemble as ChempropEnsemble  # Backward compatibility
     from .hpo import ChempropHPO
     from .hpo_config import (
         ASHAConfig,
@@ -92,12 +95,7 @@ if TYPE_CHECKING:
     from .hpo_trainable import RayTuneReportCallback, train_chemprop_trial
     from .inter_task_affinity import InterTaskAffinityCallback, InterTaskAffinityComputer
     from .model import ChempropHyperparams, ChempropModel
-    from .task_affinity import (
-        TaskAffinityComputer,
-        TaskAffinityConfig,
-        TaskGrouper,
-        compute_task_affinity,
-    )
+    from .task_affinity import TaskAffinityComputer, TaskAffinityConfig, TaskGrouper, compute_task_affinity
 
 
 _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
@@ -131,9 +129,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "TransferLearningConfig": ("admet.model.chemprop.hpo_config", "TransferLearningConfig"),
     # Model classes
     "ChempropModel": ("admet.model.chemprop.model", "ChempropModel"),
+    "ChempropModelAdapter": ("admet.model.chemprop.adapter", "ChempropModelAdapter"),
     "ChempropHyperparams": ("admet.model.chemprop.model", "ChempropHyperparams"),
     # Ensemble classes
-    "ChempropEnsemble": ("admet.model.chemprop.ensemble", "ChempropEnsemble"),
+    "ModelEnsemble": ("admet.model.chemprop.ensemble", "ModelEnsemble"),
+    "ChempropEnsemble": ("admet.model.chemprop.ensemble", "ModelEnsemble"),  # Backward compatibility
     # HPO classes/functions
     "ChempropHPO": ("admet.model.chemprop.hpo", "ChempropHPO"),
     "RayTuneReportCallback": ("admet.model.chemprop.hpo_trainable", "RayTuneReportCallback"),

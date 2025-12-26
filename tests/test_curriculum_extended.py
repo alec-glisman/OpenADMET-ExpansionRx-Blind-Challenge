@@ -97,33 +97,37 @@ class TestCurriculumState:
         """Test warmup phase weights (high quality focused)."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("warmup")
-        assert weights["high"] == 0.9
-        assert weights["medium"] == 0.1
-        assert weights["low"] == 0.0
+        # New conservative defaults: [0.80, 0.15, 0.05]
+        assert weights["high"] == 0.80
+        assert weights["medium"] == 0.15
+        assert weights["low"] == 0.05
 
     def test_weights_for_expand_phase(self) -> None:
         """Test expand phase weights."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("expand")
-        assert weights["high"] == 0.6
-        assert weights["medium"] == 0.35
-        assert weights["low"] == 0.05
+        # New conservative defaults: [0.60, 0.30, 0.10]
+        assert weights["high"] == 0.60
+        assert weights["medium"] == 0.30
+        assert weights["low"] == 0.10
 
     def test_weights_for_robust_phase(self) -> None:
         """Test robust phase weights."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("robust")
-        assert weights["high"] == 0.4
-        assert weights["medium"] == 0.4
-        assert weights["low"] == 0.2
+        # New conservative defaults: [0.50, 0.35, 0.15]
+        assert weights["high"] == 0.50
+        assert weights["medium"] == 0.35
+        assert weights["low"] == 0.15
 
     def test_weights_for_polish_phase(self) -> None:
-        """Test polish phase weights (back to high quality)."""
+        """Test polish phase weights (back to high quality but maintaining diversity)."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("polish")
-        assert weights["high"] == 1.0
-        assert weights["medium"] == 0.0
-        assert weights["low"] == 0.0
+        # New conservative defaults: [0.70, 0.20, 0.10] - keeps some diversity
+        assert weights["high"] == 0.70
+        assert weights["medium"] == 0.20
+        assert weights["low"] == 0.10
 
 
 class TestCurriculumCallback:
@@ -265,13 +269,13 @@ class TestCurriculumCallback:
         )
         callback.on_validation_epoch_end(trainer1, pl_module)
 
-        # Should have logged curriculum_phase, curriculum_phase_epoch, and per-quality weights
-        # With log_per_quality_metrics=True (default), we log: curriculum_phase,
-        # curriculum_phase_epoch, curriculum_weight_high, curriculum_weight_medium, etc.
+        # Should have logged curriculum/phase, curriculum/phase_epoch, and per-quality weights
+        # With log_per_quality_metrics=True (default), we log: curriculum/phase,
+        # curriculum/phase_epoch, curriculum/weight/high, curriculum/weight/medium, etc.
         assert pl_module.log.call_count >= 2
         logged_metrics = {call[0][0] for call in pl_module.log.call_args_list}
-        assert "curriculum_phase" in logged_metrics
-        assert "curriculum_phase_epoch" in logged_metrics
+        assert "curriculum/phase" in logged_metrics
+        assert "curriculum/phase_epoch" in logged_metrics
 
 
 class TestCurriculumPhaseWeightsConsistency:

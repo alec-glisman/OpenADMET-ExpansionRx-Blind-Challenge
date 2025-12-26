@@ -13,6 +13,13 @@ The two strategies are combined via two-stage sampling with curriculum weighting
 
 This preserves the original TaskAwareSampler behavior when curriculum is disabled.
 
+.. warning::
+    **num_workers Limitation**: When using this sampler with `num_workers > 0` in
+    DataLoader, each worker gets its own copy of the sampler. The internal
+    `_current_epoch` counter and curriculum phase state will not be synchronized
+    across workers, potentially causing inconsistent sampling behavior. For reliable
+    curriculum learning, use `num_workers=0`.
+
 Examples
 --------
 >>> from admet.model.chemprop.joint_sampler import JointSampler
@@ -79,8 +86,12 @@ class JointSampler(Sampler[int]):
     seed : int, default=42
         Base random seed for reproducibility.
     increment_seed_per_epoch : bool, default=True
-        If True, increments seed each epoch for sampling variety.
-        If False, uses same seed each epoch.
+        If True, increments seed each epoch (seed + epoch_number) for sampling variety.
+        This means different samples are drawn each epoch, which is generally desired
+        for training. If False, uses same seed each epoch, resulting in identical
+        sampling every epoch (deterministic but may limit generalization).
+        **Note**: When True, training is NOT fully reproducible across runs even with
+        the same base seed, unless you also track and restore the epoch counter.
     log_weight_stats : bool, default=True
         Whether to log weight statistics (min, max, entropy, effective samples).
 
@@ -146,6 +157,10 @@ class JointSampler(Sampler[int]):
         # Epoch tracking for seed incrementation
         self._current_epoch = 0
         self._last_phase: str | None = None
+
+        # Store last computed weights and stats for callback access
+        self._last_weights: np.ndarray | None = None
+        self._last_weight_stats: dict[str, float] | None = None
 
         # Validate alpha and warn if outside recommended range
         if task_alpha < 0 or task_alpha > 1:
@@ -258,29 +273,43 @@ class JointSampler(Sampler[int]):
         local_idx = rng.choice(len(valid_indices), p=probs)
         return valid_indices[local_idx]
 
-    def _log_weight_statistics(self, task_probs: np.ndarray) -> None:
-        """Log task probability distribution statistics for monitoring."""
+    def _log_weight_statistics(self, weights: np.ndarray) -> None:
+        """Log weight distribution statistics for monitoring."""
         if not self.log_weight_stats:
             return
 
         # Basic statistics
-        min_prob = task_probs.min()
-        max_prob = task_probs.max()
+        min_weight = weights.min()
+        max_weight = weights.max()
+        mean_weight = weights.mean()
 
         # Entropy (measure of uniformity)
         eps = 1e-10
-        entropy = -np.sum(task_probs * np.log(task_probs + eps))
+        entropy = -np.sum(weights * np.log(weights + eps))
 
-        # Effective number of tasks (inverse of sum of squared probs)
-        effective_tasks = 1.0 / np.sum(task_probs**2)
+        # Effective number of samples (inverse of sum of squared weights)
+        # Higher = more uniform, lower = more concentrated
+        effective_samples = 1.0 / np.sum(weights**2)
+
+        stats = {
+            "min": min_weight,
+            "max": max_weight,
+            "mean": mean_weight,
+            "entropy": entropy,
+            "effective_samples": effective_samples,
+        }
 
         logger.info(
-            "Task sampling stats: min_prob=%.6f, max_prob=%.6f, " "entropy=%.3f, effective_tasks=%.1f",
-            min_prob,
-            max_prob,
+            "Weight stats: min=%.6f, max=%.6f, mean=%.6f, " "entropy=%.3f, effective_samples=%.1f",
+            min_weight,
+            max_weight,
+            mean_weight,
             entropy,
-            effective_tasks,
+            effective_samples,
         )
+
+        # Store for potential MLflow logging by callback
+        self._last_weight_stats = stats
 
     def __iter__(self) -> Iterator[int]:
         """
@@ -308,11 +337,12 @@ class JointSampler(Sampler[int]):
                 )
             self._last_phase = current_phase
 
-        # Get curriculum weights (recomputed each epoch for phase transitions)
+        # Compute current curriculum weights
         curriculum_weights = self._compute_curriculum_weights()
 
-        # Log statistics
-        self._log_weight_statistics(self.task_probs)
+        # Normalize for logging
+        weights = curriculum_weights / curriculum_weights.sum()
+        self._log_weight_statistics(weights)
 
         # Determine seed for this epoch
         if self.increment_seed_per_epoch:

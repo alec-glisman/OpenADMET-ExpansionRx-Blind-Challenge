@@ -1,11 +1,11 @@
 """
-Tests for ChempropEnsemble configuration propagation and discovery helpers.
+Tests for ModelEnsemble configuration propagation and discovery helpers.
 """
 
 import pytest
 
 from admet.model.chemprop.config import CurriculumConfig, EnsembleConfig
-from admet.model.chemprop.ensemble import ChempropEnsemble, SplitFoldInfo
+from admet.model.chemprop.ensemble import ModelEnsemble, SplitFoldInfo
 
 
 @pytest.mark.no_mlflow_runs
@@ -29,7 +29,7 @@ def test_create_single_model_config_passes_curriculum(tmp_path):
 
     # Disable MLflow in unit tests to avoid starting real runs
     ens_cfg.mlflow.tracking = False
-    ensemble = ChempropEnsemble(ens_cfg)
+    ensemble = ModelEnsemble(ens_cfg)
 
     # Create dummy SplitFoldInfo
     info = SplitFoldInfo(
@@ -73,7 +73,7 @@ def test_discover_splits_folds_sorted(tmp_path):
     # Disable MLflow for tests
     ens_cfg.mlflow.tracking = False
 
-    ensemble = ChempropEnsemble(ens_cfg)
+    ensemble = ModelEnsemble(ens_cfg)
     infos = ensemble.discover_splits_folds()
 
     # Expected order is numeric: split 1, then 2, then 10; folds 1,2,10
@@ -112,7 +112,7 @@ def test_discover_splits_folds_sorted_with_filters(tmp_path):
     ens_cfg.data.folds = [10, 2]
     ens_cfg.mlflow.tracking = False
 
-    ensemble = ChempropEnsemble(ens_cfg)
+    ensemble = ModelEnsemble(ens_cfg)
     infos = ensemble.discover_splits_folds()
 
     # Expected: splits 1 then 2 (numeric), folds 2 then 10 (numeric), filtered
@@ -134,7 +134,7 @@ def test_create_single_model_config_includes_inter_task_affinity(tmp_path):
     # Skip MLflow initialization for unit test
     ens_cfg.mlflow.tracking = False
 
-    ensemble = ChempropEnsemble(ens_cfg)
+    ensemble = ModelEnsemble(ens_cfg)
 
     info = SplitFoldInfo(
         split_idx=0,
@@ -177,7 +177,7 @@ def test_log_plot_metrics_batch_logging(tmp_path):
     config.data.target_cols = ["LogD", "KSOL"]
     config.mlflow.tracking = False
 
-    ensemble = ChempropEnsemble(config)
+    ensemble = ModelEnsemble(config)
 
     # Mock MLflow client and parent run
     ensemble._mlflow_client = MagicMock()
@@ -234,7 +234,7 @@ def test_log_plot_metrics_handles_nan(tmp_path):
     config.data.target_cols = ["LogD"]
     config.mlflow.tracking = False
 
-    ensemble = ChempropEnsemble(config)
+    ensemble = ModelEnsemble(config)
     ensemble._mlflow_client = MagicMock()
     ensemble.parent_run_id = "test_run_123"
 
