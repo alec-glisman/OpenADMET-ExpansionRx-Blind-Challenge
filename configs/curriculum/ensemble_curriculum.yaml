@@ -124,7 +124,7 @@ inter_task_affinity:
   log_to_mlflow: true
 
 ray:
-  max_parallel: 1
+  max_parallel: 5
   num_cpus: null
   num_gpus: null
 

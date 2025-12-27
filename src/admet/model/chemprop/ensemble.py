@@ -267,7 +267,7 @@ class ModelEnsemble:
 
         # Convert config to YAML-serializable dict and save
         config_dict = OmegaConf.to_container(self.config, resolve=True)
-        with open(yaml_path, "w") as f:
+        with open(yaml_path, "w", encoding="utf-8") as f:
             OmegaConf.save(config=config_dict, f=f)
 
         # Log as artifact
@@ -627,9 +627,7 @@ class ModelEnsemble:
             # Seed everything in worker process for reproducibility
             pl.seed_everything(config.optimization.seed, workers=True)
 
-            # Debug: Log key config values to verify they match YAML
-            import logging
-
+            # Log key config values to verify they match YAML
             _logger = logging.getLogger("admet.model.chemprop.ensemble")
             _logger.info(
                 "[%s] Config values - depth=%s, dropout=%s, hidden_dim=%s, "
@@ -658,9 +656,7 @@ class ModelEnsemble:
             else:
                 # Use ModelRegistry for other model types
                 # These models need explicit data loading
-                from omegaconf import DictConfig as DC
-
-                if isinstance(config, DC):
+                if isinstance(config, DictConfig):
                     config_dc = config
                 else:
                     config_dc = OmegaConf.create(config)  # type: ignore[assignment]
@@ -686,11 +682,11 @@ class ModelEnsemble:
 
                 # Train model with explicit data
                 base_model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
-                # Assign to model for metrics collection (may not have trainer)
-                model = base_model  # type: ignore[assignment]
+                # Non-Chemprop models don't have trainer/dataframes - return early
+                return model_key, {}, None, None
 
-            # Get metrics from trainer
-            metrics = {}
+            # Get metrics from trainer (ChempropModel only)
+            metrics: Dict[str, float] = {}
             if model.trainer and model.trainer.callback_metrics:
                 for key, val in model.trainer.callback_metrics.items():
                     if hasattr(val, "item"):
@@ -699,18 +695,19 @@ class ModelEnsemble:
                         metrics[key] = float(val)
 
             # Get predictions for test and blind
-            test_preds = None
-            blind_preds = None
+            test_preds: Optional[pd.DataFrame] = None
+            blind_preds: Optional[pd.DataFrame] = None
             smiles_col = config.data.smiles_col
             target_cols = list(config.data.target_cols)
 
-            if model.dataframes["test"] is not None:
-                test_df = model.dataframes["test"]
+            # ChempropModel has dataframes dict and extended predict() signature
+            test_df = model.dataframes.get("test")
+            if test_df is not None:
                 pred_df = model.predict(
                     test_df,
-                    generate_plots=True,  # Generate plots for each model
+                    generate_plots=True,
                     split_name="test",
-                    log_metrics=False,  # Metrics already logged in _log_evaluation_metrics
+                    log_metrics=False,
                 )
                 # Prepend SMILES and Molecule Name columns to predictions if present
                 if "Molecule Name" in test_df.columns:
@@ -731,13 +728,13 @@ class ModelEnsemble:
                     if col in test_df.columns:
                         test_preds[f"{col}_actual"] = test_df[col].values
 
-            if model.dataframes["blind"] is not None:
-                blind_df = model.dataframes["blind"]
+            blind_df = model.dataframes.get("blind")
+            if blind_df is not None:
                 pred_df = model.predict(
                     blind_df,
-                    generate_plots=False,  # No ground truth for blind
+                    generate_plots=False,
                     split_name="blind",
-                    log_metrics=False,  # Blind has no ground truth anyway
+                    log_metrics=False,
                 )
                 # Prepend SMILES and Molecule Name columns to predictions if present
                 if "Molecule Name" in blind_df.columns:

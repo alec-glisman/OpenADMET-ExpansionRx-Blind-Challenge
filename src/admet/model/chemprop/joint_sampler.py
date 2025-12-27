@@ -20,13 +20,6 @@ This preserves the original TaskAwareSampler behavior when curriculum is disable
     across workers, potentially causing inconsistent sampling behavior. For reliable
     curriculum learning, use `num_workers=0`.
 
-.. warning::
-    **num_workers Limitation**: When using this sampler with `num_workers > 0` in
-    DataLoader, each worker gets its own copy of the sampler. The internal
-    `_current_epoch` counter and curriculum phase state will not be synchronized
-    across workers, potentially causing inconsistent sampling behavior. For reliable
-    curriculum learning, use `num_workers=0`.
-
 Examples
 --------
 >>> from admet.model.chemprop.joint_sampler import JointSampler
@@ -224,7 +217,7 @@ class JointSampler(Sampler[int]):
         probs = self.curriculum_state.sampling_probs()
 
         # Assign weight to each sample based on quality
-        weights = np.array([probs.get(label, 0.0) for label in self.quality_labels])
+        weights = np.array([probs.get(label, 0.0) for label in list(self.quality_labels)])
 
         # Handle all-zero weights
         if weights.sum() == 0:

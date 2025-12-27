@@ -7,25 +7,25 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 model:
   type: chemprop
   chemprop:
@@ -52,7 +52,7 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: ensemble_chemprop_hpo_topk
+  experiment_name: ensemble_chemprop_hpo_topk_2
   run_name: rank_081
   nested: true
 inter_task_affinity:
@@ -64,11 +64,11 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
 joint_sampling:
   enabled: true
@@ -78,9 +78,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     strategy: sampled
     reset_early_stopping_on_phase_change: false
@@ -91,6 +91,6 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 1
+  max_parallel: 5
   num_cpus: null
   num_gpus: null

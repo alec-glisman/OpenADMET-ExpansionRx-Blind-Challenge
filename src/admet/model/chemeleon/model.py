@@ -228,7 +228,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         if path == "auto":
             path = self._download_from_zenodo()
 
-        logger.info(f"Loading Chemeleon checkpoint from {path}")
+        logger.info("Loading Chemeleon checkpoint from %s", path)
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)
 
         # Extract hyperparameters and state dict
@@ -258,9 +258,9 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         checkpoint_path = cache_dir / "chemeleon_mp.pt"
 
         if not checkpoint_path.exists():
-            logger.info(f"Downloading Chemeleon checkpoint from {ZENODO_URL}")
+            logger.info("Downloading Chemeleon checkpoint from %s", ZENODO_URL)
             urllib.request.urlretrieve(ZENODO_URL, checkpoint_path)
-            logger.info(f"Downloaded to {checkpoint_path}")
+            logger.info("Downloaded to %s", checkpoint_path)
 
         return str(checkpoint_path)
 
@@ -558,9 +558,9 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         try:
             checkpoint = torch.load(best_checkpoint_path, map_location="cpu", weights_only=False)
             self.mpnn.load_state_dict(checkpoint["state_dict"])
-            logger.info(f"Loaded best checkpoint from {best_checkpoint_path}")
+            logger.info("Loaded best checkpoint from %s", best_checkpoint_path)
         except Exception as e:
-            logger.warning(f"Failed to load best checkpoint: {e}")
+            logger.warning("Failed to load best checkpoint: %s", e)
 
     def _get_best_checkpoint_path(self) -> str | None:
         """Get path to the best checkpoint file.
