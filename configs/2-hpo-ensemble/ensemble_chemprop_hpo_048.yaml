@@ -93,6 +93,6 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 5
+  max_parallel: 3
   num_cpus: null
   num_gpus: null
