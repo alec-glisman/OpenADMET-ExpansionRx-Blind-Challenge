@@ -1455,6 +1455,11 @@ class ChempropModel:
         else:
             logger.debug("MLflow tracking skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
 
+        # Record training start time for duration logging
+        import datetime
+
+        training_start_time = datetime.datetime.now(datetime.timezone.utc)
+
         completed = False
         try:
             logger.info("Starting training...")
@@ -1491,6 +1496,29 @@ class ChempropModel:
             import time
 
             time.sleep(0.1)
+
+            # Log training timing metrics
+            training_end_time = datetime.datetime.now(datetime.timezone.utc)
+            training_duration = (training_end_time - training_start_time).total_seconds()
+            if self._mlflow_client is not None and self.mlflow_run_id is not None:
+                try:
+                    self._mlflow_client.log_param(
+                        self.mlflow_run_id, "training.start_time", training_start_time.isoformat()
+                    )
+                    self._mlflow_client.log_param(
+                        self.mlflow_run_id, "training.end_time", training_end_time.isoformat()
+                    )
+                    self._mlflow_client.log_metric(self.mlflow_run_id, "training.duration_seconds", training_duration)
+                    self._mlflow_client.log_metric(
+                        self.mlflow_run_id, "training.duration_minutes", training_duration / 60.0
+                    )
+                    # Log epochs completed (if trainer available)
+                    if hasattr(self, "trainer") and self.trainer is not None:
+                        self._mlflow_client.log_metric(
+                            self.mlflow_run_id, "training.epochs_completed", self.trainer.current_epoch
+                        )
+                except Exception as timing_err:
+                    logger.warning("Failed to log training timing: %s", timing_err)
 
             # Log evaluation metrics and final artifacts
             if self.mlflow_tracking and self._mlflow_logger is not None:
@@ -1562,10 +1590,10 @@ class ChempropModel:
         params["target_cols"] = str(self.target_cols)
         params["n_targets"] = len(self.target_cols)
 
-        # Calculate and log total number of trainable parameters
+        # Log comprehensive model architecture information
         if self.mpnn is not None:
-            total_params = sum(p.numel() for p in self.mpnn.parameters() if p.requires_grad)
-            params["total_parameters"] = total_params
+            model_info = self._get_model_info()
+            params.update(model_info)
 
         # Parse and log data_dir parameters if available
         if self.data_dir is not None:
@@ -1600,6 +1628,339 @@ class ChempropModel:
             params["inter_task_affinity.log_every_n_steps"] = self.inter_task_affinity_config.log_every_n_steps
 
         self._mlflow_logger.log_hyperparams(params)
+
+        # Log environment and git info
+        self._log_environment_info()
+
+    def _get_model_info(self) -> Dict[str, Any]:
+        """
+        Get comprehensive model architecture information.
+
+        Returns a dictionary containing:
+        - Parameter counts (total, trainable, fixed)
+        - Model size in MB
+        - Module breakdown by layer type
+        - Architecture summary
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of model information for MLflow logging.
+        """
+        info: Dict[str, Any] = {}
+
+        if self.mpnn is None:
+            return info
+
+        # Parameter counts
+        total_params = sum(p.numel() for p in self.mpnn.parameters())
+        trainable_params = sum(p.numel() for p in self.mpnn.parameters() if p.requires_grad)
+        fixed_params = total_params - trainable_params
+
+        info["model.total_parameters"] = total_params
+        info["model.trainable_parameters"] = trainable_params
+        info["model.fixed_parameters"] = fixed_params
+        info["model.trainable_ratio"] = round(trainable_params / total_params, 4) if total_params > 0 else 0.0
+
+        # Model size in MB (assuming float32 = 4 bytes per parameter)
+        model_size_mb = (total_params * 4) / (1024 * 1024)
+        info["model.size_mb"] = round(model_size_mb, 3)
+
+        # Detailed parameter breakdown by module type
+        module_params: Dict[str, int] = {}
+        module_trainable: Dict[str, int] = {}
+
+        for _name, module in self.mpnn.named_modules():
+            # Get the top-level module type
+            module_type = type(module).__name__
+
+            # Count parameters directly owned by this module (not children)
+            direct_params = sum(p.numel() for p in module.parameters(recurse=False))
+            direct_trainable = sum(p.numel() for p in module.parameters(recurse=False) if p.requires_grad)
+
+            if direct_params > 0:
+                module_params[module_type] = module_params.get(module_type, 0) + direct_params
+                module_trainable[module_type] = module_trainable.get(module_type, 0) + direct_trainable
+
+        # Log top module types by parameter count
+        sorted_modules = sorted(module_params.items(), key=lambda x: x[1], reverse=True)
+        for i, (mod_type, count) in enumerate(sorted_modules[:10]):  # Top 10 modules
+            info[f"model.module_{i+1}_type"] = mod_type
+            info[f"model.module_{i+1}_params"] = count
+            info[f"model.module_{i+1}_trainable"] = module_trainable.get(mod_type, 0)
+
+        # Architecture layout - depth and width information
+        info["model.n_module_types"] = len(module_params)
+
+        # Count layer types
+        n_linear = sum(1 for m in self.mpnn.modules() if type(m).__name__ == "Linear")
+        n_conv = sum(1 for m in self.mpnn.modules() if "Conv" in type(m).__name__)
+        n_norm = sum(1 for m in self.mpnn.modules() if "Norm" in type(m).__name__ or "BatchNorm" in type(m).__name__)
+        n_dropout = sum(1 for m in self.mpnn.modules() if "Dropout" in type(m).__name__)
+        n_activation = sum(
+            1
+            for m in self.mpnn.modules()
+            if type(m).__name__ in ["ReLU", "GELU", "SiLU", "Tanh", "Sigmoid", "LeakyReLU", "ELU"]
+        )
+
+        info["model.n_linear_layers"] = n_linear
+        info["model.n_conv_layers"] = n_conv
+        info["model.n_norm_layers"] = n_norm
+        info["model.n_dropout_layers"] = n_dropout
+        info["model.n_activation_layers"] = n_activation
+
+        # Model class name and framework info
+        info["model.class_name"] = type(self.mpnn).__name__
+        info["model.framework"] = "PyTorch"
+
+        # Log model architecture summary as a truncated string
+        try:
+            model_repr = repr(self.mpnn)
+            # Truncate to fit MLflow param limits (500 chars)
+            if len(model_repr) > 450:
+                model_repr = model_repr[:447] + "..."
+            info["model.architecture_summary"] = model_repr
+        except Exception:
+            info["model.architecture_summary"] = "Unable to generate summary"
+
+        return info
+
+    def _log_model_architecture_artifact(self) -> None:
+        """
+        Log detailed model architecture as an artifact.
+
+        Creates a text file with the full model architecture representation
+        and logs it to MLflow as an artifact.
+        """
+        if self._mlflow_client is None or self.mlflow_run_id is None or self.mpnn is None:
+            return
+
+        try:
+            temp_dir = Path(tempfile.mkdtemp())
+            arch_path = temp_dir / "model_architecture.txt"
+
+            with open(arch_path, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("MODEL ARCHITECTURE SUMMARY\n")
+                f.write("=" * 80 + "\n\n")
+
+                # Model class and basic info
+                f.write(f"Model Class: {type(self.mpnn).__name__}\n")
+                f.write("Framework: PyTorch\n\n")
+
+                # Parameter summary
+                total_params = sum(p.numel() for p in self.mpnn.parameters())
+                trainable_params = sum(p.numel() for p in self.mpnn.parameters() if p.requires_grad)
+                fixed_params = total_params - trainable_params
+                model_size_mb = (total_params * 4) / (1024 * 1024)
+
+                f.write("PARAMETER SUMMARY\n")
+                f.write("-" * 40 + "\n")
+                f.write(f"Total Parameters:     {total_params:,}\n")
+                f.write(f"Trainable Parameters: {trainable_params:,}\n")
+                f.write(f"Fixed Parameters:     {fixed_params:,}\n")
+                f.write(f"Model Size (MB):      {model_size_mb:.3f}\n\n")
+
+                # Module breakdown
+                f.write("MODULE BREAKDOWN\n")
+                f.write("-" * 40 + "\n")
+
+                module_info: Dict[str, Dict[str, int]] = {}
+                for name, module in self.mpnn.named_modules():
+                    module_type = type(module).__name__
+                    direct_params = sum(p.numel() for p in module.parameters(recurse=False))
+                    direct_trainable = sum(p.numel() for p in module.parameters(recurse=False) if p.requires_grad)
+
+                    if direct_params > 0:
+                        if module_type not in module_info:
+                            module_info[module_type] = {"total": 0, "trainable": 0, "count": 0}
+                        module_info[module_type]["total"] += direct_params
+                        module_info[module_type]["trainable"] += direct_trainable
+                        module_info[module_type]["count"] += 1
+
+                # Sort by parameter count
+                sorted_modules = sorted(module_info.items(), key=lambda x: x[1]["total"], reverse=True)
+                f.write(f"{'Module Type':<25} {'Count':>8} {'Total Params':>15} {'Trainable':>15}\n")
+                f.write("-" * 70 + "\n")
+                for mod_type, counts in sorted_modules:
+                    f.write(
+                        f"{mod_type:<25} {counts['count']:>8} " f"{counts['total']:>15,} {counts['trainable']:>15,}\n"
+                    )
+                f.write("\n")
+
+                # Full architecture representation
+                f.write("FULL ARCHITECTURE\n")
+                f.write("-" * 40 + "\n")
+                f.write(repr(self.mpnn))
+                f.write("\n\n")
+
+                # Named parameters with shapes
+                f.write("PARAMETER SHAPES\n")
+                f.write("-" * 40 + "\n")
+                for name, param in self.mpnn.named_parameters():
+                    trainable_str = "✓" if param.requires_grad else "✗"
+                    f.write(f"{trainable_str} {name}: {list(param.shape)} ({param.numel():,} params)\n")
+
+            self._mlflow_client.log_artifact(self.mlflow_run_id, str(arch_path), artifact_path="model")
+
+            # Cleanup
+            arch_path.unlink(missing_ok=True)
+            temp_dir.rmdir()
+
+            logger.debug("Logged model architecture artifact to MLflow")
+        except Exception as e:
+            logger.warning("Failed to log model architecture artifact: %s", e)
+
+    def _get_environment_info(self) -> Dict[str, Any]:
+        """
+        Get comprehensive environment and hardware information.
+
+        Returns a dictionary containing Python version, package versions,
+        GPU/CUDA info, and system details for reproducibility.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of environment info for MLflow logging.
+        """
+        import platform
+
+        info: Dict[str, Any] = {}
+
+        # Python version
+        info["env.python_version"] = platform.python_version()
+        info["env.python_implementation"] = platform.python_implementation()
+
+        # OS info
+        info["env.os_name"] = platform.system()
+        info["env.os_release"] = platform.release()
+        info["env.platform"] = platform.platform()
+
+        # Key package versions
+        info["env.pytorch_version"] = torch.__version__
+        info["env.lightning_version"] = pl.__version__
+
+        try:
+            import chemprop
+
+            info["env.chemprop_version"] = chemprop.__version__
+        except (ImportError, AttributeError):
+            info["env.chemprop_version"] = "unknown"
+
+        try:
+            import rdkit
+
+            info["env.rdkit_version"] = rdkit.__version__
+        except (ImportError, AttributeError):
+            info["env.rdkit_version"] = "unknown"
+
+        # CUDA and GPU information
+        info["env.cuda_available"] = torch.cuda.is_available()
+        if torch.cuda.is_available():
+            info["env.cuda_version"] = torch.version.cuda or "unknown"
+            info["env.cudnn_version"] = (
+                str(torch.backends.cudnn.version()) if torch.backends.cudnn.is_available() else "N/A"
+            )
+            info["env.gpu_count"] = torch.cuda.device_count()
+
+            # Get GPU details for each device
+            for i in range(torch.cuda.device_count()):
+                props = torch.cuda.get_device_properties(i)
+                info[f"env.gpu_{i}_name"] = props.name
+                info[f"env.gpu_{i}_memory_gb"] = round(props.total_memory / (1024**3), 2)
+                info[f"env.gpu_{i}_compute_capability"] = f"{props.major}.{props.minor}"
+        else:
+            info["env.cuda_version"] = "N/A"
+            info["env.gpu_count"] = 0
+
+        # MPS (Apple Silicon) availability
+        if hasattr(torch.backends, "mps"):
+            info["env.mps_available"] = torch.backends.mps.is_available()
+
+        return info
+
+    def _get_git_info(self) -> Dict[str, Any]:
+        """
+        Get git repository information for reproducibility.
+
+        Returns commit hash, branch name, and dirty status.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of git info for MLflow logging.
+        """
+        import subprocess
+
+        info: Dict[str, Any] = {}
+
+        try:
+            # Get current commit hash
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                info["git.commit_hash"] = result.stdout.strip()
+                info["git.commit_short"] = result.stdout.strip()[:8]
+
+            # Get current branch
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                info["git.branch"] = result.stdout.strip()
+
+            # Check if repo is dirty (uncommitted changes)
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                info["git.is_dirty"] = len(result.stdout.strip()) > 0
+
+            # Get remote URL (useful for identifying repo)
+            result = subprocess.run(
+                ["git", "config", "--get", "remote.origin.url"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                info["git.remote_url"] = result.stdout.strip()
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+            logger.debug("Could not retrieve git info: %s", e)
+            info["git.available"] = False
+
+        return info
+
+    def _log_environment_info(self) -> None:
+        """Log environment and git information to MLflow."""
+        if self._mlflow_client is None or self.mlflow_run_id is None:
+            return
+
+        try:
+            # Log environment info
+            env_info = self._get_environment_info()
+            for key, value in env_info.items():
+                self._mlflow_client.log_param(self.mlflow_run_id, key, value)
+
+            # Log git info
+            git_info = self._get_git_info()
+            for key, value in git_info.items():
+                self._mlflow_client.log_param(self.mlflow_run_id, key, value)
+
+            logger.debug("Logged environment and git info to MLflow")
+        except Exception as e:
+            logger.warning("Failed to log environment info: %s", e)
 
     def _log_dataset_info(self) -> None:
         """
@@ -1654,6 +2015,69 @@ class ChempropModel:
                 self._mlflow_client.log_artifact(self.mlflow_run_id, str(csv_path), artifact_path="metrics")
                 csv_path.unlink(missing_ok=True)
                 temp_dir.rmdir()
+
+        # Log molecular statistics (unique SMILES, missingness)
+        self._log_molecular_stats()
+
+    def _log_molecular_stats(self) -> None:
+        """
+        Log molecular-level statistics to MLflow.
+
+        Logs unique SMILES counts, target missingness rates, and
+        label distribution statistics for multi-task learning analysis.
+        """
+        if self._mlflow_client is None or self.mlflow_run_id is None:
+            return
+
+        try:
+            df_train = self.dataframes.get("train")
+            df_validation = self.dataframes.get("validation")
+
+            # Log unique molecule counts
+            if df_train is not None and self.smiles_col in df_train.columns:
+                n_unique_train = df_train[self.smiles_col].nunique()
+                n_total_train = len(df_train)
+                self._mlflow_client.log_param(self.mlflow_run_id, "data.train_unique_smiles", n_unique_train)
+                self._mlflow_client.log_param(
+                    self.mlflow_run_id,
+                    "data.train_duplicate_ratio",
+                    round(1.0 - (n_unique_train / n_total_train), 4) if n_total_train > 0 else 0,
+                )
+
+            if df_validation is not None and self.smiles_col in df_validation.columns:
+                n_unique_val = df_validation[self.smiles_col].nunique()
+                self._mlflow_client.log_param(self.mlflow_run_id, "data.val_unique_smiles", n_unique_val)
+
+            # Log missingness statistics per target (important for multi-task learning)
+            if df_train is not None:
+                for target in self.target_cols:
+                    if target in df_train.columns:
+                        n_missing = df_train[target].isna().sum()
+                        n_total = len(df_train)
+                        missing_rate = n_missing / n_total if n_total > 0 else 0
+                        self._mlflow_client.log_param(
+                            self.mlflow_run_id,
+                            f"data.train_missing_rate.{target}",
+                            round(missing_rate, 4),
+                        )
+
+            # Log target correlation matrix summary (useful for multi-task analysis)
+            if df_train is not None and len(self.target_cols) > 1:
+                target_df = df_train[self.target_cols].dropna()
+                if len(target_df) > 10:
+                    corr_matrix = target_df.corr()
+                    # Log mean absolute correlation between targets
+                    mask = ~np.eye(len(self.target_cols), dtype=bool)
+                    mean_abs_corr = np.abs(corr_matrix.values[mask]).mean()
+                    self._mlflow_client.log_param(
+                        self.mlflow_run_id,
+                        "data.mean_target_correlation",
+                        round(float(mean_abs_corr), 4),
+                    )
+
+            logger.debug("Logged molecular statistics to MLflow")
+        except Exception as e:
+            logger.warning("Failed to log molecular stats: %s", e)
 
     def _log_metrics_with_retry(
         self, metrics: Dict[str, float], max_retries: int = 3, initial_delay: float = 0.1
@@ -2076,6 +2500,9 @@ class ChempropModel:
         self._mlflow_client.log_artifact(self.mlflow_run_id, str(yaml_path), artifact_path="config")
         yaml_path.unlink(missing_ok=True)
         temp_dir.rmdir()
+
+        # Log detailed model architecture artifact
+        self._log_model_architecture_artifact()
 
         # Restore best model weights before logging to MLflow
         # PyTorch Lightning's ModelCheckpoint saves best weights to disk but does NOT

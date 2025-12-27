@@ -128,6 +128,58 @@ def _sanitize_metric_label(label: str) -> str:
     )
 
 
+def _log_ensemble_config_to_child_run(
+    mlflow_client: MlflowClient,
+    run_id: str,
+    ensemble_config_dict: Dict[str, Any],
+    model_key: str,
+) -> None:
+    """
+    Log the full ensemble configuration as an artifact to a child run.
+
+    This ensures each individual model run has a complete record of the
+    ensemble configuration it was trained with, enabling full reproducibility.
+
+    Parameters
+    ----------
+    mlflow_client : MlflowClient
+        MLflow client instance.
+    run_id : str
+        Run ID to log the artifact to.
+    ensemble_config_dict : Dict[str, Any]
+        Full ensemble configuration dictionary.
+    model_key : str
+        Model identifier (e.g., "split_0_fold_0").
+    """
+    import json
+
+    temp_dir = Path(tempfile.mkdtemp())
+    try:
+        # Save ensemble config as YAML
+        yaml_path = temp_dir / "ensemble_config.yaml"
+        with open(yaml_path, "w", encoding="utf-8") as f:
+            OmegaConf.save(config=ensemble_config_dict, f=f)
+        mlflow_client.log_artifact(run_id, str(yaml_path), artifact_path="config")
+
+        # Save ensemble config as JSON for programmatic access
+        json_path = temp_dir / "ensemble_config.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(ensemble_config_dict, f, indent=2, default=str)
+        mlflow_client.log_artifact(run_id, str(json_path), artifact_path="config")
+
+        # Log model's position in the ensemble
+        mlflow_client.log_param(run_id, "ensemble_model_key", model_key)
+
+        logger.debug("Logged ensemble config to child run %s", run_id)
+    except Exception as e:
+        logger.warning("Failed to log ensemble config to child run %s: %s", run_id, e)
+    finally:
+        # Cleanup
+        for f in temp_dir.iterdir():
+            f.unlink(missing_ok=True)
+        temp_dir.rmdir()
+
+
 @dataclass
 class SplitFoldInfo:
     """Information about a single split/fold combination."""
@@ -245,16 +297,58 @@ class ModelEnsemble:
         mlflow.log_params(self._flatten_dict(config_dict, max_depth=2))  # type: ignore[arg-type]
 
         # Parse and log data_dir parameters
-
         data_params = parse_data_dir_params(self.config.data.data_dir)
         for key, value in data_params.items():
             if value is not None:
                 mlflow.log_param(f"data.{key}", value)
 
+        # Log comprehensive dataset metadata
+        self._log_dataset_metadata()
+
         # Log full config as YAML artifact
         self._log_config_artifact()
 
         logger.info("Started MLflow parent run: %s", self.parent_run_id)
+
+    def _log_dataset_metadata(self) -> None:
+        """Log comprehensive dataset metadata to MLflow."""
+        if self._mlflow_client is None or self.parent_run_id is None:
+            return
+
+        # Log target columns information
+        target_cols = list(self.config.data.target_cols)
+        mlflow.log_param("data.n_targets", len(target_cols))
+        mlflow.log_param("data.target_cols_list", ", ".join(target_cols[:5]) + ("..." if len(target_cols) > 5 else ""))
+
+        # Log data file paths
+        if hasattr(self.config.data, "test_file") and self.config.data.test_file:
+            mlflow.log_param("data.test_file", str(self.config.data.test_file))
+        if hasattr(self.config.data, "blind_file") and self.config.data.blind_file:
+            mlflow.log_param("data.blind_file", str(self.config.data.blind_file))
+
+        # Log model type
+        model_type = getattr(self.config.model, "type", "chemprop")
+        mlflow.log_param("model.type", model_type)
+
+        # Log optimization info
+        mlflow.log_param("optimization.criterion", self.config.optimization.criterion)
+        mlflow.log_param("optimization.max_epochs", self.config.optimization.max_epochs)
+        mlflow.log_param("optimization.batch_size", self.config.optimization.batch_size)
+
+        # Log joint sampling status
+        js_cfg = getattr(self.config, "joint_sampling", None)
+        js_enabled = getattr(js_cfg, "enabled", False) if js_cfg else False
+        mlflow.log_param("joint_sampling.enabled", js_enabled)
+
+        # Log inter-task affinity status
+        ita_cfg = getattr(self.config, "inter_task_affinity", None)
+        ita_enabled = getattr(ita_cfg, "enabled", False) if ita_cfg else False
+        mlflow.log_param("inter_task_affinity.enabled", ita_enabled)
+
+        # Log Ray parallelization info
+        mlflow.log_param("ray.max_parallel", getattr(self.config.ray, "max_parallel", 1))
+
+        logger.debug("Logged dataset metadata to MLflow")
 
     def _log_config_artifact(self) -> None:
         """Log the full ensemble configuration as a YAML artifact."""
@@ -273,8 +367,17 @@ class ModelEnsemble:
         # Log as artifact
         self._mlflow_client.log_artifact(self.parent_run_id, str(yaml_path), artifact_path="config")
 
+        # Also save as JSON for programmatic access
+        json_path = temp_dir / "config.json"
+        import json
+
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(config_dict, f, indent=2, default=str)
+        self._mlflow_client.log_artifact(self.parent_run_id, str(json_path), artifact_path="config")
+
         # Cleanup
         yaml_path.unlink(missing_ok=True)
+        json_path.unlink(missing_ok=True)
         temp_dir.rmdir()
 
         logger.debug("Logged config artifact to MLflow")
@@ -602,6 +705,7 @@ class ModelEnsemble:
         @ray.remote(num_gpus=gpu_fraction)
         def train_single_model(
             config_dict: Dict[str, Any],
+            ensemble_config_dict: Dict[str, Any],
             split_idx: int,
             fold_idx: int,
             parent_run_id: Optional[str],
@@ -613,6 +717,23 @@ class ModelEnsemble:
 
             The model creates its own nested MLflow run under the parent run,
             so all artifacts (checkpoints, metrics, plots) are logged directly.
+
+            Parameters
+            ----------
+            config_dict : Dict[str, Any]
+                Single model configuration dictionary.
+            ensemble_config_dict : Dict[str, Any]
+                Full ensemble configuration dictionary (for logging as artifact).
+            split_idx : int
+                Split index for this model.
+            fold_idx : int
+                Fold index for this model.
+            parent_run_id : Optional[str]
+                Parent MLflow run ID for nested runs.
+            tracking_uri : Optional[str]
+                MLflow tracking URI.
+            experiment_name : str
+                MLflow experiment name.
             """
             # Reconstruct config from dict - use deep merge to ensure nested values override defaults
             base_config = OmegaConf.structured(ChempropConfig)
@@ -652,6 +773,13 @@ class ModelEnsemble:
                 # Use Chemprop-specific initialization with full config
                 # Chemprop loads data from config files directly
                 model = ChempropModel.from_config(config)  # type: ignore[arg-type]
+
+                # Log full ensemble config as artifact in child run for complete traceability
+                if model.mlflow_run_id and ensemble_config_dict and model._mlflow_client is not None:
+                    _log_ensemble_config_to_child_run(
+                        model._mlflow_client, model.mlflow_run_id, ensemble_config_dict, model_key
+                    )
+
                 model.fit()
             else:
                 # Use ModelRegistry for other model types
@@ -660,7 +788,7 @@ class ModelEnsemble:
                     config_dc = config
                 else:
                     config_dc = OmegaConf.create(config)  # type: ignore[assignment]
-                base_model = ModelRegistry.create(config_dc)
+                base_model = ModelRegistry.create(config_dc)  # type: ignore[arg-type]
 
                 # Load training and validation data from config.data.data_dir
                 data_dir = Path(config.data.data_dir)
@@ -770,8 +898,15 @@ class ModelEnsemble:
             # (avoids accidentally using dataclass defaults via OmegaConf.structured).
             config_dict = asdict(config)
 
+            # Convert ensemble config to dict for passing to child processes
+            ensemble_config_dict = OmegaConf.to_container(self.config, resolve=True)
+            # Ensure we have a dict type for type checking
+            if not isinstance(ensemble_config_dict, dict):
+                ensemble_config_dict = {}
+
             task = train_single_model.remote(
                 config_dict,  # type: ignore[arg-type]
+                ensemble_config_dict,  # type: ignore[arg-type]
                 info.split_idx,
                 info.fold_idx,
                 self.parent_run_id,
@@ -817,6 +952,11 @@ class ModelEnsemble:
         # Create temp directory for outputs
         self._temp_dir = Path(tempfile.mkdtemp(prefix="ensemble_"))
 
+        # Log ensemble metadata
+        if self._mlflow_client and self.parent_run_id:
+            mlflow.log_param("ensemble.n_models", len(self._all_metrics) if self._all_metrics else 0)
+            mlflow.log_param("ensemble.n_splits_folds", len(self.split_fold_infos))
+
         # Aggregate test predictions
         if self._all_test_predictions:
             test_ensemble = self._aggregate_predictions(self._all_test_predictions, split_name="test")
@@ -824,11 +964,19 @@ class ModelEnsemble:
             self._generate_ensemble_plots(test_ensemble, "test")
             self._generate_unlabeled_ensemble_plots(test_ensemble, "test")
 
+            # Log test set size
+            if self._mlflow_client and self.parent_run_id:
+                mlflow.log_param("data.test_size", len(test_ensemble))
+
         # Aggregate blind predictions
         if self._all_blind_predictions:
             blind_ensemble = self._aggregate_predictions(self._all_blind_predictions, split_name="blind")
             self._save_ensemble_predictions(blind_ensemble, "blind")
             self._generate_unlabeled_ensemble_plots(blind_ensemble, "blind")
+
+            # Log blind set size
+            if self._mlflow_client and self.parent_run_id:
+                mlflow.log_param("data.blind_size", len(blind_ensemble))
 
         # Log ensemble metrics
         self._log_ensemble_metrics()
@@ -1084,6 +1232,9 @@ class ModelEnsemble:
         split_name : str
             Name of the split for labeling.
         """
+        from scipy.stats import pearsonr, spearmanr
+        from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
         if self._temp_dir is None:
             self._temp_dir = Path(tempfile.mkdtemp(prefix="ensemble_"))
 
@@ -1091,6 +1242,9 @@ class ModelEnsemble:
         plot_dir.mkdir(exist_ok=True)
 
         target_cols = list(self.config.data.target_cols)
+
+        # Collect parity plot metrics for logging
+        parity_metrics = {}
 
         # Generate parity plots with error bands for each target
         for target in target_cols:
@@ -1101,6 +1255,32 @@ class ModelEnsemble:
             actual = predictions[actual_col].values
             mean_pred = predictions[f"{target}_mean"].values
             stderr = predictions[f"{target}_stderr"].values
+
+            # Calculate parity plot metrics (ensemble mean vs actual)
+            mask = ~(np.isnan(actual) | np.isnan(mean_pred))
+            if mask.sum() > 0:
+                actual_clean = actual[mask]
+                pred_clean = mean_pred[mask]
+
+                # Compute metrics
+                mae = mean_absolute_error(actual_clean, pred_clean)
+                rmse = np.sqrt(mean_squared_error(actual_clean, pred_clean))
+                r2 = r2_score(actual_clean, pred_clean)
+                pearson_r, _ = pearsonr(actual_clean, pred_clean)
+                spearman_rho, _ = spearmanr(actual_clean, pred_clean)
+                mean_stderr = np.mean(stderr[mask])
+
+                # Sanitize target name for MLflow
+                safe_target = _sanitize_metric_label(target)
+
+                # Store metrics for batch logging
+                parity_metrics[f"parity/{split_name}/{safe_target}/MAE"] = float(mae)
+                parity_metrics[f"parity/{split_name}/{safe_target}/RMSE"] = float(rmse)
+                parity_metrics[f"parity/{split_name}/{safe_target}/R2"] = float(r2)
+                parity_metrics[f"parity/{split_name}/{safe_target}/pearson_r"] = float(pearson_r)
+                parity_metrics[f"parity/{split_name}/{safe_target}/spearman_rho"] = float(spearman_rho)
+                parity_metrics[f"parity/{split_name}/{safe_target}/mean_stderr"] = float(mean_stderr)
+                parity_metrics[f"parity/{split_name}/{safe_target}/n_samples"] = float(mask.sum())
 
             # Use the shared plot_parity function with yerr support
             fig, _ = plot_parity(
@@ -1118,6 +1298,14 @@ class ModelEnsemble:
             plot_path = plot_dir / f"parity_{target.replace(' ', '_')}.png"
             fig.savefig(plot_path, dpi=300, bbox_inches="tight")
             plt.close(fig)
+
+        # Log parity plot metrics to MLflow
+        if parity_metrics and self._mlflow_client and self.parent_run_id:
+            try:
+                mlflow.log_metrics(parity_metrics)
+                logger.debug(f"Logged {len(parity_metrics)} parity metrics for {split_name}")
+            except Exception as e:
+                logger.warning(f"Failed to log parity metrics for {split_name}: {e}")
 
         # Generate bar plot of metrics computed from predictions
         self._generate_metrics_bar_plot(plot_dir, split_name, predictions)
