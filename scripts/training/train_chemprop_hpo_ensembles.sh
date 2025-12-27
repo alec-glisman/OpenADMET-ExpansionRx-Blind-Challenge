@@ -20,7 +20,6 @@ set -euo pipefail
 START_RANK=1
 END_RANK=100
 SPECIFIC_RANKS=""
-MAX_PARALLEL=4
 DRY_RUN=false
 
 # Parse command line arguments
@@ -38,10 +37,6 @@ while [[ $# -gt 0 ]]; do
     SPECIFIC_RANKS="$2"
     shift 2
     ;;
-  --max-parallel)
-    MAX_PARALLEL="$2"
-    shift 2
-    ;;
   --dry-run)
     DRY_RUN=true
     shift
@@ -53,7 +48,6 @@ while [[ $# -gt 0 ]]; do
     echo "  --start N          Start from rank N (default: 1)"
     echo "  --end N            End at rank N (default: 100)"
     echo "  --ranks N,M,K      Train specific ranks only (comma-separated)"
-    echo "  --max-parallel N   Max parallel jobs (default: 5)"
     echo "  --dry-run          Print commands without executing"
     echo "  -h, --help         Show this help message"
     exit 0
@@ -83,14 +77,13 @@ train_ensemble() {
 
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY RUN] Would execute:"
-    echo "python -m admet.model.chemprop.ensemble --config $config_file --max-parallel $MAX_PARALLEL"
+    echo "python -m admet.model.chemprop.ensemble --config $config_file"
     return 0
   fi
 
   # Run ensemble training
   if python -m admet.model.chemprop.ensemble \
-    --config "$config_file" \
-    --max-parallel "$MAX_PARALLEL"; then
+    --config "$config_file"; then
     echo "✓ Successfully completed ensemble rank $rank"
     echo "Finished at: $(date '+%Y-%m-%d %H:%M:%S')"
     return 0
@@ -107,7 +100,6 @@ echo "Chemprop HPO Ensemble Training Pipeline"
 echo "============================================="
 echo "Start rank: $START_RANK"
 echo "End rank: $END_RANK"
-echo "Max parallel: $MAX_PARALLEL"
 echo "Dry run: $DRY_RUN"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================="

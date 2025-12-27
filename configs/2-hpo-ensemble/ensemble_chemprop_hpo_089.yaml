@@ -52,7 +52,7 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: ensemble_chemprop_hpo_topk_2
+  experiment_name: ensemble_chemprop_hpo_topk_3
   run_name: rank_089
   nested: true
 inter_task_affinity:
@@ -91,6 +91,6 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 5
+  max_parallel: 4
   num_cpus: null
   num_gpus: null
