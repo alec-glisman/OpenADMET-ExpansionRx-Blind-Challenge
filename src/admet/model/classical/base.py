@@ -245,13 +245,15 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
 
         return predictions
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path, compress: bool = True) -> None:
         """Save model to disk.
 
         Parameters
         ----------
         path : str | Path
             Path to save the model.
+        compress : bool, default=True
+            Whether to compress the saved model (reduces size 50-80%).
         """
         import joblib
 
@@ -266,8 +268,10 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
             "is_fitted": self._is_fitted,
         }
 
-        joblib.dump(model_data, path)
-        logger.info(f"Model saved to {path}")
+        # Use compression level 3 (good balance of speed vs size)
+        compress_level = 3 if compress else 0
+        joblib.dump(model_data, path, compress=compress_level)
+        logger.info("Model saved to %s (compressed=%s)", path, compress)
 
     def load(self, path: str | Path) -> ClassicalModelBase:
         """Load model from disk.

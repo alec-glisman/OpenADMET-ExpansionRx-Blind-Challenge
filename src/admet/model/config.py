@@ -66,6 +66,8 @@ class BaseMlflowConfig:
         parent_run_id: Parent run ID for nested runs (ensemble).
         nested: Whether to create a nested run.
         log_model: Whether to log the trained model as artifact.
+        log_predictions: Whether to log prediction CSV artifacts (can be large).
+        compress_artifacts: Whether to compress model artifacts (reduces size 50-80%).
     """
 
     enabled: bool = True
@@ -76,6 +78,8 @@ class BaseMlflowConfig:
     parent_run_id: str | None = None
     nested: bool = False
     log_model: bool = True
+    log_predictions: bool = True
+    compress_artifacts: bool = True
 
 
 # Valid model types (documentation and validation)
@@ -668,6 +672,8 @@ class UnifiedMlflowConfig:
         parent_run_id: Parent run ID for nested runs.
         nested: Whether to create a nested run.
         log_model: Whether to log trained model as artifact.
+        log_predictions: Whether to log prediction CSV artifacts (can be large).
+        compress_artifacts: Whether to compress model artifacts (reduces size 50-80%).
     """
 
     enabled: bool = True
@@ -679,6 +685,8 @@ class UnifiedMlflowConfig:
     parent_run_id: Optional[str] = None
     nested: bool = False
     log_model: bool = True
+    log_predictions: bool = True
+    compress_artifacts: bool = True
 
 
 @dataclass
