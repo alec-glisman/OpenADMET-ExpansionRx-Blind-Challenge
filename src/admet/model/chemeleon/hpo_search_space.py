@@ -112,11 +112,14 @@ def build_chemeleon_search_space(
         "warmup_epochs",
         "patience",
         "dropout",
+        "weight_decay",
         "ffn_type",
         "ffn_num_layers",
         "ffn_hidden_dim",
         "batch_size",
         "batch_norm",
+        "freeze_encoder",
+        "unfreeze_encoder_lr_multiplier",
     ]
 
     for param_name in simple_params:
@@ -141,25 +144,25 @@ def build_chemeleon_search_space(
         else:
             space["n_experts"] = _build_parameter_space(config.n_experts)
 
-    # Conditional parameters for Branched FFN (trunk_n_layers)
-    if config.trunk_n_layers is not None:
-        if config.trunk_n_layers.conditional_on == "ffn_type":
-            branched_conditional_values = config.trunk_n_layers.conditional_values or ["branched"]
-            trunk_n_layers_config = config.trunk_n_layers
+    # Conditional parameters for Branched FFN (trunk_depth)
+    if config.trunk_depth is not None:
+        if config.trunk_depth.conditional_on == "ffn_type":
+            branched_conditional_values = config.trunk_depth.conditional_values or ["branched"]
+            trunk_depth_config = config.trunk_depth
 
-            def sample_trunk_n_layers(config_dict: dict[str, Any]) -> int | None:
-                """Sample trunk_n_layers only for branched FFN types."""
+            def sample_trunk_depth(config_dict: dict[str, Any]) -> int | None:
+                """Sample trunk_depth only for branched FFN types."""
                 if config_dict.get("ffn_type") in branched_conditional_values:
-                    if trunk_n_layers_config.low is not None and trunk_n_layers_config.high is not None:
+                    if trunk_depth_config.low is not None and trunk_depth_config.high is not None:
                         return random.randint(
-                            int(trunk_n_layers_config.low),
-                            int(trunk_n_layers_config.high),
+                            int(trunk_depth_config.low),
+                            int(trunk_depth_config.high),
                         )
                 return None
 
-            space["trunk_n_layers"] = tune.sample_from(sample_trunk_n_layers)
+            space["trunk_depth"] = tune.sample_from(sample_trunk_depth)
         else:
-            space["trunk_n_layers"] = _build_parameter_space(config.trunk_n_layers)
+            space["trunk_depth"] = _build_parameter_space(config.trunk_depth)
 
     # Conditional parameters for Branched FFN (trunk_hidden_dim)
     if config.trunk_hidden_dim is not None:
@@ -182,5 +185,25 @@ def build_chemeleon_search_space(
             space["trunk_hidden_dim"] = tune.sample_from(sample_trunk_hidden_dim)
         else:
             space["trunk_hidden_dim"] = _build_parameter_space(config.trunk_hidden_dim)
+
+    # Conditional parameter for encoder unfreezing (only when freeze_encoder=True)
+    if config.unfreeze_encoder_epoch is not None:
+        if config.unfreeze_encoder_epoch.conditional_on == "freeze_encoder":
+            unfreeze_epoch_config = config.unfreeze_encoder_epoch
+            conditional_values = config.unfreeze_encoder_epoch.conditional_values or [True]
+
+            def sample_unfreeze_epoch(config_dict: dict[str, Any]) -> int | None:
+                """Sample unfreeze_encoder_epoch only when freeze_encoder=True."""
+                if config_dict.get("freeze_encoder") in conditional_values:
+                    if unfreeze_epoch_config.low is not None and unfreeze_epoch_config.high is not None:
+                        return random.randint(
+                            int(unfreeze_epoch_config.low),
+                            int(unfreeze_epoch_config.high),
+                        )
+                return None
+
+            space["unfreeze_encoder_epoch"] = tune.sample_from(sample_unfreeze_epoch)
+        else:
+            space["unfreeze_encoder_epoch"] = _build_parameter_space(config.unfreeze_encoder_epoch)
 
     return space

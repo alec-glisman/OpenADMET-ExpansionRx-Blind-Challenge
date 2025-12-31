@@ -292,16 +292,48 @@ def ensemble(
 def hpo(
     config: str = typer.Option(..., "--config", "-c", help="HPO config YAML"),
     num_samples: Optional[int] = typer.Option(None, "--num-samples", help="Number of HPO trials"),
+    model_type: Optional[str] = typer.Option(
+        None,
+        "--model-type",
+        "-m",
+        help="Model type (chemprop or chemeleon). Auto-detected from config if not specified.",
+    ),
 ) -> None:
-    """Run hyperparameter optimization (HPO) using a Chemprop HPO config.
+    """Run hyperparameter optimization (HPO) using a Chemprop or CheMeleon HPO config.
 
-    Example:
+    The model type is auto-detected from the config file. CheMeleon configs contain
+    'checkpoint_path' while Chemprop configs do not. You can also explicitly specify
+    the model type with --model-type.
+
+    Examples:
         admet model hpo --config configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
+        admet model hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
+        admet model hpo --config my_config.yaml --model-type chemeleon
     """
+    from omegaconf import OmegaConf
+
+    # Auto-detect model type from config if not specified
+    if model_type is None:
+        raw_config = OmegaConf.load(config)
+        if "checkpoint_path" in raw_config:
+            model_type = "chemeleon"
+            logger.info("Auto-detected CheMeleon HPO config (checkpoint_path found)")
+        else:
+            model_type = "chemprop"
+            logger.info("Auto-detected Chemprop HPO config")
+
+    # Select appropriate HPO module
+    if model_type.lower() == "chemeleon":
+        module_name = "admet.model.chemeleon.hpo"
+    elif model_type.lower() == "chemprop":
+        module_name = "admet.model.chemprop.hpo"
+    else:
+        raise typer.BadParameter(f"Unknown model type: {model_type}. Use 'chemprop' or 'chemeleon'.")
+
     args = ["--config", config]
     if num_samples is not None:
         args += ["--num-samples", str(num_samples)]
-    _run_module_main("admet.model.chemprop.hpo", args)
+    _run_module_main(module_name, args)
 
 
 @model_app.command("list")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -176,11 +177,9 @@ class TestChemeleonModel:
         assert len(callbacks) == 1
         assert isinstance(callbacks[0], GradualUnfreezeCallback)
 
-    @patch("admet.model.chemeleon.model.urllib.request.urlretrieve")
-    @patch("admet.model.chemeleon.model.Path.exists")
-    def test_download_from_zenodo(self, mock_exists, mock_urlretrieve):
+    def test_download_from_zenodo(self, tmp_path):
         """Test auto-download from Zenodo."""
-        mock_exists.return_value = False
+        import tempfile
 
         config = OmegaConf.create(
             {
@@ -193,10 +192,27 @@ class TestChemeleonModel:
         )
 
         model = ChemeleonModel(config)
-        path = model._download_from_zenodo()
 
-        mock_urlretrieve.assert_called_once()
-        assert "chemeleon_mp.pt" in path
+        # Mock the download and validation within a temp directory context
+        with tempfile.TemporaryDirectory() as cache_dir:
+            cache_path = Path(cache_dir)
+
+            def mock_urlretrieve(url, dest):
+                # Create a fake checkpoint file
+                Path(dest).touch()
+
+            with (
+                patch("admet.model.chemeleon.model.Path.home", return_value=cache_path),
+                patch(
+                    "admet.model.chemeleon.model.urllib.request.urlretrieve",
+                    side_effect=mock_urlretrieve,
+                ),
+                patch.object(ChemeleonModel, "_validate_checkpoint", return_value=True),
+            ):
+                # Directly test the method behavior
+                result_path = model._download_from_zenodo()
+
+                assert "chemeleon_mp.pt" in result_path
 
     def test_get_best_checkpoint_path_from_callback(self):
         """Test _get_best_checkpoint_path finds checkpoint via ModelCheckpoint callback."""

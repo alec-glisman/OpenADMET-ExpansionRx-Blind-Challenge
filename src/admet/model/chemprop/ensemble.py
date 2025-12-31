@@ -175,8 +175,8 @@ def _log_ensemble_config_to_child_run(
         logger.warning("Failed to log ensemble config to child run %s: %s", run_id, e)
     finally:
         # Cleanup
-        for f in temp_dir.iterdir():
-            f.unlink(missing_ok=True)
+        for temp_file in temp_dir.iterdir():
+            temp_file.unlink(missing_ok=True)
         temp_dir.rmdir()
 
 
@@ -242,8 +242,14 @@ class ModelEnsemble:
         self.models: Dict[str, BaseModel] = {}
         self.predictions: Dict[str, pd.DataFrame] = {}
 
-        # Determine model type from config
-        self.model_type = self.config.model.type if hasattr(self.config.model, "type") else "chemprop"
+        # Determine model type from config (handle missing model section gracefully)
+        model_type = "chemprop"  # default
+        if hasattr(self.config, "model") and self.config.model is not None:
+            if hasattr(self.config.model, "type"):
+                model_type = self.config.model.type
+            elif isinstance(self.config.model, dict) and "type" in self.config.model:
+                model_type = self.config.model["type"]
+        self.model_type = model_type
 
         # MLflow tracking
         self.parent_run_id: Optional[str] = None
@@ -251,7 +257,7 @@ class ModelEnsemble:
         self._temp_dir: Optional[Path] = None
 
         # Initialize MLflow
-        if self.config.mlflow.tracking:
+        if hasattr(self.config, "mlflow") and self.config.mlflow is not None and self.config.mlflow.tracking:
             self._init_mlflow()
 
     @classmethod

@@ -45,7 +45,9 @@ def test_model_ensemble_and_hpo(monkeypatch):
     from admet.cli.model import model_app
 
     r1 = runner.invoke(model_app, ["ensemble", "--config", "c.yaml"])
-    r2 = runner.invoke(model_app, ["hpo", "--config", "c.yaml"])
+    # HPO command now auto-detects model type from config, so we explicitly specify it
+    # to avoid needing a real config file
+    r2 = runner.invoke(model_app, ["hpo", "--config", "c.yaml", "--model-type", "chemprop"])
 
     assert r1.exit_code == 0
     assert r2.exit_code == 0

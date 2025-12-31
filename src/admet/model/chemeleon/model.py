@@ -20,6 +20,7 @@ References:
 
 from __future__ import annotations
 
+import fcntl
 import logging
 import tempfile
 import urllib.request
@@ -191,17 +192,24 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self.agg = nn.MeanAggregation()
 
         # Initialize FFN using shared factory
+        # Cast to int since Ray Tune may sample floats for integer hyperparameters
         ffn_type = self._get_model_param("ffn_type", "regression")
+        ffn_hidden_dim = self._get_model_param("ffn_hidden_dim", 300)
+        ffn_num_layers = self._get_model_param("ffn_num_layers", 2)
+        n_experts = self._get_model_param("n_experts", None)
+        trunk_n_layers = self._get_model_param("trunk_n_layers", None)
+        trunk_hidden_dim = self._get_model_param("trunk_hidden_dim", None)
+
         self.ffn = create_ffn_predictor(
             ffn_type=ffn_type,
             input_dim=self.mp.output_dim,
             n_tasks=n_tasks,
-            hidden_dim=self._get_model_param("ffn_hidden_dim", 300),
-            n_layers=self._get_model_param("ffn_num_layers", 2),
+            hidden_dim=int(ffn_hidden_dim) if ffn_hidden_dim is not None else 300,
+            n_layers=int(ffn_num_layers) if ffn_num_layers is not None else 2,
             dropout=self._get_model_param("dropout", 0.0),
-            n_experts=self._get_model_param("n_experts", None),
-            trunk_n_layers=self._get_model_param("trunk_n_layers", None),
-            trunk_hidden_dim=self._get_model_param("trunk_hidden_dim", None),
+            n_experts=int(n_experts) if n_experts is not None else None,
+            trunk_n_layers=int(trunk_n_layers) if trunk_n_layers is not None else None,
+            trunk_hidden_dim=int(trunk_hidden_dim) if trunk_hidden_dim is not None else None,
         )
 
         # Create MPNN
@@ -246,7 +254,10 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         return mp
 
     def _download_from_zenodo(self) -> str:
-        """Download checkpoint from Zenodo.
+        """Download checkpoint from Zenodo with file locking for parallel safety.
+
+        Uses file locking to prevent race conditions when multiple Ray workers
+        attempt to download the checkpoint simultaneously.
 
         Returns
         -------
@@ -256,13 +267,53 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         cache_dir = DEFAULT_CACHE_DIR
         cache_dir.mkdir(parents=True, exist_ok=True)
         checkpoint_path = cache_dir / "chemeleon_mp.pt"
+        lock_path = cache_dir / "chemeleon_mp.pt.lock"
 
-        if not checkpoint_path.exists():
-            logger.info("Downloading Chemeleon checkpoint from %s", ZENODO_URL)
-            urllib.request.urlretrieve(ZENODO_URL, checkpoint_path)
-            logger.info("Downloaded to %s", checkpoint_path)
+        # Use file locking to prevent concurrent downloads
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                if not checkpoint_path.exists() or not self._validate_checkpoint(checkpoint_path):
+                    logger.info("Downloading Chemeleon checkpoint from %s", ZENODO_URL)
+                    # Download to temp file first, then move atomically
+                    temp_path = checkpoint_path.with_suffix(".pt.tmp")
+                    try:
+                        urllib.request.urlretrieve(ZENODO_URL, temp_path)
+                        # Validate downloaded file before moving
+                        if self._validate_checkpoint(temp_path):
+                            temp_path.rename(checkpoint_path)
+                            logger.info("Downloaded to %s", checkpoint_path)
+                        else:
+                            temp_path.unlink(missing_ok=True)
+                            raise RuntimeError("Downloaded checkpoint is corrupted")
+                    except Exception:
+                        temp_path.unlink(missing_ok=True)
+                        raise
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
         return str(checkpoint_path)
+
+    def _validate_checkpoint(self, path: Path) -> bool:
+        """Validate that a checkpoint file is a valid PyTorch archive.
+
+        Parameters
+        ----------
+        path : Path
+            Path to checkpoint file.
+
+        Returns
+        -------
+        bool
+            True if the checkpoint is valid, False otherwise.
+        """
+        try:
+            # Try to load just the file headers to validate structure
+            torch.load(path, map_location="cpu", weights_only=False)
+            return True
+        except Exception as e:
+            logger.warning("Checkpoint validation failed for %s: %s", path, e)
+            return False
 
     def _freeze_encoder(self) -> None:
         """Freeze message passing encoder."""
@@ -408,10 +459,8 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         """
         datapoints = []
         for smi, targets in zip(smiles, y):
-            mol_data = data.MoleculeDatapoint(
-                mol=data.Molecule(smi),
-                y=targets.tolist() if isinstance(targets, np.ndarray) else [targets],
-            )
+            target_list = targets.tolist() if isinstance(targets, np.ndarray) else [targets]
+            mol_data = data.MoleculeDatapoint.from_smi(smi, target_list)
             datapoints.append(mol_data)
 
         return data.MoleculeDataset(datapoints, featurizer=self.featurizer)
@@ -618,7 +667,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             raise RuntimeError("Model has not been fitted. Call fit() first.")
 
         # Create dataset
-        datapoints = [data.MoleculeDatapoint(mol=data.Molecule(smi)) for smi in smiles]
+        datapoints = [data.MoleculeDatapoint.from_smi(smi) for smi in smiles]
         dataset = data.MoleculeDataset(datapoints, featurizer=self.featurizer)
 
         # Create dataloader

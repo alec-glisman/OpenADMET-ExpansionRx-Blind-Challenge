@@ -33,7 +33,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import mlflow
 from omegaconf import OmegaConf
@@ -80,9 +80,20 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     checkpoint_path = config.pop("checkpoint_path", "auto")
     freeze_encoder = config.pop("freeze_encoder", True)
 
+    # Extract unfreezing schedule parameters (may be overridden by search space)
+    unfreeze_encoder_epoch = config.pop("unfreeze_encoder_epoch", None)
+    unfreeze_encoder_lr_multiplier = config.pop("unfreeze_encoder_lr_multiplier", 0.1)
+
     # Load data
     df_train = pd.read_csv(data_path)
     df_val = pd.read_csv(val_data_path) if val_data_path else None
+
+    # Build unfreeze schedule config
+    unfreeze_schedule = {
+        "freeze_encoder": freeze_encoder,
+        "unfreeze_encoder_epoch": unfreeze_encoder_epoch,
+        "unfreeze_encoder_lr_multiplier": unfreeze_encoder_lr_multiplier,
+    }
 
     # Build model config
     model_config = OmegaConf.create(
@@ -92,6 +103,7 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
                 "chemeleon": {
                     "checkpoint_path": checkpoint_path,
                     "freeze_encoder": freeze_encoder,
+                    "unfreeze_schedule": unfreeze_schedule,
                     "ffn_type": config.get("ffn_type", "regression"),
                     "ffn_hidden_dim": config.get("ffn_hidden_dim", 300),
                     "ffn_num_layers": config.get("ffn_num_layers", 2),
@@ -302,20 +314,74 @@ class ChemeleonHPO:
         run = mlflow.start_run(run_name=f"hpo_{self.timestamp}")
         self._mlflow_run_id = run.info.run_id
 
-        mlflow.log_params(
-            {
-                "num_samples": self.config.resources.num_samples,
-                "max_epochs": self.config.asha.max_t,
-                "grace_period": self.config.asha.grace_period,
-                "checkpoint_path": self.config.checkpoint_path,
-                "freeze_encoder": self.config.freeze_encoder,
-            }
-        )
+        # Log all HPO configuration parameters
+        params_to_log = {
+            # Experiment metadata
+            "experiment_name": self.config.experiment_name,
+            "timestamp": self.timestamp,
+            # Data configuration
+            "data_path": str(self.config.data_path),
+            "val_data_path": str(self.config.val_data_path) if self.config.val_data_path else None,
+            "smiles_column": self.config.smiles_column,
+            "target_columns": str(self.config.target_columns),
+            "target_weights": str(self.config.target_weights) if self.config.target_weights else None,
+            "seed": self.config.seed,
+            # CheMeleon-specific settings
+            "checkpoint_path": self.config.checkpoint_path,
+            "freeze_encoder": self.config.freeze_encoder,
+            # Unfreeze schedule
+            "unfreeze_schedule.freeze_encoder": self.config.unfreeze_schedule.freeze_encoder,
+            "unfreeze_schedule.unfreeze_encoder_epoch": self.config.unfreeze_schedule.unfreeze_encoder_epoch,
+            "unfreeze_schedule.lr_multiplier": self.config.unfreeze_schedule.unfreeze_encoder_lr_multiplier,
+            # ASHA scheduler configuration
+            "asha.metric": self.config.asha.metric,
+            "asha.mode": self.config.asha.mode,
+            "asha.max_t": self.config.asha.max_t,
+            "asha.grace_period": self.config.asha.grace_period,
+            "asha.reduction_factor": self.config.asha.reduction_factor,
+            # Resource allocation
+            "resources.num_samples": self.config.resources.num_samples,
+            "resources.cpus_per_trial": self.config.resources.cpus_per_trial,
+            "resources.gpus_per_trial": self.config.resources.gpus_per_trial,
+            "resources.max_concurrent_trials": self.config.resources.max_concurrent_trials,
+            # Transfer learning settings
+            "transfer_learning.top_k": self.config.transfer_learning.top_k,
+            "transfer_learning.full_epochs": self.config.transfer_learning.full_epochs,
+            "transfer_learning.ensemble_size": self.config.transfer_learning.ensemble_size,
+        }
+        # Filter out None values and truncate long strings for MLflow param limits (500 chars)
+        filtered_params = {}
+        for k, v in params_to_log.items():
+            if v is not None:
+                str_v = str(v)
+                filtered_params[k] = str_v[:500] if len(str_v) > 500 else str_v
+        mlflow.log_params(filtered_params)
+
+        # Log the full config as a YAML artifact for complete reproducibility
+        self._log_config_artifact()
+
+    def _log_config_artifact(self) -> None:
+        """Log the full HPO configuration as a YAML artifact."""
+        output_dir = Path(self.config.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Convert config to dict for YAML serialization
+        config_dict = OmegaConf.to_container(OmegaConf.structured(self.config), resolve=True)
+
+        config_path = output_dir / f"hpo_config_{self.timestamp}.yaml"
+        with open(config_path, "w", encoding="utf-8") as f:
+            OmegaConf.save(OmegaConf.create(config_dict), f)
+
+        mlflow.log_artifact(str(config_path), artifact_path="config")
+        logger.info("Logged HPO config artifact: %s", config_path)
 
     def _log_results(self) -> None:
         """Log HPO results to MLflow."""
         if self.results is None:
             return
+
+        output_dir = Path(self.config.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             best_result = self.results.get_best_result(
@@ -324,17 +390,113 @@ class ChemeleonHPO:
             )
 
             if best_result and best_result.config:
-                mlflow.log_params({f"best_{k}": v for k, v in best_result.config.items() if not k.startswith("_")})
+                # Filter out internal params and truncate values for MLflow limits
+                best_params = {}
+                for k, v in best_result.config.items():
+                    if not k.startswith("_"):
+                        str_v = str(v)
+                        best_params[f"best.{k}"] = str_v[:500] if len(str_v) > 500 else str_v
+                mlflow.log_params(best_params)
 
             if best_result and best_result.metrics:
-                mlflow.log_metrics(
-                    {f"best_{k}": v for k, v in best_result.metrics.items() if isinstance(v, (int, float))}
-                )
+                best_metrics = {
+                    f"best.{k}": float(v) for k, v in best_result.metrics.items() if isinstance(v, (int, float))
+                }
+                mlflow.log_metrics(best_metrics)
+
+            # Log best model checkpoint if available
+            if best_result and best_result.checkpoint:
+                try:
+                    with best_result.checkpoint.as_directory() as checkpoint_dir:
+                        checkpoint_path = Path(checkpoint_dir)
+                        best_checkpoints = list(checkpoint_path.glob("best-*.ckpt"))
+                        best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+                        if best_checkpoints:
+                            ckpt_file = best_checkpoints[0]
+                            logger.info("Logging best HPO model artifact: %s", ckpt_file.name)
+                            mlflow.log_artifact(str(ckpt_file), artifact_path="best_model")
+                        else:
+                            logger.warning("No best-*.ckpt found in checkpoint: %s", checkpoint_path)
+                except Exception as e:
+                    logger.warning("Failed to log best model artifact: %s", e)
 
         except Exception as e:
             logger.warning("Could not log best result: %s", e)
 
+        # Save all results as CSV artifact
+        try:
+            results_df = self.results.get_dataframe()
+            results_path = output_dir / f"hpo_results_{self.timestamp}.csv"
+            results_df.to_csv(results_path, index=False)
+            mlflow.log_artifact(str(results_path))
+            logger.info("Logged HPO results artifact: %s", results_path)
+        except Exception as e:
+            logger.warning("Could not save results dataframe: %s", e)
+
+        # Save top-k configs as JSON artifact
+        try:
+            top_k = self._get_top_k_configs()
+            top_k_path = output_dir / f"top_k_configs_{self.timestamp}.json"
+            with open(top_k_path, "w", encoding="utf-8") as f:
+                json.dump(top_k, f, indent=2, default=str)
+            mlflow.log_artifact(str(top_k_path))
+            logger.info("Logged top-k configs artifact: %s", top_k_path)
+        except Exception as e:
+            logger.warning("Could not save top-k configs: %s", e)
+
         mlflow.end_run()
+        logger.info("HPO results logged to MLflow")
+
+    def _get_top_k_configs(self) -> list[dict[str, Any]]:
+        """Get the top-k configurations from HPO results.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of top-k configuration dictionaries with hyperparameters.
+            Each config includes '_rank' and '_metric_value' metadata.
+        """
+        if self.results is None:
+            return []
+
+        k = self.config.transfer_learning.top_k
+        results_df = self.results.get_dataframe()
+
+        # Sort by metric
+        metric = self.config.asha.metric
+        ascending = self.config.asha.mode == "min"
+        results_df = results_df.sort_values(metric, ascending=ascending)
+
+        # Extract top-k configs
+        top_k: list[dict[str, Any]] = []
+        config_cols = [c for c in results_df.columns if c.startswith("config/")]
+
+        # Fixed parameters to exclude from config
+        fixed_params = {
+            "data_path",
+            "val_data_path",
+            "smiles_column",
+            "target_columns",
+            "max_epochs",
+            "metric",
+            "seed",
+            "checkpoint_path",
+        }
+
+        for _, row in results_df.head(k).iterrows():
+            config: dict[str, Any] = {}
+            for col in config_cols:
+                param_name = col.replace("config/", "")
+                value = row[col]
+                # Skip internal and fixed parameters
+                if not param_name.startswith("_") and param_name not in fixed_params:
+                    config[param_name] = value
+            config["_rank"] = len(top_k) + 1
+            config["_metric_value"] = row.get(metric)
+            top_k.append(config)
+
+        return top_k
 
     def save_top_configs(self, k: int | None = None) -> list[dict[str, Any]]:
         """Save top-k configurations to file.
@@ -374,7 +536,7 @@ class ChemeleonHPO:
         output_path = Path(self.config.output_dir) / f"top_{k}_configs_{self.timestamp}.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(top_configs, f, indent=2, default=str)
 
         logger.info("Saved top %d configs to %s", k, output_path)
@@ -389,9 +551,9 @@ def main() -> None:
     parser.add_argument("--config", type=str, required=True, help="Path to HPO config YAML")
     args = parser.parse_args()
 
-    config_dict = OmegaConf.load(args.config)
-    config_container = OmegaConf.to_container(config_dict, resolve=True)
-    config = OmegaConf.structured(ChemeleonHPOConfig(**config_container))  # type: ignore[arg-type]
+    raw_config = OmegaConf.load(args.config)
+    merged_config = OmegaConf.merge(OmegaConf.structured(ChemeleonHPOConfig), raw_config)
+    config = cast(ChemeleonHPOConfig, OmegaConf.to_object(merged_config))
 
     hpo = ChemeleonHPO(config)
     results = hpo.run()

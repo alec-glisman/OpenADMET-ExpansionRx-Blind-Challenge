@@ -20,9 +20,9 @@
 # Usage:
 #   python -m admet.model.chemeleon.hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
 
-experiment_name: chemeleon-hpo
+experiment_name: chemeleon_hpo
 output_dir: /media/aglisman/Data/models/admet-chemeleon-hpo
-ray_storage_path: /media/aglisman/Data/ray-tune-chemeleon
+ray_storage_path: /tmp/ray-chemeleon
 mlflow_tracking_uri: http://127.0.0.1:8084
 
 # Data configuration (identical to Chemprop HPO)
@@ -54,10 +54,45 @@ seed: 42
 
 # CheMeleon-specific settings
 checkpoint_path: auto # Auto-download from Zenodo
-freeze_encoder: true # Keep encoder frozen (transfer learning)
+freeze_encoder: true # Default: keep encoder frozen (transfer learning)
+
+# Unfreezing schedule defaults (can be overridden by search space)
+unfreeze_schedule:
+  freeze_encoder: true
+  unfreeze_encoder_epoch: null # null = never unfreeze
+  unfreeze_encoder_lr_multiplier: 0.1
 
 # Search space (informed by top-100 Chemprop HPO results + CheMeleon-specific tuning)
 search_space:
+  # Encoder freezing strategy - explore frozen vs unfrozen encoder
+  # This is a key hyperparameter for transfer learning
+  freeze_encoder:
+    type: choice
+    values:
+      - true
+      - false
+
+  # Epoch at which to unfreeze encoder (only applies when freeze_encoder=true)
+  # Allows encoder fine-tuning after FFN head is warmed up
+  # Range: 10-50 epochs gives time for head to stabilize before unfreezing
+  unfreeze_encoder_epoch:
+    type: randint
+    low: 10
+    high: 50
+    conditional_on: freeze_encoder
+    conditional_values:
+      - true
+
+  # LR multiplier for unfrozen encoder (lower to prevent catastrophic forgetting)
+  # loguniform explores range from very conservative (0.01) to moderate (0.5)
+  unfreeze_encoder_lr_multiplier:
+    type: loguniform
+    low: 0.01
+    high: 0.5
+    conditional_on: freeze_encoder
+    conditional_values:
+      - true
+
   # Learning rate - wider range since FFN-only training can handle higher LR
   # loguniform provides good coverage across orders of magnitude
   learning_rate:
@@ -190,8 +225,8 @@ asha:
 # Resource allocation
 resources:
   num_samples: 1000 # 1000 HPO trials for thorough search
-  cpus_per_trial: 5 # Match Chemprop HPO
-  gpus_per_trial: 0.25
+  cpus_per_trial: 6 # Match Chemprop HPO
+  gpus_per_trial: 0.3
   max_concurrent_trials: null # Auto-determine based on available resources
 
 # Transfer learning from top configs
