@@ -162,8 +162,17 @@ start_mlflow() {
   DB_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB"
   log_info "Using database URL: $DB_URL"
 
+  # Determine mlflow command path
+  if [[ "${VIRTUAL_ENV:-}" != "" ]]; then
+    MLFLOW_CMD="${VIRTUAL_ENV}/bin/mlflow"
+    log_info "Using mlflow from virtual environment: $MLFLOW_CMD"
+  else
+    MLFLOW_CMD="mlflow"
+    log_warning "No virtual environment detected, using system mlflow"
+  fi
+
   # Start MLflow server in background
-  nohup mlflow server \
+  nohup "$MLFLOW_CMD" server \
     --backend-store-uri "$DB_URL" \
     --default-artifact-root "file://$MLFLOW_ARTIFACTS_PATH" \
     --host "0.0.0.0" \
@@ -173,7 +182,16 @@ start_mlflow() {
     >"/tmp/mlflow_server.log" 2>&1 &
 
   # Save PID
-  echo $! >"$MLFLOW_PID_FILE"
+  MLFLOW_PID=$!
+  echo $MLFLOW_PID >"$MLFLOW_PID_FILE"
+
+  # Brief wait to check if process started successfully
+  sleep 1
+  if ! kill -0 $MLFLOW_PID 2>/dev/null; then
+    log_error "MLflow server failed to start. Check logs at /tmp/mlflow_server.log"
+    cat /tmp/mlflow_server.log
+    return 1
+  fi
 
   # Wait for MLflow to be ready
   log_info "Waiting for MLflow server to be ready..."
