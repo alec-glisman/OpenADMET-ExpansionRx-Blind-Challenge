@@ -71,6 +71,7 @@ def _build_parameter_space(param: ParameterSpace) -> Any:
 
 def build_chemeleon_search_space(
     config: ChemeleonSearchSpaceConfig,
+    target_columns: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a Ray Tune search space dictionary from ChemeleonSearchSpaceConfig.
 
@@ -83,6 +84,9 @@ def build_chemeleon_search_space(
     ----------
     config : ChemeleonSearchSpaceConfig
         Search space configuration for CheMeleon HPO.
+    target_columns : list[str] | None
+        Optional list of target column names. If provided, per-target
+        weight parameters will be added to the search space.
 
     Returns
     -------
@@ -102,6 +106,9 @@ def build_chemeleon_search_space(
     >>> "learning_rate" in space
     True
     """
+    # target_columns reserved for future per-target weight search space support
+    _ = target_columns
+
     space: dict[str, Any] = {}
 
     # Simple parameters (no conditions)

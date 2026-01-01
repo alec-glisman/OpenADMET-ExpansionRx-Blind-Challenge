@@ -31,14 +31,19 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
 import mlflow
+from lightning import pytorch as pl
+from lightning.pytorch.callbacks import Callback
 from omegaconf import OmegaConf
 from ray import tune
 from ray.air.integrations.mlflow import MLflowLoggerCallback
+from ray.train import Checkpoint
 from ray.tune.schedulers import ASHAScheduler
 
 from admet.model.chemeleon.hpo_config import ChemeleonHPOConfig
@@ -46,6 +51,197 @@ from admet.model.chemeleon.hpo_search_space import build_chemeleon_search_space
 from admet.util.logging import configure_logging
 
 logger = logging.getLogger("admet.model.chemeleon.hpo")
+
+
+class ChemeleonRayTuneCallback(Callback):
+    """PyTorch Lightning callback to report metrics to Ray Tune for CheMeleon HPO.
+
+    This callback integrates with Ray Tune's reporting mechanism to enable
+    early stopping via the ASHA scheduler. It reports validation metrics
+    after each epoch and saves checkpoints for trial recovery.
+
+    Attributes
+    ----------
+    metric : str
+        Name of the primary metric for ASHA scheduling (default: "val_mae")
+    checkpoint_dir : Path | None
+        Directory to save checkpoints for recovery
+    report_every_n_epochs : int
+        Epoch cadence for Ray reporting (default: 5)
+    """
+
+    METRICS_TO_REPORT = (
+        "val_mae",
+        "val_loss",
+        "val_rmse",
+        "val_R2",
+        "val_pearson_r",
+        "val_spearman_rho",
+        "train_loss",
+        "train_mae",
+        "lr",
+    )
+
+    def __init__(
+        self,
+        metric: str = "val_mae",
+        checkpoint_dir: Path | None = None,
+        report_every_n_epochs: int = 5,
+    ) -> None:
+        """Initialize the callback.
+
+        Parameters
+        ----------
+        metric : str
+            Name of the primary validation metric for ASHA scheduling.
+        checkpoint_dir : Path | None
+            Directory for saving checkpoints. If None, no checkpoints saved.
+        report_every_n_epochs : int
+            Number of epochs between Ray reports. Must be >= 1.
+        """
+        super().__init__()
+        self.metric = metric
+        self.checkpoint_dir = checkpoint_dir
+        self.report_every_n_epochs = max(1, report_every_n_epochs)
+        self._params_total: int | None = None
+        self._params_trainable: int | None = None
+        self._params_frozen: int | None = None
+        self._last_reported_epoch: int | None = None
+        self._final_checkpoint_reported = False
+        self._start_time = time.time()
+
+    def _compute_param_counts(self, pl_module: pl.LightningModule) -> None:
+        """Compute and cache parameter counts from the model.
+
+        Parameters
+        ----------
+        pl_module : pl.LightningModule
+            The Lightning module (MPNN) to count parameters from.
+        """
+        if self._params_total is not None:
+            return
+
+        total_params = 0
+        trainable_params = 0
+        frozen_params = 0
+
+        for param in pl_module.parameters():
+            num_params = param.numel()
+            total_params += num_params
+            if param.requires_grad:
+                trainable_params += num_params
+            else:
+                frozen_params += num_params
+
+        self._params_total = total_params
+        self._params_trainable = trainable_params
+        self._params_frozen = frozen_params
+
+    def on_validation_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+    ) -> None:
+        """Report metrics to Ray Tune after validation."""
+        if not trainer.callback_metrics:
+            return
+
+        epoch_index = int(trainer.current_epoch) + 1
+        if self._last_reported_epoch == epoch_index:
+            return
+
+        max_epochs = getattr(trainer, "max_epochs", None)
+        should_stop = bool(getattr(trainer, "should_stop", False))
+        is_last_epoch = max_epochs is not None and epoch_index >= int(max_epochs)
+        is_final_event = should_stop or is_last_epoch
+
+        should_report = epoch_index == 1 or (epoch_index % self.report_every_n_epochs == 0) or is_final_event
+
+        if not should_report:
+            return
+
+        metrics: dict[str, float] = {}
+        metrics["epoch"] = float(trainer.current_epoch)
+        metrics["training_time_seconds"] = time.time() - self._start_time
+
+        # Report all tracked metrics that are available
+        for metric_name in self.METRICS_TO_REPORT:
+            if metric_name in trainer.callback_metrics:
+                value = trainer.callback_metrics[metric_name]
+                metrics[metric_name] = float(value.item() if hasattr(value, "item") else value)
+
+        # Get current learning rate from optimizer
+        if "lr" not in metrics and trainer.optimizers:
+            try:
+                opt = trainer.optimizers[0]
+                if hasattr(opt, "param_groups") and opt.param_groups:
+                    metrics["lr"] = float(opt.param_groups[0]["lr"])
+            except (IndexError, KeyError):
+                pass
+
+        # Compute parameter counts dynamically from the model
+        self._compute_param_counts(pl_module)
+        metrics["params_total"] = float(self._params_total or 0)
+        metrics["params_trainable"] = float(self._params_trainable or 0)
+        metrics["params_frozen"] = float(self._params_frozen or 0)
+
+        # Ensure primary metric is present
+        if self.metric not in metrics:
+            if "val_loss" in trainer.callback_metrics:
+                value = trainer.callback_metrics["val_loss"]
+                metrics[self.metric] = float(value.item() if hasattr(value, "item") else value)
+
+        # Report to Ray Tune
+        if self.metric in metrics:
+            checkpoint: Checkpoint | None = None
+            if is_final_event and not self._final_checkpoint_reported:
+                checkpoint = self._build_final_checkpoint(trainer)
+                if checkpoint is not None:
+                    self._final_checkpoint_reported = True
+
+            self._submit_report(metrics, checkpoint)
+            self._last_reported_epoch = epoch_index
+
+    def _build_final_checkpoint(self, trainer: pl.Trainer) -> Checkpoint | None:
+        """Package the latest checkpoint directory for Ray Tune reporting."""
+        _ = trainer  # Future: could use trainer.callback_metrics for additional data
+        if self.checkpoint_dir is None:
+            return None
+
+        ckpt_dir = Path(self.checkpoint_dir)
+        if not ckpt_dir.exists():
+            return None
+
+        # Find preferred checkpoint file
+        best_checkpoints = sorted(ckpt_dir.glob("best*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
+        checkpoint_file: Path | None = best_checkpoints[0] if best_checkpoints else None
+
+        if checkpoint_file is None:
+            last_ckpt = ckpt_dir / "last.ckpt"
+            if last_ckpt.exists():
+                checkpoint_file = last_ckpt
+
+        if checkpoint_file is None:
+            return None
+
+        export_dir = ckpt_dir / "ray_checkpoint"
+        if export_dir.exists():
+            shutil.rmtree(export_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        shutil.copy2(checkpoint_file, export_dir / checkpoint_file.name)
+
+        try:
+            return Checkpoint.from_directory(str(export_dir))
+        except Exception:
+            return None
+
+    def _submit_report(self, metrics: dict[str, float], checkpoint: Checkpoint | None) -> None:
+        """Send metrics to Ray Tune using tune.report."""
+        if checkpoint is not None:
+            tune.report(metrics, checkpoint=checkpoint)
+        else:
+            tune.report(metrics)
 
 
 def _trial_dirname_creator(trial) -> str:
@@ -65,9 +261,11 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
         Hyperparameter configuration sampled by Ray Tune.
     """
     import pandas as pd
-    from ray import tune
 
     from admet.model.chemeleon import ChemeleonModel
+
+    # Stagger trial starts to avoid race conditions
+    time.sleep(1)
 
     # Extract fixed parameters
     data_path = config.pop("data_path")
@@ -76,13 +274,20 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     target_columns = config.pop("target_columns")
     max_epochs = config.pop("max_epochs")
     metric = config.pop("metric")
-    config.pop("seed", 42)  # Remove seed from config (not used directly)
+    seed = config.pop("seed", 42)
     checkpoint_path = config.pop("checkpoint_path", "auto")
     freeze_encoder = config.pop("freeze_encoder", True)
+    report_every_n_epochs = config.pop("report_every_n_epochs", 5)
+
+    # Extract target weights if provided
+    target_weights = config.pop("target_weights", None)
 
     # Extract unfreezing schedule parameters (may be overridden by search space)
     unfreeze_encoder_epoch = config.pop("unfreeze_encoder_epoch", None)
     unfreeze_encoder_lr_multiplier = config.pop("unfreeze_encoder_lr_multiplier", 0.1)
+
+    # Seed for reproducibility
+    pl.seed_everything(seed, workers=True)
 
     # Load data
     df_train = pd.read_csv(data_path)
@@ -94,6 +299,21 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
         "unfreeze_encoder_epoch": unfreeze_encoder_epoch,
         "unfreeze_encoder_lr_multiplier": unfreeze_encoder_lr_multiplier,
     }
+
+    # Get trial directory for checkpoint saving
+    trial_dir = None
+    try:
+        trial_dir_str = tune.get_context().get_trial_dir()
+        if trial_dir_str:
+            trial_dir = Path(trial_dir_str)
+    except Exception:
+        pass
+
+    if trial_dir is None:
+        trial_dir = Path.cwd() / "ray_trial"
+
+    checkpoint_dir = trial_dir / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     # Build model config
     model_config = OmegaConf.create(
@@ -117,35 +337,42 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
             "data": {
                 "smiles_col": smiles_column,
                 "target_cols": list(target_columns),
+                "target_weights": target_weights,
             },
             "optimization": {
                 "max_epochs": max_epochs,
                 "batch_size": config.get("batch_size", 32),
                 "patience": config.get("patience", 15),
                 "learning_rate": config.get("learning_rate", 1e-4),
+                "weight_decay": config.get("weight_decay", 0.0),
+                "lr_warmup_ratio": config.get("lr_warmup_ratio", 1.0),
+                "lr_final_ratio": config.get("lr_final_ratio", 1.0),
+                "checkpoint_dir": str(checkpoint_dir),
             },
             "mlflow": {"enabled": False},
         }
     )
 
-    # Create and train model
+    # Create model
     model = ChemeleonModel(model_config)
-    # Extract SMILES and targets from DataFrames
+
+    # Extract data
     train_smiles = df_train[smiles_column].tolist()
     train_y = df_train[target_columns].values
     val_smiles = df_val[smiles_column].tolist() if df_val is not None else None
     val_y = df_val[target_columns].values if df_val is not None else None
-    model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
 
-    # Report metrics to Ray Tune
-    metrics = model.get_validation_metrics() if hasattr(model, "get_validation_metrics") else {}
+    # Add Ray Tune callback for intermediate reporting
+    # Parameter counts are computed dynamically from pl_module during on_validation_end
+    ray_callback = ChemeleonRayTuneCallback(
+        metric=metric,
+        checkpoint_dir=checkpoint_dir,
+        report_every_n_epochs=report_every_n_epochs,
+    )
+    model.add_callback(ray_callback)
 
-    # Report the target metric
-    if metric in metrics:
-        tune.report(**{metric: metrics[metric], "epoch": max_epochs})
-    else:
-        # Default to val_loss if available
-        tune.report(**{"val_mae": metrics.get("val_mae", float("inf")), "epoch": max_epochs})
+    # Train the model (this handles all setup internally)
+    model.fit(train_smiles, train_y, val_smiles, val_y)
 
 
 class ChemeleonHPO:
@@ -233,7 +460,7 @@ class ChemeleonHPO:
         mlflow_callback = MLflowLoggerCallback(
             tracking_uri=mlflow.get_tracking_uri(),
             experiment_name=self.config.experiment_name,
-            save_artifact=True,
+            save_artifact=False,  # Disable artifact saving during HPO to avoid performance bottleneck
             tags=tags,
         )
 
@@ -278,7 +505,10 @@ class ChemeleonHPO:
 
     def _build_search_space(self) -> dict[str, Any]:
         """Build the Ray Tune search space."""
-        space = build_chemeleon_search_space(self.config.search_space)
+        space = build_chemeleon_search_space(
+            self.config.search_space,
+            target_columns=list(self.config.target_columns),
+        )
 
         # Add fixed parameters
         space["data_path"] = str(Path(self.config.data_path).resolve())
@@ -290,6 +520,15 @@ class ChemeleonHPO:
         space["seed"] = self.config.seed
         space["checkpoint_path"] = self.config.checkpoint_path
         space["freeze_encoder"] = self.config.freeze_encoder
+        space["report_every_n_epochs"] = 5  # Report every 5 epochs by default
+
+        # Pass fixed target weights if provided (not in search space)
+        if self.config.target_weights is not None:
+            space["target_weights"] = self.config.target_weights
+
+        # Pass unfreezing schedule defaults
+        space["unfreeze_encoder_epoch"] = self.config.unfreeze_schedule.unfreeze_encoder_epoch
+        space["unfreeze_encoder_lr_multiplier"] = self.config.unfreeze_schedule.unfreeze_encoder_lr_multiplier
 
         return space
 

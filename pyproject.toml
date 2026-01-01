@@ -29,7 +29,8 @@ dependencies = [
     "torchmetrics>=0.11",
     "ray[data,train,tune,serve]",
     # ML infra
-    "mlflow>=2.0",
+    "mlflow>=3.0,<4",          # Pin to 3.x for database schema compatibility
+    "anyio>=4.0,<4.12",        # Pin to avoid incompatibility with miniconda stdlib
     "nvidia-ml-py==13.580.82",
     "psutil",
     "psycopg2-binary",
@@ -130,17 +131,17 @@ where = ["src"]
 exclude = ["tests*"]
 
 [tool.uv]
-extra-index-url = ["https://download.pytorch.org/whl/cu130"]
+extra-index-url = ["https://download.pytorch.org/whl/cu118"]
 
 [[tool.uv.index]]
-name = "pytorch-cu130"
-url = "https://download.pytorch.org/whl/cu130"
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu130" }
-torchvision = { index = "pytorch-cu130" }
-torchaudio = { index = "pytorch-cu130" }
+torch = { index = "pytorch-cu118" }
+torchvision = { index = "pytorch-cu118" }
+torchaudio = { index = "pytorch-cu118" }
 
 [tool.isort]
 profile = "black"

@@ -20,7 +20,7 @@
 # Usage:
 #   python -m admet.model.chemeleon.hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
 
-experiment_name: chemeleon_hpo
+experiment_name: chemeleon_hpo_new
 output_dir: /media/aglisman/Data/models/admet-chemeleon-hpo
 ray_storage_path: /tmp/ray-chemeleon
 mlflow_tracking_uri: http://127.0.0.1:8084
@@ -224,9 +224,9 @@ asha:
 
 # Resource allocation
 resources:
-  num_samples: 1000 # 1000 HPO trials for thorough search
-  cpus_per_trial: 6 # Match Chemprop HPO
-  gpus_per_trial: 0.3
+  num_samples: 500 # 1000 HPO trials for thorough search
+  cpus_per_trial: 4 # Match Chemprop HPO
+  gpus_per_trial: 0.33
   max_concurrent_trials: null # Auto-determine based on available resources
 
 # Transfer learning from top configs

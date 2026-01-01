@@ -152,7 +152,7 @@ class ChempropHPO:
         mlflow_callback = MLflowLoggerCallback(
             tracking_uri=mlflow.get_tracking_uri(),
             experiment_name=self.config.experiment_name,
-            save_artifact=True,
+            save_artifact=False,  # Disable artifact saving during HPO to avoid performance bottleneck
             tags=tags,
         )
 

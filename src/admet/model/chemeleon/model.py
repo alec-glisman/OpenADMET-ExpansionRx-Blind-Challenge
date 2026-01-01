@@ -133,10 +133,12 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self.mpnn: models.MPNN | None = None
         self.trainer: pl.Trainer | None = None
         self.scaler: Any = None
+        self.featurizer: featurizers.SimpleMoleculeMolGraphFeaturizer | None = None
+        self.agg: nn.MeanAggregation | None = None
 
         self._smiles_col = config.get("data", {}).get("smiles_col", "smiles")
         self._target_cols: list[str] = list(config.get("data", {}).get("target_cols", []))
-        self._target_weights: list[float] = []
+        self._target_weights: list[float] = list(config.get("data", {}).get("target_weights", []) or [])
         self._quality_col: str = config.get("data", {}).get("quality_col", "quality")
 
         # Checkpoint directory (created during training)
@@ -149,6 +151,22 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         # Unfreeze callback
         unfreeze_config = self._get_unfreeze_config()
         self._unfreeze_callback = GradualUnfreezeCallback(unfreeze_config)
+
+        # External callbacks (e.g., for HPO integration)
+        self._external_callbacks: list[pl.Callback] = []
+
+    def add_callback(self, callback: pl.Callback) -> None:
+        """Add an external callback to be used during training.
+
+        This allows external integrations (e.g., Ray Tune HPO) to inject
+        callbacks for metric reporting without modifying the training loop.
+
+        Parameters
+        ----------
+        callback : pl.Callback
+            PyTorch Lightning callback to add.
+        """
+        self._external_callbacks.append(callback)
 
     def _get_model_param(self, key: str, default: Any) -> Any:
         """Get model parameter with default."""
@@ -212,12 +230,38 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             trunk_hidden_dim=int(trunk_hidden_dim) if trunk_hidden_dim is not None else None,
         )
 
-        # Create MPNN
+        # Set default target weights if not provided
+        if not self._target_weights:
+            self._target_weights = [1.0] * n_tasks
+
+        # Create metrics with task weights for proper multi-task loss weighting
+        metrics = [
+            nn.metrics.MAE(self._target_weights),
+            nn.metrics.MSE(self._target_weights),
+            nn.metrics.RMSE(self._target_weights),
+            nn.metrics.R2Score(self._target_weights),
+        ]
+
+        # Get learning rate parameters from optimization config
+        opt_config = self.config.get("optimization", {})
+        max_lr = opt_config.get("learning_rate", 1e-4)
+        warmup_ratio = opt_config.get("lr_warmup_ratio", 1.0)
+        final_ratio = opt_config.get("lr_final_ratio", 1.0)
+        init_lr = max_lr * warmup_ratio
+        final_lr = max_lr * final_ratio
+        warmup_epochs = opt_config.get("warmup_epochs", 2)
+
+        # Create MPNN with metrics and learning rate schedule
         self.mpnn = models.MPNN(
             message_passing=self.mp,
             agg=self.agg,
             predictor=self.ffn,
             batch_norm=self._get_model_param("batch_norm", False),
+            metrics=metrics,
+            warmup_epochs=warmup_epochs,
+            init_lr=init_lr,
+            max_lr=max_lr,
+            final_lr=final_lr,
         )
 
     def _load_pretrained_mp(self, path: str) -> nn.BondMessagePassing:
@@ -270,7 +314,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         lock_path = cache_dir / "chemeleon_mp.pt.lock"
 
         # Use file locking to prevent concurrent downloads
-        with open(lock_path, "w") as lock_file:
+        with open(lock_path, "w", encoding="utf-8") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             try:
                 if not checkpoint_path.exists() or not self._validate_checkpoint(checkpoint_path):
@@ -580,6 +624,9 @@ class ChemeleonModel(BaseModel, MLflowMixin):
                 save_top_k=1,
             )
         )
+
+        # Add external callbacks
+        callbacks.extend(self._external_callbacks)
 
         self.trainer = pl.Trainer(
             max_epochs=opt_config.get("max_epochs", 100),

@@ -215,10 +215,11 @@ class RayTuneReportCallback(Callback):
         except Exception as exc:
             logger.debug("session.report failed, falling back to tune.report: %s", exc)
 
+        # Fallback to tune.report (Ray 2.x API takes dict as first positional arg)
         if checkpoint is not None:
-            ray.tune.report(checkpoint=checkpoint, **metrics)
+            ray.tune.report(metrics, checkpoint=checkpoint)
         else:
-            ray.tune.report(**metrics)
+            ray.tune.report(metrics)
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:

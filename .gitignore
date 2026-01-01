@@ -9,7 +9,6 @@ __marimo__
 # build directories
 build
 *.egg-info
-*.lock
 
 # models
 models
