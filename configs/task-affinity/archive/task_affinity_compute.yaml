@@ -11,8 +11,8 @@
 
 # Data configuration
 data:
-  # Training data file
-  train_file: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv"
+  # Directory containing train.csv and validation.csv
+  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
 
   smiles_col: "SMILES"
   target_cols:
@@ -94,6 +94,76 @@ inter_task_affinity:
 
   # Log affinity metrics to MLflow
   log_to_mlflow: true
+
+  # Save visualization plots
+  save_plots: true
+  plot_formats:
+    - png
+  plot_dpi: 150
+
+# Model architecture configuration
+model:
+  type: chemprop
+  chemprop:
+    # Message passing network
+    depth: 5
+    message_hidden_dim: 600
+
+    # Feed-forward network
+    num_layers: 2
+    hidden_dim: 600
+    dropout: 0.1
+    batch_norm: true
+
+    # FFN type: 'regression', 'mixture_of_experts', 'branched'
+    ffn_type: "regression"
+
+    # Branched FFN settings (used when ffn_type='branched')
+    trunk_n_layers: 2
+    trunk_hidden_dim: 600
+
+    # Mixture of Experts settings (used when ffn_type='mixture_of_experts')
+    n_experts: 4
+
+# Optimization configuration
+optimization:
+  criterion: "MSE"
+  epochs: 3  # Short run just for affinity computation
+  batch_size: 64
+  learning_rate: 0.001
+
+  # Learning rate scheduler
+  scheduler: "constant"  # Use constant LR for affinity analysis
+  warmup_epochs: 0
+  max_lr: 0.001
+  final_lr: 0.001
+
+  # Optimizer settings
+  optimizer: "Adam"
+  weight_decay: 0.0
+  gradient_clip: null
+
+  # Early stopping (disabled for affinity computation)
+  patience: 999
+  min_delta: 0.0
+
+# MLflow tracking
+mlflow:
+  experiment_name: "task_affinity_computation"
+  run_name: null  # Auto-generated if null
+  tracking_uri: "mlruns"
+  log_models: false  # Don't need to save models for affinity analysis
+  log_plots: true
+
+# Reproducibility
+seed: 42
+
+# Device configuration
+device: "auto"  # "auto", "cpu", "cuda", or "cuda:N"
+
+# Logging
+log_level: "INFO"  # "DEBUG", "INFO", "WARNING", "ERROR"
+log_frequency: 10  # Log every N batches
 
 # Output settings
 output:

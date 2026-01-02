@@ -1,88 +1,118 @@
-# Project general coding standards (Copilot onboarding)
+# OpenADMET Challenge - Copilot Instructions
 
-This file helps a coding agent see this repository for the first time and act efficiently. It summarizes what the repo does, how to build and validate changes, and where to find important files. Keep this file trusted; only search the repo if information here is incomplete or found to be incorrect.
+ML pipeline for predicting ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) properties of small molecules. Uses Chemprop MPNN as the primary model with ensemble training across 5 splits × 5 folds.
 
-## Goals
+## Tech Stack
 
-- Reduce the chance a generated PR is rejected due to CI, validation failures, or misbehavior.
-- Minimize bash/build failures and needless exploration.
-- Help the agent complete tasks faster by summarizing common commands, file locations, and pitfalls.
+- **Runtime:** Python 3.11
+- **ML Framework:** PyTorch, Chemprop v2
+- **Parallelization:** Ray Tune (HPO and ensemble training)
+- **Experiment Tracking:** MLflow
+- **Configuration:** OmegaConf (dataclass-based configs)
+- **CLI:** Typer + Rich
+- **Package Manager:** uv
 
-## Limitations
+## Environment Setup (Validated)
 
-- This document must be short (no longer than ~2 pages).
-- Instructions are high-level and not task-specific.
+```bash
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev,docs]"
+uv run pre-commit install && uv run pre-commit install --hook-type commit-msg
+```
 
-## High-level details
+## Testing Commands
 
-- Summary: Briefly describe the repository's purpose here (one or two sentences).
-- Repo type and size: Note approximate size and primary language(s)/framework(s)/runtimes (e.g., Python, TypeScript, Node, Docker).
-- Typical runtime/tool versions (e.g., Python 3.10, Node 18, Go 1.20) — list versions actually used.
+```bash
+pytest tests/ -q                          # All tests
+pytest tests/test_chemprop_model.py -v    # Single file
+pytest -m "not slow" -q                   # Skip slow tests
+pytest -m "not no_mlflow_runs" -q         # Skip MLflow tests (default)
+pytest -n auto -q                         # Parallel execution
+```
 
-## What to add (for the agent)
+## Linting & Formatting
 
-When onboarding, include these high-level details in the agent's mental model:
+```bash
+black src/ tests/ && isort src/ tests/    # Format
+flake8 src/ tests/                        # Style check
+mypy src/admet/                           # Type check
+pylint src/admet/ --fail-under=9.0        # Deep analysis
+pre-commit run --all-files                # All hooks
+```
 
-- A short summary of what the repository does.
-- High-level repository information: size, project type, languages, frameworks, target runtimes.
+**Line length:** 120 characters (Black/flake8/pylint configured).
 
-## Build & validation instructions
+## CLI Commands
 
-For each scripted step (bootstrap, build, test, run, lint, etc.), document:
+```bash
+admet --help
+admet model train -c configs/0-experiment/chemprop.yaml
+admet model ensemble -c configs/3-production/ensemble_chemprop_hpo_001.yaml --max-parallel 4
+admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
+admet data split data.csv --cluster-method bitbirch
+admet leaderboard scrape --user <username>
+```
 
-- Exact sequence of commands to run.
-- Required versions of runtimes/build tools.
-- Preconditions (e.g., environment variables, authentication).
-- Postconditions (artifacts produced, server started).
-- Known pitfalls, errors observed during validation, and reliable workarounds.
-- Order that commands must be run in and any steps that should always be done (e.g., "always run npm install before building").
-- Timeouts or commands that may be slow.
+## Project Layout
 
-Include explicit validated examples:
+```
+src/admet/
+├── cli/                 # Typer CLI (data, model, leaderboard subcommands)
+├── model/
+│   ├── config.py        # UnifiedModelConfig schema (OmegaConf dataclasses)
+│   ├── chemprop/        # Chemprop MPNN: model.py, hpo.py, ensemble.py
+│   ├── chemeleon/       # Pretrained encoder: model.py, hpo.py
+│   ├── classical/       # XGBoost, LightGBM, CatBoost wrappers
+│   ├── ensemble.py      # Generic ensemble orchestration
+│   └── ffn_factory.py   # FFN architectures (MLP, MoE, Branched)
+├── data/                # Data loading, splitting, preprocessing
+├── features/            # Molecular fingerprints (Morgan, RDKit, MACCS, Mordred)
+└── leaderboard/         # Challenge leaderboard scraping and reports
+configs/
+├── 0-experiment/        # Single model experiments
+├── 1-hpo-single/        # HPO configs
+├── 2-hpo-ensemble/      # Ensemble HPO configs
+├── 3-production/        # Production ensemble configs
+├── 4-more-models/       # Classical model examples
+├── curriculum/          # Curriculum learning configs
+└── task-affinity/       # Task affinity grouping configs
+tests/                   # pytest test files
+```
 
-- How to bootstrap the environment.
-- How to build the project.
-- How to run unit and integration tests.
-- How to run linters and formatters.
+## Key Architectural Patterns
 
-When documenting commands, indicate which were actually run and validated. If a sequence of commands produced a reliable result, record it exactly.
+**Unified Config System:** All models use `UnifiedModelConfig` (src/admet/model/config.py). The `model.type` field discriminates which nested section applies (chemprop, chemeleon, xgboost, etc.).
 
-## Project layout
+**Model Types:**
+- `chemprop`, `chemeleon`: PyTorch-based, support curriculum learning and task affinity
+- `xgboost`, `lightgbm`, `catboost`: Classical models using fingerprint features
 
-Describe the major architectural elements and locations:
+**FFN Architectures:** All neural models support three FFN types via `ffn_factory.py`:
+- `regression`: Standard MLP
+- `mixture_of_experts`: MoE with gating network
+- `branched`: Shared trunk with task-specific heads
 
-- Main entrypoints and their relative paths (e.g., src/, cmd/, app/).
-- Config files for linting, compilation, testing, and preferences (e.g., package.json, pyproject.toml, .eslintrc, .github/workflows/).
-- Tests location and how to run them.
-- Any generated artifacts and where they live.
-- Notes about non-obvious dependencies.
+**Ensemble Training:** Ray-parallelized across split_N/fold_M directories. Enable via `ensemble.enabled: true`.
 
-Document checks that run on PRs:
+**HPO:** Ray Tune + ASHA scheduler. Results saved to `hpo_results/top_k_configs.json`.
 
-- List GitHub workflows or CI checks and what they validate.
-- Steps to replicate those checks locally.
+## Important Files
 
-Give priority lists:
+- `src/admet/model/config.py`: Master configuration schema
+- `src/admet/cli/model.py`: CLI commands for train/ensemble/hpo
+- `src/admet/model/chemprop/model.py`: ChempropModel training logic
+- `src/admet/model/ensemble.py`: Ensemble orchestration
+- `tests/conftest.py`: Shared pytest fixtures
 
-1. Files in the repo root.
-2. README contents and key docs (CONTRIBUTING.md).
-3. Key source files (main entrypoint) and important directories.
-4. Configuration and pipeline files.
+## Development Workflow
 
-Include short code snippets of critical commands or minimal examples where helpful.
+**Commit Format:** Conventional Commits enforced by commitizen: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 
-## Steps to follow when creating these instructions (agent checklist)
+**Pre-commit Hooks:** black, isort, flake8, pylint (≥9.0), mypy, pytest.
+Skip hooks: `SKIP=pytest,mypy git commit -m "message"`
 
-- Inventory the repository: read README.md, CONTRIBUTING.md, and other docs.
-- Search for build steps and in-code hints like TODO, HACK, or Quick start notes.
-- Inspect scripts and CI workflows (.github/workflows/\*\*).
-- Inspect configuration files for linters, formatters, and build tools.
-- For any file that matters to build/test/deploy, record the relevant command(s) and any quirks.
-- Validate commands by running them where possible; record failures and workarounds.
-- For each command sequence that works, document it exactly and label as validated.
-- In the absence of complete information, perform targeted searches; otherwise, trust this document.
+**Docstrings:** NumPy-style required for public API functions/classes.
 
-## Final guidance
+## Predicted Endpoints
 
-- Trust these instructions to avoid unnecessary repo searches; only search when the instructions are incomplete or clearly wrong.
-- Keep the file concise and practical. Update this file whenever environment, CI, or major project layout changes.
+9 ADMET properties: LogD, Log KSOL, Log HLM CLint, Log MLM CLint, Log Caco-2 Permeability Papp A>B, Log Caco-2 Permeability Efflux, Log MPPB, Log MBPB, Log MGMB

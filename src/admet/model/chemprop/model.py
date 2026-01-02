@@ -124,6 +124,50 @@ def _criterion_from_enum(criterion: CriterionName, **kwargs: Any) -> Any:
     return attr
 
 
+def normalize_unified_config(config: DictConfig) -> DictConfig:
+    """
+    Normalize a unified config to the legacy ChempropConfig format.
+
+    Handles both unified config structure (with model.type and model.chemprop)
+    and legacy flat structure (model params directly under model).
+
+    Parameters
+    ----------
+    config : DictConfig
+        Configuration to normalize. Can be either:
+        - Unified format: model.type="chemprop", model.chemprop={...}
+        - Legacy format: model={depth: 5, hidden_dim: 600, ...}
+
+    Returns
+    -------
+    DictConfig
+        Normalized config compatible with ChempropConfig schema.
+    """
+    config = OmegaConf.to_container(config, resolve=True)
+    config = OmegaConf.create(config)
+
+    model_section = OmegaConf.select(config, "model", default={})
+
+    # Check if this is a unified config (has model.type and model.chemprop)
+    if model_section and "type" in model_section:
+        model_type = model_section.get("type", "chemprop")
+
+        if model_type != "chemprop":
+            raise ValueError(
+                f"Expected model.type='chemprop' but got '{model_type}'. "
+                "Use the appropriate model module for other model types."
+            )
+
+        # Extract chemprop-specific params and flatten to model section
+        chemprop_params = model_section.get("chemprop", {})
+        # Always create new model section with flattened params (even if empty)
+        # This removes 'type' and 'chemprop' keys from the model section
+        new_model = OmegaConf.create(dict(chemprop_params) if chemprop_params else {})
+        config.model = new_model
+
+    return config
+
+
 def _sanitize_mlflow_metric_name(name: str) -> str:
     """
     Sanitize a metric name for MLflow compatibility.
@@ -2989,6 +3033,9 @@ def train_from_config(config_path: str, log_level: str = "INFO") -> None:
     This function loads the configuration from a YAML file, creates a model,
     trains it, and generates predictions for test and blind datasets if specified.
 
+    Supports both unified config format (model.type + model.chemprop) and
+    legacy flat format (model params directly under model section).
+
     Parameters
     ----------
     config_path : str
@@ -3006,10 +3053,16 @@ def train_from_config(config_path: str, log_level: str = "INFO") -> None:
 
     logger.info("Loading configuration from: %s", config_path)
 
-    # Load configuration from YAML
+    # Load raw config first to check for unified format
+    raw_config = OmegaConf.load(config_path)
+
+    # Normalize unified config to legacy format if needed
+    normalized_config = normalize_unified_config(raw_config)
+
+    # Merge with schema defaults
     config = OmegaConf.merge(
         OmegaConf.structured(ChempropConfig),
-        OmegaConf.load(config_path),
+        normalized_config,
     )
 
     # Log the configuration

@@ -19,6 +19,111 @@ from admet.model.chemprop.config import (
     OptimizationConfig,
     RayConfig,
 )
+from admet.model.chemprop.model import normalize_unified_config
+
+
+class TestNormalizeUnifiedConfig:
+    """Tests for normalize_unified_config function."""
+
+    def test_unified_config_flattens_chemprop_params(self) -> None:
+        """Test that unified config with model.type and model.chemprop is flattened."""
+        unified_config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemprop",
+                    "chemprop": {
+                        "depth": 3,
+                        "hidden_dim": 200,
+                        "dropout": 0.15,
+                    },
+                },
+                "data": {"data_dir": "/path/to/data"},
+            }
+        )
+        normalized = normalize_unified_config(unified_config)
+
+        # model.type should be removed
+        assert "type" not in normalized.model
+        # model.chemprop params should be flattened to model.*
+        assert normalized.model.depth == 3
+        assert normalized.model.hidden_dim == 200
+        assert normalized.model.dropout == 0.15
+
+    def test_legacy_config_unchanged(self) -> None:
+        """Test that legacy flat config is unchanged."""
+        legacy_config = OmegaConf.create(
+            {
+                "model": {
+                    "depth": 5,
+                    "hidden_dim": 400,
+                },
+                "data": {"data_dir": "/path/to/data"},
+            }
+        )
+        normalized = normalize_unified_config(legacy_config)
+
+        assert normalized.model.depth == 5
+        assert normalized.model.hidden_dim == 400
+
+    def test_unified_config_with_all_fields(self) -> None:
+        """Test unified config with all model fields."""
+        unified_config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemprop",
+                    "chemprop": {
+                        "depth": 4,
+                        "message_hidden_dim": 600,
+                        "hidden_dim": 300,
+                        "num_layers": 3,
+                        "dropout": 0.1,
+                        "batch_norm": True,
+                        "ffn_type": "regression",
+                        "aggregation": "mean",
+                    },
+                },
+                "data": {"data_dir": "/path/to/data"},
+                "optimization": {"max_epochs": 100},
+            }
+        )
+        normalized = normalize_unified_config(unified_config)
+
+        assert normalized.model.depth == 4
+        assert normalized.model.message_hidden_dim == 600
+        assert normalized.model.hidden_dim == 300
+        assert normalized.model.num_layers == 3
+        assert normalized.model.ffn_type == "regression"
+        assert normalized.optimization.max_epochs == 100
+
+    def test_wrong_model_type_raises_error(self) -> None:
+        """Test that non-chemprop model type raises ValueError."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "xgboost",
+                    "xgboost": {"n_estimators": 100},
+                },
+            }
+        )
+        import pytest
+
+        with pytest.raises(ValueError, match="Expected model.type='chemprop'"):
+            normalize_unified_config(config)
+
+    def test_empty_chemprop_section(self) -> None:
+        """Test unified config with empty chemprop section uses defaults."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemprop",
+                    "chemprop": {},
+                },
+                "data": {"data_dir": "/path/to/data"},
+            }
+        )
+        normalized = normalize_unified_config(config)
+        # Should have empty model section (defaults come from ChempropConfig merge)
+        assert "type" not in normalized.model
 
 
 class TestCurriculumConfig:
