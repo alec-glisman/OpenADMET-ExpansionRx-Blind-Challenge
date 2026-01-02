@@ -1225,8 +1225,8 @@ class InterTaskAffinityCallback(Callback):
                 strong_pairs_dict[pair_type] = pairs[:5]
 
             # Log strong pairs as JSON artifact
-            import tempfile
             import json
+            import tempfile
             with tempfile.NamedTemporaryFile(mode="w", suffix="_strong_pairs.json", delete=False) as spf:
                 json.dump(strong_pairs_dict, spf, indent=2)
                 mlflow.log_artifact(spf.name, "inter_task_affinity")
@@ -1478,8 +1478,8 @@ class InterTaskAffinityCallback(Callback):
                 mlflow.log_metric(f"affinity/groups/group_{g_idx}/avg_intra_affinity", stats["avg_intra_affinity"])
 
             # Save group analysis report
-            import tempfile
             import json
+            import tempfile
 
             group_analysis = {
                 "num_groups": n_groups,

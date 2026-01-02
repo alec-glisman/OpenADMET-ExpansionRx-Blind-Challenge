@@ -49,6 +49,7 @@ class SearchSpaceConfig:
         warmup_epochs: Number of warmup epochs search space
         patience: Early stopping patience search space
         dropout: Dropout rate search space
+        batch_norm: Batch normalization toggle search space
         depth: Message passing depth search space
         message_hidden_dim: Message passing hidden dimension (MPNN) search space
         ffn_num_layers: FFN layers search space
@@ -61,6 +62,7 @@ class SearchSpaceConfig:
         aggregation: Message aggregation function search space
         aggregation_norm: Aggregation normalization search space
         target_weights: Per-endpoint loss weights search space (applied to each target)
+        joint_sampling: Joint sampling search space (nested config for enabled, task_oversampling.alpha)
     """
 
     # Learning rate schedule
@@ -72,6 +74,7 @@ class SearchSpaceConfig:
 
     # Regularization
     dropout: ParameterSpace | None = None
+    batch_norm: ParameterSpace | None = None
 
     # Message passing architecture
     depth: ParameterSpace | None = None
@@ -92,6 +95,9 @@ class SearchSpaceConfig:
 
     # Task weighting
     target_weights: ParameterSpace | None = None
+
+    # Joint sampling search space (nested config)
+    joint_sampling: Any | None = None
 
 
 @dataclass

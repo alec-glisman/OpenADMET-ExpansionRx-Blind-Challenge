@@ -33,12 +33,12 @@ from typing import Any, cast
 import mlflow
 from omegaconf import OmegaConf
 from ray import tune
-from ray.air.integrations.mlflow import MLflowLoggerCallback
 from ray.tune.schedulers import ASHAScheduler
 
 from admet.model.chemprop.hpo_config import HPOConfig
 from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
+from admet.model.hpo_mlflow_callback import RobustMLflowLoggerCallback, backfill_mlflow_from_ray_results
 from admet.util.logging import configure_logging
 
 
@@ -149,7 +149,7 @@ class ChempropHPO:
             # Attach Ray Tune trial runs as children of the parent HPO run
             tags["mlflow.parentRunId"] = self._mlflow_run_id
 
-        mlflow_callback = MLflowLoggerCallback(
+        mlflow_callback = RobustMLflowLoggerCallback(
             tracking_uri=mlflow.get_tracking_uri(),
             experiment_name=self.config.experiment_name,
             save_artifact=False,  # Disable artifact saving during HPO to avoid performance bottleneck
@@ -194,6 +194,14 @@ class ChempropHPO:
             # Log results to MLflow (best so far)
             if self.results:
                 self._log_results()
+                # Backfill MLflow with all trial metrics from Ray storage
+                logger.info("Backfilling MLflow with metrics from all trials...")
+                backfill_mlflow_from_ray_results(
+                    self.results,
+                    experiment_name=self.config.experiment_name,
+                    parent_run_id=self._mlflow_run_id,
+                    tracking_uri=self.config.mlflow_tracking_uri,
+                )
             else:
                 logger.warning("No results to log to MLflow.")
                 if self._mlflow_run_id:

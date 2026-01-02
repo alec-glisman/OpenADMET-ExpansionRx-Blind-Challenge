@@ -19,6 +19,7 @@ from ray.air import session
 from ray.train import Checkpoint
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
+from admet.model.config import JointSamplingConfig, TaskOversamplingConfig
 
 logger = logging.getLogger("admet.model.chemprop.hpo_trainable")
 
@@ -313,6 +314,9 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     output_dir = trial_dir / "checkpoints"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Build joint sampling config from sampled parameters
+    joint_sampling_config = _build_joint_sampling_config(config)
+
     # Create model (disable MLflow tracking - HPO orchestrator handles logging)
     model = ChempropModel(
         df_train=df_train,
@@ -324,6 +328,7 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         progress_bar=False,
         hyperparams=hyperparams,
         mlflow_tracking=False,  # Disable MLflow in individual trials
+        joint_sampling_config=joint_sampling_config,
     )
 
     # Add Ray Tune callback with checkpoint directory for trial recovery
@@ -363,6 +368,29 @@ def _extract_target_weights(
         weight = config.get(param_name, 1.0)
         weights.append(float(weight) if weight is not None else 1.0)
     return weights
+
+
+def _build_joint_sampling_config(config: dict[str, Any]) -> JointSamplingConfig | None:
+    """Build JointSamplingConfig from sampled HPO config.
+
+    Looks for joint_sampling_enabled and joint_sampling_alpha parameters
+    that were flattened from the nested search space configuration.
+
+    Args:
+        config: Sampled hyperparameter configuration from Ray Tune.
+
+    Returns:
+        JointSamplingConfig if joint sampling is enabled, None otherwise.
+    """
+    enabled = config.get("joint_sampling_enabled", False)
+    if not enabled:
+        return None
+
+    alpha = config.get("joint_sampling_alpha", 0.0)
+    return JointSamplingConfig(
+        enabled=True,
+        task_oversampling=TaskOversamplingConfig(alpha=float(alpha)),
+    )
 
 
 def _build_hyperparams(
@@ -405,6 +433,9 @@ def _build_hyperparams(
 
     if "dropout" in config and config["dropout"] is not None:
         params["dropout"] = config["dropout"]
+
+    if "batch_norm" in config and config["batch_norm"] is not None:
+        params["batch_norm"] = bool(config["batch_norm"])
 
     # Message passing architecture
     if "depth" in config and config["depth"] is not None:
