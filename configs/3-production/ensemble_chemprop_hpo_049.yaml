@@ -55,7 +55,7 @@ optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: production_ensemble_chemprop_hpo_topk
+  experiment_name: chemprop_hpo_ensemble_topk_production
   run_name: rank_049
   nested: true
 inter_task_affinity:

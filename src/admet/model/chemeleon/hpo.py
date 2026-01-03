@@ -495,7 +495,14 @@ class ChemeleonHPO:
                 storage_path=storage_path,
                 verbose=1,
                 callbacks=[mlflow_callback],
-                sync_config=tune.SyncConfig(),
+                sync_config=tune.SyncConfig(
+                    sync_period=300,  # Sync every 5 minutes instead of every result
+                ),
+                checkpoint_config=tune.CheckpointConfig(
+                    num_to_keep=2,  # Keep only 2 checkpoints per trial (reduces state size)
+                    checkpoint_score_attribute="val_mae",
+                    checkpoint_score_order="min",
+                ),
             ),
         )
 
