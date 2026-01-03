@@ -54,6 +54,7 @@ optimization:
   batch_size: 128
   num_workers: 0
   seed: 12345
+  weight_decay: 0.0
   progress_bar: false
 mlflow:
   tracking: true

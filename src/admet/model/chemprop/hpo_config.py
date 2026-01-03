@@ -50,6 +50,8 @@ class SearchSpaceConfig:
         patience: Early stopping patience search space
         dropout: Dropout rate search space
         batch_norm: Batch normalization toggle search space
+        weight_decay_enabled: Weight decay (L2 regularization) toggle search space
+        weight_decay: Weight decay coefficient search space (conditional on weight_decay_enabled)
         depth: Message passing depth search space
         message_hidden_dim: Message passing hidden dimension (MPNN) search space
         ffn_num_layers: FFN layers search space
@@ -75,6 +77,8 @@ class SearchSpaceConfig:
     # Regularization
     dropout: ParameterSpace | None = None
     batch_norm: ParameterSpace | None = None
+    weight_decay_enabled: ParameterSpace | None = None
+    weight_decay: ParameterSpace | None = None
 
     # Message passing architecture
     depth: ParameterSpace | None = None
@@ -139,6 +143,25 @@ class ResourceConfig:
 
 
 @dataclass
+class SearchAlgorithmConfig:
+    """Configuration for Ray Tune search algorithm.
+
+    Enables Bayesian optimization (Optuna) or other adaptive search methods
+    instead of pure random sampling. This can significantly improve HPO
+    efficiency by learning which hyperparameter regions perform well.
+
+    Attributes:
+        type: Search algorithm type - "random" (default), "optuna", "bayesopt", "hyperopt"
+        seed: Random seed for reproducibility
+        n_initial_points: Number of random trials before using surrogate model (Optuna only)
+    """
+
+    type: str = "optuna"  # Use Optuna by default for adaptive search
+    seed: int = 42
+    n_initial_points: int = 20  # Random exploration phase
+
+
+@dataclass
 class TransferLearningConfig:
     """Configuration for transfer learning from HPO results.
 
@@ -195,9 +218,15 @@ class HPOConfig:
     # Sub-configurations
     search_space: SearchSpaceConfig = field(default_factory=SearchSpaceConfig)
     asha: ASHAConfig = field(default_factory=ASHAConfig)
+    search_algorithm: SearchAlgorithmConfig = field(default_factory=SearchAlgorithmConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+
+    # Training parameters (exposed to HPO and passed to trainable)
+    patience: int = 15  # Early stopping patience (epochs)
+    warmup_epochs: int = 5  # LR warmup epochs
+    report_every_n_epochs: int = 15  # Ray Tune reporting cadence (epochs) - reduces I/O bottleneck
 
     # Reproducibility
     seed: int = 42

@@ -146,6 +146,25 @@ class ResourceConfig:
 
 
 @dataclass
+class SearchAlgorithmConfig:
+    """Configuration for Ray Tune search algorithm.
+
+    Enables Bayesian optimization (Optuna) or other adaptive search methods
+    instead of pure random sampling. This can significantly improve HPO
+    efficiency by learning which hyperparameter regions perform well.
+
+    Attributes:
+        type: Search algorithm type - "random" (default), "optuna", "bayesopt", "hyperopt"
+        seed: Random seed for reproducibility
+        n_initial_points: Number of random trials before using surrogate model (Optuna only)
+    """
+
+    type: str = "optuna"  # Use Optuna by default for adaptive search
+    seed: int = 42
+    n_initial_points: int = 20  # Random exploration phase
+
+
+@dataclass
 class TransferLearningConfig:
     """Configuration for transfer learning from HPO results.
 
@@ -280,6 +299,9 @@ class ChemeleonHPOConfig:
         checkpoint_path: Path to CheMeleon checkpoint or "auto"
         freeze_encoder: Whether to freeze encoder during training (default)
         unfreeze_schedule: Default unfreezing schedule configuration
+        patience: Early stopping patience (epochs)
+        warmup_epochs: Number of LR warmup epochs
+        report_every_n_epochs: Epoch cadence for Ray Tune reporting
         search_space: Hyperparameter search space configuration
         asha: ASHA scheduler configuration
         resources: Resource allocation configuration
@@ -310,9 +332,15 @@ class ChemeleonHPOConfig:
     freeze_encoder: bool = True
     unfreeze_schedule: UnfreezeScheduleConfig = field(default_factory=UnfreezeScheduleConfig)
 
+    # Training parameters
+    patience: int = 15  # Early stopping patience
+    warmup_epochs: int = 5  # LR warmup epochs
+    report_every_n_epochs: int = 1  # Ray Tune reporting cadence
+
     # Sub-configurations
     search_space: ChemeleonSearchSpaceConfig = field(default_factory=ChemeleonSearchSpaceConfig)
     asha: ASHAConfig = field(default_factory=ASHAConfig)
+    search_algorithm: SearchAlgorithmConfig = field(default_factory=SearchAlgorithmConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)

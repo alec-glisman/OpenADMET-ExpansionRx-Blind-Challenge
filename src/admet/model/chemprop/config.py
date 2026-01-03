@@ -170,6 +170,9 @@ class OptimizationConfig:
         Random seed for reproducibility.
     progress_bar : bool, default=False
         Whether to show training progress bar.
+    weight_decay : float, default=0.0
+        L2 regularization weight decay coefficient. Applied via AdamW optimizer.
+        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.
     """
 
     criterion: str = "MAE"
@@ -183,6 +186,7 @@ class OptimizationConfig:
     num_workers: int = 0
     seed: int = 42
     progress_bar: bool = False
+    weight_decay: float = 0.0
 
 
 @dataclass

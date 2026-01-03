@@ -17,13 +17,14 @@ if TYPE_CHECKING:
     pass
 
 
-def _build_parameter_space(param: ParameterSpace) -> Any:
+def _build_parameter_space(param: ParameterSpace | dict[str, Any]) -> Any:
     """Convert a ParameterSpace config to a Ray Tune search space object.
 
     Parameters
     ----------
-    param : ParameterSpace
+    param : ParameterSpace | dict[str, Any]
         ParameterSpace configuration specifying the distribution type and bounds.
+        Can be a ParameterSpace dataclass instance or a dict with the same fields.
 
     Returns
     -------
@@ -35,38 +36,52 @@ def _build_parameter_space(param: ParameterSpace) -> Any:
     ValueError
         If parameter type is unknown or required fields are missing.
     """
-    if param.type == "uniform":
-        if param.low is None or param.high is None:
+    # Handle both ParameterSpace objects and plain dicts
+    if isinstance(param, dict):
+        param_type = param.get("type")
+        param_low = param.get("low")
+        param_high = param.get("high")
+        param_values = param.get("values")
+        param_q = param.get("q")
+    else:
+        param_type = param.type
+        param_low = param.low
+        param_high = param.high
+        param_values = param.values
+        param_q = param.q
+
+    if param_type == "uniform":
+        if param_low is None or param_high is None:
             raise ValueError("uniform distribution requires 'low' and 'high'")
-        return tune.uniform(param.low, param.high)
+        return tune.uniform(param_low, param_high)
 
-    elif param.type == "loguniform":
-        if param.low is None or param.high is None:
+    elif param_type == "loguniform":
+        if param_low is None or param_high is None:
             raise ValueError("loguniform distribution requires 'low' and 'high'")
-        return tune.loguniform(param.low, param.high)
+        return tune.loguniform(param_low, param_high)
 
-    elif param.type == "quniform":
-        if param.low is None or param.high is None or param.q is None:
+    elif param_type == "quniform":
+        if param_low is None or param_high is None or param_q is None:
             raise ValueError("quniform distribution requires 'low', 'high', and 'q'")
-        return tune.quniform(param.low, param.high, param.q)
+        return tune.quniform(param_low, param_high, param_q)
 
-    elif param.type == "choice":
-        if param.values is None:
+    elif param_type == "choice":
+        if param_values is None:
             raise ValueError("choice distribution requires 'values'")
-        return tune.choice(param.values)
+        return tune.choice(param_values)
 
-    elif param.type == "randint":
-        if param.low is None or param.high is None:
+    elif param_type == "randint":
+        if param_low is None or param_high is None:
             raise ValueError("randint distribution requires 'low' and 'high'")
-        return tune.randint(int(param.low), int(param.high))
+        return tune.randint(int(param_low), int(param_high))
 
-    elif param.type == "qrandint":
-        if param.low is None or param.high is None or param.q is None:
+    elif param_type == "qrandint":
+        if param_low is None or param_high is None or param_q is None:
             raise ValueError("qrandint distribution requires 'low', 'high', and 'q'")
-        return tune.qrandint(int(param.low), int(param.high), int(param.q))
+        return tune.qrandint(int(param_low), int(param_high), int(param_q))
 
     else:
-        raise ValueError(f"Unknown parameter type: {param.type}")
+        raise ValueError(f"Unknown parameter type: {param_type}")
 
 
 def build_chemeleon_search_space(
@@ -212,5 +227,19 @@ def build_chemeleon_search_space(
             space["unfreeze_encoder_epoch"] = tune.sample_from(sample_unfreeze_epoch)
         else:
             space["unfreeze_encoder_epoch"] = _build_parameter_space(config.unfreeze_encoder_epoch)
+
+    # Joint sampling parameters (if specified in search space)
+    if config.joint_sampling is not None and isinstance(config.joint_sampling, dict):
+        joint_config = config.joint_sampling
+
+        # joint_sampling.enabled
+        if "enabled" in joint_config and joint_config["enabled"] is not None:
+            space["joint_sampling_enabled"] = _build_parameter_space(joint_config["enabled"])
+
+        # joint_sampling.task_oversampling.alpha
+        if "task_oversampling" in joint_config and joint_config["task_oversampling"] is not None:
+            task_oversample_config = joint_config["task_oversampling"]
+            if "alpha" in task_oversample_config and task_oversample_config["alpha"] is not None:
+                space["joint_sampling_alpha"] = _build_parameter_space(task_oversample_config["alpha"])
 
     return space

@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
@@ -38,8 +39,16 @@ from ray.tune.schedulers import ASHAScheduler
 from admet.model.chemprop.hpo_config import HPOConfig
 from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
-from admet.model.hpo_mlflow_callback import RobustMLflowLoggerCallback, backfill_mlflow_from_ray_results
+from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
 from admet.util.logging import configure_logging
+
+# Set Ray Tune environment variables at module load time (BEFORE ray.init)
+# These must be set before Ray workers spawn to take effect
+os.environ.setdefault("TUNE_WARN_SLOW_EXPERIMENT_CHECKPOINT_SYNC_THRESHOLD_S", "300")
+os.environ.setdefault("TUNE_GLOBAL_CHECKPOINT_S", "600")
+os.environ.setdefault("TUNE_WARN_THRESHOLD_S", "30")  # Warn only if >30s (async callback is fast)
+os.environ.setdefault("TUNE_RESULT_BUFFER_LENGTH", "10")
+os.environ.setdefault("TUNE_RESULT_BUFFER_MIN_TIME_S", "10")
 
 
 def _trial_dirname_creator(trial) -> str:
@@ -93,10 +102,14 @@ class ChempropHPO:
         # Build ASHA scheduler
         scheduler = self._build_scheduler()
 
+        # Build search algorithm (Optuna, BayesOpt, etc.)
+        search_alg = self._build_search_algorithm()
+
         # Configure Ray Tune
         # Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict
         tune_config = tune.TuneConfig(
             scheduler=scheduler,
+            search_alg=search_alg,  # Add search algorithm
             num_samples=self.config.resources.num_samples,
             max_concurrent_trials=self.config.resources.max_concurrent_trials,
             trial_dirname_creator=_trial_dirname_creator,
@@ -143,13 +156,13 @@ class ChempropHPO:
             self.config.asha.mode,
         )
 
-        # Setup MLflow callback for per-trial logging
+        # Setup async batched MLflow callback for per-trial logging (non-blocking)
         tags: dict[str, str] = {"parent_run_id": self._mlflow_run_id or ""}
         if self._mlflow_run_id:
             # Attach Ray Tune trial runs as children of the parent HPO run
             tags["mlflow.parentRunId"] = self._mlflow_run_id
 
-        mlflow_callback = RobustMLflowLoggerCallback(
+        mlflow_callback = AsyncBatchedMLflowCallback(
             tracking_uri=mlflow.get_tracking_uri(),
             experiment_name=self.config.experiment_name,
             save_artifact=False,  # Disable artifact saving during HPO to avoid performance bottleneck
@@ -165,7 +178,14 @@ class ChempropHPO:
                 storage_path=storage_path,
                 verbose=1,
                 callbacks=[mlflow_callback],
-                sync_config=tune.SyncConfig(),
+                sync_config=tune.SyncConfig(
+                    sync_period=300,  # Sync every 5 minutes instead of every result
+                ),
+                checkpoint_config=tune.CheckpointConfig(
+                    num_to_keep=2,  # Keep only 2 checkpoints per trial (reduces state size)
+                    checkpoint_score_attribute="val_loss",
+                    checkpoint_score_order="min",
+                ),
             ),
         )
 
@@ -194,14 +214,15 @@ class ChempropHPO:
             # Log results to MLflow (best so far)
             if self.results:
                 self._log_results()
-                # Backfill MLflow with all trial metrics from Ray storage
-                logger.info("Backfilling MLflow with metrics from all trials...")
-                backfill_mlflow_from_ray_results(
-                    self.results,
-                    experiment_name=self.config.experiment_name,
-                    parent_run_id=self._mlflow_run_id,
-                    tracking_uri=self.config.mlflow_tracking_uri,
-                )
+                # Backfill disabled: RobustMLflowLoggerCallback already logs during trials
+                # Uncomment only if you need to recover metrics after HPO failure:
+                # logger.info("Backfilling MLflow with metrics from all trials...")
+                # backfill_mlflow_from_ray_results(
+                #     self.results,
+                #     experiment_name=self.config.experiment_name,
+                #     parent_run_id=self._mlflow_run_id,
+                #     tracking_uri=self.config.mlflow_tracking_uri,
+                # )
             else:
                 logger.warning("No results to log to MLflow.")
                 if self._mlflow_run_id:
@@ -237,6 +258,11 @@ class ChempropHPO:
         space["metric"] = self.config.asha.metric
         space["seed"] = self.config.seed
 
+        # Training parameters (pass through from HPO config)
+        space["patience"] = self.config.patience
+        space["warmup_epochs"] = self.config.warmup_epochs
+        space["report_every_n_epochs"] = self.config.report_every_n_epochs
+
         # Pass fixed target weights if provided
         if self.config.target_weights is not None:
             space["target_weights"] = self.config.target_weights
@@ -258,6 +284,63 @@ class ChempropHPO:
             reduction_factor=self.config.asha.reduction_factor,
             brackets=self.config.asha.brackets,
         )
+
+    def _build_search_algorithm(self):
+        """Build the search algorithm (Optuna, BayesOpt, HyperOpt, or random).
+
+        Returns:
+            Configured search algorithm or None for random search
+        """
+        if self.config.search_algorithm is None:
+            logger.info("No search algorithm configured, using random search")
+            return None
+
+        algo_type = self.config.search_algorithm.type.lower()
+
+        if algo_type == "random" or algo_type == "none":
+            logger.info("Random search algorithm selected")
+            return None
+
+        elif algo_type == "optuna":
+            import optuna
+            from ray.tune.search.optuna import OptunaSearch
+
+            logger.info(
+                "Using Optuna search algorithm (TPESampler) with %d initial random points",
+                self.config.search_algorithm.n_initial_points,
+            )
+            return OptunaSearch(
+                sampler=optuna.samplers.TPESampler(
+                    seed=self.config.search_algorithm.seed,
+                    n_startup_trials=self.config.search_algorithm.n_initial_points,
+                ),
+                metric=self.config.asha.metric,
+                mode=self.config.asha.mode,
+            )
+
+        elif algo_type == "bayesopt":
+            from ray.tune.search.bayesopt import BayesOptSearch
+
+            logger.info("Using BayesOptSearch algorithm")
+            return BayesOptSearch(
+                metric=self.config.asha.metric,
+                mode=self.config.asha.mode,
+                random_state=self.config.search_algorithm.seed,
+            )
+
+        elif algo_type == "hyperopt":
+            from ray.tune.search.hyperopt import HyperOptSearch
+
+            logger.info("Using HyperOpt search algorithm")
+            return HyperOptSearch(
+                metric=self.config.asha.metric,
+                mode=self.config.asha.mode,
+                random_state_seed=self.config.search_algorithm.seed,
+            )
+
+        else:
+            logger.warning("Unknown search algorithm type: %s, falling back to random search", algo_type)
+            return None
 
     def _setup_mlflow(self) -> None:
         """Configure MLflow tracking."""

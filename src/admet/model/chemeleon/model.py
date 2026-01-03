@@ -33,8 +33,10 @@ from chemprop import data, featurizers, models, nn
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
+from ray import tune
 from torch.utils.data import DataLoader
 
+from admet.data.stats import correlation
 from admet.model.base import BaseModel
 from admet.model.chemeleon.callbacks import GradualUnfreezeCallback
 from admet.model.chemprop.curriculum import CurriculumState
@@ -54,6 +56,177 @@ ZENODO_URL = "https://zenodo.org/records/15460715/files/chemeleon_mp.pt"
 
 # Default cache directory
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "admet" / "chemeleon"
+
+
+class CorrelationMetricsCallback(pl.Callback):
+    """Callback to compute and log correlation metrics during validation.
+
+    Computes RAE, Pearson r, Spearman ρ, and Kendall τ metrics on validation
+    outputs and logs them to MLflow and Ray Tune for HPO tracking.
+
+    Attributes
+    ----------
+    scaler : Any
+        Data scaler to inverse-transform predictions
+    target_cols : list[str]
+        Target column names
+    val_loader : DataLoader | None
+        Validation dataloader for computing metrics
+    report_every_n_epochs : int
+        Epoch cadence for reporting (default: 5)
+    """
+
+    def __init__(
+        self,
+        scaler: Any = None,
+        target_cols: list[str] | None = None,
+        val_loader: DataLoader | None = None,
+        report_every_n_epochs: int = 5,
+    ) -> None:
+        """Initialize the callback.
+
+        Parameters
+        ----------
+        scaler : Any
+            Data scaler for inverse-transforming predictions
+        target_cols : list[str] | None
+            Target column names
+        val_loader : DataLoader | None
+            Validation dataloader for computing metrics
+        report_every_n_epochs : int
+            Epoch cadence for Ray reporting (default: 5)
+        """
+        super().__init__()
+        self.scaler = scaler
+        self.target_cols = target_cols or []
+        self.val_loader = val_loader
+        self.report_every_n_epochs = max(1, report_every_n_epochs)
+        self._last_reported_epoch: int | None = None
+
+    def on_validation_epoch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+    ) -> None:
+        """Compute correlation metrics after validation epoch."""
+        if self.val_loader is None:
+            return
+
+        epoch_index = int(trainer.current_epoch) + 1
+
+        # Skip reporting based on epoch cadence
+        if (
+            self._last_reported_epoch is not None
+            and epoch_index - self._last_reported_epoch < self.report_every_n_epochs
+        ):
+            return
+
+        try:
+            # Collect predictions and targets from validation dataloader
+            y_true_list = []
+            y_pred_list = []
+
+            pl_module.eval()
+            with torch.no_grad():
+                for batch in self.val_loader:
+                    if isinstance(batch, (list, tuple)):
+                        # Chemprop batch format: (bmg, V_d, X_d, targets, ...)
+                        if len(batch) >= 4:
+                            bmg, V_d, X_d, targets = batch[0], batch[1], batch[2], batch[3]
+
+                            # Move to device
+                            device = next(pl_module.parameters()).device
+                            if hasattr(bmg, "to"):
+                                bmg.to(device)
+                            if V_d is not None and hasattr(V_d, "to"):
+                                V_d = V_d.to(device)
+                            if X_d is not None and hasattr(X_d, "to"):
+                                X_d = X_d.to(device)
+                            targets = targets.to(device) if hasattr(targets, "to") else targets
+
+                            # Get predictions
+                            preds = pl_module(bmg, V_d, X_d)
+
+                            # Handle shape: squeeze last dim if it's 1 (single-task case)
+                            if preds.ndim == 3 and preds.shape[-1] == 1:
+                                preds = preds[..., 0]
+
+                            y_true_list.append(targets.cpu().numpy())
+                            y_pred_list.append(preds.cpu().numpy())
+                        else:
+                            logger.warning("Unexpected batch format, skipping metrics computation")
+                            return
+                    elif isinstance(batch, dict):
+                        # Dictionary format
+                        if "y_true" in batch and "y_pred" in batch:
+                            y_t = batch["y_true"]
+                            y_p = batch["y_pred"]
+                            y_true_list.append(y_t.cpu().numpy() if hasattr(y_t, "cpu") else y_t)
+                            y_pred_list.append(y_p.cpu().numpy() if hasattr(y_p, "cpu") else y_p)
+                    else:
+                        logger.warning("Unsupported batch format, skipping metrics computation")
+                        return
+
+            if not y_true_list or not y_pred_list:
+                return
+
+            # Concatenate predictions and targets
+            y_true = np.concatenate(y_true_list, axis=0)
+            y_pred = np.concatenate(y_pred_list, axis=0)
+
+            # Unscale if scaler is available
+            if self.scaler is not None:
+                y_true = self.scaler.inverse_transform(y_true)
+                y_pred = self.scaler.inverse_transform(y_pred)
+
+            # Ensure 2D arrays
+            if y_true.ndim == 1:
+                y_true = y_true.reshape(-1, 1)
+            if y_pred.ndim == 1:
+                y_pred = y_pred.reshape(-1, 1)
+
+            # Compute metrics for each target
+            metrics_dict: dict[str, float] = {}
+
+            for task_idx in range(y_true.shape[1]):
+                task_name = self.target_cols[task_idx] if task_idx < len(self.target_cols) else f"target_{task_idx}"
+                y_t = y_true[:, task_idx]
+                y_p = y_pred[:, task_idx]
+
+                # Compute correlation metrics using shared stats.correlation function
+                metrics = correlation(y_t, y_p)
+
+                # Log metrics with task prefix
+                for metric_name, metric_value in metrics.items():
+                    if not np.isnan(metric_value):
+                        mlflow_key = f"val_{metric_name}_{task_name}"
+                        metrics_dict[mlflow_key] = float(metric_value)
+
+            # Also compute overall metrics (pooled across tasks)
+            y_true_pool = y_true.flatten()
+            y_pred_pool = y_pred.flatten()
+            metrics_pool = correlation(y_true_pool, y_pred_pool)
+
+            for metric_name, metric_value in metrics_pool.items():
+                if not np.isnan(metric_value):
+                    mlflow_key = f"val_{metric_name}_overall"
+                    metrics_dict[mlflow_key] = float(metric_value)
+
+            # Log to MLflow
+            if trainer.logger is not None:
+                trainer.logger.log_metrics(metrics_dict, step=epoch_index)
+
+            # Log to Ray Tune for HPO
+            try:
+                tune.report(**metrics_dict)
+            except Exception:
+                pass
+
+            self._last_reported_epoch = epoch_index
+            logger.info("Logged correlation metrics at epoch %d", epoch_index)
+
+        except Exception as e:
+            logger.warning("Failed to compute correlation metrics: %s", e)
 
 
 @ModelRegistry.register("chemeleon")
@@ -151,6 +324,12 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         # Unfreeze callback
         unfreeze_config = self._get_unfreeze_config()
         self._unfreeze_callback = GradualUnfreezeCallback(unfreeze_config)
+
+        # Correlation metrics callback (for RAE, Pearson, Spearman, Kendall)
+        self._correlation_metrics_callback = CorrelationMetricsCallback(
+            scaler=None,  # Will be set after scaler is created
+            target_cols=self._target_cols,
+        )
 
         # External callbacks (e.g., for HPO integration)
         self._external_callbacks: list[pl.Callback] = []
@@ -432,6 +611,9 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         if val_dataset is not None:
             val_dataset.normalize_targets(self.scaler)
 
+        # Update correlation metrics callback with scaler
+        self._correlation_metrics_callback.scaler = self.scaler
+
         # Create dataloaders with optional JointSampler
         opt_config = self.config.get("optimization", {})
         batch_size = opt_config.get("batch_size", 32)
@@ -454,6 +636,9 @@ class ChemeleonModel(BaseModel, MLflowMixin):
                 num_workers=num_workers,
                 collate_fn=data.collate_batch,
             )
+
+        # Update correlation metrics callback with validation loader
+        self._correlation_metrics_callback.val_loader = val_loader
 
         # Setup trainer
         self._setup_trainer()
@@ -767,6 +952,6 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         Returns
         -------
         list[pl.Callback]
-            List of callbacks including GradualUnfreezeCallback.
+            List of callbacks including GradualUnfreezeCallback and CorrelationMetricsCallback.
         """
-        return [self._unfreeze_callback]
+        return [self._unfreeze_callback, self._correlation_metrics_callback]

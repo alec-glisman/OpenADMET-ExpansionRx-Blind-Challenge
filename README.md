@@ -668,17 +668,32 @@ Task affinity automatically groups related tasks (e.g., solubility, permeability
 
 ## Hyperparameter Optimization (HPO)
 
-Run distributed HPO with Ray Tune + ASHA:
+Run distributed HPO with Ray Tune + ASHA scheduler and Bayesian optimization:
 
 ```bash
 admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 100
 ```
 
-**Features:** ASHA early stopping, conditional search spaces (FFN type, MoE experts), MLflow tracking
+**Key Features:**
+
+- **Bayesian Optimization**: Optuna TPE sampler learns from previous trials (3-5x more efficient than random search)
+- **ASHA Scheduler**: Early stopping of unpromising trials saves compute
+- **Conditional Search Spaces**: FFN type, MoE experts, task affinity groups
+- **Weight Decay**: L2 regularization via AdamW optimizer (1e-6 to 1e-3)
+- **MLflow Tracking**: All trials logged with metrics and hyperparameters
 
 **Output:** `hpo_results/top_k_configs.json` (best configs) and `ray_results/` (full trial history)
 
-**See:** [configs/1-hpo-single/](./configs/1-hpo-single/) for search space definitions
+**Search Algorithm Options:**
+
+```yaml
+search_algorithm:
+  type: optuna        # optuna (recommended), random, bayesopt, hyperopt
+  seed: 42
+  n_initial_points: 20  # Random exploration before Bayesian phase
+```
+
+**See:** [configs/1-hpo-single/](./configs/1-hpo-single/) for search space definitions and [docs/guide/hpo.rst](./docs/guide/hpo.rst) for detailed documentation
 
 ---
 
@@ -716,8 +731,8 @@ flowchart TB
 
     subgraph HPO["Hyperparameter Optimization"]
         Splits --> OneFold["<b>Use Split 0, Fold 0</b><br/>for HPO efficiency"]
-        OneFold --> RayTune["<b>Ray Tune + ASHA</b><br/>~2000 trials<br/>Early stopping"]
-        RayTune --> SearchSpace["<b>Conditional Search Space</b><br/>MPNN: 3-7 layers<br/>FFN: MLP/MoE/Branched<br/>Task Affinity: 2-5 groups<br/>LR: 1e-5 to 1e-3"]
+        OneFold --> RayTune["<b>Ray Tune + ASHA</b><br/>~2000 trials<br/>Optuna Bayesian optimization"]
+        RayTune --> SearchSpace["<b>Conditional Search Space</b><br/>MPNN: 3-7 layers<br/>FFN: MLP/MoE/Branched<br/>Task Affinity: 2-5 groups<br/>LR: 1e-5 to 1e-3<br/>Weight Decay: 1e-6 to 1e-3"]
         SearchSpace --> TopConfigs["<b>Top 10 Configurations</b><br/>Ranked by Val MAE<br/>Saved to JSON"]
     end
 

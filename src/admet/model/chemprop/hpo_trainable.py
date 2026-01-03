@@ -128,6 +128,14 @@ class RayTuneReportCallback(Callback):
             except (IndexError, KeyError):
                 pass
 
+        # Check if early stopping was triggered
+        early_stopped = False
+        for callback in trainer.callbacks:
+            if hasattr(callback, "stopped_epoch") and callback.stopped_epoch > 0:
+                early_stopped = True
+                break
+        metrics["early_stopped"] = float(early_stopped)
+
         # Ensure primary metric is present (map val_loss to val_mae if needed)
         if self.metric not in metrics:
             # Fallback mapping for primary metric
@@ -205,18 +213,9 @@ class RayTuneReportCallback(Callback):
             return None
 
     def _submit_report(self, metrics: dict[str, float], checkpoint: Checkpoint | None) -> None:
-        """Send metrics to Ray using the most compatible API available."""
-
-        try:
-            if checkpoint is not None:
-                session.report(metrics, checkpoint=checkpoint)
-            else:
-                session.report(metrics)
-            return
-        except Exception as exc:
-            logger.debug("session.report failed, falling back to tune.report: %s", exc)
-
-        # Fallback to tune.report (Ray 2.x API takes dict as first positional arg)
+        """Send metrics to Ray Tune using tune.report API."""
+        # Use ray.tune.report directly for Ray Tune HPO (not ray.train.report)
+        # This avoids deprecation warnings in Ray 2.x
         if checkpoint is not None:
             ray.tune.report(metrics, checkpoint=checkpoint)
         else:
@@ -430,6 +429,14 @@ def _build_hyperparams(
         # Get final ratio (final_lr = max_lr * final_ratio, typically 0.01-0.1)
         final_ratio = config.get("lr_final_ratio", 0.1)
         params["final_lr"] = lr * final_ratio
+
+    # Warmup epochs (separate from lr ratios)
+    if "warmup_epochs" in config and config["warmup_epochs"] is not None:
+        params["warmup_epochs"] = int(config["warmup_epochs"])
+
+    # Patience for early stopping
+    if "patience" in config and config["patience"] is not None:
+        params["patience"] = int(config["patience"])
 
     if "dropout" in config and config["dropout"] is not None:
         params["dropout"] = config["dropout"]

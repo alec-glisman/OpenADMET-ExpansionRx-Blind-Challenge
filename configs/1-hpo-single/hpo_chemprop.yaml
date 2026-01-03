@@ -8,12 +8,12 @@
 #   - Message passing architecture (depth, hidden_dim, aggregation)
 #   - FFN types: regression (standard), mixture_of_experts, branched
 #   - Learning rate schedules with warmup and decay
-#   - Regularization: dropout, batch_norm
+#   - Regularization: dropout, batch_norm, weight_decay (L2)
 #   - Joint sampling with task oversampling
 #
 # Key differences from CheMeleon HPO:
 #   - Includes message passing params (depth, message_hidden_dim, aggregation)
-#   - No weight_decay (Chemprop library uses Adam without weight_decay support)
+#   - Uses MPNNWithWeightDecay subclass for AdamW optimizer with weight_decay
 #   - No encoder freezing options (trains full MPNN from scratch)
 #
 # Usage:
@@ -51,6 +51,11 @@ target_weights:
 
 seed: 42
 
+# Training defaults (not in search space)
+patience: 15 # Early stopping patience (epochs)
+warmup_epochs: 5 # LR warmup epochs
+report_every_n_epochs: 1 # Epoch cadence for Ray Tune reporting
+
 # Search space for Chemprop HPO
 search_space:
   # Learning rate - loguniform covers orders of magnitude effectively
@@ -79,6 +84,22 @@ search_space:
     low: 0.0
     high: 0.3
 
+  # Weight decay (L2 regularization) - conditional on enabled choice
+  # When enabled, explore range from very light (1e-6) to moderate (1e-3)
+  weight_decay_enabled:
+    type: choice
+    values:
+      - true
+      - false
+
+  weight_decay:
+    type: loguniform
+    low: 1.0e-6
+    high: 1.0e-3
+    conditional_on: weight_decay_enabled
+    conditional_values:
+      - true
+
   # Batch size - powers of 2 for efficiency
   # 32-64 typically dominate top configs
   batch_size:
@@ -104,12 +125,7 @@ search_space:
     high: 1200
     q: 100
 
-  # Aggregation method for graph-level representation
-  # Currently only using norm aggregation
-  aggregation:
-    type: choice
-    values:
-      - norm
+  # Note: Aggregation is hardcoded to 'norm' in the model and not configurable via HPO
 
   # Batch normalization toggle
   batch_norm:
@@ -195,6 +211,12 @@ asha:
   grace_period: 15 # Min epochs before early stopping
   reduction_factor: 3
   brackets: 1
+
+# Search algorithm configuration (Bayesian optimization)
+search_algorithm:
+  type: optuna # Options: random, optuna, bayesopt, hyperopt
+  seed: 42
+  n_initial_points: 100 # Random exploration phase before Bayesian optimization
 
 # Resource allocation
 resources:

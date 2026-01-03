@@ -341,6 +341,7 @@
 <span class="sd">        warmup_epochs: Number of warmup epochs search space</span>
 <span class="sd">        patience: Early stopping patience search space</span>
 <span class="sd">        dropout: Dropout rate search space</span>
+<span class="sd">        batch_norm: Batch normalization toggle search space</span>
 <span class="sd">        depth: Message passing depth search space</span>
 <span class="sd">        message_hidden_dim: Message passing hidden dimension (MPNN) search space</span>
 <span class="sd">        ffn_num_layers: FFN layers search space</span>
@@ -353,6 +354,7 @@
 <span class="sd">        aggregation: Message aggregation function search space</span>
 <span class="sd">        aggregation_norm: Aggregation normalization search space</span>
 <span class="sd">        target_weights: Per-endpoint loss weights search space (applied to each target)</span>
+<span class="sd">        joint_sampling: Joint sampling search space (nested config for enabled, task_oversampling.alpha)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Learning rate schedule</span>
@@ -364,6 +366,7 @@
 
     <span class="c1"># Regularization</span>
     <span class="n">dropout</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">batch_norm</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Message passing architecture</span>
     <span class="n">depth</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -384,6 +387,9 @@
 
     <span class="c1"># Task weighting</span>
     <span class="n">target_weights</span><span class="p">:</span> <span class="n">ParameterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Joint sampling search space (nested config)</span>
+    <span class="n">joint_sampling</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="nd">@dataclass</span>
@@ -422,6 +428,25 @@
     <span class="n">cpus_per_trial</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
     <span class="n">gpus_per_trial</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
     <span class="n">max_concurrent_trials</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchAlgorithmConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for Ray Tune search algorithm.</span>
+
+<span class="sd">    Enables Bayesian optimization (Optuna) or other adaptive search methods</span>
+<span class="sd">    instead of pure random sampling. This can significantly improve HPO</span>
+<span class="sd">    efficiency by learning which hyperparameter regions perform well.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        type: Search algorithm type - &quot;random&quot; (default), &quot;optuna&quot;, &quot;bayesopt&quot;, &quot;hyperopt&quot;</span>
+<span class="sd">        seed: Random seed for reproducibility</span>
+<span class="sd">        n_initial_points: Number of random trials before using surrogate model (Optuna only)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;optuna&quot;</span>  <span class="c1"># Use Optuna by default for adaptive search</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+    <span class="n">n_initial_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Random exploration phase</span>
 
 
 <span class="nd">@dataclass</span>
@@ -483,9 +508,15 @@
     <span class="c1"># Sub-configurations</span>
     <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpaceConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">SearchSpaceConfig</span><span class="p">)</span>
     <span class="n">asha</span><span class="p">:</span> <span class="n">ASHAConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ASHAConfig</span><span class="p">)</span>
+    <span class="n">search_algorithm</span><span class="p">:</span> <span class="n">SearchAlgorithmConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">SearchAlgorithmConfig</span><span class="p">)</span>
     <span class="n">resources</span><span class="p">:</span> <span class="n">ResourceConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ResourceConfig</span><span class="p">)</span>
     <span class="n">transfer_learning</span><span class="p">:</span> <span class="n">TransferLearningConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TransferLearningConfig</span><span class="p">)</span>
     <span class="n">curriculum</span><span class="p">:</span> <span class="n">CurriculumConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CurriculumConfig</span><span class="p">)</span>
+
+    <span class="c1"># Training parameters (exposed to HPO and passed to trainable)</span>
+    <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span>  <span class="c1"># Early stopping patience (epochs)</span>
+    <span class="n">warmup_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># LR warmup epochs</span>
+    <span class="n">report_every_n_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Ray Tune reporting cadence (epochs)</span>
 
     <span class="c1"># Reproducibility</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span></div>
@@ -502,7 +533,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             

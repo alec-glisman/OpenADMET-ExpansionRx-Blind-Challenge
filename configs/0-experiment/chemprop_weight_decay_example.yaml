@@ -1,0 +1,51 @@
+# Weight Decay (L2 Regularization) Configuration Example
+#
+# This example shows how to enable L2 regularization via weight_decay parameter.
+# Weight decay is implemented through AdamW optimizer in MPNNWithWeightDecay.
+
+model:
+  chemprop:
+    # Model architecture (message passing + FFN)
+    model:
+      depth: 5
+      message_hidden_dim: 600
+      hidden_dim: 600
+      num_layers: 2
+      dropout: 0.1
+      batch_norm: true
+      ffn_type: regression
+      aggregation: mean
+
+    # Optimization settings with weight_decay
+    optimization:
+      max_epochs: 150
+      patience: 15
+      batch_size: 32
+      init_lr: 1.0e-4
+      max_lr: 1.0e-3
+      final_lr: 1.0e-4
+      warmup_epochs: 5
+      criterion: MAE
+
+      # L2 regularization via weight decay
+      # Common values: 1e-6 (very light), 1e-5 (light), 1e-4 (moderate)
+      # Set to 0.0 to disable (default)
+      weight_decay: 1.0e-5
+
+data:
+  data_dir: /path/to/data
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+
+mlflow:
+  enabled: true
+  experiment_name: weight_decay_experiment

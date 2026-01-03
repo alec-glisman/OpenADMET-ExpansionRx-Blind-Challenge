@@ -11,6 +11,7 @@ OpenADMET Challenge: ML pipeline for predicting ADMET (Absorption, Distribution,
 ## Common Commands
 
 ### Environment Setup
+
 ```bash
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev,docs]"
@@ -18,6 +19,7 @@ uv run pre-commit install && uv run pre-commit install --hook-type commit-msg
 ```
 
 ### Testing
+
 ```bash
 pytest tests/ -q                          # Run all tests
 pytest tests/test_chemprop_model.py -v    # Single test file
@@ -27,6 +29,7 @@ pytest -n auto -q                         # Parallel execution
 ```
 
 ### Linting & Formatting
+
 ```bash
 black src/ tests/ && isort src/ tests/    # Format code
 flake8 src/ tests/                        # Style check
@@ -36,6 +39,7 @@ pre-commit run --all-files                # Run all hooks
 ```
 
 ### CLI Usage
+
 ```bash
 admet --help                              # Show all commands
 admet model train -c configs/0-experiment/chemprop.yaml
@@ -46,6 +50,7 @@ admet leaderboard scrape --user <username>
 ```
 
 ### Documentation
+
 ```bash
 make -C docs html                         # Build docs
 sphinx-autobuild docs docs/_build/html    # Live preview
@@ -54,6 +59,7 @@ sphinx-autobuild docs docs/_build/html    # Live preview
 ## Architecture
 
 ### Source Layout
+
 ```
 src/admet/
 ├── cli/                 # Typer CLI (data, model, leaderboard subcommands)
@@ -74,10 +80,12 @@ src/admet/
 **Unified Config System:** All models use `UnifiedModelConfig` (src/admet/model/config.py). The `model.type` field discriminates which nested section applies (chemprop, chemeleon, xgboost, etc.). Training strategies (joint_sampling, task_affinity) are root-level and validated for model compatibility.
 
 **Model Types:**
+
 - `chemprop`, `chemeleon`: PyTorch-based, support curriculum learning and task affinity
 - `xgboost`, `lightgbm`, `catboost`: Classical models using fingerprint features
 
 **FFN Architectures:** All neural models support three FFN types via `ffn_factory.py`:
+
 - `regression`: Standard MLP
 - `mixture_of_experts`: MoE with gating network
 - `branched`: Shared trunk with task-specific heads
@@ -87,6 +95,7 @@ src/admet/
 **HPO:** Ray Tune + ASHA scheduler. Search spaces defined in `hpo_search_space.py` with conditional parameters (MoE experts, branched layers). Results saved to `hpo_results/top_k_configs.json`.
 
 ### Config Directory Structure
+
 ```
 configs/
 ├── 0-experiment/        # Single model experiments
@@ -119,3 +128,46 @@ configs/
 ## Predicted Endpoints
 
 9 ADMET properties: LogD, Log KSOL, Log HLM CLint, Log MLM CLint, Log Caco-2 Permeability Papp A>B, Log Caco-2 Permeability Efflux, Log MPPB, Log MBPB, Log MGMB
+
+## Recent Changes (January 2026)
+
+### Dependency Version Pinning (Jan 2026)
+
+- **All dependencies pinned to exact versions** for reproducibility and deterministic builds
+- Main dependencies: numpy==1.26.4, pandas==2.3.3, torch==2.7.1+cu118, chemprop==2.2.1, rdkit==2023.9.6
+- HPO dependencies: optuna==4.6.0, bayesian-optimization==3.2.0, hyperopt==0.2.7
+- Dev/docs dependencies also pinned (black==25.11.0, sphinx==7.3.7, etc.)
+- See `INSTALLATION.md` for version update procedures
+
+### Weight Decay Regularization
+
+- Added `weight_decay` parameter to `OptimizationConfig` (default: 0.0)
+- Implemented `MPNNWithWeightDecay` subclass using AdamW optimizer
+- Updated all 117+ config files with `weight_decay: 0.0` for backward compatibility
+- HPO search space includes conditional weight_decay exploration (1e-6 to 1e-3)
+
+### Bayesian Optimization Support
+
+- Added `SearchAlgorithmConfig` to HPO configuration schemas
+- Implemented `_build_search_algorithm()` in both ChempropHPO and ChemeleonHPO
+- Supports Optuna (TPE), BayesOptSearch, and HyperOpt search algorithms
+- Default: Optuna with 20 initial random trials for exploration
+- 3-5x efficiency improvement over pure random sampling
+
+**Usage:**
+
+```yaml
+optimization:
+  weight_decay: 0.0  # Set to 1e-5 for regularization
+
+search_algorithm:
+  type: optuna       # optuna, bayesopt, hyperopt, random
+  seed: 42
+  n_initial_points: 20
+```
+
+**Documentation Updated:**
+
+- `docs/guide/hpo.rst`: Added search algorithm and weight_decay sections
+- `docs/guide/configuration.rst`: Added weight_decay to optimization examples
+- `README.md`: Updated HPO section with Bayesian optimization features

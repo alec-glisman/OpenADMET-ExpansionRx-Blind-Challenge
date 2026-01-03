@@ -318,6 +318,22 @@ wheels = [
 ]
 
 [[package]]
+name = "bayesian-optimization"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/19/c967c3d419ea054521d6e526b15f29cd2fd184f2ecc332fcda5dd797c448/bayesian_optimization-3.2.0.tar.gz", hash = "sha256:5d075bb0251846d5497b06b9ed03af033f1286f95873d4f04ce4fa3771de38fa", size = 32131, upload-time = "2025-12-27T09:44:16.017Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/2a/4a9d31c685157d9bb82e1beee51e811dddd10d83cad3368630a9c1fd9e1a/bayesian_optimization-3.2.0-py3-none-any.whl", hash = "sha256:1c75d89c2350543ab6b993144d8afed2481ba3b92c220f429d1b6b9d1e100c84", size = 37273, upload-time = "2025-12-27T09:44:14.772Z" },
+]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
@@ -603,6 +619,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/82/31/109ef4bedeb32b4202e02ddb133162457adc4eb890a9ed9c05c9dd126ed0/colorful-0.5.8.tar.gz", hash = "sha256:bb16502b198be2f1c42ba3c52c703d5f651d826076817185f0294c1a549a7445", size = 209361, upload-time = "2025-10-29T11:53:21.663Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c3/11/25cdf9d5fc21efd30134fc74c43702c6f7ef09ebae8ed927f1283403ad8d/colorful-0.5.8-py2.py3-none-any.whl", hash = "sha256:a9381fdda3337fbaba5771991020abc69676afa102646650b759927892875992", size = 201334, upload-time = "2025-10-29T11:53:20.251Z" },
+]
+
+[[package]]
+name = "colorlog"
+version = "6.10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/61/f083b5ac52e505dfc1c624eafbf8c7589a0d7f32daa398d2e7590efa5fda/colorlog-6.10.1.tar.gz", hash = "sha256:eb4ae5cb65fe7fec7773c2306061a8e63e02efc2c72eba9d27b0fa23c94f1321", size = 17162, upload-time = "2025-10-16T16:14:11.978Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/c1/e419ef3723a074172b68aaa89c9f3de486ed4c2399e2dbd8113a4fdcaf9e/colorlog-6.10.1-py3-none-any.whl", hash = "sha256:2d7e8348291948af66122cff006c9f8da6255d224e7cf8e37d8de2df3bad8c9c", size = 11743, upload-time = "2025-10-16T16:14:10.512Z" },
 ]
 
 [[package]]
@@ -1149,6 +1177,15 @@ wheels = [
 ]
 
 [[package]]
+name = "future"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a66432916b26158687e821ba631a4c9273c474343badf84d3ba/future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05", size = 1228490, upload-time = "2024-02-21T11:52:38.461Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326, upload-time = "2024-02-21T11:52:35.956Z" },
+]
+
+[[package]]
 name = "fuzzywuzzy"
 version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1447,6 +1484,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/63/4910c5fa9128fdadf6a9c5ac138e8b1b6cee4ca44bf7915bbfbce4e355ee/huggingface_hub-0.36.0.tar.gz", hash = "sha256:47b3f0e2539c39bf5cde015d63b72ec49baff67b6931c3d97f3f84532e2b8d25", size = 463358, upload-time = "2025-10-23T12:12:01.413Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/bd/1a875e0d592d447cbc02805fd3fe0f497714d6a2583f59d14fa9ebad96eb/huggingface_hub-0.36.0-py3-none-any.whl", hash = "sha256:7bcc9ad17d5b3f07b57c78e79d527102d08313caa278a641993acddcb894548d", size = 566094, upload-time = "2025-10-23T12:11:59.557Z" },
+]
+
+[[package]]
+name = "hyperopt"
+version = "0.2.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudpickle" },
+    { name = "future" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "py4j" },
+    { name = "scipy" },
+    { name = "six" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/58/75/0c4712e3f3a21c910778b8f9f4622601a823cefcae24181467674a0352f9/hyperopt-0.2.7.tar.gz", hash = "sha256:1bf89ae58050bbd32c7307199046117feee245c2fd9ab6255c7308522b7ca149", size = 1308240, upload-time = "2021-11-17T10:05:51.386Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/cd/5b3334d39276067f54618ce0d0b48ed69d91352fbf137468c7095170d0e5/hyperopt-0.2.7-py2.py3-none-any.whl", hash = "sha256:f3046d91fe4167dbf104365016596856b2524a609d22f047a066fc1ac796427c", size = 1583421, upload-time = "2021-11-17T10:05:44.265Z" },
 ]
 
 [[package]]
@@ -2697,12 +2753,14 @@ name = "openadmet-challenge"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
+    { name = "bayesian-optimization" },
     { name = "catboost" },
     { name = "chemprop" },
     { name = "colorcet" },
     { name = "datasets" },
     { name = "gradio-client" },
     { name = "hdbscan" },
+    { name = "hyperopt" },
     { name = "ipykernel" },
     { name = "ipympl" },
     { name = "ipywidgets" },
@@ -2716,6 +2774,7 @@ dependencies = [
     { name = "numpy" },
     { name = "nvidia-ml-py" },
     { name = "omegaconf" },
+    { name = "optuna" },
     { name = "pandas" },
     { name = "polaris-lib" },
     { name = "psutil" },
@@ -2775,55 +2834,58 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio", specifier = ">=4.0,<4.12" },
+    { name = "anyio", specifier = "==4.11.0" },
+    { name = "bayesian-optimization", specifier = "==3.2.0" },
     { name = "beautysh", marker = "extra == 'dev'" },
     { name = "black", marker = "extra == 'dev'" },
-    { name = "catboost", specifier = ">=1.2" },
-    { name = "chemprop", specifier = ">=2" },
-    { name = "colorcet", specifier = ">=3.0" },
+    { name = "catboost", specifier = "==1.2.8" },
+    { name = "chemprop", specifier = "==2.2.1" },
+    { name = "colorcet", specifier = "==3.1.0" },
     { name = "commitizen", marker = "extra == 'dev'" },
-    { name = "datasets" },
+    { name = "datasets", specifier = "==2.19.1" },
     { name = "flake8", marker = "extra == 'dev'" },
     { name = "furo", marker = "extra == 'docs'" },
     { name = "gradio-client", specifier = "==2.0.1" },
     { name = "hdbscan", specifier = "==0.8.40" },
-    { name = "ipykernel" },
-    { name = "ipympl" },
-    { name = "ipywidgets" },
+    { name = "hyperopt", specifier = "==0.2.7" },
+    { name = "ipykernel", specifier = "==7.1.0" },
+    { name = "ipympl", specifier = "==0.9.8" },
+    { name = "ipywidgets", specifier = "==8.1.8" },
     { name = "isort", marker = "extra == 'dev'" },
     { name = "iterative-stratification", specifier = "==0.1.9" },
-    { name = "joblib" },
-    { name = "jupyter" },
+    { name = "joblib", specifier = "==1.5.2" },
+    { name = "jupyter", specifier = "==1.1.1" },
     { name = "lightgbm", specifier = "==4.6.0" },
-    { name = "matplotlib", specifier = ">=3.6" },
-    { name = "mlflow", specifier = ">=3.0,<4" },
-    { name = "mordredcommunity", specifier = ">=2.0.0" },
+    { name = "matplotlib", specifier = "==3.10.7" },
+    { name = "mlflow", specifier = "==3.6.0" },
+    { name = "mordredcommunity", specifier = "==2.0.6" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "myst-parser", marker = "extra == 'docs'" },
     { name = "nbstripout", marker = "extra == 'dev'" },
-    { name = "numpy", specifier = ">=1.23,<2" },
+    { name = "numpy", specifier = "==1.26.4" },
     { name = "nvidia-ml-py", specifier = "==13.580.82" },
     { name = "omegaconf", specifier = "==2.3.0" },
-    { name = "pandas", specifier = ">=1.5" },
+    { name = "optuna", specifier = "==4.6.0" },
+    { name = "pandas", specifier = "==2.3.3" },
     { name = "pip", marker = "extra == 'dev'" },
-    { name = "polaris-lib" },
+    { name = "polaris-lib", specifier = "==0.13.0" },
     { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "psutil" },
-    { name = "psycopg2-binary" },
+    { name = "psutil", specifier = "==7.1.3" },
+    { name = "psycopg2-binary", specifier = "==2.9.11" },
     { name = "pylint", marker = "extra == 'dev'" },
-    { name = "pytdc" },
-    { name = "pytest", specifier = ">=7.0" },
+    { name = "pytdc", specifier = "==0.4.1" },
+    { name = "pytest", specifier = "==9.0.1" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "pytest-mock", marker = "extra == 'dev'" },
     { name = "pytest-xdist", marker = "extra == 'dev'" },
-    { name = "ray", extras = ["data", "serve", "train", "tune"] },
-    { name = "rdkit" },
-    { name = "requests", specifier = ">=2.28" },
-    { name = "rich" },
+    { name = "ray", extras = ["data", "serve", "train", "tune"], specifier = "==2.52.0" },
+    { name = "rdkit", specifier = "==2023.9.6" },
+    { name = "requests", specifier = "==2.28.1" },
+    { name = "rich", specifier = "==14.2.0" },
     { name = "scienceplots", specifier = "==2.1.1" },
-    { name = "scikit-learn", specifier = ">=1.1" },
-    { name = "scipy", specifier = ">=1.9" },
-    { name = "seaborn", specifier = ">=0.12" },
+    { name = "scikit-learn", specifier = "==1.7.2" },
+    { name = "scipy", specifier = "==1.16.3" },
+    { name = "seaborn", specifier = "==0.13.2" },
     { name = "shfmt-py", marker = "extra == 'dev'" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.0" },
     { name = "sphinx-autobuild", marker = "extra == 'docs'" },
@@ -2834,16 +2896,16 @@ requires-dist = [
     { name = "sphinx-tabs", marker = "extra == 'docs'" },
     { name = "sphinxext-opengraph", marker = "extra == 'docs'" },
     { name = "statsmodels", specifier = "==0.14.5" },
-    { name = "torch", specifier = ">=2.1", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "torchaudio", specifier = ">=0.10", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "torchmetrics", specifier = ">=0.11" },
-    { name = "torchvision", specifier = ">=0.10", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "tqdm", specifier = ">=4.64" },
-    { name = "transformers", specifier = ">=4.30" },
-    { name = "typer", specifier = ">=0.7" },
+    { name = "torch", specifier = "==2.7.1+cu118", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "torchaudio", specifier = "==2.7.1+cu118", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "torchmetrics", specifier = "==1.0.3" },
+    { name = "torchvision", specifier = "==0.22.1+cu118", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "tqdm", specifier = "==4.66.5" },
+    { name = "transformers", specifier = "==4.50.3" },
+    { name = "typer", specifier = "==0.20.0" },
     { name = "umap-learn", specifier = "==0.5.9.post2" },
-    { name = "useful-rdkit-utils" },
-    { name = "xgboost", specifier = ">=1.7" },
+    { name = "useful-rdkit-utils", specifier = "==0.92" },
+    { name = "xgboost", specifier = "==3.1.2" },
 ]
 provides-extras = ["dev", "docs"]
 
@@ -2934,6 +2996,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/40/bc/8b9ad3802cd8ac6583a4eb7de7e5d7db004e89cb7efe7008f9c8a537ee75/opentelemetry_semantic_conventions-0.59b0.tar.gz", hash = "sha256:7a6db3f30d70202d5bf9fa4b69bc866ca6a30437287de6c510fb594878aed6b0", size = 129861, upload-time = "2025-10-16T08:36:03.346Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/7d/c88d7b15ba8fe5c6b8f93be50fc11795e9fc05386c44afaf6b76fe191f9b/opentelemetry_semantic_conventions-0.59b0-py3-none-any.whl", hash = "sha256:35d3b8833ef97d614136e253c1da9342b4c3c083bbaf29ce31d572a1c3825eed", size = 207954, upload-time = "2025-10-16T08:35:48.054Z" },
+]
+
+[[package]]
+name = "optuna"
+version = "4.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alembic" },
+    { name = "colorlog" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pyyaml" },
+    { name = "sqlalchemy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/81/08f90f194eed78178064a9383432eca95611e2c5331e7b01e2418ce4b15a/optuna-4.6.0.tar.gz", hash = "sha256:89e38c2447c7f793a726617b8043f01e31f0bad54855040db17eb3b49404a369", size = 477444, upload-time = "2025-11-10T05:14:30.151Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/de/3d8455b08cb6312f8cc46aacdf16c71d4d881a1db4a4140fc5ef31108422/optuna-4.6.0-py3-none-any.whl", hash = "sha256:4c3a9facdef2b2dd7e3e2a8ae3697effa70fae4056fcf3425cfc6f5a40feb069", size = 404708, upload-time = "2025-11-10T05:14:28.6Z" },
 ]
 
 [[package]]
@@ -3307,6 +3387,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/62/11/a123e22c6797d9cfe64eef3113dd7219bb9bc675c4d28246a56a90fd5c60/py3dmol-2.5.3.tar.gz", hash = "sha256:d837168aae65d27abd607b21100803e7b60d6f7c0ec9aa48cea5b3c1e85c437f", size = 7853, upload-time = "2025-09-28T14:20:28.141Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0b/a6/e2e8535d8146bce05de6e0ecf1099a7e2887d840ae2a7b3a09385543fd02/py3dmol-2.5.3-py2.py3-none-any.whl", hash = "sha256:5c1c9ee40bda82b91978e75f3c144be5b90cdf472e765bcef4890db76cc8f843", size = 7156, upload-time = "2025-09-28T14:20:26.941Z" },
+]
+
+[[package]]
+name = "py4j"
+version = "0.10.9.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/38/31/0b210511177070c8d5d3059556194352e5753602fa64b85b7ab81ec1a009/py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879", size = 761089, upload-time = "2025-01-15T03:53:18.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/db/ea0203e495be491c85af87b66e37acfd3bf756fd985f87e46fc5e3bf022c/py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533", size = 203008, upload-time = "2025-01-15T03:53:15.648Z" },
 ]
 
 [[package]]

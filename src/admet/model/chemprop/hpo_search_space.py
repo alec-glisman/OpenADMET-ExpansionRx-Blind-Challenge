@@ -111,6 +111,7 @@ def build_search_space(
 
     # Simple parameters (no conditions)
     # Note: weight_decay is not included as it's not currently applied in ChempropHyperparams
+    # Note: aggregation/aggregation_norm removed - hardcoded to NormAggregation in model
     simple_params = [
         "learning_rate",
         "lr_warmup_ratio",
@@ -125,8 +126,6 @@ def build_search_space(
         "ffn_hidden_dim",
         "batch_size",
         "ffn_type",
-        "aggregation",
-        "aggregation_norm",
     ]
 
     for param_name in simple_params:

@@ -399,8 +399,7 @@ def _plot_affinity_asymmetry(
     for i in range(n_tasks):
         for j in range(n_tasks):
             if asymmetry[i, j] > 0.3:  # Highlight significant asymmetries
-                ax.text(j, i, f"{asymmetry[i, j]:.2f}",
-                       ha="center", va="center", color="white", fontsize=8)
+                ax.text(j, i, f"{asymmetry[i, j]:.2f}", ha="center", va="center", color="white", fontsize=8)
 
     plt.tight_layout()
     return fig
@@ -481,9 +480,9 @@ def _plot_affinity_network(
 
                 width = 1 + 3 * abs(avg_affinity)
 
-                ax.plot([x[i], x[j]], [y[i], y[j]],
-                       color=color, linewidth=width, linestyle=linestyle,
-                       alpha=0.6, zorder=1)
+                ax.plot(
+                    [x[i], x[j]], [y[i], y[j]], color=color, linewidth=width, linestyle=linestyle, alpha=0.6, zorder=1
+                )
 
     # Draw nodes
     ax.scatter(x, y, c=node_colors, s=500, zorder=2, edgecolors="black", linewidths=1.5)
@@ -495,27 +494,31 @@ def _plot_affinity_network(
         # Position labels slightly outside the circle
         label_x = x[i] * 1.15
         label_y = y[i] * 1.15
-        ax.text(label_x, label_y, label, ha="center", va="center",
-               fontsize=9, weight="bold", zorder=3)
+        ax.text(label_x, label_y, label, ha="center", va="center", fontsize=9, weight="bold", zorder=3)
 
     ax.set_xlim(-1.5, 1.5)
     ax.set_ylim(-1.5, 1.5)
     ax.set_aspect("equal")
     ax.axis("off")
-    ax.set_title(f"Task Affinity Network (|affinity| > {threshold})\n"
-                f"Green=Positive, Red=Negative, Width=Strength",
-                fontsize=12, weight="bold")
+    ax.set_title(
+        f"Task Affinity Network (|affinity| > {threshold})\n" f"Green=Positive, Red=Negative, Width=Strength",
+        fontsize=12,
+        weight="bold",
+    )
 
     # Add legend for groups if available
     if groups and len(groups) > 1:
         from matplotlib.patches import Patch
+
         legend_elements = [
-            Patch(facecolor=cmap(g_idx / len(groups)), edgecolor="black",
-                 label=f"Group {g_idx}: {', '.join(group[:2])}" + ("..." if len(group) > 2 else ""))
+            Patch(
+                facecolor=cmap(g_idx / len(groups)),
+                edgecolor="black",
+                label=f"Group {g_idx}: {', '.join(group[:2])}" + ("..." if len(group) > 2 else ""),
+            )
             for g_idx, group in enumerate(groups)
         ]
-        ax.legend(handles=legend_elements, loc="upper left", fontsize=8,
-                 bbox_to_anchor=(0, 1), framealpha=0.9)
+        ax.legend(handles=legend_elements, loc="upper left", fontsize=8, bbox_to_anchor=(0, 1), framealpha=0.9)
 
     plt.tight_layout()
     return fig
@@ -1202,7 +1205,9 @@ class InterTaskAffinityCallback(Callback):
 
             logger.info(
                 "Task Affinity Summary: %.1f%% positive, %.1f%% negative, %.1f%% neutral (|Z|<0.05)",
-                pct_positive, pct_negative, pct_neutral
+                pct_positive,
+                pct_negative,
+                pct_neutral,
             )
 
             # 2. Identify Strong Affinity Pairs
@@ -1216,8 +1221,9 @@ class InterTaskAffinityCallback(Callback):
                     for j in range(n_tasks):
                         if i != j:
                             val = Z_final[i, j]
-                            if (pair_type == "strong_positive" and val > threshold) or \
-                               (pair_type == "strong_negative" and val < threshold):
+                            if (pair_type == "strong_positive" and val > threshold) or (
+                                pair_type == "strong_negative" and val < threshold
+                            ):
                                 pairs.append((self.target_cols[i], self.target_cols[j], val))
 
                 # Sort by absolute value
@@ -1227,6 +1233,7 @@ class InterTaskAffinityCallback(Callback):
             # Log strong pairs as JSON artifact
             import json
             import tempfile
+
             with tempfile.NamedTemporaryFile(mode="w", suffix="_strong_pairs.json", delete=False) as spf:
                 json.dump(strong_pairs_dict, spf, indent=2)
                 mlflow.log_artifact(spf.name, "inter_task_affinity")
@@ -1247,7 +1254,7 @@ class InterTaskAffinityCallback(Callback):
                     "avg_incoming_affinity": avg_incoming,
                     "avg_outgoing_affinity": avg_outgoing,
                     "net_contribution": avg_outgoing,  # Positive = helps others
-                    "receives_benefit": avg_incoming,   # Positive = helped by others
+                    "receives_benefit": avg_incoming,  # Positive = helped by others
                 }
 
                 # Log per-task metrics
@@ -1264,7 +1271,7 @@ class InterTaskAffinityCallback(Callback):
             # Check how symmetric the affinity matrix is (Z_ij vs Z_ji)
             symmetry_diffs = []
             for i in range(n_tasks):
-                for j in range(i+1, n_tasks):
+                for j in range(i + 1, n_tasks):
                     diff = abs(Z_final[i, j] - Z_final[j, i])
                     symmetry_diffs.append(diff)
 
@@ -1275,14 +1282,12 @@ class InterTaskAffinityCallback(Callback):
             mlflow.log_metric("affinity/summary/max_asymmetry", max_asymmetry)
 
             logger.info(
-                "Affinity matrix asymmetry: mean=%.4f, max=%.4f (lower is more symmetric)",
-                avg_asymmetry, max_asymmetry
+                "Affinity matrix asymmetry: mean=%.4f, max=%.4f (lower is more symmetric)", avg_asymmetry, max_asymmetry
             )
 
             # 5. Log readable summary report
             summary_report = self._generate_affinity_report(
-                Z_final, task_summaries, strong_pairs_dict,
-                pct_positive, pct_negative, avg_asymmetry
+                Z_final, task_summaries, strong_pairs_dict, pct_positive, pct_negative, avg_asymmetry
             )
 
             with tempfile.NamedTemporaryFile(mode="w", suffix="_affinity_report.txt", delete=False) as rf:
@@ -1322,31 +1327,31 @@ class InterTaskAffinityCallback(Callback):
         for task_i, task_j, affinity in strong_pairs.get("strong_positive", []):
             lines.append(f"  {task_i:40s} → {task_j:40s} : {affinity:+.4f}")
 
-        lines.extend([
-            "",
-            "=" * 80,
-            "TOP NEGATIVE AFFINITY PAIRS (Potential Interference):",
-            "=" * 80,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                "TOP NEGATIVE AFFINITY PAIRS (Potential Interference):",
+                "=" * 80,
+            ]
+        )
 
         for task_i, task_j, affinity in strong_pairs.get("strong_negative", []):
             lines.append(f"  {task_i:40s} → {task_j:40s} : {affinity:+.4f}")
 
-        lines.extend([
-            "",
-            "=" * 80,
-            "PER-TASK SUMMARY (Incoming/Outgoing Affinity):",
-            "=" * 80,
-            f"{'Task':<45s} {'Incoming':>12s} {'Outgoing':>12s} {'Interpretation':<30s}",
-            "-" * 80,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                "PER-TASK SUMMARY (Incoming/Outgoing Affinity):",
+                "=" * 80,
+                f"{'Task':<45s} {'Incoming':>12s} {'Outgoing':>12s} {'Interpretation':<30s}",
+                "-" * 80,
+            ]
+        )
 
         # Sort tasks by net contribution
-        sorted_tasks = sorted(
-            task_summaries.items(),
-            key=lambda x: x[1]["net_contribution"],
-            reverse=True
-        )
+        sorted_tasks = sorted(task_summaries.items(), key=lambda x: x[1]["net_contribution"], reverse=True)
 
         for task, stats in sorted_tasks:
             incoming = stats["avg_incoming_affinity"]
@@ -1366,16 +1371,21 @@ class InterTaskAffinityCallback(Callback):
 
             lines.append(f"{task:<45s} {incoming:>12.4f} {outgoing:>12.4f} {interp:<30s}")
 
-        lines.extend([
-            "",
-            "=" * 80,
-            "RECOMMENDATIONS FOR TASK GROUPING:",
-            "=" * 80,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                "RECOMMENDATIONS FOR TASK GROUPING:",
+                "=" * 80,
+            ]
+        )
 
         # Provide recommendations based on affinity patterns
-        high_synergy_count = sum(1 for _, stats in task_summaries.items()
-                                 if stats["avg_incoming_affinity"] > 0.2 and stats["avg_outgoing_affinity"] > 0.2)
+        high_synergy_count = sum(
+            1
+            for _, stats in task_summaries.items()
+            if stats["avg_incoming_affinity"] > 0.2 and stats["avg_outgoing_affinity"] > 0.2
+        )
 
         if pct_positive > 70:
             lines.append("  ✓ High overall positive transfer (>70%) suggests tasks benefit from joint training")
@@ -1496,7 +1506,9 @@ class InterTaskAffinityCallback(Callback):
 
             logger.info(
                 "Group Affinity: Intra=%.4f, Inter=%.4f, Separation=%.4f (higher is better)",
-                avg_intra, avg_inter, separation_quality
+                avg_intra,
+                avg_inter,
+                separation_quality,
             )
 
         except Exception as e:

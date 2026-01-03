@@ -8,6 +8,20 @@ This guide covers setting up the development environment for the OpenADMET Chall
 - CUDA 13.0+ (for GPU acceleration)
 - Linux or macOS (Windows may work but is untested)
 
+## Important: Version Pinning
+
+**All dependencies are pinned to exact versions for reproducibility.** The project uses `==` version constraints (e.g., `numpy==1.26.4`) instead of version ranges (e.g., `numpy>=1.23`). This ensures:
+
+- Deterministic builds across all environments
+- Consistent behavior in development, testing, and production
+- No unexpected breaking changes from upstream package updates
+
+If you need to update a dependency:
+
+1. Update the version in `pyproject.toml`
+2. Test thoroughly with `pytest`
+3. Update `CLAUDE.md` with the version change reason
+
 ## Quick Start
 
 ```bash
@@ -82,6 +96,25 @@ python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda
 # Run tests
 pytest tests/ -q
 ```
+
+## Optional Dependencies
+
+### Bayesian Optimization (HPO)
+
+For improved hyperparameter search efficiency with Optuna:
+
+```bash
+pip install optuna
+```
+
+Alternatively, use BayesOpt or HyperOpt:
+
+```bash
+pip install bayesian-optimization  # For BayesOptSearch
+pip install hyperopt               # For HyperOptSearch
+```
+
+**Note:** If these packages are not installed, HPO will automatically fall back to random search.
 
 ## Environment Sync
 

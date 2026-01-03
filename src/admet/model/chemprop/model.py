@@ -90,6 +90,61 @@ logger = logging.getLogger("admet.model.chemprop.model")
 # TODO: think about task weights: _tasks = [1.018, 1.000, 1.364, 1.134, 2.377, 2.373]
 
 
+class MPNNWithWeightDecay(models.MPNN):
+    """MPNN subclass with weight decay support via AdamW optimizer.
+
+    This subclass overrides configure_optimizers to use AdamW instead of Adam,
+    enabling proper L2 regularization through weight decay.
+
+    Parameters
+    ----------
+    weight_decay : float, default=0.0
+        L2 regularization coefficient. Set to 0.0 to disable.
+    *args, **kwargs
+        All other arguments are passed to the parent MPNN class.
+
+    Notes
+    -----
+    AdamW implements weight decay decoupled from the gradient-based update,
+    which is more effective than L2 regularization added to the loss.
+    See: Loshchilov & Hutter (2019) "Decoupled Weight Decay Regularization".
+    """
+
+    def __init__(self, *args, weight_decay: float = 0.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.weight_decay = weight_decay
+
+    def configure_optimizers(self):
+        """Configure AdamW optimizer with weight decay and NoamLike scheduler."""
+        from chemprop.schedulers import build_NoamLike_LRSched
+        from torch import optim
+
+        # Use AdamW for proper weight decay implementation
+        opt = optim.AdamW(self.parameters(), self.init_lr, weight_decay=self.weight_decay)
+
+        if self.trainer.train_dataloader is None:
+            self.trainer.estimated_stepping_batches
+
+        steps_per_epoch = self.trainer.num_training_batches
+        warmup_steps = self.warmup_epochs * steps_per_epoch
+
+        if self.trainer.max_epochs == -1:
+            logger.warning(
+                "For infinite training, the number of cooldown epochs in learning rate scheduler "
+                "is set to 100 times the number of warmup epochs."
+            )
+            cooldown_steps = 100 * warmup_steps
+        else:
+            cooldown_epochs = self.trainer.max_epochs - self.warmup_epochs
+            cooldown_steps = cooldown_epochs * steps_per_epoch
+
+        lr_sched = build_NoamLike_LRSched(opt, warmup_steps, cooldown_steps, self.init_lr, self.max_lr, self.final_lr)
+
+        lr_sched_config = {"scheduler": lr_sched, "interval": "step"}
+
+        return {"optimizer": opt, "lr_scheduler": lr_sched_config}
+
+
 class CriterionName(str, Enum):
     MSE = "MSE"
     MAE = "MAE"
@@ -325,6 +380,9 @@ class ChempropHyperparams:
         Number of data loading workers.
     seed : int, default=42
         Random seed for reproducibility.
+    weight_decay : float, default=0.0
+        L2 regularization weight decay coefficient. Applied via AdamW optimizer.
+        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.
     depth : int, default=3
         Number of message passing iterations.
     message_hidden_dim : int, default=300
@@ -361,6 +419,7 @@ class ChempropHyperparams:
     batch_size: int = 32
     num_workers: int = 0
     seed: int = 42
+    weight_decay: float = 0.0
 
     # Message passing
     depth: int = 5
@@ -1107,7 +1166,7 @@ class ChempropModel:
             output_transform=self.transform,
         )
 
-        self.mpnn = models.MPNN(
+        self.mpnn = MPNNWithWeightDecay(
             message_passing=self.mp,
             agg=self.agg,
             predictor=self.ffn,
@@ -1117,6 +1176,7 @@ class ChempropModel:
             init_lr=self.hyperparams.init_lr,
             max_lr=self.hyperparams.max_lr,
             final_lr=self.hyperparams.final_lr,
+            weight_decay=self.hyperparams.weight_decay,
         )
 
         # Store task affinity info as MPNN attributes for downstream access
@@ -1313,6 +1373,7 @@ class ChempropModel:
                 monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
+                save_top_k=5,  # Keep 5 best checkpoints to avoid race condition with Ray syncer
             )
             callbacks_list.append(checkpointing)
 
@@ -1328,6 +1389,7 @@ class ChempropModel:
                 monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
+                save_top_k=5,  # Keep 5 best checkpoints to avoid race condition with Ray syncer
             )
             callbacks_list.append(checkpointing)
 

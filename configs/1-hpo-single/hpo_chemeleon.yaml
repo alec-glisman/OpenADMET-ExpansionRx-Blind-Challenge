@@ -10,11 +10,12 @@
 #   - Batch sizes: 32-64 dominate top configs
 #   - FFN layers: 0-4 layers (0 = linear head)
 #   - Hidden dims: Wide range, 200-1200 with 300-800 most frequent
+#   - Weight decay: Conditional search for L2 regularization
 #
 # Key differences from Chemprop HPO:
 #   - No message passing params (depth, message_hidden_dim, aggregation)
 #   - Encoder is frozen, so training is faster per trial
-#   - Added weight_decay search (important for FFN-only training)
+#   - Weight decay search is important for FFN-only training
 #   - Uses continuous distributions where beneficial
 #
 # Usage:
@@ -51,6 +52,9 @@ target_weights:
   - 1.0
 
 seed: 42
+patience: 15 # Early stopping patience (epochs)
+warmup_epochs: 5 # LR warmup epochs
+report_every_n_epochs: 1 # Epoch cadence for Ray Tune reporting
 
 # CheMeleon-specific settings
 checkpoint_path: auto # Auto-download from Zenodo
@@ -77,7 +81,7 @@ search_space:
   # Range: 10-50 epochs gives time for head to stabilize before unfreezing
   unfreeze_encoder_epoch:
     type: randint
-    low: 10
+    low: 5
     high: 50
     conditional_on: freeze_encoder
     conditional_values:
@@ -222,6 +226,12 @@ asha:
   reduction_factor: 3
   brackets: 1
 
+# Search algorithm configuration (Bayesian optimization)
+search_algorithm:
+  type: optuna # Options: random, optuna, bayesopt, hyperopt
+  seed: 42
+  n_initial_points: 100 # Random exploration phase before Bayesian optimization
+
 # Resource allocation
 resources:
   num_samples: 1000
@@ -255,4 +265,21 @@ joint_sampling:
   num_samples: null
   seed: 42
   increment_seed_per_epoch: true
+  log_to_mlflow: true
+
+# Inter-task affinity computation (disabled by default)
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 1
+  log_every_n_steps: 100
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true

@@ -76,6 +76,7 @@ Example ``configs/0-experiment/chemprop.yaml``:
      patience: 15
      batch_size: 32
      seed: 12345
+     weight_decay: 0.0  # L2 regularization (0.0 = disabled)
 
    # MLflow tracking
    mlflow:
@@ -153,6 +154,7 @@ Example ``configs/4-more-models/chemprop.yaml``:
      max_epochs: 150
      patience: 15
      batch_size: 128
+     weight_decay: 0.0  # L2 regularization via AdamW
 
    mlflow:
      tracking: true

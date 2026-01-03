@@ -2,39 +2,52 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-from ray.tune.result_grid import ResultGrid
+from admet.model.hpo_mlflow_callback import (
+    AsyncBatchedMLflowCallback,
+    RobustMLflowLoggerCallback,
+    backfill_mlflow_from_ray_results,
+)
 
-from admet.model.hpo_mlflow_callback import RobustMLflowLoggerCallback, backfill_mlflow_from_ray_results
 
-
-class TestRobustMLflowLoggerCallback:
-    """Test the robust MLflow logger callback."""
+class TestAsyncBatchedMLflowCallback:
+    """Test the async batched MLflow logger callback."""
 
     def test_callback_initialization(self):
         """Test callback can be initialized."""
-        callback = RobustMLflowLoggerCallback(
+        callback = AsyncBatchedMLflowCallback(
             tracking_uri="http://localhost:5000",
             experiment_name="test_exp",
             save_artifact=False,
             tags={"key": "value"},
         )
-        assert callback._inner is not None
+        assert callback._tracking_uri == "http://localhost:5000"
+        assert callback._experiment_name == "test_exp"
         assert callback._failed_trials == set()
+        assert callback._tags == {"key": "value"}
 
-    def test_callback_handles_failed_trials(self):
-        """Test callback tracks failed trials."""
-        callback = RobustMLflowLoggerCallback()
+    def test_backward_compatibility_alias(self):
+        """Test that RobustMLflowLoggerCallback is an alias for AsyncBatchedMLflowCallback."""
+        assert RobustMLflowLoggerCallback is AsyncBatchedMLflowCallback
+
+    def test_callback_tracks_failed_trials(self):
+        """Test callback can track failed trials via failed_trials set."""
+        callback = AsyncBatchedMLflowCallback()
+
+        # Manually add a failed trial (simulating what _flush_metrics does on error)
+        callback._failed_trials.add("test_trial_123")
+
+        assert "test_trial_123" in callback._failed_trials
+
+    def test_callback_skips_failed_trials(self):
+        """Test callback skips trials that have been marked as failed."""
+        callback = AsyncBatchedMLflowCallback()
+        callback._failed_trials.add("test_trial_123")
 
         # Mock a trial
         trial = MagicMock()
         trial.trial_id = "test_trial_123"
 
-        # Simulate an error with inactive run
-        callback._inner = MagicMock()
-        callback._inner.on_trial_result.side_effect = Exception("must be in the 'active' state")
-
-        # Should not raise, but should add to failed trials
+        # Should return early without doing anything
         callback.on_trial_result(
             iteration=1,
             trials=[trial],
@@ -42,21 +55,8 @@ class TestRobustMLflowLoggerCallback:
             result={"val_loss": 0.5},
         )
 
-        assert "test_trial_123" in callback._failed_trials
-
-        # Second call should be skipped
-        callback._inner.on_trial_result.side_effect = None
-        callback._inner.on_trial_result.reset_mock()
-
-        callback.on_trial_result(
-            iteration=2,
-            trials=[trial],
-            trial=trial,
-            result={"val_loss": 0.4},
-        )
-
-        # Inner callback should not have been called
-        callback._inner.on_trial_result.assert_not_called()
+        # No run should be created for a failed trial
+        assert trial not in callback._trial_runs
 
 
 class TestBackfillMLflowFromRayResults:

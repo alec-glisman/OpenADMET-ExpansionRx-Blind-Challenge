@@ -163,7 +163,7 @@ class TestChemeleonModel:
             model.predict(["CCO"])
 
     def test_get_trainer_callbacks(self):
-        """Test get_trainer_callbacks returns unfreeze callback."""
+        """Test get_trainer_callbacks returns unfreeze and correlation callbacks."""
         config = OmegaConf.create(
             {
                 "model": {"type": "chemeleon"},
@@ -174,8 +174,11 @@ class TestChemeleonModel:
         model = ChemeleonModel(config)
         callbacks = model.get_trainer_callbacks()
 
-        assert len(callbacks) == 1
-        assert isinstance(callbacks[0], GradualUnfreezeCallback)
+        # Should have GradualUnfreezeCallback and CorrelationMetricsCallback
+        assert len(callbacks) == 2
+        callback_types = [type(cb).__name__ for cb in callbacks]
+        assert "GradualUnfreezeCallback" in callback_types
+        assert "CorrelationMetricsCallback" in callback_types
 
     def test_download_from_zenodo(self, tmp_path):
         """Test auto-download from Zenodo."""
@@ -379,3 +382,67 @@ class TestChemeleonFFNTypes:
         )
         model = ChemeleonModel(config)
         assert model._get_model_param("batch_norm", False) is True
+
+
+class TestCorrelationMetricsCallback:
+    """Tests for CorrelationMetricsCallback."""
+
+    def test_init_defaults(self):
+        """Test callback initialization with defaults."""
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        callback = CorrelationMetricsCallback()
+
+        assert callback.scaler is None
+        assert callback.target_cols == []
+        assert callback.val_loader is None
+        assert callback.report_every_n_epochs == 5
+        assert callback._last_reported_epoch is None
+
+    def test_init_with_params(self):
+        """Test callback initialization with parameters."""
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        target_cols = ["LogD", "KSOL"]
+        callback = CorrelationMetricsCallback(
+            target_cols=target_cols,
+            report_every_n_epochs=3,
+        )
+
+        assert callback.target_cols == target_cols
+        assert callback.report_every_n_epochs == 3
+
+    def test_skips_when_val_loader_none(self):
+        """Test callback skips computation when val_loader is None."""
+        from lightning import pytorch as pl
+
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        callback = CorrelationMetricsCallback(val_loader=None)
+        trainer = MagicMock(spec=pl.Trainer)
+        pl_module = MagicMock(spec=pl.LightningModule)
+
+        # Should return early without raising
+        callback.on_validation_epoch_end(trainer, pl_module)
+
+    def test_skips_based_on_epoch_cadence(self):
+        """Test callback respects epoch cadence."""
+        from lightning import pytorch as pl
+
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        callback = CorrelationMetricsCallback(
+            val_loader=MagicMock(),
+            report_every_n_epochs=5,
+        )
+        callback._last_reported_epoch = 1
+
+        trainer = MagicMock(spec=pl.Trainer)
+        trainer.current_epoch = 2  # Only 1 epoch later
+        pl_module = MagicMock(spec=pl.LightningModule)
+
+        # Should return early due to epoch cadence
+        callback.on_validation_epoch_end(trainer, pl_module)
+
+        # Last reported epoch should not change
+        assert callback._last_reported_epoch == 1

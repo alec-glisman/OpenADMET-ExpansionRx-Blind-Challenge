@@ -470,6 +470,9 @@
 <span class="sd">        Random seed for reproducibility.</span>
 <span class="sd">    progress_bar : bool, default=False</span>
 <span class="sd">        Whether to show training progress bar.</span>
+<span class="sd">    weight_decay : float, default=0.0</span>
+<span class="sd">        L2 regularization weight decay coefficient. Applied via AdamW optimizer.</span>
+<span class="sd">        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">criterion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MAE&quot;</span>
@@ -482,7 +485,8 @@
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
-    <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+    <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span></div>
 
 
 
@@ -698,7 +702,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             

@@ -150,6 +150,7 @@ optimization:
   batch_size: 128
   num_workers: 0
   seed: 42
+  weight_decay: 0.0
   progress_bar: false
 
 # MLflow tracking
