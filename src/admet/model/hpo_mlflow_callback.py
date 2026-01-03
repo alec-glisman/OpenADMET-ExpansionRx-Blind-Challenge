@@ -73,10 +73,35 @@ class AsyncBatchedMLflowCallback(Callback):
         self._failed_trials: set[str] = set()
         self._mlflow_client: mlflow.MlflowClient | None = None
 
-        # Async logging infrastructure
-        self._log_queue: queue.Queue[tuple[str, list[Metric]] | None] = queue.Queue()
+        # Async logging infrastructure (initialized lazily in setup())
+        self._log_queue: queue.Queue[tuple[str, list[Metric]] | None] | None = None
         self._worker_thread: threading.Thread | None = None
-        self._shutdown_event = threading.Event()
+        self._shutdown_event: threading.Event | None = None
+
+    def __getstate__(self) -> dict:
+        """Return state for pickling, excluding non-picklable objects.
+
+        Ray Tune pickles callbacks when initializing the Tuner. Threading objects
+        (locks, events, threads) and queues cannot be pickled.
+        """
+        state = self.__dict__.copy()
+        # Remove non-picklable objects - they will be recreated in setup()
+        state["_log_queue"] = None
+        state["_worker_thread"] = None
+        state["_shutdown_event"] = None
+        state["_mlflow_client"] = None
+        state["_trial_runs"] = {}
+        state["_failed_trials"] = set()
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        """Restore state after unpickling."""
+        self.__dict__.update(state)
+        # Ensure these are initialized (will be properly set up in setup())
+        self._log_queue = None
+        self._worker_thread = None
+        self._shutdown_event = None
+        self._mlflow_client = None
 
     def setup(self, *args: Any, **kwargs: Any) -> None:
         """Initialize MLflow client and start background worker."""
@@ -88,6 +113,12 @@ class AsyncBatchedMLflowCallback(Callback):
                 mlflow.set_experiment(self._experiment_name)
 
             self._mlflow_client = mlflow.MlflowClient()
+
+            # Initialize async logging infrastructure (may have been cleared for pickling)
+            if self._log_queue is None:
+                self._log_queue = queue.Queue()
+            if self._shutdown_event is None:
+                self._shutdown_event = threading.Event()
 
             # Start background worker thread for async logging
             self._shutdown_event.clear()
@@ -174,7 +205,8 @@ class AsyncBatchedMLflowCallback(Callback):
 
     def _flush_and_shutdown(self) -> None:
         """Flush remaining metrics and shutdown worker thread."""
-        self._shutdown_event.set()
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
         if self._worker_thread and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=5.0)
 
@@ -243,7 +275,7 @@ class AsyncBatchedMLflowCallback(Callback):
                 except (ValueError, TypeError):
                     pass
 
-        if metrics:
+        if metrics and self._log_queue is not None:
             # Non-blocking queue put - worker will batch and log
             try:
                 self._log_queue.put_nowait((run_id, metrics))

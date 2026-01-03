@@ -235,8 +235,8 @@ search_algorithm:
 # Resource allocation
 resources:
   num_samples: 1000
-  cpus_per_trial: 4
-  gpus_per_trial: 0.33
+  cpus_per_trial: 6
+  gpus_per_trial: 0.5
   max_concurrent_trials: null
 
 # Transfer learning from top configs
