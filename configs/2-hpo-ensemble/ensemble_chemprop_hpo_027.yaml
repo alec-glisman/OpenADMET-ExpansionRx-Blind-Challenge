@@ -94,5 +94,5 @@ joint_sampling:
   log_to_mlflow: true
 ray:
   max_parallel: 4
-  num_cpus: 6
-  num_gpus: 0.5
+  num_cpus: 24
+  num_gpus: 2

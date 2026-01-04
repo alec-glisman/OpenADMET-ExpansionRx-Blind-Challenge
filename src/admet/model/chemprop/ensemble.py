@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -693,19 +694,53 @@ class ModelEnsemble:
         ray_kwargs: Dict[str, Any] = {}
         if self.config.ray.num_cpus is not None:
             ray_kwargs["num_cpus"] = self.config.ray.num_cpus
-        if self.config.ray.num_gpus is not None:
-            ray_kwargs["num_gpus"] = self.config.ray.num_gpus
-
-        if not ray.is_initialized():
-            ray.init(**ray_kwargs, ignore_reinit_error=True)
-            logger.info("Initialized Ray cluster")
 
         # Ensure max_parallel is set
         if max_parallel is None or max_parallel < 1:
             max_parallel = 1
 
-        # Calculate GPU fraction per task
-        gpu_fraction = 1.0 / max_parallel if max_parallel > 1 else 1.0
+        # Ray requires whole numbers for cluster-level GPU allocation
+        # Calculate per-task GPU allocation based on config
+        config_gpu_per_task = self.config.ray.num_gpus if self.config.ray.num_gpus is not None else 0.0
+
+        # Detect available GPUs and optimize distribution
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=index", "--format=csv,noheader"], capture_output=True, text=True, check=True
+            )
+            available_gpus = len(result.stdout.strip().split("\n"))
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            available_gpus = 0
+            logger.warning("Could not detect GPUs with nvidia-smi, assuming 0 GPUs")
+
+        # Calculate optimal GPU allocation
+        if config_gpu_per_task > 0 and available_gpus > 0:
+            # Use all available GPUs for Ray cluster
+            ray_kwargs["num_gpus"] = available_gpus
+
+            # Calculate per-task GPU allocation to distribute evenly
+            # If config specifies 0.25 and we have 2 GPUs with 8 tasks:
+            # Optimal: 2 GPUs / 8 tasks = 0.25 per task (perfect match)
+            # This ensures tasks are distributed across both GPUs
+            tasks_per_gpu = max_parallel / available_gpus
+            optimal_gpu_per_task = 1.0 / tasks_per_gpu if tasks_per_gpu > 0 else config_gpu_per_task
+
+            # Use the config value but ensure we don't exceed what's available
+            gpu_per_task = min(config_gpu_per_task, optimal_gpu_per_task)
+
+            logger.info(
+                f"GPU allocation: {available_gpus} GPUs available, "
+                f"{max_parallel} parallel tasks, {gpu_per_task:.3f} GPU per task"
+            )
+        else:
+            gpu_per_task = 0.0
+
+        if not ray.is_initialized():
+            ray.init(**ray_kwargs, ignore_reinit_error=True)
+            logger.info("Initialized Ray cluster")
+
+        # Use calculated GPU fraction per task
+        gpu_fraction = gpu_per_task if gpu_per_task > 0 else 0.0
 
         # Create training tasks
         @ray.remote(num_gpus=gpu_fraction)
