@@ -1634,7 +1634,12 @@ class ChempropModel:
                     self._log_evaluation_metrics()
                     self._log_training_artifacts(completed)
                 except Exception as log_err:
-                    logger.error("Failed to log artifacts after training: %s", log_err)
+                    error_str = str(log_err).lower()
+                    # Ignore duplicate key errors from concurrent MLflow logging
+                    if "duplicate" in error_str and ("constraint" in error_str or "unique" in error_str):
+                        logger.debug("Skipping duplicate metrics (already logged by Lightning): %s", log_err)
+                    else:
+                        logger.error("Failed to log artifacts after training: %s", log_err)
             else:
                 logger.debug("Post-training skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
 

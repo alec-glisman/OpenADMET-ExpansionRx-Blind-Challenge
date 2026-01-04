@@ -996,7 +996,7 @@ class ModelEnsemble:
                 for done_id in done_ids:
                     result = ray.get(done_id)
                     all_results.append(result)
-                    logger.info("Completed training: %s", result[0])
+                    logger.debug("Completed training: %s", result[0])
                     if progress_tracker:
                         progress_tracker.update(completed=len(all_results))
 
@@ -1004,7 +1004,7 @@ class ModelEnsemble:
         for task in pending_tasks:
             result = ray.get(task)
             all_results.append(result)
-            logger.info("Completed training: %s", result[0])
+            logger.debug("Completed training: %s", result[0])
             if progress_tracker:
                 progress_tracker.update(completed=len(all_results))
 
@@ -1020,7 +1020,7 @@ class ModelEnsemble:
             if blind_preds is not None:
                 self._all_blind_predictions.append(blind_preds)
 
-        logger.info("Completed training all %d models", len(all_results))
+        logger.debug("Completed training all %d models", len(all_results))
 
         # Generate ensemble predictions and plots
         self._generate_ensemble_outputs()
