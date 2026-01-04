@@ -42,6 +42,14 @@ mlflow:
   run_id: null
   parent_run_id: null
   nested: false
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 joint_sampling:
   enabled: true
   task_oversampling:

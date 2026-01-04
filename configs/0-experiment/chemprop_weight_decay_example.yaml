@@ -35,6 +35,14 @@ data:
 mlflow:
   enabled: true
   experiment_name: weight_decay_experiment
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 logging:
   enabled: true
   verbose: 0

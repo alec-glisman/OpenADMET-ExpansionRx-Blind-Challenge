@@ -6,25 +6,25 @@ data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_st
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
 target_columns:
-- LogD
-- Log KSOL
-- Log HLM CLint
-- Log MLM CLint
-- Log Caco-2 Permeability Papp A>B
-- Log Caco-2 Permeability Efflux
-- Log MPPB
-- Log MBPB
-- Log MGMB
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
 target_weights:
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 seed: 42
 patience: 15
 warmup_epochs: 5
@@ -39,22 +39,22 @@ search_space:
   freeze_encoder:
     type: choice
     values:
-    - true
-    - false
+      - true
+      - false
   unfreeze_encoder_epoch:
     type: randint
     low: 5
     high: 50
     conditional_on: freeze_encoder
     conditional_values:
-    - true
+      - true
   unfreeze_encoder_lr_multiplier:
     type: loguniform
     low: 0.01
     high: 0.5
     conditional_on: freeze_encoder
     conditional_values:
-    - true
+      - true
   learning_rate:
     type: loguniform
     low: 0.0001
@@ -78,21 +78,21 @@ search_space:
   batch_size:
     type: choice
     values:
-    - 32
-    - 64
-    - 128
-    - 256
+      - 32
+      - 64
+      - 128
+      - 256
   batch_norm:
     type: choice
     values:
-    - true
-    - false
+      - true
+      - false
   ffn_type:
     type: choice
     values:
-    - regression
-    - mixture_of_experts
-    - branched
+      - regression
+      - mixture_of_experts
+      - branched
   ffn_num_layers:
     type: randint
     low: 0
@@ -109,14 +109,14 @@ search_space:
     q: 2
     conditional_on: ffn_type
     conditional_values:
-    - mixture_of_experts
+      - mixture_of_experts
   trunk_depth:
     type: randint
     low: 0
     high: 5
     conditional_on: ffn_type
     conditional_values:
-    - branched
+      - branched
   trunk_hidden_dim:
     type: quniform
     low: 100
@@ -124,13 +124,13 @@ search_space:
     q: 100
     conditional_on: ffn_type
     conditional_values:
-    - branched
+      - branched
   joint_sampling:
     enabled:
       type: choice
       values:
-      - true
-      - false
+        - true
+        - false
     task_oversampling:
       alpha:
         type: uniform
@@ -152,6 +152,7 @@ resources:
   cpus_per_trial: 6
   gpus_per_trial: 0.5
   max_concurrent_trials: null
+  gpu_ids: [0] # CUDA device ordering (RTX 3080)
 transfer_learning:
   top_k: 100
   full_epochs: 60
@@ -164,9 +165,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     strategy: sampled
     reset_early_stopping_on_phase_change: false
@@ -185,11 +186,11 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
 logging:
   enabled: true

@@ -56,6 +56,14 @@ mlflow:
   experiment_name: chemprop_hpo_ensemble_topk_production
   run_name: rank_001
   nested: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 2
@@ -95,7 +103,7 @@ ray:
   max_parallel: 5
   num_cpus: 24
   num_gpus: 1
-  gpu_ids: [0] # RTX 3080 (CUDA device ordering differs from nvidia-smi)
+  gpu_ids: [0]
 logging:
   enabled: true
   verbose: 0

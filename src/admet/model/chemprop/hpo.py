@@ -41,6 +41,7 @@ from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
 from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
 from admet.util.logging import configure_logging
+from admet.util.profiling import TrainingPhase, TrainingProfiler
 from admet.util.ray_logging import QuietProgressReporter, RayLogManager
 
 # Set Ray Tune environment variables at module load time (BEFORE ray.init)
@@ -84,6 +85,7 @@ class ChempropHPO:
         self.results: tune.ResultGrid | None = None
         self._mlflow_run_id: str | None = None
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self._profiler = TrainingProfiler(name="hpo")
 
     def run(self) -> tune.ResultGrid:
         """Run hyperparameter optimization.
@@ -94,8 +96,12 @@ class ChempropHPO:
         Returns:
             Ray Tune ResultGrid containing all trial results
         """
+        # Start profiler for overall HPO timing
+        self._profiler.start()
+
         # Setup MLflow tracking
-        self._setup_mlflow()
+        with self._profiler.phase(TrainingPhase.MLFLOW_INIT):
+            self._setup_mlflow()
 
         # Setup Ray logging (if enabled in config)
         ray_log_manager = None
@@ -113,13 +119,14 @@ class ChempropHPO:
 
         with ctx:
             # Build search space
-            search_space = self._build_search_space()
+            with self._profiler.phase(TrainingPhase.HPO_SEARCH_SPACE_BUILD):
+                search_space = self._build_search_space()
 
-            # Build ASHA scheduler
-            scheduler = self._build_scheduler()
+                # Build ASHA scheduler
+                scheduler = self._build_scheduler()
 
-            # Build search algorithm (Optuna, BayesOpt, etc.)
-            search_alg = self._build_search_algorithm()
+                # Build search algorithm (Optuna, BayesOpt, etc.)
+                search_alg = self._build_search_algorithm()
 
             # Configure Ray Tune
             # Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict
@@ -157,12 +164,13 @@ class ChempropHPO:
             # Disable dashboard to avoid MetricsHead startup failures on some systems
             import ray
 
-            if not ray.is_initialized():
-                ray.init(
-                    _temp_dir=ray_temp_dir,
-                    include_dashboard=False,  # Disable dashboard to avoid startup errors
-                )
-                logger.info("Ray initialized with temp dir: %s", ray_temp_dir)
+            with self._profiler.phase(TrainingPhase.HPO_RAY_INIT):
+                if not ray.is_initialized():
+                    ray.init(
+                        _temp_dir=ray_temp_dir,
+                        include_dashboard=False,  # Disable dashboard to avoid startup errors
+                    )
+                    logger.info("Ray initialized with temp dir: %s", ray_temp_dir)
 
             # Run HPO
             logger.info(
@@ -210,7 +218,8 @@ class ChempropHPO:
             )
 
             try:
-                self.results = tuner.fit()
+                with self._profiler.phase(TrainingPhase.HPO_TOTAL):
+                    self.results = tuner.fit()
             except Exception as e:
                 logger.error("HPO failed or interrupted: %s", e)
                 # Try to restore results if possible, or just log what we have
@@ -232,21 +241,30 @@ class ChempropHPO:
                     logger.warning("Could not restore Tuner results: %s", restore_error)
             finally:
                 # Log results to MLflow (best so far)
-                if self.results:
-                    self._log_results()
-                    # Backfill disabled: RobustMLflowLoggerCallback already logs during trials
-                    # Uncomment only if you need to recover metrics after HPO failure:
-                    # logger.info("Backfilling MLflow with metrics from all trials...")
-                    # backfill_mlflow_from_ray_results(
-                    #     self.results,
-                    #     experiment_name=self.config.experiment_name,
-                    #     parent_run_id=self._mlflow_run_id,
-                    #     tracking_uri=self.config.mlflow_tracking_uri,
-                    # )
-                else:
-                    logger.warning("No results to log to MLflow.")
-                    if self._mlflow_run_id:
-                        mlflow.end_run()
+                with self._profiler.phase(TrainingPhase.HPO_RESULTS_AGGREGATION):
+                    if self.results:
+                        self._log_results()
+                        # Backfill disabled: RobustMLflowLoggerCallback already logs during trials
+                        # Uncomment only if you need to recover metrics after HPO failure:
+                        # logger.info("Backfilling MLflow with metrics from all trials...")
+                        # backfill_mlflow_from_ray_results(
+                        #     self.results,
+                        #     experiment_name=self.config.experiment_name,
+                        #     parent_run_id=self._mlflow_run_id,
+                        #     tracking_uri=self.config.mlflow_tracking_uri,
+                        # )
+                    else:
+                        logger.warning("No results to log to MLflow.")
+                        if self._mlflow_run_id:
+                            mlflow.end_run()
+
+                # Stop profiler and print summary
+                self._profiler.stop()
+                self._profiler.print_summary()
+
+                # Log profiling metrics to MLflow if tracking enabled
+                if self._mlflow_run_id:
+                    self._log_profiling_to_mlflow()
 
         if self.results is None:
             raise RuntimeError("HPO failed to produce any results.")
@@ -379,6 +397,30 @@ class ChempropHPO:
         # Log run parameters and capture run_id
         with mlflow.start_run(run_name=f"hpo_master_{self.timestamp}") as run:
             self._mlflow_run_id = run.info.run_id
+
+    def _log_profiling_to_mlflow(self) -> None:
+        """Log profiling metrics to MLflow using fluent API."""
+        try:
+            prefix = "profiling"
+
+            # Log total duration
+            mlflow.log_metric(f"{prefix}.total_seconds", self._profiler.total_duration)
+
+            # Log per-phase metrics
+            for phase, stats in self._profiler.get_all_stats().items():
+                safe_phase = phase.replace(".", "_").replace("-", "_")
+                mlflow.log_metric(f"{prefix}.{safe_phase}.total_seconds", stats.total_seconds)
+                mlflow.log_metric(f"{prefix}.{safe_phase}.mean_seconds", stats.mean_seconds)
+                mlflow.log_metric(f"{prefix}.{safe_phase}.count", stats.count)
+
+                if self._profiler.total_duration > 0:
+                    pct = stats.total_seconds / self._profiler.total_duration * 100
+                    mlflow.log_metric(f"{prefix}.{safe_phase}.percentage", pct)
+
+            logger.debug("Logged profiling metrics to MLflow")
+
+        except Exception as e:
+            logger.warning("Failed to log profiling metrics to MLflow: %s", e)
 
     def _log_results(self) -> None:
         """Log HPO results to MLflow."""

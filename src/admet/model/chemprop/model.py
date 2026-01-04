@@ -68,6 +68,7 @@ from admet.model.chemprop.config import (
     MlflowConfig,
     ModelConfig,
     OptimizationConfig,
+    PostTrainingConfig,
     TaskAffinityConfig,
 )
 from admet.model.chemprop.curriculum import (
@@ -82,6 +83,7 @@ from admet.model.ffn_factory import create_ffn_predictor
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
+from admet.util.profiling import TrainingPhase, TrainingProfiler, create_lightning_profiling_callback
 
 # Module logger
 logger = logging.getLogger("admet.model.chemprop.model")
@@ -694,9 +696,28 @@ class ChempropModel:
         # Joint sampler reference for MLflow stats callback
         self._joint_sampler: Optional[JointSampler] = None
 
-        self._prepare_dataloaders()
-        self._prepare_model()
-        self._prepare_trainer()
+        # Post-training configuration for optimization
+        self._post_training_config: PostTrainingConfig = PostTrainingConfig()
+
+        # Prediction cache for avoiding redundant predict() calls
+        # Keys: split names ("train", "validation", "test")
+        # Values: prediction DataFrames
+        self._prediction_cache: Dict[str, pd.DataFrame] = {}
+
+        # Initialize profiler for tracking phase-level performance
+        self._profiler = TrainingProfiler(
+            name="chemprop",
+            mlflow_client=self._mlflow_client,
+            mlflow_run_id=self.mlflow_run_id,
+            enabled=True,
+        )
+
+        with self._profiler.phase(TrainingPhase.DATALOADER_CREATION):
+            self._prepare_dataloaders()
+        with self._profiler.phase(TrainingPhase.MODEL_INIT):
+            self._prepare_model()
+        with self._profiler.phase(TrainingPhase.TRAINER_SETUP):
+            self._prepare_trainer()
 
     def _build_phase_config(self, curriculum_config: CurriculumConfig) -> CurriculumPhaseConfig:
         """Build CurriculumPhaseConfig from CurriculumConfig.
@@ -889,6 +910,10 @@ class ChempropModel:
 
         # Store blind dataframe for later prediction
         model.dataframes["blind"] = df_blind
+
+        # Apply post-training configuration if present
+        if hasattr(config, "post_training"):
+            model._post_training_config = config.post_training
 
         return model
 
@@ -1373,7 +1398,7 @@ class ChempropModel:
                 monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
-                save_top_k=5,  # Keep 5 best checkpoints to avoid race condition with Ray syncer
+                save_top_k=1,  # Keep only the single best checkpoint to save storage
             )
             callbacks_list.append(checkpointing)
 
@@ -1389,7 +1414,7 @@ class ChempropModel:
                 monitor=early_stopping_monitor,
                 mode="min",
                 save_last=True,
-                save_top_k=5,  # Keep 5 best checkpoints to avoid race condition with Ray syncer
+                save_top_k=1,  # Keep only the single best checkpoint to save storage
             )
             callbacks_list.append(checkpointing)
 
@@ -1541,13 +1566,20 @@ class ChempropModel:
         bool
             True if training completed normally, False if interrupted.
         """
+        # Start profiler for overall training timing
+        self._profiler.start()
+
+        # Clear prediction cache from any previous training runs
+        self._prediction_cache.clear()
+
         # Set random seeds for reproducibility across all libraries
         # This ensures deterministic training when the same seed is used
         pl.seed_everything(self.hyperparams.seed, workers=True)
         logger.info("Random seed set to %d for reproducibility", self.hyperparams.seed)
 
         # Compute task affinity before preparing model (if enabled)
-        self._compute_task_affinity()
+        with self._profiler.phase("task_affinity_computation"):
+            self._compute_task_affinity()
 
         # Log hyperparameters and dataset info at start of training
         if self.mlflow_tracking and self._mlflow_logger is not None:
@@ -1556,8 +1588,9 @@ class ChempropModel:
                 self._mlflow_client is not None,
                 self.mlflow_run_id,
             )
-            self._log_hyperparams()
-            self._log_dataset_info()
+            with self._profiler.phase("mlflow_hyperparams_logging"):
+                self._log_hyperparams()
+                self._log_dataset_info()
         else:
             logger.debug("MLflow tracking skipped: tracking=%s, logger=%s", self.mlflow_tracking, self._mlflow_logger)
 
@@ -1566,17 +1599,23 @@ class ChempropModel:
 
         training_start_time = datetime.datetime.now(datetime.timezone.utc)
 
+        # Add profiling callback to track epoch-level timing
+        profiling_callback = create_lightning_profiling_callback(self._profiler)
+        if profiling_callback not in self.trainer.callbacks:
+            self.trainer.callbacks.append(profiling_callback)
+
         completed = False
         try:
             logger.info("Starting training...")
             logger.info("Train dataloader: %d batches", len(self.dataloaders["train"]))
             logger.info("Validation dataloader: %d batches", len(self.dataloaders["validation"]))
             logger.info("Callbacks: %s", [type(cb).__name__ for cb in self.trainer.callbacks])
-            self.trainer.fit(
-                self.mpnn,
-                train_dataloaders=self.dataloaders["train"],
-                val_dataloaders=self.dataloaders["validation"],
-            )
+            with self._profiler.phase(TrainingPhase.TRAINING_TOTAL):
+                self.trainer.fit(
+                    self.mpnn,
+                    train_dataloaders=self.dataloaders["train"],
+                    val_dataloaders=self.dataloaders["validation"],
+                )
             logger.info("trainer.fit() returned successfully")
             completed = True
         except KeyboardInterrupt:
@@ -1631,8 +1670,10 @@ class ChempropModel:
                 logger.debug("Post-training: logging evaluation metrics and artifacts")
                 # Only log metrics if training completed or we have a best model
                 try:
-                    self._log_evaluation_metrics()
-                    self._log_training_artifacts(completed)
+                    with self._profiler.phase(TrainingPhase.METRICS_COMPUTATION):
+                        self._log_evaluation_metrics()
+                    with self._profiler.phase(TrainingPhase.ARTIFACT_LOGGING):
+                        self._log_training_artifacts(completed)
                 except Exception as log_err:
                     error_str = str(log_err).lower()
                     # Ignore duplicate key errors from concurrent MLflow logging
@@ -1645,11 +1686,53 @@ class ChempropModel:
 
             # Generate evaluation plots for train and validation sets
             try:
-                self._generate_training_plots()
+                with self._profiler.phase(TrainingPhase.PLOT_GENERATION):
+                    self._generate_training_plots()
             except Exception as plot_err:
                 logger.warning("Failed to generate training plots: %s", plot_err)
 
+            # Stop profiler and log summary
+            self._profiler.stop()
+            self._profiler.print_summary()
+
+            # Log profiling metrics to MLflow
+            if self.mlflow_tracking and self._mlflow_client is not None and self.mlflow_run_id is not None:
+                self._profiler.log_to_mlflow(prefix="profiling")
+
         return completed
+
+    def _get_cached_or_compute_predictions(self, split_name: str) -> Optional[pd.DataFrame]:
+        """
+        Get predictions from cache or compute fresh predictions.
+
+        Parameters
+        ----------
+        split_name : str
+            Name of the data split ('train', 'validation', 'test').
+
+        Returns
+        -------
+        pd.DataFrame or None
+            Predictions DataFrame, or None if split data doesn't exist.
+        """
+        df_split = self.dataframes.get(split_name)
+        if df_split is None:
+            return None
+
+        # Check cache first (prediction caching enabled by default)
+        if self._post_training_config.cache_predictions and split_name in self._prediction_cache:
+            logger.debug("Using cached predictions for %s split (plots)", split_name)
+            return self._prediction_cache[split_name]
+
+        # Compute predictions
+        preds_df = self.predict(df_split, log_metrics=False)
+
+        # Cache if enabled
+        if self._post_training_config.cache_predictions:
+            self._prediction_cache[split_name] = preds_df
+            logger.debug("Cached predictions for %s split (plots)", split_name)
+
+        return preds_df
 
     def _generate_training_plots(self) -> None:
         """
@@ -1658,27 +1741,40 @@ class ChempropModel:
         Creates parity plots comparing true vs predicted values for each
         target column on both training and validation datasets. Plots are
         logged to MLflow if active, saved to output_dir if specified.
+
+        This method respects PostTrainingConfig settings:
+        - generate_plots: If False, skips all plot generation
+        - cache_predictions: If True, reuses predictions from metrics computation
+        - plot_dpi: Controls plot resolution
         """
-        # Check if we should generate plots
+        # Check if plot generation is enabled
+        if not self._post_training_config.generate_plots:
+            logger.debug("Plot generation disabled via post_training.generate_plots=False")
+            return
+
+        # Check if we should save plots
         should_save = self.mlflow_tracking or self.output_dir is not None
         if not should_save:
             return
 
-        # Generate plots for training set
-        df_train = self.dataframes.get("train")
-        if df_train is not None:
-            try:
-                train_preds = self.predict(df_train, log_metrics=False)
-                self._generate_evaluation_plots(df_train, train_preds, split="train")
-            except Exception as e:
-                logger.warning("Failed to generate training plots: %s", e)
+        # Generate plots for training set (only if compute_train_metrics is True)
+        if self._post_training_config.compute_train_metrics:
+            df_train = self.dataframes.get("train")
+            if df_train is not None:
+                try:
+                    train_preds = self._get_cached_or_compute_predictions("train")
+                    if train_preds is not None:
+                        self._generate_evaluation_plots(df_train, train_preds, split="train")
+                except Exception as e:
+                    logger.warning("Failed to generate training plots: %s", e)
 
         # Generate plots for validation set
         df_validation = self.dataframes.get("validation")
         if df_validation is not None:
             try:
-                val_preds = self.predict(df_validation, log_metrics=False)
-                self._generate_evaluation_plots(df_validation, val_preds, split="validation")
+                val_preds = self._get_cached_or_compute_predictions("validation")
+                if val_preds is not None:
+                    self._generate_evaluation_plots(df_validation, val_preds, split="validation")
             except Exception as e:
                 logger.warning("Failed to generate validation plots: %s", e)
 
@@ -2330,12 +2426,21 @@ class ChempropModel:
         pd.DataFrame
             Updated accumulator with this split's metrics.
         """
-        # Generate predictions (disable metric logging here since we log metrics ourselves)
-        try:
-            preds_df = self.predict(df_split, log_metrics=False)
-        except Exception as e:
-            logger.warning("Failed to generate %s predictions: %s", split_name, e)
-            return df_out
+        # Check prediction cache first (avoids redundant predict() calls)
+        if self._post_training_config.cache_predictions and split_name in self._prediction_cache:
+            preds_df = self._prediction_cache[split_name]
+            logger.debug("Using cached predictions for %s split", split_name)
+        else:
+            # Generate predictions (disable metric logging here since we log metrics ourselves)
+            try:
+                preds_df = self.predict(df_split, log_metrics=False)
+                # Cache predictions if enabled
+                if self._post_training_config.cache_predictions:
+                    self._prediction_cache[split_name] = preds_df
+                    logger.debug("Cached predictions for %s split", split_name)
+            except Exception as e:
+                logger.warning("Failed to generate %s predictions: %s", split_name, e)
+                return df_out
 
         # Collect metrics for batch logging to avoid database contention
         metrics_to_log: Dict[str, float] = {}

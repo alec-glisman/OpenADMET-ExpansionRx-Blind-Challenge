@@ -56,6 +56,14 @@ mlflow:
   tracking_uri: http://127.0.0.1:8084
   experiment_name: single_task_affinity
   run_name: null
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 inter_task_affinity:
   enabled: true
   compute_every_n_steps: 2

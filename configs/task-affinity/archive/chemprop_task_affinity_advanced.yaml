@@ -82,6 +82,14 @@ mlflow:
   tracking_uri: mlruns
   log_models: true
   log_plots: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 seed: 42
 device: auto
 log_level: INFO

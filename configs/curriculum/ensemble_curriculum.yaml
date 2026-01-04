@@ -108,6 +108,14 @@ mlflow:
   experiment_name: ensemble_chemprop_hpo_topk
   run_name: rank_001
   nested: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 logging:
   enabled: true
   verbose: 0

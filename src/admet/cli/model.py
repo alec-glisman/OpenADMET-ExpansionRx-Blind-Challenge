@@ -335,11 +335,21 @@ def hpo(
         admet model hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
         admet model hpo --config my_config.yaml --model-type chemeleon
     """
+    import os
+
     from omegaconf import OmegaConf
+
+    # CRITICAL: Set CUDA_VISIBLE_DEVICES BEFORE importing the HPO module
+    # PyTorch caches CUDA device list at import time, so we must set this first
+    raw_config = OmegaConf.load(config)
+    gpu_ids = raw_config.get("resources", {}).get("gpu_ids")
+    if gpu_ids is not None and len(gpu_ids) > 0:
+        cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
+        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+        logger.info(f"Set CUDA_VISIBLE_DEVICES={cuda_visible_devices} before module import")
 
     # Auto-detect model type from config if not specified
     if model_type is None:
-        raw_config = OmegaConf.load(config)
         if "checkpoint_path" in raw_config:
             model_type = "chemeleon"
             logger.info("Auto-detected CheMeleon HPO config (checkpoint_path found)")

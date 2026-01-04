@@ -83,6 +83,7 @@ from admet.plot.latex import latex_sanitize
 from admet.plot.metrics import plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
+from admet.util.profiling import TrainingPhase, TrainingProfiler
 from admet.util.ray_logging import EnsembleProgressTracker
 from admet.util.utils import parse_data_dir_params
 
@@ -258,6 +259,9 @@ class ModelEnsemble:
         self.parent_run_id: Optional[str] = None
         self._mlflow_client: Optional[MlflowClient] = None
         self._temp_dir: Optional[Path] = None
+
+        # Initialize profiler for ensemble training timing
+        self._profiler = TrainingProfiler(name=f"ensemble_{model_type}")
 
         # Initialize MLflow
         if hasattr(self.config, "mlflow") and self.config.mlflow is not None and self.config.mlflow.tracking:
@@ -677,14 +681,18 @@ class ModelEnsemble:
             Maximum number of models to train in parallel.
             Overrides config.ray.max_parallel if provided.
         """
+        # Start profiler for overall ensemble timing
+        self._profiler.start()
+
         # Seed everything in parent process for reproducibility
         pl.seed_everything(self.config.optimization.seed, workers=True)
         logger.info("Seeded parent process with seed=%d for reproducibility", self.config.optimization.seed)
 
         max_parallel = max_parallel or self.config.ray.max_parallel
 
-        if not self.split_fold_infos:
-            self.discover_splits_folds()
+        with self._profiler.phase(TrainingPhase.DATA_DISCOVERY):
+            if not self.split_fold_infos:
+                self.discover_splits_folds()
 
         logger.info(
             "Training %d models with max_parallel=%d",
@@ -993,66 +1001,87 @@ class ModelEnsemble:
 
         from dataclasses import asdict
 
-        for info in self.split_fold_infos:
-            config = self._create_single_model_config(info)
-            # Convert dataclass instance to plain dict for Ray serialization.
-            # Use asdict to preserve values from the dataclass instance
-            # (avoids accidentally using dataclass defaults via OmegaConf.structured).
-            config_dict = asdict(config)
+        try:
+            with self._profiler.phase(TrainingPhase.ENSEMBLE_MODEL_TRAIN):
+                for info in self.split_fold_infos:
+                    config = self._create_single_model_config(info)
+                    # Convert dataclass instance to plain dict for Ray serialization.
+                    # Use asdict to preserve values from the dataclass instance
+                    # (avoids accidentally using dataclass defaults via OmegaConf.structured).
+                    config_dict = asdict(config)
 
-            # Convert ensemble config to dict for passing to child processes
-            ensemble_config_dict = OmegaConf.to_container(self.config, resolve=True)
-            # Ensure we have a dict type for type checking
-            if not isinstance(ensemble_config_dict, dict):
-                ensemble_config_dict = {}
+                    # Convert ensemble config to dict for passing to child processes
+                    ensemble_config_dict = OmegaConf.to_container(self.config, resolve=True)
+                    # Ensure we have a dict type for type checking
+                    if not isinstance(ensemble_config_dict, dict):
+                        ensemble_config_dict = {}
 
-            task = train_single_model.remote(
-                config_dict,  # type: ignore[arg-type]
-                ensemble_config_dict,  # type: ignore[arg-type]
-                info.split_idx,
-                info.fold_idx,
-                self.parent_run_id,
-                self.config.mlflow.tracking_uri,
-                self.config.mlflow.experiment_name,
-                cuda_visible_devices,
-            )
-            pending_tasks.append(task)
-            task_infos.append(info)
+                    task = train_single_model.remote(
+                        config_dict,  # type: ignore[arg-type]
+                        ensemble_config_dict,  # type: ignore[arg-type]
+                        info.split_idx,
+                        info.fold_idx,
+                        self.parent_run_id,
+                        self.config.mlflow.tracking_uri,
+                        self.config.mlflow.experiment_name,
+                        cuda_visible_devices,
+                    )
+                    pending_tasks.append(task)
+                    task_infos.append(info)
 
-            # Wait for batch completion if at capacity
-            if len(pending_tasks) >= max_parallel:
-                done_ids, pending_tasks = ray.wait(pending_tasks, num_returns=1, timeout=None)
-                for done_id in done_ids:
-                    result = ray.get(done_id)
+                    # Wait for batch completion if at capacity
+                    if len(pending_tasks) >= max_parallel:
+                        done_ids, pending_tasks = ray.wait(pending_tasks, num_returns=1, timeout=None)
+                        for done_id in done_ids:
+                            result = ray.get(done_id)
+                            all_results.append(result)
+                            logger.debug("Completed training: %s", result[0])
+                            if progress_tracker:
+                                progress_tracker.update(completed=len(all_results))
+
+                # Wait for remaining tasks
+                for task in pending_tasks:
+                    result = ray.get(task)
                     all_results.append(result)
                     logger.debug("Completed training: %s", result[0])
                     if progress_tracker:
                         progress_tracker.update(completed=len(all_results))
 
-        # Wait for remaining tasks
-        for task in pending_tasks:
-            result = ray.get(task)
-            all_results.append(result)
-            logger.debug("Completed training: %s", result[0])
-            if progress_tracker:
-                progress_tracker.update(completed=len(all_results))
+            # Store predictions
+            self._all_test_predictions: List[pd.DataFrame] = []
+            self._all_blind_predictions: List[pd.DataFrame] = []
+            self._all_metrics: Dict[str, Dict[str, float]] = {}
 
-        # Store predictions
-        self._all_test_predictions: List[pd.DataFrame] = []
-        self._all_blind_predictions: List[pd.DataFrame] = []
-        self._all_metrics: Dict[str, Dict[str, float]] = {}
+            for model_key, metrics, test_preds, blind_preds in all_results:
+                self._all_metrics[model_key] = metrics
+                if test_preds is not None:
+                    self._all_test_predictions.append(test_preds)
+                if blind_preds is not None:
+                    self._all_blind_predictions.append(blind_preds)
 
-        for model_key, metrics, test_preds, blind_preds in all_results:
-            self._all_metrics[model_key] = metrics
-            if test_preds is not None:
-                self._all_test_predictions.append(test_preds)
-            if blind_preds is not None:
-                self._all_blind_predictions.append(blind_preds)
+            logger.debug("Completed training all %d models", len(all_results))
 
-        logger.debug("Completed training all %d models", len(all_results))
+            # Generate ensemble predictions and plots
+            with self._profiler.phase(TrainingPhase.ENSEMBLE_OUTPUT):
+                self._generate_ensemble_outputs()
 
-        # Generate ensemble predictions and plots
-        self._generate_ensemble_outputs()
+        except KeyboardInterrupt:
+            logger.warning("Ensemble training interrupted by user. Saving profiling info...")
+        except Exception as e:
+            logger.error("Ensemble training failed with error: %s", e)
+            raise
+        finally:
+            # Stop profiler and print summary (always, even on interrupt)
+            self._profiler.stop()
+            self._profiler.print_summary()
+
+            # Log profiling metrics to MLflow if tracking enabled
+            if self._mlflow_client and self.parent_run_id:
+                self._profiler.log_to_mlflow(
+                    prefix="profiling",
+                    client=self._mlflow_client,
+                    run_id=self.parent_run_id,
+                )
 
     def _generate_ensemble_outputs(self) -> None:
         """Generate ensemble predictions, metrics, and plots."""

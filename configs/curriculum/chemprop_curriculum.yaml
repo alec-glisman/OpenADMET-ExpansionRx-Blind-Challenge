@@ -102,6 +102,14 @@ mlflow:
   experiment_name: chemprop_curriculum_test
   run_name: null
   nested: false
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 logging:
   enabled: true
   verbose: 0

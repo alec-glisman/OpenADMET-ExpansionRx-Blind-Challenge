@@ -18,6 +18,7 @@ from admet.features.fingerprints import FingerprintGenerator
 from admet.model.base import BaseModel
 from admet.model.config import FingerprintConfig
 from admet.model.mlflow_mixin import MLflowMixin
+from admet.util.profiling import TrainingPhase, TrainingProfiler
 
 if TYPE_CHECKING:
     from sklearn.multioutput import MultiOutputRegressor
@@ -62,6 +63,12 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         self._model_params = self._get_model_params()
         self._fingerprint_config = self._get_fingerprint_config()
         self.fingerprint_generator = FingerprintGenerator(self._fingerprint_config)
+
+        # Initialize profiler for tracking phase-level performance
+        self._profiler = TrainingProfiler(
+            name=self.model_type,
+            enabled=True,
+        )
 
         mlflow_config = config.get("mlflow", {})
         if mlflow_config.get("enabled", False):
@@ -187,9 +194,14 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         """
         from sklearn.multioutput import MultiOutputRegressor
 
+        # Start profiler for overall training timing
+        self._profiler.start()
+
         logger.info(f"Fitting {self.model_type} model on {len(smiles)} samples")
 
-        X = self._generate_features(smiles)
+        with self._profiler.phase(TrainingPhase.FEATURE_GENERATION):
+            X = self._generate_features(smiles)
+
         y = np.atleast_2d(targets)
         if y.shape[0] == 1:
             y = y.T
@@ -197,23 +209,46 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         n_targets = y.shape[1]
         self._target_cols = [f"target_{i}" for i in range(n_targets)]
 
-        base_estimator = self._build_estimator(self._model_params)
-        self._model = MultiOutputRegressor(base_estimator)
+        with self._profiler.phase(TrainingPhase.MODEL_INIT):
+            base_estimator = self._build_estimator(self._model_params)
+            self._model = MultiOutputRegressor(base_estimator)
 
         fit_params = {}
         if sample_weight is not None:
             fit_params["sample_weight"] = sample_weight
 
-        self._model.fit(X, y, **fit_params)
-        self._is_fitted = True
+        try:
+            with self._profiler.phase(TrainingPhase.TRAINING_TOTAL):
+                self._model.fit(X, y, **fit_params)
+            self._is_fitted = True
 
-        if hasattr(self, "_mlflow_run") and self._mlflow_run:
-            self.log_params_from_config()
-            self.log_metric("n_samples", len(smiles))
-            self.log_metric("n_features", X.shape[1])
-            self.log_metric("n_targets", n_targets)
+            if hasattr(self, "_mlflow_run") and self._mlflow_run:
+                self.log_params_from_config()
+                self.log_metric("n_samples", len(smiles))
+                self.log_metric("n_features", X.shape[1])
+                self.log_metric("n_targets", n_targets)
 
-        logger.info(f"{self.model_type} model fitted successfully")
+            logger.info(f"{self.model_type} model fitted successfully")
+
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user. Saving profiling info...")
+        except Exception as e:
+            logger.error("Training failed with error: %s", e)
+            raise
+        finally:
+            # Stop profiler and print summary (always, even on interrupt)
+            self._profiler.stop()
+            self._profiler.print_summary()
+
+            # Log profiling metrics to MLflow
+            if hasattr(self, "_mlflow_client") and self._mlflow_client is not None:
+                if hasattr(self, "_mlflow_run_id") and self._mlflow_run_id is not None:
+                    self._profiler.log_to_mlflow(
+                        prefix="profiling",
+                        client=self._mlflow_client,
+                        run_id=self._mlflow_run_id,
+                    )
+
         return self
 
     def predict(self, smiles: list[str], **kwargs: Any) -> np.ndarray:

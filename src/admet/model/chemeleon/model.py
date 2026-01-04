@@ -45,6 +45,7 @@ from admet.model.config import UnfreezeScheduleConfig
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.model.mlflow_mixin import MLflowMixin
 from admet.model.registry import ModelRegistry
+from admet.util.profiling import TrainingPhase, TrainingProfiler, create_lightning_profiling_callback
 
 if TYPE_CHECKING:
     pass
@@ -334,6 +335,12 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         # External callbacks (e.g., for HPO integration)
         self._external_callbacks: list[pl.Callback] = []
 
+        # Initialize profiler for tracking phase-level performance
+        self._profiler = TrainingProfiler(
+            name="chemeleon",
+            enabled=True,
+        )
+
     def add_callback(self, callback: pl.Callback) -> None:
         """Add an external callback to be used during training.
 
@@ -583,33 +590,40 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         ChemeleonModel
             Self, for method chaining.
         """
+        # Start profiler for overall training timing
+        self._profiler.start()
+
         # Initialize MLflow if enabled
-        self.init_mlflow(run_name=self.config.get("mlflow", {}).get("run_name"))
+        with self._profiler.phase(TrainingPhase.MLFLOW_INIT):
+            self.init_mlflow(run_name=self.config.get("mlflow", {}).get("run_name"))
 
         # Determine number of tasks
         if y.ndim == 1:
             y = y.reshape(-1, 1)
         n_tasks = y.shape[1]
 
-        # Initialize model
-        self._init_model(n_tasks)
+        # Initialize model (includes loading pretrained checkpoint)
+        with self._profiler.phase(TrainingPhase.MODEL_INIT):
+            self._init_model(n_tasks)
 
         # Set target columns if not specified
         if not self._target_cols:
             self._target_cols = [f"target_{i}" for i in range(n_tasks)]
 
         # Create datasets
-        train_dataset = self._create_dataset(smiles, y)
-        val_dataset = None
-        if val_smiles is not None and val_y is not None:
-            if val_y.ndim == 1:
-                val_y = val_y.reshape(-1, 1)
-            val_dataset = self._create_dataset(val_smiles, val_y)
+        with self._profiler.phase(TrainingPhase.DATASET_CREATION):
+            train_dataset = self._create_dataset(smiles, y)
+            val_dataset = None
+            if val_smiles is not None and val_y is not None:
+                if val_y.ndim == 1:
+                    val_y = val_y.reshape(-1, 1)
+                val_dataset = self._create_dataset(val_smiles, val_y)
 
         # Scale targets
-        self.scaler = train_dataset.normalize_targets()
-        if val_dataset is not None:
-            val_dataset.normalize_targets(self.scaler)
+        with self._profiler.phase(TrainingPhase.TARGET_SCALING):
+            self.scaler = train_dataset.normalize_targets()
+            if val_dataset is not None:
+                val_dataset.normalize_targets(self.scaler)
 
         # Update correlation metrics callback with scaler
         self._correlation_metrics_callback.scaler = self.scaler
@@ -619,29 +633,36 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         batch_size = opt_config.get("batch_size", 32)
         num_workers = opt_config.get("num_workers", 0)
 
-        train_loader = self._create_train_dataloader(
-            train_dataset,
-            y,
-            quality_labels,
-            batch_size,
-            num_workers,
-        )
-
-        val_loader = None
-        if val_dataset is not None:
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=batch_size,
-                shuffle=False,
-                num_workers=num_workers,
-                collate_fn=data.collate_batch,
+        with self._profiler.phase(TrainingPhase.DATALOADER_CREATION):
+            train_loader = self._create_train_dataloader(
+                train_dataset,
+                y,
+                quality_labels,
+                batch_size,
+                num_workers,
             )
+
+            val_loader = None
+            if val_dataset is not None:
+                val_loader = DataLoader(
+                    val_dataset,
+                    batch_size=batch_size,
+                    shuffle=False,
+                    num_workers=num_workers,
+                    collate_fn=data.collate_batch,
+                )
 
         # Update correlation metrics callback with validation loader
         self._correlation_metrics_callback.val_loader = val_loader
 
         # Setup trainer
-        self._setup_trainer()
+        with self._profiler.phase(TrainingPhase.TRAINER_SETUP):
+            self._setup_trainer()
+
+        # Add profiling callback
+        profiling_callback = create_lightning_profiling_callback(self._profiler)
+        if self.trainer is not None and profiling_callback not in self.trainer.callbacks:
+            self.trainer.callbacks.append(profiling_callback)
 
         # Log params
         self.log_params_from_config()
@@ -650,24 +671,47 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         if self.trainer is None:
             msg = "Trainer not initialized"
             raise RuntimeError(msg)
-        self.trainer.fit(
-            self.mpnn,  # type: ignore[arg-type]
-            train_loader,
-            val_loader,
-        )
 
-        # Load best checkpoint weights (PyTorch Lightning does NOT auto-restore)
-        self._load_best_checkpoint()
+        try:
+            with self._profiler.phase(TrainingPhase.TRAINING_TOTAL):
+                self.trainer.fit(
+                    self.mpnn,  # type: ignore[arg-type]
+                    train_loader,
+                    val_loader,
+                )
 
-        self._fitted = True
+            # Load best checkpoint weights (PyTorch Lightning does NOT auto-restore)
+            with self._profiler.phase(TrainingPhase.BEST_CHECKPOINT_LOAD):
+                self._load_best_checkpoint()
 
-        # Clean up checkpoint directory
-        if self._checkpoint_dir is not None:
-            self._checkpoint_dir.cleanup()
-            self._checkpoint_dir = None
+            self._fitted = True
 
-        # End MLflow run
-        self.end_mlflow()
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user. Saving profiling info...")
+        except Exception as e:
+            logger.error("Training failed with error: %s", e)
+            raise
+        finally:
+            # Clean up checkpoint directory
+            with self._profiler.phase(TrainingPhase.CLEANUP):
+                if self._checkpoint_dir is not None:
+                    self._checkpoint_dir.cleanup()
+                    self._checkpoint_dir = None
+
+            # Stop profiler and print summary (always, even on interrupt)
+            self._profiler.stop()
+            self._profiler.print_summary()
+
+            # Log profiling metrics to MLflow
+            if self._mlflow_client is not None and self._mlflow_run_id is not None:
+                self._profiler.log_to_mlflow(
+                    prefix="profiling",
+                    client=self._mlflow_client,
+                    run_id=self._mlflow_run_id,
+                )
+
+            # End MLflow run
+            self.end_mlflow()
 
         return self
 

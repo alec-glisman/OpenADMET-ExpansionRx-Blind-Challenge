@@ -108,12 +108,24 @@ class TestResourceConfig:
         assert config.cpus_per_trial == 4
         assert config.gpus_per_trial == 0.25
         assert config.max_concurrent_trials is None
+        assert config.gpu_ids is None
 
     def test_fractional_gpu(self) -> None:
         """Test fractional GPU allocation."""
         config = ResourceConfig(gpus_per_trial=0.25)
         # 0.25 GPU = 4 concurrent trials per GPU
         assert config.gpus_per_trial == 0.25
+
+    def test_gpu_ids_configuration(self) -> None:
+        """Test GPU ID selection for CUDA_VISIBLE_DEVICES."""
+        config = ResourceConfig(gpu_ids=[0])
+        assert config.gpu_ids == [0]
+
+        config = ResourceConfig(gpu_ids=[0, 1])
+        assert config.gpu_ids == [0, 1]
+
+        config = ResourceConfig(gpu_ids=None)
+        assert config.gpu_ids is None
 
 
 class TestTransferLearningConfig:

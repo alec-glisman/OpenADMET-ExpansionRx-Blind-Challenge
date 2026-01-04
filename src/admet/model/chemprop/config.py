@@ -42,6 +42,7 @@ __all__ = [
     "ModelConfig",
     "OptimizationConfig",
     "MlflowConfig",
+    "PostTrainingConfig",
     "TaskOversamplingConfig",
     "CurriculumConfig",
     "JointSamplingConfig",
@@ -223,6 +224,52 @@ class MlflowConfig:
     nested: bool = False
 
 
+@dataclass
+class PostTrainingConfig:
+    """
+    Configuration for post-training operations (plots, artifacts, metrics).
+
+    These settings control what happens after training completes, allowing
+    optimization of the post-training phase which can be slow due to:
+    - Multiple redundant predict() calls
+    - Slow plot generation
+    - MLflow artifact uploads
+
+    Parameters
+    ----------
+    generate_plots : bool, default=True
+        Whether to generate parity plots and metric bar charts.
+        Setting to False can significantly speed up post-training.
+    plot_dpi : int, default=150
+        DPI for saved plots. Lower values (100) are faster, higher (300) better quality.
+    plot_formats : List[str], default=["png"]
+        Output formats for plots. PNG is fastest, PDF/SVG are slower but scalable.
+    log_model_to_mlflow : bool, default=True
+        Whether to register the model with mlflow.pytorch.log_model().
+        This can be slow for large models.
+    async_artifact_upload : bool, default=False
+        Whether to upload artifacts asynchronously (non-blocking).
+        Experimental: may cause issues if run ends before upload completes.
+    cache_predictions : bool, default=True
+        Whether to cache predictions to avoid redundant predict() calls.
+        Recommended True for performance.
+    compute_test_metrics : bool, default=True
+        Whether to compute metrics on the test set after training.
+    compute_train_metrics : bool, default=False
+        Whether to compute metrics on the training set. Usually False
+        to save time since validation metrics are more informative.
+    """
+
+    generate_plots: bool = True
+    plot_dpi: int = 150
+    plot_formats: List[str] = field(default_factory=lambda: ["png"])
+    log_model_to_mlflow: bool = True
+    async_artifact_upload: bool = False
+    cache_predictions: bool = True
+    compute_test_metrics: bool = True
+    compute_train_metrics: bool = False
+
+
 # NOTE: TaskOversamplingConfig, CurriculumConfig, JointSamplingConfig,
 # TaskAffinityConfig, InterTaskAffinityConfig, and RayConfig are imported
 # from admet.model.config (model-agnostic location).
@@ -288,6 +335,7 @@ class ChempropConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    post_training: PostTrainingConfig = field(default_factory=PostTrainingConfig)
     joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)

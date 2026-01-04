@@ -56,6 +56,14 @@ mlflow:
   experiment_name: task_affinity
   run_name: null
   nested: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 inter_task_affinity:
   enabled: true
   compute_every_n_steps: 2

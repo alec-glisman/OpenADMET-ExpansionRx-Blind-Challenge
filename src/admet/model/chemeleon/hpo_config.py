@@ -137,12 +137,14 @@ class ResourceConfig:
         cpus_per_trial: CPU cores per trial
         gpus_per_trial: GPU fraction per trial
         max_concurrent_trials: Maximum concurrent trials
+        gpu_ids: List of GPU IDs to use (CUDA device ordering, not nvidia-smi)
     """
 
     num_samples: int = 50
     cpus_per_trial: int = 4
     gpus_per_trial: float = 0.25
     max_concurrent_trials: int | None = None
+    gpu_ids: list[int] | None = None
 
 
 @dataclass
