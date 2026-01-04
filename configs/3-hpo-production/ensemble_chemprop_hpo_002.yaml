@@ -29,21 +29,19 @@ data:
 model:
   type: chemprop
   chemprop:
-    depth: 5
-    message_hidden_dim: 800
+    depth: 4
+    message_hidden_dim: 1100
     aggregation: norm
-    ffn_type: branched
-    num_layers: 2
-    hidden_dim: 800
-    trunk_n_layers: 2
-    trunk_hidden_dim: 400
-    dropout: 0.05
+    ffn_type: regression
+    num_layers: 1
+    hidden_dim: 1200
+    dropout: 0.1
     batch_norm: true
 optimization:
   criterion: MAE
-  init_lr: 0.000547
-  max_lr: 0.000274
-  final_lr: 5.47e-06
+  init_lr: 0.000119
+  max_lr: 0.00119
+  final_lr: 5.97e-06
   warmup_epochs: 5
   max_epochs: 150
   patience: 15
@@ -56,7 +54,7 @@ mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
   experiment_name: chemprop_hpo_ensemble_topk_production
-  run_name: rank_006
+  run_name: rank_002
   nested: true
 inter_task_affinity:
   enabled: false
@@ -76,7 +74,7 @@ inter_task_affinity:
 joint_sampling:
   enabled: true
   task_oversampling:
-    alpha: 0.05
+    alpha: 0.2
   curriculum:
     enabled: false
     quality_col: Quality
@@ -94,6 +92,6 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 5
-  num_cpus: null
-  num_gpus: null
+  max_parallel: 6
+  num_cpus: 24
+  num_gpus: 2
