@@ -592,7 +592,13 @@ def generate_all_plots(
 
     # 7-10. Rank vs metrics scatter plots
     for idx, (metric, label) in enumerate(
-        [("r2", "R²"), ("mae", "MAE"), ("spearman r", "Spearman R"), ("kendall's tau", "Kendall's τ")], start=7
+        [
+            ("r2", r"$R^2$"),
+            ("mae", "MAE"),
+            ("spearman r", r"Spearman $R$"),
+            ("kendall's tau", r"Kendall's $\tau$"),
+        ],
+        start=7,
     ):
         fig, _ = plot_rank_vs_metric_scatter(task_data, metric, label)
         metric_filename = metric.replace(" ", "_").replace("'", "")
