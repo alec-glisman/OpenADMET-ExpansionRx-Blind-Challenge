@@ -133,6 +133,24 @@ filter_ranks() {
   echo "${filtered_ranks[@]}"
 }
 
+# Function to extract gpu_ids from config and set CUDA_VISIBLE_DEVICES
+extract_gpu_ids() {
+  local config_file=$1
+  # Extract gpu_ids from YAML config using grep and sed
+  # Looking for pattern like: gpu_ids: [1] or gpu_ids: [0, 1, 2]
+  local gpu_line
+  gpu_line=$(grep -E '^\s*gpu_ids:\s*\[' "$config_file" 2>/dev/null || true)
+
+  if [[ -n "$gpu_line" ]]; then
+    # Extract the array contents between [ and ]
+    local gpu_ids
+    gpu_ids=$(echo "$gpu_line" | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d ' ')
+    if [[ -n "$gpu_ids" && "$gpu_ids" != "null" ]]; then
+      echo "$gpu_ids"
+    fi
+  fi
+}
+
 # Function to train a single ensemble
 train_ensemble() {
   local rank=$1
@@ -144,9 +162,18 @@ train_ensemble() {
   echo "Started at: $(date '+%Y-%m-%d %H:%M:%S')"
   echo "=========================================="
 
+  # Extract gpu_ids and set CUDA_VISIBLE_DEVICES before Python import
+  local gpu_ids
+  gpu_ids=$(extract_gpu_ids "$config_file")
+
+  if [[ -n "$gpu_ids" ]]; then
+    echo "Setting CUDA_VISIBLE_DEVICES=$gpu_ids (from config gpu_ids)"
+    export CUDA_VISIBLE_DEVICES="$gpu_ids"
+  fi
+
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY RUN] Would execute:"
-    echo "python -m admet.model.chemprop.ensemble --config $config_file"
+    echo "CUDA_VISIBLE_DEVICES=$gpu_ids python -m admet.model.chemprop.ensemble --config $config_file"
     return 0
   fi
 

@@ -699,28 +699,42 @@ class ModelEnsemble:
                 total_models=len(self.split_fold_infos),
             )
 
+        # Ensure max_parallel is set
+        if max_parallel is None or max_parallel < 1:
+            max_parallel = 1
+
+        # Handle GPU ID selection via CUDA_VISIBLE_DEVICES
+        # CRITICAL: Set CUDA_VISIBLE_DEVICES in parent process BEFORE Ray init
+        # Ray detects GPUs at initialization time and will only see GPUs listed in CUDA_VISIBLE_DEVICES
+        gpu_ids = self.config.ray.gpu_ids
+        cuda_visible_devices: Optional[str] = None
+        if gpu_ids is not None and len(gpu_ids) > 0:
+            cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
+            os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+            available_gpus = len(gpu_ids)
+            logger.info(f"Restricting to GPU IDs {gpu_ids} via CUDA_VISIBLE_DEVICES={cuda_visible_devices}")
+        else:
+            # Detect available GPUs
+            try:
+                result = subprocess.run(
+                    ["nvidia-smi", "--query-gpu=index", "--format=csv,noheader"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                available_gpus = len(result.stdout.strip().split("\n"))
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                available_gpus = 0
+                logger.warning("Could not detect GPUs with nvidia-smi, assuming 0 GPUs")
+
         # Initialize Ray
         ray_kwargs: Dict[str, Any] = {}
         if self.config.ray.num_cpus is not None:
             ray_kwargs["num_cpus"] = self.config.ray.num_cpus
 
-        # Ensure max_parallel is set
-        if max_parallel is None or max_parallel < 1:
-            max_parallel = 1
-
         # Ray requires whole numbers for cluster-level GPU allocation
         # Calculate per-task GPU allocation based on config
         config_gpu_per_task = self.config.ray.num_gpus if self.config.ray.num_gpus is not None else 0.0
-
-        # Detect available GPUs and optimize distribution
-        try:
-            result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=index", "--format=csv,noheader"], capture_output=True, text=True, check=True
-            )
-            available_gpus = len(result.stdout.strip().split("\n"))
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            available_gpus = 0
-            logger.warning("Could not detect GPUs with nvidia-smi, assuming 0 GPUs")
 
         # Calculate optimal GPU allocation
         if config_gpu_per_task > 0 and available_gpus > 0:
@@ -747,9 +761,14 @@ class ModelEnsemble:
         # Suppress Ray future warning about GPU environment variables
         os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
 
-        if not ray.is_initialized():
-            ray.init(**ray_kwargs, ignore_reinit_error=True)
-            logger.debug("Initialized Ray cluster")
+        # Shutdown existing Ray cluster if initialized with different GPU settings
+        # This ensures CUDA_VISIBLE_DEVICES takes effect when Ray reinitializes
+        if ray.is_initialized():
+            logger.info("Shutting down existing Ray cluster to apply GPU restrictions")
+            ray.shutdown()
+
+        ray.init(**ray_kwargs, ignore_reinit_error=True)
+        logger.debug("Initialized Ray cluster")
 
         # Use calculated GPU fraction per task
         gpu_fraction = gpu_per_task if gpu_per_task > 0 else 0.0
@@ -764,6 +783,7 @@ class ModelEnsemble:
             parent_run_id: Optional[str],
             tracking_uri: Optional[str],
             experiment_name: str,
+            cuda_visible_devices: Optional[str] = None,
         ) -> Tuple[str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame]]:
             """
             Train a single model as a Ray task.
@@ -787,7 +807,15 @@ class ModelEnsemble:
                 MLflow tracking URI.
             experiment_name : str
                 MLflow experiment name.
+            cuda_visible_devices : Optional[str]
+                CUDA_VISIBLE_DEVICES value to restrict GPU access.
             """
+            # Set CUDA_VISIBLE_DEVICES FIRST before any torch imports in worker
+            import os
+
+            if cuda_visible_devices is not None:
+                os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+
             # Reconstruct config from dict - use deep merge to ensure nested values override defaults
             base_config = OmegaConf.structured(ChempropConfig)
             override_config = OmegaConf.create(config_dict)
@@ -986,6 +1014,7 @@ class ModelEnsemble:
                 self.parent_run_id,
                 self.config.mlflow.tracking_uri,
                 self.config.mlflow.experiment_name,
+                cuda_visible_devices,
             )
             pending_tasks.append(task)
             task_infos.append(info)

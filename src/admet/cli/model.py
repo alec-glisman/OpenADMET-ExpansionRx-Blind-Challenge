@@ -286,6 +286,19 @@ def ensemble(
     Example:
         admet model ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml --max-parallel 2
     """
+    import os
+
+    from omegaconf import OmegaConf
+
+    # CRITICAL: Set CUDA_VISIBLE_DEVICES BEFORE importing the ensemble module
+    # PyTorch caches CUDA device list at import time, so we must set this first
+    raw_config = OmegaConf.load(config)
+    gpu_ids = raw_config.get("ray", {}).get("gpu_ids")
+    if gpu_ids is not None and len(gpu_ids) > 0:
+        cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
+        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+        logger.info(f"Set CUDA_VISIBLE_DEVICES={cuda_visible_devices} before module import")
+
     args = ["--config", config]
     if max_parallel is not None:
         args += ["--max-parallel", str(max_parallel)]

@@ -777,12 +777,16 @@ class RayConfig:
     Parameters:
         max_parallel: Maximum models to train in parallel.
         num_cpus: CPUs to allocate to Ray (None = auto).
-        num_gpus: GPUs to allocate to Ray (None = auto).
+        num_gpus: GPUs to allocate to Ray (None = auto, derived from gpu_ids if set).
+        gpu_ids: Specific GPU IDs to use (as reported by nvidia-smi). Example: [0, 2]
+            to use GPUs 0 and 2. Sets CUDA_VISIBLE_DEVICES before Ray init.
+            If None, uses all available GPUs.
     """
 
     max_parallel: int = 1
     num_cpus: Optional[int] = None
     num_gpus: Optional[int] = None
+    gpu_ids: Optional[List[int]] = None
 
 
 @dataclass

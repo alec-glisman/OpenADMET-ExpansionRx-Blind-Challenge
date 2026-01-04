@@ -92,9 +92,10 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 8
+  max_parallel: 5
   num_cpus: 24
-  num_gpus: 2
+  num_gpus: 1
+  gpu_ids: [0] # RTX 3080 (CUDA device ordering differs from nvidia-smi)
 logging:
   enabled: true
   verbose: 0
