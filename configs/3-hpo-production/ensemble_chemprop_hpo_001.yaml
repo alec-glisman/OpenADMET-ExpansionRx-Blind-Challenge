@@ -92,6 +92,11 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 6
+  max_parallel: 8
   num_cpus: 24
   num_gpus: 2
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

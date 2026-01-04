@@ -41,6 +41,7 @@ from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
 from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
 from admet.util.logging import configure_logging
+from admet.util.ray_logging import QuietProgressReporter, RayLogManager
 
 # Set Ray Tune environment variables at module load time (BEFORE ray.init)
 # These must be set before Ray workers spawn to take effect
@@ -96,137 +97,156 @@ class ChempropHPO:
         # Setup MLflow tracking
         self._setup_mlflow()
 
-        # Build search space
-        search_space = self._build_search_space()
-
-        # Build ASHA scheduler
-        scheduler = self._build_scheduler()
-
-        # Build search algorithm (Optuna, BayesOpt, etc.)
-        search_alg = self._build_search_algorithm()
-
-        # Configure Ray Tune
-        # Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict
-        tune_config = tune.TuneConfig(
-            scheduler=scheduler,
-            search_alg=search_alg,  # Add search algorithm
-            num_samples=self.config.resources.num_samples,
-            max_concurrent_trials=self.config.resources.max_concurrent_trials,
-            trial_dirname_creator=_trial_dirname_creator,
-        )
-
-        # Configure resources per trial
-        trainable = tune.with_resources(
-            train_chemprop_trial,
-            resources={
-                "cpu": self.config.resources.cpus_per_trial,
-                "gpu": self.config.resources.gpus_per_trial,
-            },
-        )
-
-        # Setup storage path (must be absolute for Ray Tune)
-        storage_path = self.config.ray_storage_path
-        if storage_path is None:
-            storage_path = str(Path(self.config.output_dir) / "ray_results")
-        # Convert to absolute path if relative
-        storage_path = str(Path(storage_path).resolve())
-
-        # Create a dedicated temp directory inside the storage path to avoid issues
-        # when system /tmp is cleaned during long-running HPO jobs
-        ray_temp_dir = str(Path(storage_path) / "_ray_tmp")
-        Path(ray_temp_dir).mkdir(parents=True, exist_ok=True)
-
-        # Initialize Ray with custom temp dir if storage path is provided
-        # This helps avoid FileNotFoundError during sync when /tmp is cleaned
-        # Disable dashboard to avoid MetricsHead startup failures on some systems
-        import ray
-
-        if not ray.is_initialized():
-            ray.init(
-                _temp_dir=ray_temp_dir,
-                include_dashboard=False,  # Disable dashboard to avoid startup errors
+        # Setup Ray logging (if enabled in config)
+        ray_log_manager = None
+        if self.config.logging.enabled and self._mlflow_run_id:
+            ray_log_manager = RayLogManager(
+                mlflow_run_id=self._mlflow_run_id,
+                output_dir=Path(self.config.output_dir),
+                verbose=self.config.logging.verbose,
+                max_total_logs_gb=self.config.logging.max_total_logs_gb,
+                fail_on_upload_error=self.config.logging.fail_on_upload_error,
             )
-            logger.info("Ray initialized with temp dir: %s", ray_temp_dir)
 
-        # Run HPO
-        logger.info(
-            "Starting HPO: %d trials, metric=%s, mode=%s",
-            self.config.resources.num_samples,
-            self.config.asha.metric,
-            self.config.asha.mode,
-        )
+        # Use context manager for logging if enabled
+        ctx = ray_log_manager if ray_log_manager else self._null_context()
 
-        # Setup async batched MLflow callback for per-trial logging (non-blocking)
-        tags: dict[str, str] = {"parent_run_id": self._mlflow_run_id or ""}
-        if self._mlflow_run_id:
-            # Attach Ray Tune trial runs as children of the parent HPO run
-            tags["mlflow.parentRunId"] = self._mlflow_run_id
+        with ctx:
+            # Build search space
+            search_space = self._build_search_space()
 
-        mlflow_callback = AsyncBatchedMLflowCallback(
-            tracking_uri=mlflow.get_tracking_uri(),
-            experiment_name=self.config.experiment_name,
-            save_artifact=False,  # Disable artifact saving during HPO to avoid performance bottleneck
-            tags=tags,
-        )
+            # Build ASHA scheduler
+            scheduler = self._build_scheduler()
 
-        tuner = tune.Tuner(
-            trainable,
-            param_space=search_space,
-            tune_config=tune_config,
-            run_config=tune.RunConfig(
-                name=self.config.experiment_name,
-                storage_path=storage_path,
-                verbose=1,
-                callbacks=[mlflow_callback],
-                sync_config=tune.SyncConfig(
-                    sync_period=300,  # Sync every 5 minutes instead of every result
-                ),
-                checkpoint_config=tune.CheckpointConfig(
-                    num_to_keep=2,  # Keep only 2 checkpoints per trial (reduces state size)
-                    checkpoint_score_attribute="val_loss",
-                    checkpoint_score_order="min",
-                ),
-            ),
-        )
+            # Build search algorithm (Optuna, BayesOpt, etc.)
+            search_alg = self._build_search_algorithm()
 
-        try:
-            self.results = tuner.fit()
-        except Exception as e:
-            logger.error("HPO failed or interrupted: %s", e)
-            # Try to restore results if possible, or just log what we have
-            # Note: tuner.fit() might raise, but we might still have partial results on disk
-            # However, getting the ResultGrid object from a failed run is tricky without restoring.
-            # For now, we'll just log the error and try to proceed if self.results was set (unlikely)
-            # or if we can recover something.
-            # Actually, Ray Tune usually returns the ResultGrid even on failure if configured,
-            # but here it raises.
-            # We can try to restore the tuner to get results.
-            try:
-                logger.info("Attempting to restore Tuner to retrieve partial results...")
-                tuner = tune.Tuner.restore(
-                    path=str(Path(storage_path) / self.config.experiment_name),
-                    trainable=trainable,
+            # Configure Ray Tune
+            # Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict
+            tune_config = tune.TuneConfig(
+                scheduler=scheduler,
+                search_alg=search_alg,  # Add search algorithm
+                num_samples=self.config.resources.num_samples,
+                max_concurrent_trials=self.config.resources.max_concurrent_trials,
+                trial_dirname_creator=_trial_dirname_creator,
+            )
+
+            # Configure resources per trial
+            trainable = tune.with_resources(
+                train_chemprop_trial,
+                resources={
+                    "cpu": self.config.resources.cpus_per_trial,
+                    "gpu": self.config.resources.gpus_per_trial,
+                },
+            )
+
+            # Setup storage path (must be absolute for Ray Tune)
+            storage_path = self.config.ray_storage_path
+            if storage_path is None:
+                storage_path = str(Path(self.config.output_dir) / "ray_results")
+            # Convert to absolute path if relative
+            storage_path = str(Path(storage_path).resolve())
+
+            # Create a dedicated temp directory inside the storage path to avoid issues
+            # when system /tmp is cleaned during long-running HPO jobs
+            ray_temp_dir = str(Path(storage_path) / "_ray_tmp")
+            Path(ray_temp_dir).mkdir(parents=True, exist_ok=True)
+
+            # Initialize Ray with custom temp dir if storage path is provided
+            # This helps avoid FileNotFoundError during sync when /tmp is cleaned
+            # Disable dashboard to avoid MetricsHead startup failures on some systems
+            import ray
+
+            if not ray.is_initialized():
+                ray.init(
+                    _temp_dir=ray_temp_dir,
+                    include_dashboard=False,  # Disable dashboard to avoid startup errors
                 )
-                self.results = tuner.get_results()
-            except Exception as restore_error:
-                logger.warning("Could not restore Tuner results: %s", restore_error)
-        finally:
-            # Log results to MLflow (best so far)
-            if self.results:
-                self._log_results()
-                # Backfill disabled: RobustMLflowLoggerCallback already logs during trials
-                # Uncomment only if you need to recover metrics after HPO failure:
-                # logger.info("Backfilling MLflow with metrics from all trials...")
-                # backfill_mlflow_from_ray_results(
-                #     self.results,
-                #     experiment_name=self.config.experiment_name,
-                #     parent_run_id=self._mlflow_run_id,
-                #     tracking_uri=self.config.mlflow_tracking_uri,
-                # )
-            else:
-                logger.warning("No results to log to MLflow.")
-                if self._mlflow_run_id:
-                    mlflow.end_run()
+                logger.info("Ray initialized with temp dir: %s", ray_temp_dir)
+
+            # Run HPO
+            logger.info(
+                "Starting HPO: %d trials, metric=%s, mode=%s",
+                self.config.resources.num_samples,
+                self.config.asha.metric,
+                self.config.asha.mode,
+            )
+
+            # Setup async batched MLflow callback for per-trial logging (non-blocking)
+            tags: dict[str, str] = {"parent_run_id": self._mlflow_run_id or ""}
+            if self._mlflow_run_id:
+                # Attach Ray Tune trial runs as children of the parent HPO run
+                tags["mlflow.parentRunId"] = self._mlflow_run_id
+
+            mlflow_callback = AsyncBatchedMLflowCallback(
+                tracking_uri=mlflow.get_tracking_uri(),
+                experiment_name=self.config.experiment_name,
+                save_artifact=False,  # Disable artifact saving during HPO to avoid performance bottleneck
+                tags=tags,
+            )
+
+            # Use quiet progress reporter if logging is enabled
+            progress_reporter = QuietProgressReporter() if self.config.logging.enabled else None
+
+            tuner = tune.Tuner(
+                trainable,
+                param_space=search_space,
+                tune_config=tune_config,
+                run_config=tune.RunConfig(
+                    name=self.config.experiment_name,
+                    storage_path=storage_path,
+                    verbose=0 if self.config.logging.verbose == 0 else 1,
+                    progress_reporter=progress_reporter,
+                    callbacks=[mlflow_callback],
+                    sync_config=tune.SyncConfig(
+                        sync_period=300,  # Sync every 5 minutes instead of every result
+                    ),
+                    checkpoint_config=tune.CheckpointConfig(
+                        num_to_keep=2,  # Keep only 2 checkpoints per trial (reduces state size)
+                        checkpoint_score_attribute="val_loss",
+                        checkpoint_score_order="min",
+                    ),
+                ),
+            )
+
+            try:
+                self.results = tuner.fit()
+            except Exception as e:
+                logger.error("HPO failed or interrupted: %s", e)
+                # Try to restore results if possible, or just log what we have
+                # Note: tuner.fit() might raise, but we might still have partial results on disk
+                # However, getting the ResultGrid object from a failed run is tricky without restoring.
+                # For now, we'll just log the error and try to proceed if self.results was set (unlikely)
+                # or if we can recover something.
+                # Actually, Ray Tune usually returns the ResultGrid even on failure if configured,
+                # but here it raises.
+                # We can try to restore the tuner to get results.
+                try:
+                    logger.info("Attempting to restore Tuner to retrieve partial results...")
+                    tuner = tune.Tuner.restore(
+                        path=str(Path(storage_path) / self.config.experiment_name),
+                        trainable=trainable,
+                    )
+                    self.results = tuner.get_results()
+                except Exception as restore_error:
+                    logger.warning("Could not restore Tuner results: %s", restore_error)
+            finally:
+                # Log results to MLflow (best so far)
+                if self.results:
+                    self._log_results()
+                    # Backfill disabled: RobustMLflowLoggerCallback already logs during trials
+                    # Uncomment only if you need to recover metrics after HPO failure:
+                    # logger.info("Backfilling MLflow with metrics from all trials...")
+                    # backfill_mlflow_from_ray_results(
+                    #     self.results,
+                    #     experiment_name=self.config.experiment_name,
+                    #     parent_run_id=self._mlflow_run_id,
+                    #     tracking_uri=self.config.mlflow_tracking_uri,
+                    # )
+                else:
+                    logger.warning("No results to log to MLflow.")
+                    if self._mlflow_run_id:
+                        mlflow.end_run()
 
         if self.results is None:
             raise RuntimeError("HPO failed to produce any results.")
@@ -341,6 +361,13 @@ class ChempropHPO:
         else:
             logger.warning("Unknown search algorithm type: %s, falling back to random search", algo_type)
             return None
+
+    @staticmethod
+    def _null_context():
+        """Return a no-op context manager for when logging is disabled."""
+        from contextlib import nullcontext
+
+        return nullcontext()
 
     def _setup_mlflow(self) -> None:
         """Configure MLflow tracking."""

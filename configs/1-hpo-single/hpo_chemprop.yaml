@@ -1,164 +1,99 @@
-# Chemprop HPO Configuration
-# ============================
-#
-# Hyperparameter optimization for Chemprop MPNN model using Ray Tune with ASHA scheduler.
-# Chemprop uses message passing neural networks for molecular property prediction.
-#
-# Search space covers:
-#   - Message passing architecture (depth, hidden_dim, aggregation)
-#   - FFN types: regression (standard), mixture_of_experts, branched
-#   - Learning rate schedules with warmup and decay
-#   - Regularization: dropout, batch_norm, weight_decay (L2)
-#   - Joint sampling with task oversampling
-#
-# Key differences from CheMeleon HPO:
-#   - Includes message passing params (depth, message_hidden_dim, aggregation)
-#   - Uses MPNNWithWeightDecay subclass for AdamW optimizer with weight_decay
-#   - No encoder freezing options (trains full MPNN from scratch)
-#
-# Usage:
-#   admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 1000
-
 experiment_name: chemprop_hpo
 output_dir: /media/aglisman/Data/models/chemprop-hpo
 ray_storage_path: /media/aglisman/Data/ray/chemprop
 mlflow_tracking_uri: http://127.0.0.1:8084
-
-# Data configuration
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
 target_columns:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+- LogD
+- Log KSOL
+- Log HLM CLint
+- Log MLM CLint
+- Log Caco-2 Permeability Papp A>B
+- Log Caco-2 Permeability Efflux
+- Log MPPB
+- Log MBPB
+- Log MGMB
 target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
 seed: 42
-
-# Training defaults (not in search space)
-patience: 15 # Early stopping patience (epochs)
-warmup_epochs: 5 # LR warmup epochs
-report_every_n_epochs: 1 # Epoch cadence for Ray Tune reporting
-
-# Search space for Chemprop HPO
+patience: 15
+warmup_epochs: 5
+report_every_n_epochs: 1
 search_space:
-  # Learning rate - loguniform covers orders of magnitude effectively
   learning_rate:
     type: loguniform
     low: 0.0001
     high: 0.03
-
-  # LR warmup ratio: init_lr = max_lr * warmup_ratio
-  # loguniform explores both small (0.1) and large (10.0) warmup multipliers
   lr_warmup_ratio:
     type: loguniform
     low: 0.1
     high: 10.0
-
-  # LR final ratio: final_lr = max_lr * final_ratio
-  # loguniform better for ratios spanning orders of magnitude
   lr_final_ratio:
     type: loguniform
     low: 0.001
     high: 1.0
-
-  # Dropout - uniform distribution, lower values tend to perform better
   dropout:
     type: uniform
     low: 0.0
     high: 0.3
-
-  # Weight decay (L2 regularization) - conditional on enabled choice
-  # When enabled, explore range from very light (1e-6) to moderate (1e-3)
   weight_decay_enabled:
     type: choice
     values:
-      - true
-      - false
-
+    - true
+    - false
   weight_decay:
     type: loguniform
-    low: 1.0e-6
-    high: 1.0e-3
+    low: 1.0e-06
+    high: 0.001
     conditional_on: weight_decay_enabled
     conditional_values:
-      - true
-
-  # Batch size - powers of 2 for efficiency
-  # 32-64 typically dominate top configs
+    - true
   batch_size:
     type: choice
     values:
-      - 32
-      - 64
-      - 128
-      - 256
-
-  # Message passing depth - number of MP iterations
-  # Range 2-7 covers shallow to deep message passing
+    - 32
+    - 64
+    - 128
+    - 256
   depth:
     type: randint
     low: 2
     high: 8
-
-  # Message passing hidden dimension
-  # quniform samples any multiple of 100 in range for continuous exploration
   message_hidden_dim:
     type: quniform
     low: 200
     high: 1200
     q: 100
-
-  # Note: Aggregation is hardcoded to 'norm' in the model and not configurable via HPO
-
-  # Batch normalization toggle
   batch_norm:
     type: choice
     values:
-      - true
-      - false
-
-  # FFN architecture type
-  # regression: standard MLP, mixture_of_experts: MoE with gating, branched: shared trunk + task heads
+    - true
+    - false
   ffn_type:
     type: choice
     values:
-      - regression
-      - mixture_of_experts
-      - branched
-
-  # FFN layers - 0-4 (0 = linear projection, no hidden layers)
+    - regression
+    - mixture_of_experts
+    - branched
   ffn_num_layers:
     type: randint
     low: 0
     high: 5
-
-  # FFN hidden dimension
-  # quniform samples any multiple of 100 in range
   ffn_hidden_dim:
     type: quniform
     low: 200
     high: 1200
     q: 100
-
-  # MoE params (conditional on ffn_type=mixture_of_experts)
-  # qrandint with q=2 gives even numbers: 2, 4, 6, 8
   n_experts:
     type: qrandint
     low: 2
@@ -166,19 +101,14 @@ search_space:
     q: 2
     conditional_on: ffn_type
     conditional_values:
-      - mixture_of_experts
-
-  # Branched FFN params (conditional on ffn_type=branched)
-  # trunk_depth 0-4 (0 = no shared trunk, immediate branching)
+    - mixture_of_experts
   trunk_depth:
     type: randint
     low: 0
     high: 5
     conditional_on: ffn_type
     conditional_values:
-      - branched
-
-  # Trunk hidden dim - quniform for continuous exploration
+    - branched
   trunk_hidden_dim:
     type: quniform
     low: 100
@@ -186,47 +116,40 @@ search_space:
     q: 100
     conditional_on: ffn_type
     conditional_values:
-      - branched
-
-  # Joint sampling search - explore task oversampling strategies
+    - branched
   joint_sampling:
     enabled:
       type: choice
       values:
-        - true
-        - false
+      - true
+      - false
     task_oversampling:
-      # Alpha controls task rebalancing: 0 = uniform, 1 = full inverse frequency
-      # uniform distribution for fine-grained exploration
       alpha:
         type: uniform
         low: 0.0
         high: 1.0
-
-# ASHA scheduler configuration
 asha:
   metric: val_mae
   mode: min
-  max_t: 120 # Max epochs per trial
-  grace_period: 15 # Min epochs before early stopping
+  max_t: 120
+  grace_period: 15
   reduction_factor: 3
   brackets: 1
-
-# Search algorithm configuration (Bayesian optimization)
 search_algorithm:
-  type: optuna # Options: random, optuna, bayesopt, hyperopt
+  type: optuna
   seed: 42
-  n_initial_points: 100 # Random exploration phase before Bayesian optimization
-
-# Resource allocation
+  n_initial_points: 100
 resources:
   num_samples: 1000
   cpus_per_trial: 4
   gpus_per_trial: 0.33
   max_concurrent_trials: null
-
-# Transfer learning from top configs
 transfer_learning:
-  top_k: 100 # Keep top 100 configs
-  full_epochs: 60 # Full training epochs for top configs
-  ensemble_size: 5 # Create ensemble from top diverse configs
+  top_k: 100
+  full_epochs: 60
+  ensemble_size: 5
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

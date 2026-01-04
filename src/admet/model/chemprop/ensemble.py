@@ -39,6 +39,7 @@ Examples
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import tempfile
@@ -82,6 +83,7 @@ from admet.plot.latex import latex_sanitize
 from admet.plot.metrics import plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
+from admet.util.ray_logging import EnsembleProgressTracker
 from admet.util.utils import parse_data_dir_params
 
 # Configure module-level logger
@@ -690,6 +692,13 @@ class ModelEnsemble:
             max_parallel,
         )
 
+        # Initialize progress tracker if logging enabled
+        progress_tracker = None
+        if hasattr(self.config, "logging") and self.config.logging.enabled:
+            progress_tracker = EnsembleProgressTracker(
+                total_models=len(self.split_fold_infos),
+            )
+
         # Initialize Ray
         ray_kwargs: Dict[str, Any] = {}
         if self.config.ray.num_cpus is not None:
@@ -735,9 +744,12 @@ class ModelEnsemble:
         else:
             gpu_per_task = 0.0
 
+        # Suppress Ray future warning about GPU environment variables
+        os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
+
         if not ray.is_initialized():
             ray.init(**ray_kwargs, ignore_reinit_error=True)
-            logger.info("Initialized Ray cluster")
+            logger.debug("Initialized Ray cluster")
 
         # Use calculated GPU fraction per task
         gpu_fraction = gpu_per_task if gpu_per_task > 0 else 0.0
@@ -785,6 +797,27 @@ class ModelEnsemble:
             OmegaConf.resolve(config)
 
             model_key = f"split_{split_idx}_fold_{fold_idx}"
+
+            # Suppress verbose worker output
+            import os
+            import sys
+            import warnings
+            from io import StringIO
+
+            warnings.filterwarnings("ignore")
+            os.environ["TQDM_DISABLE"] = "1"
+
+            # Silence PyTorch Lightning loggers
+            if not os.environ.get("RAY_WORKER_DEBUG", "0") == "1":
+                import logging as py_logging
+
+                py_logging.getLogger("pytorch_lightning").setLevel(py_logging.ERROR)
+                py_logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(py_logging.ERROR)
+                py_logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(py_logging.ERROR)
+
+                # Redirect stdout/stderr for worker processes to reduce terminal spam
+                sys.stdout = StringIO()
+                sys.stderr = StringIO()
 
             # Seed everything in worker process for reproducibility
             pl.seed_everything(config.optimization.seed, workers=True)
@@ -964,12 +997,16 @@ class ModelEnsemble:
                     result = ray.get(done_id)
                     all_results.append(result)
                     logger.info("Completed training: %s", result[0])
+                    if progress_tracker:
+                        progress_tracker.update(completed=len(all_results))
 
         # Wait for remaining tasks
         for task in pending_tasks:
             result = ray.get(task)
             all_results.append(result)
             logger.info("Completed training: %s", result[0])
+            if progress_tracker:
+                progress_tracker.update(completed=len(all_results))
 
         # Store predictions
         self._all_test_predictions: List[pd.DataFrame] = []
@@ -1662,7 +1699,7 @@ def train_ensemble_from_config(config_path: str, log_level: str = "INFO") -> Non
         OmegaConf.load(config_path),
     )
 
-    logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
+    logger.debug("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create and train ensemble
     ensemble = ModelEnsemble.from_config(config)  # type: ignore[arg-type]
@@ -1736,7 +1773,7 @@ Configuration file should have the structure:
     configure_logging(level=args.log_level)
 
     logger.info("Loading ensemble configuration from: %s", args.config)
-    logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
+    logger.debug("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create and train ensemble
     ensemble = ModelEnsemble.from_config(config)  # type: ignore[arg-type]

@@ -276,6 +276,10 @@ def train_chemprop(
 def ensemble(
     config: str = typer.Option(..., "--config", "-c", help="Ensemble config YAML"),
     max_parallel: Optional[int] = typer.Option(None, "--max-parallel", help="Max parallel models"),
+    logging_verbose: Optional[int] = typer.Option(
+        None, "--logging-verbose", help="Logging verbosity level (0=quiet, 1=standard, 2=debug)"
+    ),
+    no_logging: bool = typer.Option(False, "--no-logging", help="Disable Ray logging to artifacts"),
 ) -> None:
     """Train an ensemble using a Chemprop ensemble config.
 
@@ -285,6 +289,10 @@ def ensemble(
     args = ["--config", config]
     if max_parallel is not None:
         args += ["--max-parallel", str(max_parallel)]
+    if logging_verbose is not None:
+        args += ["--logging-verbose", str(logging_verbose)]
+    if no_logging:
+        args += ["--no-logging"]
     _run_module_main("admet.model.chemprop.ensemble", args)
 
 
@@ -298,6 +306,10 @@ def hpo(
         "-m",
         help="Model type (chemprop or chemeleon). Auto-detected from config if not specified.",
     ),
+    logging_verbose: Optional[int] = typer.Option(
+        None, "--logging-verbose", help="Logging verbosity level (0=quiet, 1=standard, 2=debug)"
+    ),
+    no_logging: bool = typer.Option(False, "--no-logging", help="Disable Ray logging to artifacts"),
 ) -> None:
     """Run hyperparameter optimization (HPO) using a Chemprop or CheMeleon HPO config.
 
@@ -333,6 +345,10 @@ def hpo(
     args = ["--config", config]
     if num_samples is not None:
         args += ["--num-samples", str(num_samples)]
+    if logging_verbose is not None:
+        args += ["--logging-verbose", str(logging_verbose)]
+    if no_logging:
+        args += ["--no-logging"]
     _run_module_main(module_name, args)
 
 

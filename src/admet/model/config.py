@@ -82,6 +82,28 @@ class BaseMlflowConfig:
     compress_artifacts: bool = True
 
 
+@dataclass
+class RayLoggingConfig:
+    """Configuration for Ray Tune and ensemble logging behavior.
+
+    Controls how verbose output is captured, compressed, and uploaded
+    to MLflow artifacts. Reduces terminal noise during long HPO/ensemble runs.
+
+    Parameters:
+        enabled: Whether to enable Ray logging to files. Default: True.
+        verbose: Logging verbosity level (0=quiet, 1=standard, 2=debug). Default: 0.
+        max_total_logs_gb: Maximum total size (GB) of logs per experiment.
+            Older logs are truncated if exceeded. Default: 1.0.
+        fail_on_upload_error: If True, raise exception immediately on MLflow
+            upload failure. If False, log warning and continue. Default: True.
+    """
+
+    enabled: bool = True
+    verbose: int = 0
+    max_total_logs_gb: float = 1.0
+    fail_on_upload_error: bool = True
+
+
 # Valid model types (documentation and validation)
 # OmegaConf does not support Literal types, so we use str with runtime validation
 MODEL_TYPES = ("chemprop", "chemeleon", "xgboost", "lightgbm", "catboost")
@@ -101,11 +123,13 @@ class BaseModelConfig:
         type: Model type discriminator ("chemprop", "xgboost", etc.).
         data: Data configuration section.
         mlflow: MLflow tracking configuration.
+        logging: Ray Tune and ensemble logging configuration.
     """
 
     type: str = MISSING
     data: BaseDataConfig = field(default_factory=BaseDataConfig)
     mlflow: BaseMlflowConfig = field(default_factory=BaseMlflowConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
 
 
 # ============================================================================

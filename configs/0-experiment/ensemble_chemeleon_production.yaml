@@ -1,9 +1,3 @@
-# CheMeleon Ensemble Configuration
-# =================================
-#
-# Train CheMeleon models across multiple splits/folds.
-# Uses pre-trained frozen encoder with trainable FFN head.
-
 data:
   data_dir: assets/dataset/split_train_val_local_test/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data
   splits: null
@@ -13,25 +7,25 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-    - LogD
-    - Log KSOL
-    - Log HLM CLint
-    - Log MLM CLint
-    - Log Caco-2 Permeability Papp A>B
-    - Log Caco-2 Permeability Efflux
-    - Log MPPB
-    - Log MBPB
-    - Log MGMB
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
   target_weights:
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 model:
   type: chemeleon
   chemeleon:
@@ -48,8 +42,8 @@ model:
       unfreeze_encoder_lr_multiplier: 0.1
 optimization:
   criterion: MAE
-  init_lr: 1.0e-04
-  max_lr: 1.0e-03
+  init_lr: 0.0001
+  max_lr: 0.001
   final_lr: 1.0e-05
   warmup_epochs: 5
   max_epochs: 150
@@ -73,9 +67,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-      - high
-      - medium
-      - low
+    - high
+    - medium
+    - low
     patience: 5
     seed: 42
     strategy: sampled
@@ -94,13 +88,18 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-    - predictor
-    - ffn
-    - output
-    - head
-    - readout
+  - predictor
+  - ffn
+  - output
+  - head
+  - readout
   log_to_mlflow: true
 ray:
   max_parallel: 5
   num_cpus: null
   num_gpus: null
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

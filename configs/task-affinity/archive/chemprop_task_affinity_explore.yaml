@@ -1,160 +1,93 @@
-# Exploratory Task Affinity Configuration
-# ========================================
-# Optimized for exploring different task groupings and finding
-# the optimal number of groups through quick experiments.
-#
-# Usage:
-#   # Try different group numbers
-#   for n in 2 3 4 5; do
-#     python -m admet.model.chemprop.model \
-#       --config configs/task-affinity/chemprop_task_affinity_explore.yaml \
-#       --task-affinity.n-groups $n \
-#       --mlflow.run-name "explore_n${n}"
-#   done
-
-# Data configuration
 data:
-  data_dir: "assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0"
-  test_file: "assets/dataset/set/local_test.csv"
-  blind_file: "assets/dataset/set/blind_test.csv"
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
-
-  smiles_col: "SMILES"
+  smiles_col: SMILES
   target_cols:
-    - "LogD"
-    - "Log KSOL"
-    - "Log HLM CLint"
-    - "Log MLM CLint"
-    - "Log Caco-2 Permeability Papp A>B"
-    - "Log Caco-2 Permeability Efflux"
-    - "Log MPPB"
-    - "Log MBPB"
-    - "Log MGMB"
-
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
   target_weights:
-    - 1.0310
-    - 1.0000
-    - 1.2252
-    - 1.1368
-    - 2.1227
-    - 2.1174
-    - 3.7877
-    - 5.2722
-    - 10.000
-
-# Task Affinity for Exploration (Legacy Pre-Training Approach)
-# -------------------------------------------------------------
-# DEPRECATED: This uses gradient cosine similarity. For paper-accurate
-# implementation, use inter_task_affinity below instead.
-#
-# Settings optimized for quick experiments
+  - 1.031
+  - 1.0
+  - 1.2252
+  - 1.1368
+  - 2.1227
+  - 2.1174
+  - 3.7877
+  - 5.2722
+  - 10.0
 task_affinity:
   enabled: true
-  n_groups: 3 # Override with CLI for different values
-
-  # More epochs for stable affinity estimates
+  n_groups: 3
   affinity_epochs: 2
   affinity_batch_size: 64
   affinity_lr: 0.001
-
-  affinity_type: "cosine"
+  affinity_type: cosine
   normalize_gradients: true
-  clustering_method: "agglomerative"
-
+  clustering_method: agglomerative
   encoder_param_patterns: []
-  device: "auto"
+  device: auto
   seed: 42
-  log_affinity_matrix: true # Critical for analysis
-
-# =============================================================================
-# Inter-Task Affinity Configuration (Paper-Accurate Implementation)
-# =============================================================================
-# Computes inter-task affinity during training using the lookahead method from:
-# "Efficiently Identifying Task Groupings for Multi-Task Learning"
-# (Fifty et al., NeurIPS 2021, https://arxiv.org/abs/2109.04617)
-#
-# Formula: Z^t_{ij} = 1 - L_j(θ^{t+1}_{s|i}) / L_j(θ^t_s)
-# =============================================================================
+  log_affinity_matrix: true
 inter_task_affinity:
-  # Enable/disable inter-task affinity computation during training
   enabled: false
-
-  # Compute affinity every N training steps (more frequently for exploration)
   compute_every_n_steps: 5
-
-  # Log running average affinity to MLflow every N steps
   log_every_n_steps: 20
-
-  # Log epoch-level summary statistics
   log_epoch_summary: true
-
-  # Log individual step affinity matrices (enable for exploration)
   log_step_matrices: false
-
-  # Learning rate for lookahead computation
   lookahead_lr: 0.001
-
-  # Use current optimizer learning rate for lookahead
   use_optimizer_lr: true
-
-  # Patterns to exclude from shared parameters (task-specific layers)
   exclude_param_patterns:
-    - predictor
-    - ffn
-    - output
-    - head
-    - readout
-
-  # Log affinity metrics to MLflow
+  - predictor
+  - ffn
+  - output
+  - head
+  - readout
   log_to_mlflow: true
-
-# Model architecture - balanced for quick training
 model:
   type: chemprop
   chemprop:
     depth: 4
     message_hidden_dim: 400
-
     num_layers: 2
     hidden_dim: 400
     dropout: 0.1
     batch_norm: true
-
-    ffn_type: "regression"
-
-# Optimization - shorter training for exploration
+    ffn_type: regression
 optimization:
-  criterion: "MSE"
-  epochs: 30 # Quick experiments
+  criterion: MSE
+  epochs: 30
   batch_size: 64
   learning_rate: 0.001
-
-  scheduler: "cosine"
+  scheduler: cosine
   warmup_epochs: 3
   max_lr: 0.001
   final_lr: 0.0001
-
-  optimizer: "Adam"
+  optimizer: Adam
   weight_decay: 0.0
   gradient_clip: null
-
   patience: 10
   min_delta: 0.0001
-
-# MLflow tracking
 mlflow:
-  experiment_name: "chemprop_task_affinity_explore"
-  run_name: null # Set via CLI
-  tracking_uri: "mlruns"
+  experiment_name: chemprop_task_affinity_explore
+  run_name: null
+  tracking_uri: mlruns
   log_models: true
   log_plots: true
-
-# Reproducibility
 seed: 42
-
-# Device
-device: "auto"
-
-# Logging
-log_level: "INFO"
+device: auto
+log_level: INFO
 log_frequency: 10
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

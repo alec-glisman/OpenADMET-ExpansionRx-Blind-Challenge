@@ -10,6 +10,7 @@ from typing import Any
 from omegaconf import MISSING
 
 from admet.model.chemprop.config import CurriculumConfig
+from admet.model.config import RayLoggingConfig
 
 
 @dataclass
@@ -222,6 +223,7 @@ class HPOConfig:
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
 
     # Training parameters (exposed to HPO and passed to trainable)
     patience: int = 15  # Early stopping patience (epochs)
