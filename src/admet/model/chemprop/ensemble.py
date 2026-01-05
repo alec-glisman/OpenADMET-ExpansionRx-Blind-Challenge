@@ -725,7 +725,7 @@ class ModelEnsemble:
         # Handle GPU ID selection via CUDA_VISIBLE_DEVICES
         # CRITICAL: Set CUDA_VISIBLE_DEVICES in parent process BEFORE Ray init
         # Ray detects GPUs at initialization time and will only see GPUs listed in CUDA_VISIBLE_DEVICES
-        gpu_ids = self.config.ray.get("gpu_ids", None)
+        gpu_ids = getattr(self.config.ray, "gpu_ids", None)
         cuda_visible_devices: Optional[str] = None
         gpu_id_list: List[str] = []  # List of actual GPU IDs for round-robin assignment
         if gpu_ids is not None and len(gpu_ids) > 0:
@@ -1002,7 +1002,7 @@ class ModelEnsemble:
                     # Non-Chemprop models don't have trainer/dataframes - return early
                     _worker_profiler.stop()
                     _prof_result = create_model_profiling_result(model_key, _worker_profiler, None)
-                    return model_key, {}, None, None, _prof_result.to_dict()
+                    return model_key, {}, None, None, _prof_result.to_dict(), None
             except Exception as train_err:
                 training_failed = True
                 _logger.error("[%s] Training failed: %s", model_key, train_err)
@@ -1092,31 +1092,30 @@ class ModelEnsemble:
             _prof_result = create_model_profiling_result(model_key, _worker_profiler, _function_profiler)
 
             # Log profiling metrics to this model's MLflow run (if enabled and available)
-            if profiling_enabled and hasattr(model, "mlflow_run_id") and model.mlflow_run_id is not None:
-                if hasattr(model, "_mlflow_client") and model._mlflow_client is not None:
+            if profiling_enabled:
+                mlflow_run_id = getattr(model, "mlflow_run_id", None)
+                mlflow_client = getattr(model, "_mlflow_client", None)
+                if mlflow_client is not None and mlflow_run_id is not None:
                     try:
                         _worker_profiler.log_to_mlflow(
                             prefix="profiling",
-                            client=model._mlflow_client,
-                            run_id=model.mlflow_run_id,
+                            client=mlflow_client,
+                            run_id=mlflow_run_id,
                         )
-                        _logger.debug(
-                            "Logged profiling metrics for %s to MLflow run %s", model_key, model.mlflow_run_id
-                        )
+                        _logger.debug("Logged profiling metrics for %s to MLflow run %s", model_key, mlflow_run_id)
                     except Exception as prof_err:
                         _logger.warning("Failed to log profiling metrics for %s: %s", model_key, prof_err)
 
             # Close model (ends nested MLflow run) - even if training failed
-            if hasattr(model, "close"):
+            close_fn = getattr(model, "close", None)
+            if callable(close_fn):
                 try:
-                    model.close()
+                    close_fn()
                 except Exception as close_err:
                     _logger.warning("Failed to close model %s: %s", model_key, close_err)
 
             # Extract MLflow run ID if available
-            mlflow_run_id = None
-            if hasattr(model, "mlflow_run_id"):
-                mlflow_run_id = model.mlflow_run_id
+            mlflow_run_id = getattr(model, "mlflow_run_id", None)
 
             # If training failed, re-raise the exception after collecting profiling data
             if training_failed:
@@ -1871,20 +1870,21 @@ class ModelEnsemble:
         for metrics in self._all_metrics.values():
             metric_names.update(metrics.keys())
 
-        ensemble_metrics = {}
+        ensemble_metrics: dict[str, float] = {}
         for metric_name in metric_names:
             values = [m[metric_name] for m in self._all_metrics.values() if metric_name in m]
             if values:
-                ensemble_metrics[f"ensemble_{metric_name}_mean"] = np.mean(values)
+                ensemble_metrics[f"ensemble_{metric_name}_mean"] = float(np.mean(values))
                 # ddof=1 requires at least 2 samples
                 if len(values) > 1:
-                    ensemble_metrics[f"ensemble_{metric_name}_std"] = np.std(values, ddof=1)
-                    ensemble_metrics[f"ensemble_{metric_name}_stderr"] = np.std(values, ddof=1) / np.sqrt(len(values))
+                    ensemble_metrics[f"ensemble_{metric_name}_std"] = float(np.std(values, ddof=1))
+                    stderr = float(np.std(values, ddof=1) / np.sqrt(len(values)))
+                    ensemble_metrics[f"ensemble_{metric_name}_stderr"] = stderr
                 else:
                     ensemble_metrics[f"ensemble_{metric_name}_std"] = 0.0
                     ensemble_metrics[f"ensemble_{metric_name}_stderr"] = 0.0
 
-        mlflow.log_metrics({k: float(v) for k, v in ensemble_metrics.items()})
+        mlflow.log_metrics(ensemble_metrics)
         logger.info("Logged ensemble metrics to MLflow")
 
     def _should_aggregate_metric(self, metric_name: str) -> bool:

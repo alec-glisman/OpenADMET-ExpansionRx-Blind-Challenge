@@ -98,7 +98,7 @@ def main():
                     client.log_metric(parent_id, metric_name, value)
                 print(f"  Logged {len(aggregated)} aggregated metrics")
             else:
-                print(f"  No metrics to aggregate")
+                print("  No metrics to aggregate")
 
         except Exception as e:
             print(f"Error processing {parent_id[:8]}: {e}")

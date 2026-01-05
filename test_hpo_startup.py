@@ -8,7 +8,6 @@ load properly and the training process begins without crashes.
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 
 def test_hpo_startup(config_path: str, model_name: str, timeout: int = 60) -> bool:
@@ -42,7 +41,7 @@ def test_hpo_startup(config_path: str, model_name: str, timeout: int = 60) -> bo
 
         # Check that we got a valid stdout
         if process.stdout is None:
-            print(f"\n❌ Failed to capture process output")
+            print("\n❌ Failed to capture process output")
             return False
 
         # Collect output for a few seconds

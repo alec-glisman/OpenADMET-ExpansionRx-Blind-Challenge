@@ -43,7 +43,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import matplotlib.pyplot as plt
 import mlflow
@@ -356,7 +356,7 @@ def _plot_affinity_asymmetry(
     affinity_matrix: np.ndarray,
     task_names: List[str],
     dpi: int,
-) -> plt.Figure:
+) -> Any:
     """
     Plot asymmetry heatmap showing |Z_ij - Z_ji| for all task pairs.
 
@@ -411,7 +411,7 @@ def _plot_affinity_network(
     groups: Optional[List[List[str]]],
     threshold: float = 0.2,
     dpi: int = 150,
-) -> plt.Figure:
+) -> Any:
     """
     Plot network graph showing strong affinity relationships between tasks.
 
@@ -440,6 +440,9 @@ def _plot_affinity_network(
     import matplotlib.pyplot as plt
     import numpy as np
 
+    # Default colormap (ensures a variable is defined for type checkers)
+    cmap = plt.get_cmap("tab10")
+
     n_tasks = len(task_names)
 
     # Create figure
@@ -461,7 +464,9 @@ def _plot_affinity_network(
         cmap = plt.cm.get_cmap("tab10")
         node_colors = [cmap(task_to_group.get(task, 0) / max(1, len(groups))) for task in task_names]
     else:
-        node_colors = ["skyblue"] * n_tasks
+        from matplotlib import colors as mcolors
+
+        node_colors = [mcolors.to_rgba("skyblue")] * n_tasks
 
     # Draw edges for strong affinities
     for i in range(n_tasks):
@@ -472,10 +477,10 @@ def _plot_affinity_network(
             if abs(avg_affinity) > threshold:
                 # Edge color and width based on affinity
                 if avg_affinity > 0:
-                    color = plt.cm.Greens(min(1.0, avg_affinity / 0.5))
+                    color = plt.get_cmap("Greens")(min(1.0, avg_affinity / 0.5))
                     linestyle = "-"
                 else:
-                    color = plt.cm.Reds(min(1.0, abs(avg_affinity) / 0.5))
+                    color = plt.get_cmap("Reds")(min(1.0, abs(avg_affinity) / 0.5))
                     linestyle = "--"
 
                 width = 1 + 3 * abs(avg_affinity)
@@ -1050,7 +1055,7 @@ class InterTaskAffinityCallback(Callback):
                         self.target_cols,
                         self.config.n_groups,
                         method=self.config.clustering_method,
-                        linkage=self.config.clustering_linkage,
+                        linkage=cast(Any, self.config.clustering_linkage),
                     )
                     if groups:
                         # Log group assignments as parameters for quick visibility
@@ -1195,9 +1200,9 @@ class InterTaskAffinityCallback(Callback):
             pct_negative = 100.0 * negative_count / total_pairs
             pct_neutral = 100.0 * near_zero_count / total_pairs
 
-            mlflow.log_metric("affinity/summary/pct_positive_transfer", pct_positive)
-            mlflow.log_metric("affinity/summary/pct_negative_transfer", pct_negative)
-            mlflow.log_metric("affinity/summary/pct_neutral_transfer", pct_neutral)
+            mlflow.log_metric("affinity/summary/pct_positive_transfer", float(pct_positive))
+            mlflow.log_metric("affinity/summary/pct_negative_transfer", float(pct_negative))
+            mlflow.log_metric("affinity/summary/pct_neutral_transfer", float(pct_neutral))
             mlflow.log_metric("affinity/summary/mean_off_diagonal", float(np.mean(off_diag_values)))
             mlflow.log_metric("affinity/summary/std_off_diagonal", float(np.std(off_diag_values)))
             mlflow.log_metric("affinity/summary/max_affinity", float(np.max(off_diag_values)))
@@ -1287,7 +1292,12 @@ class InterTaskAffinityCallback(Callback):
 
             # 5. Log readable summary report
             summary_report = self._generate_affinity_report(
-                Z_final, task_summaries, strong_pairs_dict, pct_positive, pct_negative, avg_asymmetry
+                Z_final,
+                task_summaries,
+                strong_pairs_dict,
+                float(pct_positive),
+                float(pct_negative),
+                float(avg_asymmetry),
             )
 
             with tempfile.NamedTemporaryFile(mode="w", suffix="_affinity_report.txt", delete=False) as rf:
@@ -1406,7 +1416,7 @@ class InterTaskAffinityCallback(Callback):
         self,
         Z_final: np.ndarray,
         groups: List[List[str]],
-        labels: np.ndarray,
+        labels: Optional[np.ndarray],
     ) -> None:
         """
         Compute and log inter-group and intra-group affinity statistics.
@@ -1471,21 +1481,26 @@ class InterTaskAffinityCallback(Callback):
                         inter_group_affinities.extend(inter_values)
 
             # Compute summary statistics
-            avg_intra = float(np.mean(intra_group_affinities)) if intra_group_affinities else 0.0
-            avg_inter = float(np.mean(inter_group_affinities)) if inter_group_affinities else 0.0
+            avg_intra_overall: float = float(np.mean(intra_group_affinities)) if intra_group_affinities else 0.0
+            avg_inter_overall: float = float(np.mean(inter_group_affinities)) if inter_group_affinities else 0.0
 
             # Key metric: intra-group affinity should be higher than inter-group
-            separation_quality = avg_intra - avg_inter
+            separation_quality = avg_intra_overall - avg_inter_overall
 
-            mlflow.log_metric("affinity/groups/avg_intra_group_affinity", avg_intra)
-            mlflow.log_metric("affinity/groups/avg_inter_group_affinity", avg_inter)
-            mlflow.log_metric("affinity/groups/separation_quality", separation_quality)
+            mlflow.log_metric("affinity/groups/avg_intra_group_affinity", float(avg_intra_overall))
+            mlflow.log_metric("affinity/groups/avg_inter_group_affinity", float(avg_inter_overall))
+            mlflow.log_metric("affinity/groups/separation_quality", float(separation_quality))
             mlflow.log_metric("affinity/groups/num_groups", float(n_groups))
 
             # Log per-group statistics
             for g_idx, stats in group_stats.items():
-                mlflow.log_metric(f"affinity/groups/group_{g_idx}/size", float(stats["size"]))
-                mlflow.log_metric(f"affinity/groups/group_{g_idx}/avg_intra_affinity", stats["avg_intra_affinity"])
+                size_val = cast(float, stats.get("size", 0.0))
+                mlflow.log_metric(f"affinity/groups/group_{g_idx}/size", float(size_val))
+                intra_val = cast(float, stats.get("avg_intra_affinity", float("nan")))
+                mlflow.log_metric(
+                    f"affinity/groups/group_{g_idx}/avg_intra_affinity",
+                    float(intra_val),
+                )
 
             # Save group analysis report
             import json
@@ -1493,11 +1508,13 @@ class InterTaskAffinityCallback(Callback):
 
             group_analysis = {
                 "num_groups": n_groups,
-                "avg_intra_group_affinity": avg_intra,
-                "avg_inter_group_affinity": avg_inter,
+                "avg_intra_group_affinity": avg_intra_overall,
+                "avg_inter_group_affinity": avg_inter_overall,
                 "separation_quality": separation_quality,
                 "groups": group_stats,
-                "recommendation": self._get_grouping_recommendation(avg_intra, avg_inter, separation_quality),
+                "recommendation": (
+                    self._get_grouping_recommendation(avg_intra_overall, avg_inter_overall, separation_quality)
+                ),
             }
 
             with tempfile.NamedTemporaryFile(mode="w", suffix="_group_analysis.json", delete=False) as gaf:
@@ -1506,8 +1523,8 @@ class InterTaskAffinityCallback(Callback):
 
             logger.info(
                 "Group Affinity: Intra=%.4f, Inter=%.4f, Separation=%.4f (higher is better)",
-                avg_intra,
-                avg_inter,
+                avg_intra_overall,
+                avg_inter_overall,
                 separation_quality,
             )
 

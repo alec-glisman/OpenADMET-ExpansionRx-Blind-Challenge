@@ -288,12 +288,13 @@ def ensemble(
     """
     import os
 
-    from omegaconf import OmegaConf
-
     # CRITICAL: Set CUDA_VISIBLE_DEVICES BEFORE importing the ensemble module
     # PyTorch caches CUDA device list at import time, so we must set this first
-    raw_config = OmegaConf.load(config)
-    gpu_ids = raw_config.get("ray", {}).get("gpu_ids")
+    from omegaconf import DictConfig, ListConfig, OmegaConf
+
+    raw_config: DictConfig | ListConfig = OmegaConf.load(config)
+    ray_cfg = raw_config.get("ray") if isinstance(raw_config, DictConfig) else None
+    gpu_ids = ray_cfg.get("gpu_ids") if ray_cfg is not None else None
     if gpu_ids is not None and len(gpu_ids) > 0:
         cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
         os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
@@ -337,12 +338,13 @@ def hpo(
     """
     import os
 
-    from omegaconf import OmegaConf
-
     # CRITICAL: Set CUDA_VISIBLE_DEVICES BEFORE importing the HPO module
     # PyTorch caches CUDA device list at import time, so we must set this first
-    raw_config = OmegaConf.load(config)
-    gpu_ids = raw_config.get("resources", {}).get("gpu_ids")
+    from omegaconf import DictConfig, ListConfig, OmegaConf
+
+    raw_config: DictConfig | ListConfig = OmegaConf.load(config)
+    resources_cfg = raw_config.get("resources") if isinstance(raw_config, DictConfig) else None
+    gpu_ids = resources_cfg.get("gpu_ids") if resources_cfg is not None else None
     if gpu_ids is not None and len(gpu_ids) > 0:
         cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
         os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices

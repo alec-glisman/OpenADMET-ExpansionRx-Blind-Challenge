@@ -79,13 +79,20 @@ from admet.model.chemprop.curriculum import (
     CurriculumState,
     PerQualityMetricsCallback,
 )
-from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
+from admet.model.chemprop.curriculum_sampler import (
+    DynamicCurriculumSampler,
+    get_quality_indices,
+)
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
-from admet.util.profiling import TrainingPhase, TrainingProfiler, create_lightning_profiling_callback
+from admet.util.profiling import (
+    TrainingPhase,
+    TrainingProfiler,
+    create_lightning_profiling_callback,
+)
 
 # Module logger
 logger = logging.getLogger("admet.model.chemprop.model")
@@ -183,7 +190,7 @@ def _criterion_from_enum(criterion: CriterionName, **kwargs: Any) -> Any:
     return attr
 
 
-def normalize_unified_config(config: DictConfig) -> DictConfig:
+def normalize_unified_config(config: Any) -> DictConfig:
     """
     Normalize a unified config to the legacy ChempropConfig format.
 
@@ -1304,6 +1311,13 @@ class ChempropModel:
                     seed=self.hyperparams.seed,
                 )
 
+    def _dataloader_len(self, obj: Any, default: int = 1) -> int:
+        """Return length of dataloader if available, else default (1)."""
+        try:
+            return len(obj)  # type: ignore[arg-type]
+        except Exception:
+            return default
+
     def _prepare_model(self) -> None:
         """
         Build the MPNN model based on hyperparameters.
@@ -1641,7 +1655,9 @@ class ChempropModel:
 
         # Add inter-task affinity callback if enabled
         if self.inter_task_affinity_config is not None and self.inter_task_affinity_config.enabled:
-            from admet.model.chemprop.inter_task_affinity import InterTaskAffinityCallback
+            from admet.model.chemprop.inter_task_affinity import (
+                InterTaskAffinityCallback,
+            )
 
             inter_task_affinity_callback = InterTaskAffinityCallback(
                 config=self.inter_task_affinity_config,
@@ -1686,15 +1702,20 @@ class ChempropModel:
             callbacks_list.append(EpochLoggingCallback())
             logger.info("Epoch logging callback added (progress_bar disabled)")
 
+        # Helper to safely determine dataloader length for objects that may not
+        # implement __len__ (some tests monkeypatch dataloader factories to plain
+        # objects). Fall back to a default of 1 when length is unavailable.
         # Determine optimal log_every_n_steps based on training data size
         # Logging every step adds overhead; reduce frequency for large datasets
-        train_batches = len(self.dataloaders["train"]) if "train" in self.dataloaders else 1
+        train_batches = self._dataloader_len(self.dataloaders.get("train", None), default=1)
         log_every_n_steps = max(1, min(50, train_batches // 10))  # Log 10 times per epoch max
 
         # Determine precision (Task 1.1: Mixed Precision Training)
         precision = "16-mixed" if self._performance_optimization.use_mixed_precision else "32-true"
         if self._performance_optimization.use_mixed_precision:
             logger.info("Mixed precision (FP16) training enabled - expect 40-60%% speedup")
+        # Trainer precision is typed as a Literal in Lightning; cast to Any to satisfy mypy
+        precision_any: Any = precision
 
         # Gradient accumulation (Task 3.3)
         accumulate_grad_batches = self.hyperparams.accumulate_grad_batches
@@ -1712,7 +1733,7 @@ class ChempropModel:
             enable_progress_bar=self.progress_bar,
             accelerator="auto",
             devices=1,
-            precision=precision,  # Task 1.1: Mixed precision support
+            precision=precision_any,  # Task 1.1: Mixed precision support (cast to Any to satisfy typing)
             accumulate_grad_batches=accumulate_grad_batches,  # Task 3.3: Gradient accumulation
             max_epochs=self.hyperparams.max_epochs,
             callbacks=callbacks_list,
@@ -1784,8 +1805,9 @@ class ChempropModel:
         completed = False
         try:
             logger.info("Starting training...")
-            logger.info("Train dataloader: %d batches", len(self.dataloaders["train"]))
-            logger.info("Validation dataloader: %d batches", len(self.dataloaders["validation"]))
+            logger.info("Train dataloader: %d batches", self._dataloader_len(self.dataloaders.get("train", None)))
+            val_len = self._dataloader_len(self.dataloaders.get("validation", None))
+            logger.info("Validation dataloader: %d batches", val_len)
             logger.info("Callbacks: %s", [type(cb).__name__ for cb in self.trainer.callbacks])
             with self._profiler.phase(TrainingPhase.TRAINING_TOTAL):
                 self.trainer.fit(
@@ -2817,7 +2839,10 @@ class ChempropModel:
             import json
             import tempfile
 
-            from admet.model.chemprop.task_affinity import affinity_matrix_to_dataframe, plot_task_affinity_heatmap
+            from admet.model.chemprop.task_affinity import (
+                affinity_matrix_to_dataframe,
+                plot_task_affinity_heatmap,
+            )
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir_path = Path(tmpdir)

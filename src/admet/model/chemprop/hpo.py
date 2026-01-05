@@ -164,12 +164,10 @@ class ChempropHPO:
             # Initialize Ray with custom temp dir if storage path is provided
             # This helps avoid FileNotFoundError during sync when /tmp is cleaned
             # Disable dashboard to avoid MetricsHead startup failures on some systems
-            import os
-
-            import ray
 
             # Suppress Ray future warning about GPU environment variables
             os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
+            import ray
 
             with self._profiler.phase(TrainingPhase.HPO_RAY_INIT):
                 if not ray.is_initialized():
@@ -433,7 +431,7 @@ class ChempropHPO:
 
                 if self._profiler.total_duration > 0:
                     pct = stats.total_seconds / self._profiler.total_duration * 100
-                    mlflow.log_metric(f"{prefix}.{safe_phase}.percentage", pct)
+                    mlflow.log_metric(f"{prefix}.{safe_phase}.percentage", float(pct))
 
             logger.debug("Logged profiling metrics to MLflow")
 

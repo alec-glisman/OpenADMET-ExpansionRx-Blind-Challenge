@@ -25,7 +25,6 @@ import functools
 import logging
 import threading
 import time
-from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
@@ -34,7 +33,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 import numpy as np
 
 if TYPE_CHECKING:
-    import mlflow
     from lightning import pytorch as pl
     from mlflow import MlflowClient
 
@@ -922,7 +920,8 @@ class FunctionProfiler:
 
         # Extract function stats
         self._function_stats = []
-        for key, value in self._stats.stats.items():
+        stats_dict = getattr(self._stats, "stats", {})
+        for key, value in stats_dict.items():
             filename, lineno, funcname = key
             ncalls, totcalls, tottime, cumtime, callers = value
 
@@ -1057,9 +1056,8 @@ class EnsembleProfiler(TrainingProfiler):
         # Sort by training time
         sorted_models = sorted(self._model_results.items(), key=lambda x: x[1].total_seconds, reverse=True)
 
-        print(
-            f"{'Model':<25} {'Total':>12} {'Training':>12} {'Predict':>12} {'Metrics':>12} {'Plots':>12} {'Artifacts':>12}"
-        )
+        print(f"{'Model':<25} {'Total':>12} {'Training':>12} {'Predict':>12}")
+        print(f"{'Metrics':>12} {'Plots':>12} {'Artifacts':>12}")
         print(f"{'-' * 120}")
 
         # Track totals for bottleneck analysis

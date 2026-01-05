@@ -16,7 +16,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
@@ -25,7 +25,7 @@ import pytest
 from admet.util.profiling import TrainingPhase, TrainingProfiler
 
 if TYPE_CHECKING:
-    from admet.model.chemprop.model import ChempropModel
+    pass
 
 
 # Test data fixtures
@@ -188,7 +188,7 @@ class TestPostTrainingPerformance:
         stats = profiler.get_all_stats()
         plot_stats = stats[TrainingPhase.PLOT_GENERATION.value]
 
-        print(f"\nPlot generation stats:")
+        print("\nPlot generation stats:")
         print(f"  Plots generated: {n_plots}")
         print(f"  Total time: {plot_stats.total_seconds:.3f}s")
         print(f"  Time per plot: {plot_stats.total_seconds / n_plots:.3f}s")
@@ -236,7 +236,7 @@ class TestPostTrainingPerformance:
         stats = profiler.get_all_stats()
         artifact_stats = stats[TrainingPhase.ARTIFACT_LOGGING.value]
 
-        print(f"\nArtifact upload stats:")
+        print("\nArtifact upload stats:")
         print(f"  Total time: {artifact_stats.total_seconds:.3f}s")
         print(f"  Upload times: {upload_times}")
 
@@ -266,7 +266,7 @@ class TestPostTrainingPerformance:
         stats = profiler.get_all_stats()
         metrics_stats = stats[TrainingPhase.METRICS_COMPUTATION.value]
 
-        print(f"\nMetrics computation stats:")
+        print("\nMetrics computation stats:")
         print(f"  Metrics computed: {metrics_computed}")
         print(f"  Total time: {metrics_stats.total_seconds:.3f}s")
 
@@ -316,7 +316,6 @@ class TestOptimizationStrategies:
         """Test async artifact upload pattern for MLflow."""
         import concurrent.futures
 
-        upload_times: List[float] = []
         sync_total_time = 0.0
         async_total_time = 0.0
 
@@ -340,7 +339,7 @@ class TestOptimizationStrategies:
             concurrent.futures.wait(futures)
         async_total_time = time.perf_counter() - start
 
-        print(f"\nUpload timing comparison:")
+        print("\nUpload timing comparison:")
         print(f"  Sync total: {sync_total_time:.3f}s")
         print(f"  Async total: {async_total_time:.3f}s")
         print(f"  Speedup: {sync_total_time / async_total_time:.2f}x")
@@ -376,7 +375,7 @@ class TestOptimizationStrategies:
             registration_time = time.perf_counter() - start
             registration_completed = True
 
-        def register_model_deferred() -> concurrent.futures.Future:
+        def register_model_deferred() -> Any:
             """Simulate deferred model registration."""
             import concurrent.futures
 
@@ -543,7 +542,7 @@ class TestIntegrationPostTraining:
         plots_pct = stats[TrainingPhase.PLOT_GENERATION.value].total_seconds / total * 100
         artifacts_pct = stats[TrainingPhase.ARTIFACT_LOGGING.value].total_seconds / total * 100
 
-        print(f"\nPost-training breakdown:")
+        print("\nPost-training breakdown:")
         print(f"  Metrics: {metrics_pct:.1f}%")
         print(f"  Plots: {plots_pct:.1f}%")
         print(f"  Artifacts: {artifacts_pct:.1f}%")

@@ -27,7 +27,7 @@ def test_hpo_configs():
     config_path = Path("configs/1-hpo-single/hpo_chemprop.yaml")
     raw_config = OmegaConf.load(config_path)
     merged_config = OmegaConf.merge(OmegaConf.structured(HPOConfig), raw_config)
-    print(f"   ✅ Config loads without errors")
+    print("   ✅ Config loads without errors")
     print(f"   - Experiment: {merged_config.experiment_name}")
     print(f"   - Logging enabled: {merged_config.logging.enabled}")
     print(f"   - Logging verbose: {merged_config.logging.verbose}")
@@ -40,7 +40,7 @@ def test_hpo_configs():
     config_path = Path("configs/1-hpo-single/hpo_chemeleon.yaml")
     raw_config = OmegaConf.load(config_path)
     merged_config = OmegaConf.merge(OmegaConf.structured(ChemeleonHPOConfig), raw_config)
-    print(f"   ✅ Config loads without errors")
+    print("   ✅ Config loads without errors")
     print(f"   - Experiment: {merged_config.experiment_name}")
     print(f"   - Logging enabled: {merged_config.logging.enabled}")
     print(f"   - Logging verbose: {merged_config.logging.verbose}")
@@ -60,7 +60,7 @@ def test_ensemble_configs():
     print("\n1. Chemprop Ensemble Config:")
     config_path = Path("configs/0-experiment/ensemble_chemprop_production.yaml")
     config = OmegaConf.load(config_path)
-    print(f"   ✅ Config loads without errors")
+    print("   ✅ Config loads without errors")
     print(f"   - Model type: {config.model.type}")
     print(f"   - MLflow: {config.mlflow.experiment_name}")
     print(f"   - Logging enabled: {config.logging.enabled}")
@@ -70,7 +70,7 @@ def test_ensemble_configs():
     print("\n2. Chemeleon Ensemble Config:")
     config_path = Path("configs/0-experiment/ensemble_chemeleon_production.yaml")
     config = OmegaConf.load(config_path)
-    print(f"   ✅ Config loads without errors")
+    print("   ✅ Config loads without errors")
     print(f"   - Model type: {config.model.type}")
     print(f"   - MLflow: {config.mlflow.experiment_name}")
     print(f"   - Logging enabled: {config.logging.enabled}")
@@ -91,17 +91,19 @@ def test_quiet_progress_reporter():
     # Test initialization without parameters
     print("\n1. Default initialization:")
     reporter = QuietProgressReporter()
-    print(f"   ✅ QuietProgressReporter() works")
+    print("   ✅ QuietProgressReporter() works")
 
     # Test initialization with parameters
     print("\n2. With metric_columns parameter:")
     reporter = QuietProgressReporter(metric_columns=["val_mae", "val_loss"])
-    print(f"   ✅ QuietProgressReporter(metric_columns=[...]) works")
+    assert reporter is not None
+    print("   ✅ QuietProgressReporter(metric_columns=[...]) works")
 
     # Test initialization with None
     print("\n3. With None parameter:")
     reporter = QuietProgressReporter(metric_columns=None)
-    print(f"   ✅ QuietProgressReporter(metric_columns=None) works")
+    assert reporter is not None
+    print("   ✅ QuietProgressReporter(metric_columns=None) works")
 
     print("\n✅ QuietProgressReporter validated")
     return True

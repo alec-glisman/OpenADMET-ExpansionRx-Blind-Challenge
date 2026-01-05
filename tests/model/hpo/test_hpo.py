@@ -5,13 +5,7 @@ from pathlib import Path
 import pytest
 
 from admet.model.chemprop.hpo import ChempropHPO, _flatten_dict
-from admet.model.chemprop.hpo_config import (
-    ASHAConfig,
-    HPOConfig,
-    ParameterSpace,
-    ResourceConfig,
-    SearchSpaceConfig,
-)
+from admet.model.chemprop.hpo_config import ASHAConfig, HPOConfig, ParameterSpace, ResourceConfig, SearchSpaceConfig
 
 
 class TestFlattenDict:
@@ -159,7 +153,7 @@ class TestChempropHPO:
 class TestChempropHPOIntegration:
     """Integration tests for ChempropHPO (mocked)."""
 
-    def test_run_creates_tuner(self, mocker) -> None:
+    def test_run_creates_tuner(self, mocker, tmp_path) -> None:
         """Test that run() creates and runs a Ray Tune tuner."""
         # Setup mocks
         mock_mlflow = mocker.patch("admet.model.chemprop.hpo.mlflow")
@@ -184,11 +178,13 @@ class TestChempropHPOIntegration:
         mock_tuner.fit.return_value = mock_results
         mock_tuner_class.return_value = mock_tuner
 
+        output_dir = tmp_path / "test_hpo"
+        output_dir.mkdir()
         config = HPOConfig(
             experiment_name="test",
             data_path="train.csv",
             target_columns=["target"],
-            output_dir="/tmp/test_hpo",
+            output_dir=str(output_dir),
         )
         hpo = ChempropHPO(config)
 

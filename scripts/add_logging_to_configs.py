@@ -15,7 +15,7 @@ Usage:
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import yaml
 
@@ -193,7 +193,7 @@ def print_summary(stats: Dict[str, int], dry_run: bool = False) -> None:
     print(f"  Files failed:          {stats['failed']}")
 
     if stats["updated"] > 0:
-        print(f"\nLogging configuration added:")
+        print("\nLogging configuration added:")
         for key, value in DEFAULT_LOGGING_CONFIG.items():
             print(f"  - {key}: {value}")
 

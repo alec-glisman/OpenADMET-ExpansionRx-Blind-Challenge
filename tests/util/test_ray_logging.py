@@ -12,26 +12,18 @@ Tests cover:
 - Performance benchmarks for compression/upload
 """
 
-import gzip
-import json
-import logging
 import os
 import shutil
 import signal
-import subprocess
 import tarfile
 import tempfile
-import threading
 import time
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Generator, Optional
 from unittest import mock
 
-import numpy as np
 import pytest
 
-from admet.util.ray_logging import EnsembleProgressTracker, LogArtifactCallback, QuietProgressReporter, RayLogManager
+from admet.util.ray_logging import EnsembleProgressTracker, QuietProgressReporter, RayLogManager
 
 # ============================================================================
 # UNIT TESTS: RayLogManager
@@ -110,6 +102,14 @@ class TestRayLogManager:
         """Test that logs are collected from trial directories."""
         mlflow_dir, output_dir = temp_dirs
 
+        # Create trial directories directly in output_dir (not in a subdirectory)
+        # so RayLogManager can find them
+        for trial_id in range(3):
+            trial_dir = output_dir / f"trial_{trial_id}"
+            logs_dir = trial_dir / "logs"
+            logs_dir.mkdir(parents=True)
+            (logs_dir / "train.log").write_text(f"Trial {trial_id} log\n" * 10)
+
         with RayLogManager(
             mlflow_run_id="test_run_001",
             output_dir=output_dir,
@@ -118,7 +118,7 @@ class TestRayLogManager:
             fail_on_upload_error=False,
         ) as manager:
             logs = manager._collect_trial_logs()
-            # Should find logs in sample_logs directory
+            # Should find logs in trial directories
             assert len(logs) > 0
 
     def test_log_compression(self, temp_dirs):
@@ -201,13 +201,18 @@ class TestRayLogManager:
                 verbose=0,
                 max_total_logs_gb=1.0,
                 fail_on_upload_error=False,  # Don't fail if MLflow unavailable
-            ) as manager:
+            ):
                 # Should complete without raising
                 pass
 
     def test_fail_fast_on_upload_error(self, temp_dirs):
         """Test fail_on_upload_error flag behavior."""
         mlflow_dir, output_dir = temp_dirs
+
+        # Create trial directories with logs so upload is attempted
+        trial_dir = output_dir / "trial_0" / "logs"
+        trial_dir.mkdir(parents=True)
+        (trial_dir / "test.log").write_text("test log content\n")
 
         # With fail_fast=True, should raise on upload error
         with pytest.raises(Exception):
@@ -255,6 +260,11 @@ class TestQuietProgressReporter:
         # This tests that the method exists and is callable
         assert hasattr(reporter, "report_progress")
 
+        # Call the method with sample progress data and ensure it doesn't raise and outputs something
+        reporter.report_progress(progress_data)
+        captured = capsys.readouterr()
+        assert captured.out is not None
+
     def test_update_frequency(self):
         """Test that updates happen at reasonable intervals."""
         reporter = QuietProgressReporter()
@@ -272,13 +282,13 @@ class TestEnsembleProgressTracker:
 
     def test_initialization(self):
         """Test EnsembleProgressTracker initializes with correct totals."""
-        tracker = EnsembleProgressTracker(total_tasks=10, verbose=1)
+        tracker = EnsembleProgressTracker(total_models=10, verbose=1)
         assert tracker.total_tasks == 10
         assert tracker.verbose == 1
 
     def test_progress_update(self):
         """Test that progress updates work correctly."""
-        tracker = EnsembleProgressTracker(total_tasks=10, verbose=0)
+        tracker = EnsembleProgressTracker(total_models=10, verbose=0)
 
         # Update progress
         tracker.update(completed=1)
@@ -290,7 +300,7 @@ class TestEnsembleProgressTracker:
 
     def test_eta_calculation(self):
         """Test ETA calculation is reasonable."""
-        tracker = EnsembleProgressTracker(total_tasks=100, verbose=0)
+        tracker = EnsembleProgressTracker(total_models=100, verbose=0)
 
         # Simulate progress with known timing
         start_time = time.time()
@@ -377,6 +387,7 @@ class TestLoggingPerformance:
                         tar.add(log_file, arcname=log_file.name)
 
             result = benchmark(compress_logs)
+            assert result is not None
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -399,6 +410,7 @@ class TestLoggingPerformance:
                 return len(logs)
 
             result = benchmark(collect_logs)
+            assert result is not None
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 

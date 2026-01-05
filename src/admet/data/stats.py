@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List, TypedDict, Union
+from typing import TYPE_CHECKING, Any, List, TypedDict, Union, cast
 
 import numpy as np
 import torch
@@ -285,11 +285,22 @@ def correlation_batch(
             # Compute on GPU
             results_gpu = _correlation_batch_impl(y_true_gpu, y_pred_gpu, compute_rank_correlations, xp=cp)
 
-            # Transfer back to CPU
-            return [
-                {k: float(cp.asnumpy(v)) if isinstance(v, cp.ndarray) else float(v) for k, v in r.items()}
-                for r in results_gpu
-            ]
+            # Transfer back to CPU with explicit typing and graceful fallback
+            converted: List[CorrelationMetrics] = []
+            for r in results_gpu:
+                row: dict[str, float] = {}
+                for k, v in r.items():
+                    try:
+                        if isinstance(v, cp.ndarray):
+                            val = cp.asnumpy(v)
+                        else:
+                            val = v
+                        row[k] = float(cast(float, val))
+                    except Exception:
+                        row[k] = float("nan")
+                converted.append(cast(CorrelationMetrics, row))
+
+            return converted
         except ImportError:
             logger.debug("CuPy not available, falling back to CPU computation")
         except Exception as e:
@@ -303,7 +314,7 @@ def _correlation_batch_impl(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     compute_rank_correlations: bool,
-    xp: any,
+    xp: Any,
 ) -> List[CorrelationMetrics]:
     """Internal implementation supporting both NumPy and CuPy."""
     # Ensure 2D

@@ -199,7 +199,7 @@ class ChemeleonRayTuneCallback(Callback):
 
         # Check if early stopping was triggered
         early_stopped = False
-        for callback in trainer.callbacks:
+        for callback in getattr(trainer, "callbacks", []):
             if hasattr(callback, "stopped_epoch") and callback.stopped_epoch > 0:
                 early_stopped = True
                 break
@@ -705,60 +705,69 @@ class ChemeleonHPO:
         return nullcontext()
 
     def _setup_mlflow(self) -> None:
-        """Setup MLflow tracking."""
+        """Setup MLflow tracking.
+
+        Uses a context manager to start the parent run and immediately exit
+        the active run context. This is critical: the run stays open (RUNNING)
+        but is no longer the "active" run, allowing AsyncBatchedMLflowCallback
+        to create child runs with nested=False without conflicts.
+        """
         if self.config.mlflow_tracking_uri:
             mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
 
         mlflow.set_experiment(self.config.experiment_name)
 
-        run = mlflow.start_run(run_name=f"hpo_{self.timestamp}")
-        self._mlflow_run_id = run.info.run_id
+        # Use context manager to capture run_id and clear active run context
+        # The run remains RUNNING but is not the "active" run, preventing
+        # conflicts when AsyncBatchedMLflowCallback starts trial runs
+        with mlflow.start_run(run_name=f"hpo_{self.timestamp}") as run:
+            self._mlflow_run_id = run.info.run_id
 
-        # Log all HPO configuration parameters
-        params_to_log = {
-            # Experiment metadata
-            "experiment_name": self.config.experiment_name,
-            "timestamp": self.timestamp,
-            # Data configuration
-            "data_path": str(self.config.data_path),
-            "val_data_path": str(self.config.val_data_path) if self.config.val_data_path else None,
-            "smiles_column": self.config.smiles_column,
-            "target_columns": str(self.config.target_columns),
-            "target_weights": str(self.config.target_weights) if self.config.target_weights else None,
-            "seed": self.config.seed,
-            # CheMeleon-specific settings
-            "checkpoint_path": self.config.checkpoint_path,
-            "freeze_encoder": self.config.freeze_encoder,
-            # Unfreeze schedule
-            "unfreeze_schedule.freeze_encoder": self.config.unfreeze_schedule.freeze_encoder,
-            "unfreeze_schedule.unfreeze_encoder_epoch": self.config.unfreeze_schedule.unfreeze_encoder_epoch,
-            "unfreeze_schedule.lr_multiplier": self.config.unfreeze_schedule.unfreeze_encoder_lr_multiplier,
-            # ASHA scheduler configuration
-            "asha.metric": self.config.asha.metric,
-            "asha.mode": self.config.asha.mode,
-            "asha.max_t": self.config.asha.max_t,
-            "asha.grace_period": self.config.asha.grace_period,
-            "asha.reduction_factor": self.config.asha.reduction_factor,
-            # Resource allocation
-            "resources.num_samples": self.config.resources.num_samples,
-            "resources.cpus_per_trial": self.config.resources.cpus_per_trial,
-            "resources.gpus_per_trial": self.config.resources.gpus_per_trial,
-            "resources.max_concurrent_trials": self.config.resources.max_concurrent_trials,
-            # Transfer learning settings
-            "transfer_learning.top_k": self.config.transfer_learning.top_k,
-            "transfer_learning.full_epochs": self.config.transfer_learning.full_epochs,
-            "transfer_learning.ensemble_size": self.config.transfer_learning.ensemble_size,
-        }
-        # Filter out None values and truncate long strings for MLflow param limits (500 chars)
-        filtered_params = {}
-        for k, v in params_to_log.items():
-            if v is not None:
-                str_v = str(v)
-                filtered_params[k] = str_v[:500] if len(str_v) > 500 else str_v
-        mlflow.log_params(filtered_params)
+            # Log all HPO configuration parameters
+            params_to_log = {
+                # Experiment metadata
+                "experiment_name": self.config.experiment_name,
+                "timestamp": self.timestamp,
+                # Data configuration
+                "data_path": str(self.config.data_path),
+                "val_data_path": str(self.config.val_data_path) if self.config.val_data_path else None,
+                "smiles_column": self.config.smiles_column,
+                "target_columns": str(self.config.target_columns),
+                "target_weights": str(self.config.target_weights) if self.config.target_weights else None,
+                "seed": self.config.seed,
+                # CheMeleon-specific settings
+                "checkpoint_path": self.config.checkpoint_path,
+                "freeze_encoder": self.config.freeze_encoder,
+                # Unfreeze schedule
+                "unfreeze_schedule.freeze_encoder": self.config.unfreeze_schedule.freeze_encoder,
+                "unfreeze_schedule.unfreeze_encoder_epoch": self.config.unfreeze_schedule.unfreeze_encoder_epoch,
+                "unfreeze_schedule.lr_multiplier": self.config.unfreeze_schedule.unfreeze_encoder_lr_multiplier,
+                # ASHA scheduler configuration
+                "asha.metric": self.config.asha.metric,
+                "asha.mode": self.config.asha.mode,
+                "asha.max_t": self.config.asha.max_t,
+                "asha.grace_period": self.config.asha.grace_period,
+                "asha.reduction_factor": self.config.asha.reduction_factor,
+                # Resource allocation
+                "resources.num_samples": self.config.resources.num_samples,
+                "resources.cpus_per_trial": self.config.resources.cpus_per_trial,
+                "resources.gpus_per_trial": self.config.resources.gpus_per_trial,
+                "resources.max_concurrent_trials": self.config.resources.max_concurrent_trials,
+                # Transfer learning settings
+                "transfer_learning.top_k": self.config.transfer_learning.top_k,
+                "transfer_learning.full_epochs": self.config.transfer_learning.full_epochs,
+                "transfer_learning.ensemble_size": self.config.transfer_learning.ensemble_size,
+            }
+            # Filter out None values and truncate long strings for MLflow param limits (500 chars)
+            filtered_params = {}
+            for k, v in params_to_log.items():
+                if v is not None:
+                    str_v = str(v)
+                    filtered_params[k] = str_v[:500] if len(str_v) > 500 else str_v
+            mlflow.log_params(filtered_params)
 
-        # Log the full config as a YAML artifact for complete reproducibility
-        self._log_config_artifact()
+            # Log the full config as a YAML artifact for complete reproducibility
+            self._log_config_artifact()
 
     def _log_config_artifact(self) -> None:
         """Log the full HPO configuration as a YAML artifact."""

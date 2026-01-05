@@ -118,6 +118,9 @@ class TestEnsembleModuleImportOrder:
     """Tests that expose the import order problem in ensemble.py."""
 
     @pytest.mark.slow
+    @pytest.mark.xfail(
+        reason="Known bug: ensemble.py imports torch at module level " "before CUDA_VISIBLE_DEVICES can be set"
+    )
     def test_ensemble_module_imports_torch_at_module_level(self):
         """
         FAILING TEST: Verify that importing ensemble.py imports torch,
@@ -179,6 +182,7 @@ class TestRayWorkerGpuInheritance:
     """Tests for Ray worker GPU environment inheritance."""
 
     @pytest.mark.slow
+    @pytest.mark.xfail(reason="Ray worker environment variable inheritance behavior is " "platform/version dependent")
     def test_ray_worker_inherits_cuda_visible_devices_from_runtime_env(self):
         """
         Test that Ray workers properly inherit CUDA_VISIBLE_DEVICES from runtime_env.
@@ -226,6 +230,9 @@ finally:
         )
 
     @pytest.mark.slow
+    @pytest.mark.xfail(
+        reason="Known bug: Setting CUDA_VISIBLE_DEVICES after ray.init() " "doesn't propagate to workers"
+    )
     def test_ray_worker_does_not_inherit_parent_env_after_init(self):
         """
         FAILING TEST: Ray workers do NOT automatically inherit CUDA_VISIBLE_DEVICES

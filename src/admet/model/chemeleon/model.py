@@ -22,10 +22,11 @@ from __future__ import annotations
 
 import fcntl
 import logging
+import math
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
 import torch
@@ -248,9 +249,23 @@ class CorrelationMetricsCallback(pl.Callback):
 
                 # Log metrics with task prefix
                 for metric_name, metric_value in metrics.items():
-                    if not np.isnan(metric_value):
+                    # Accept numpy floats, Python floats/ints, and torch tensors
+                    try:
+                        temp = metric_value
+                        if isinstance(temp, (int, float, np.floating)):
+                            val = float(cast(float, temp))
+                        elif isinstance(temp, torch.Tensor):
+                            val = float(cast(torch.Tensor, temp).item())
+                        else:
+                            try:
+                                val = float(cast(float, temp))
+                            except Exception:
+                                raise
+                    except (TypeError, ValueError, AttributeError):
+                        continue
+                    if not math.isnan(val):
                         mlflow_key = f"val_{metric_name}_{task_name}"
-                        metrics_dict[mlflow_key] = float(metric_value)
+                        metrics_dict[mlflow_key] = val
 
             # Also compute overall metrics (pooled across tasks) - keep as tensors
             y_true_pool = y_true.flatten()
@@ -260,9 +275,22 @@ class CorrelationMetricsCallback(pl.Callback):
             )
 
             for metric_name, metric_value in metrics_pool.items():
-                if not np.isnan(metric_value):
+                try:
+                    temp = metric_value
+                    if isinstance(temp, (int, float, np.floating)):
+                        val = float(cast(float, temp))
+                    elif isinstance(temp, torch.Tensor):
+                        val = float(cast(torch.Tensor, temp).item())
+                    else:
+                        try:
+                            val = float(cast(float, temp))
+                        except Exception:
+                            raise
+                except (TypeError, ValueError, AttributeError):
+                    continue
+                if not math.isnan(val):
                     mlflow_key = f"val_{metric_name}_overall"
-                    metrics_dict[mlflow_key] = float(metric_value)
+                    metrics_dict[mlflow_key] = val
 
             # Log to MLflow
             if trainer.logger is not None:
@@ -727,8 +755,16 @@ class ChemeleonModel(BaseModel, MLflowMixin):
 
         # Add profiling callback
         profiling_callback = create_lightning_profiling_callback(self._profiler)
-        if self.trainer is not None and profiling_callback not in self.trainer.callbacks:
-            self.trainer.callbacks.append(profiling_callback)
+        if self.trainer is not None:
+            callbacks = getattr(self.trainer, "callbacks", None)
+            if callbacks is not None:
+                if profiling_callback not in callbacks:
+                    callbacks.append(profiling_callback)
+            else:
+                # Fallback for Lightning versions that don't expose `callbacks` attribute
+                add_cb = getattr(self.trainer, "add_callback", None)
+                if callable(add_cb):
+                    add_cb(profiling_callback)
 
         # Log params
         self.log_params_from_config()

@@ -191,6 +191,7 @@ skip_version_check = true
 [tool.mypy-rdkit]
 follow_imports = "skip"
 follow_imports_for_stubs = true
+ignore_errors = true
 
 [tool.pylint.main]
 max-locals = 15
@@ -248,6 +249,7 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "no_mlflow_runs: marks tests that require MLflow runs and should not be run by default",
+    "benchmark: Performance benchmark tests (pytest-benchmark)",
 ]
 
 [tool.coverage.run]

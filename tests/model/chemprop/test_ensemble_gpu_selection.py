@@ -1,7 +1,6 @@
 """Tests for GPU ID selection in ensemble training via CUDA_VISIBLE_DEVICES."""
 
 import os
-from unittest.mock import MagicMock, patch
 
 import pytest
 

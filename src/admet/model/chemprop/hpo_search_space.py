@@ -29,13 +29,13 @@ def _build_parameter_space(param: ParameterSpace) -> Any:
         Uses bracket notation for 'values' attribute access to avoid conflict
         with OmegaConf DictConfig's .values() method.
     """
-    # Use bracket notation for attributes that may conflict with dict methods
-    param_type = param.type if hasattr(param, "type") else param["type"]
-    low = param.low if hasattr(param, "low") else param.get("low")
-    high = param.high if hasattr(param, "high") else param.get("high")
-    q = param.q if hasattr(param, "q") else param.get("q")
-    # 'values' conflicts with DictConfig.values() method, use .get() to avoid KeyError
-    values = param.get("values") if hasattr(param, "get") else getattr(param, "values", None)
+    # Use getattr to support both dataclass-style and OmegaConf objects
+    param_type = getattr(param, "type", None)
+    low = getattr(param, "low", None)
+    high = getattr(param, "high", None)
+    q = getattr(param, "q", None)
+    # 'values' may be present on the config type
+    values = getattr(param, "values", None)
 
     if param_type == "uniform":
         if low is None or high is None:

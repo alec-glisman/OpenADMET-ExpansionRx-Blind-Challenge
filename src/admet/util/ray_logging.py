@@ -38,29 +38,21 @@ Usage Example
 from __future__ import annotations
 
 import atexit
-import gzip
-import json
 import logging
 import os
-import shutil
 import signal
-import tempfile
-import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import mlflow
-from ray import tune
-from ray.air import session
 from ray.tune.callback import Callback
 from ray.tune.progress_reporter import ProgressReporter
 
 if TYPE_CHECKING:
-    from ray.tune.experiment import Trial
-    from ray.tune.result_grid import ResultGrid
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +149,8 @@ class RayLogManager:
         self.log_dir = self.output_dir / "logs"
         self.logs_archive_path: Optional[Path] = None
 
-        self._original_env = {}
-        self._signal_handlers = {}
+        self._original_env: dict[str, Optional[str]] = {}
+        self._signal_handlers: dict[int, Any] = {}
 
     def __enter__(self) -> RayLogManager:
         """Configure Ray logging and set up cleanup handlers."""
@@ -234,7 +226,7 @@ class RayLogManager:
         list[Path]
             List of log file paths found in trial directories.
         """
-        log_files = []
+        log_files: list[Path] = []
 
         # Ray Tune creates trial directories with pattern: trialname_XXXXX/
         trial_dirs = [d for d in self.output_dir.iterdir() if d.is_dir() and d.name != "logs"]
@@ -493,14 +485,12 @@ class LogArtifactCallback(Callback):
         self.max_total_logs_gb = max_total_logs_gb
         self.fail_on_upload_error = fail_on_upload_error
 
-    def on_experiment_end(self, algorithm: Any, trials: Any, **info: Any) -> None:
+    def on_experiment_end(self, trials: list[Any], **info: Any) -> None:
         """Upload collected logs when experiment ends.
 
         Parameters
         ----------
-        algorithm : Any
-            Ray Tune algorithm instance.
-        trials : Any
+        trials : list[Any]
             List of all trials in the experiment.
         **info : Any
             Additional context info.
@@ -511,7 +501,7 @@ class LogArtifactCallback(Callback):
 
         try:
             # Collect logs from all trials
-            log_files = self._collect_trial_logs()
+            log_files: list[Path] = self._collect_trial_logs()
 
             if not log_files:
                 logger.info("No trial logs found to upload")
@@ -531,7 +521,7 @@ class LogArtifactCallback(Callback):
 
     def _collect_trial_logs(self) -> list[Path]:
         """Collect log files from trial directories."""
-        log_files = []
+        log_files: list[Path] = []
         trial_dirs = [d for d in self.output_dir.iterdir() if d.is_dir() and d.name != "logs"]
 
         for trial_dir in trial_dirs:
@@ -588,13 +578,42 @@ class EnsembleProgressTracker:
     ...     tracker.update(i + 1)
     """
 
-    def __init__(self, total_models: int, update_interval: float = 10.0):
-        """Initialize the ensemble progress tracker."""
+    def __init__(
+        self,
+        total_models: int | None = None,
+        total_tasks: int | None = None,
+        update_interval: float = 10.0,
+        verbose: int = 1,
+    ):
+        """Initialize the ensemble progress tracker.
+
+        Backwards compatibility: older callers may pass ``total_tasks`` instead
+        of ``total_models``. If both are provided, ``total_models`` takes
+        precedence.
+        """
+        # Support older callers using the `total_tasks` keyword
+        if total_models is None and total_tasks is not None:
+            total_models = total_tasks
+
+        if total_models is None:
+            raise ValueError("total_models (or total_tasks) must be provided")
+
         self.total_models = total_models
         self.update_interval = update_interval
+        self.verbose = verbose
         self.completed = 0
         self.start_time = time.time()
         self._last_update_time = time.time()
+
+    @property
+    def total_tasks(self) -> int:
+        """Alias for total_models for backward compatibility."""
+        return self.total_models
+
+    @property
+    def completed_tasks(self) -> int:
+        """Alias for completed for backward compatibility."""
+        return self.completed
 
     def update(self, completed: int) -> None:
         """Update progress with completion count.

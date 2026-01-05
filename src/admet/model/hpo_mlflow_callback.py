@@ -22,7 +22,8 @@ from mlflow.entities import Metric
 from ray.tune.callback import Callback
 from ray.tune.experiment import Trial
 from ray.tune.result import TRAINING_ITERATION
-from ray.tune.result_grid import ResultGrid
+
+# ResultGrid is used at runtime for backfill but type is broad; avoid importing ResultGrid to satisfy type-checkers
 
 logger = logging.getLogger(__name__)
 
@@ -141,15 +142,21 @@ class AsyncBatchedMLflowCallback(Callback):
         pending_metrics: dict[str, list[Metric]] = {}  # run_id -> metrics
         last_flush_time = time.time()
 
-        while not self._shutdown_event.is_set():
+        shutdown_event = self._shutdown_event
+        log_queue = self._log_queue
+        if shutdown_event is None or log_queue is None:
+            logger.debug("Async MLflow worker not properly initialized; exiting")
+            return
+
+        while not shutdown_event.is_set():
             try:
                 # Wait for items with timeout to allow periodic flushing
                 try:
-                    item = self._log_queue.get(timeout=0.5)
+                    item = log_queue.get(timeout=0.5)
                 except queue.Empty:
                     item = None
 
-                if item is None and self._shutdown_event.is_set():
+                if item is None and shutdown_event.is_set():
                     break
 
                 if item is not None:
@@ -323,7 +330,7 @@ RobustMLflowLoggerCallback = AsyncBatchedMLflowCallback
 
 
 def backfill_mlflow_from_ray_results(
-    results: ResultGrid,
+    results: Any,
     experiment_name: str,
     parent_run_id: str | None = None,
     tracking_uri: str | None = None,

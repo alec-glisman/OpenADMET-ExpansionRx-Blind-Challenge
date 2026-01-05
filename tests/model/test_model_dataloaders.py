@@ -27,14 +27,14 @@ def test_prepare_dataloaders_uses_sampler(monkeypatch, train_val_dataframes, ena
 
     # Create a fake sampler class that returns a fake sampler instance
     class FakeSampler:
-        def __init__(self, *args, **kwargs):
-            pass
+        def __init__(self, *args, **kwargs):  # noqa: ARG001
+            self._length = 10  # Provide a default length
 
         def __iter__(self):
-            return iter([])
+            return iter(range(self._length))
 
         def __len__(self):
-            return 0
+            return self._length
 
     monkeypatch.setattr(
         "admet.model.chemprop.model.DynamicCurriculumSampler",

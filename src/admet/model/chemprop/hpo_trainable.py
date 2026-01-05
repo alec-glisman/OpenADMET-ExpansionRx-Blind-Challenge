@@ -130,7 +130,7 @@ class RayTuneReportCallback(Callback):
 
         # Check if early stopping was triggered
         early_stopped = False
-        for callback in trainer.callbacks:
+        for callback in getattr(trainer, "callbacks", []):
             if hasattr(callback, "stopped_epoch") and callback.stopped_epoch > 0:
                 early_stopped = True
                 break
