@@ -79,20 +79,13 @@ from admet.model.chemprop.curriculum import (
     CurriculumState,
     PerQualityMetricsCallback,
 )
-from admet.model.chemprop.curriculum_sampler import (
-    DynamicCurriculumSampler,
-    get_quality_indices,
-)
+from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler, get_quality_indices
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.plot.metrics import METRIC_NAMES, compute_metrics_df, plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
-from admet.util.profiling import (
-    TrainingPhase,
-    TrainingProfiler,
-    create_lightning_profiling_callback,
-)
+from admet.util.profiling import TrainingPhase, TrainingProfiler, create_lightning_profiling_callback
 
 # Module logger
 logger = logging.getLogger("admet.model.chemprop.model")
@@ -1655,9 +1648,7 @@ class ChempropModel:
 
         # Add inter-task affinity callback if enabled
         if self.inter_task_affinity_config is not None and self.inter_task_affinity_config.enabled:
-            from admet.model.chemprop.inter_task_affinity import (
-                InterTaskAffinityCallback,
-            )
+            from admet.model.chemprop.inter_task_affinity import InterTaskAffinityCallback
 
             inter_task_affinity_callback = InterTaskAffinityCallback(
                 config=self.inter_task_affinity_config,
@@ -2839,10 +2830,7 @@ class ChempropModel:
             import json
             import tempfile
 
-            from admet.model.chemprop.task_affinity import (
-                affinity_matrix_to_dataframe,
-                plot_task_affinity_heatmap,
-            )
+            from admet.model.chemprop.task_affinity import affinity_matrix_to_dataframe, plot_task_affinity_heatmap
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir_path = Path(tmpdir)
