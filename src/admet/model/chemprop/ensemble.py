@@ -259,6 +259,7 @@ class ModelEnsemble:
         self.parent_run_id: Optional[str] = None
         self._mlflow_client: Optional[MlflowClient] = None
         self._temp_dir: Optional[Path] = None
+        self._child_run_ids: List[str] = []
 
         # Initialize profiler for ensemble training timing
         profiling_config = getattr(self.config, "profiling", None)
@@ -811,7 +812,9 @@ class ModelEnsemble:
             available_gpu_ids: Optional[List[str]] = None,
             profiling_mode: str = "phase",
             profiling_top_n: int = 50,
-        ) -> Tuple[str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame], Dict[str, Any]]:
+        ) -> Tuple[
+            str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame], Dict[str, Any], Optional[str]
+        ]:
             """
             Train a single model as a Ray task.
 
@@ -844,8 +847,6 @@ class ModelEnsemble:
             # Dynamically select GPU with most free memory
             # Note: CUDA_VISIBLE_DEVICES is already set in parent process, so we work with
             # the remapped indices (0, 1, ..., N-1) visible to this process
-            import os
-
             num_visible_gpus = len(available_gpu_ids) if available_gpu_ids else 0
             selected_device_idx = 0  # Default to first visible GPU
 
@@ -1112,11 +1113,16 @@ class ModelEnsemble:
                 except Exception as close_err:
                     _logger.warning("Failed to close model %s: %s", model_key, close_err)
 
+            # Extract MLflow run ID if available
+            mlflow_run_id = None
+            if hasattr(model, "mlflow_run_id"):
+                mlflow_run_id = model.mlflow_run_id
+
             # If training failed, re-raise the exception after collecting profiling data
             if training_failed:
                 raise RuntimeError(f"Training failed for {model_key}")
 
-            return model_key, metrics, test_preds, blind_preds, _prof_result.to_dict()
+            return model_key, metrics, test_preds, blind_preds, _prof_result.to_dict(), mlflow_run_id
 
         # Submit tasks in batches
         all_results = []
@@ -1186,7 +1192,7 @@ class ModelEnsemble:
             self._all_blind_predictions: List[pd.DataFrame] = []
             self._all_metrics: Dict[str, Dict[str, float]] = {}
 
-            for model_key, metrics, test_preds, blind_preds, prof_data in all_results:
+            for model_key, metrics, test_preds, blind_preds, prof_data, mlflow_run_id in all_results:
                 self._all_metrics[model_key] = metrics
                 if test_preds is not None:
                     self._all_test_predictions.append(test_preds)
@@ -1195,6 +1201,9 @@ class ModelEnsemble:
                 # Aggregate profiling data from worker
                 if prof_data:
                     self._profiler.register_model_dict(prof_data)
+                # Store child run ID for metric aggregation
+                if mlflow_run_id is not None:
+                    self._child_run_ids.append(mlflow_run_id)
 
             logger.debug("Completed training all %d models", len(all_results))
 
@@ -1284,6 +1293,9 @@ class ModelEnsemble:
 
         # Log ensemble metrics
         self._log_ensemble_metrics()
+
+        # Aggregate child run metrics from MLflow
+        self._aggregate_child_run_metrics()
 
     def _aggregate_predictions(self, predictions_list: List[pd.DataFrame], split_name: str) -> pd.DataFrame:
         """
@@ -1874,6 +1886,103 @@ class ModelEnsemble:
 
         mlflow.log_metrics({k: float(v) for k, v in ensemble_metrics.items()})
         logger.info("Logged ensemble metrics to MLflow")
+
+    def _should_aggregate_metric(self, metric_name: str) -> bool:
+        """
+        Determine if a metric should be included in ensemble aggregation.
+
+        Parameters
+        ----------
+        metric_name : str
+            Name of the metric to check.
+
+        Returns
+        -------
+        bool
+            True if metric should be aggregated, False otherwise.
+        """
+        # Exclude profiling metrics
+        if metric_name.startswith("profiling"):
+            return False
+
+        # Exclude system metrics (CPU, memory, etc.)
+        if metric_name.startswith("system/"):
+            return False
+
+        # Exclude step/epoch counters
+        if metric_name in ("epoch", "step", "global_step"):
+            return False
+
+        # Include all others: validation/*, train_*, test/*, best_val_loss, etc.
+        return True
+
+    def _log_aggregated_metrics(self, all_metrics: Dict[str, List[float]]) -> None:
+        """
+        Compute and log mean/stddev for all collected metrics.
+
+        Parameters
+        ----------
+        all_metrics : Dict[str, List[float]]
+            Dictionary mapping metric names to list of values from child runs.
+        """
+        if not all_metrics:
+            logger.info("No metrics to aggregate")
+            return
+
+        aggregated: Dict[str, float] = {}
+
+        for metric_name, values in all_metrics.items():
+            if not values:
+                continue
+
+            # Compute statistics
+            mean_val = float(np.mean(values))
+            aggregated[f"ensemble/{metric_name}_mean"] = mean_val
+
+            if len(values) > 1:
+                std_val = float(np.std(values, ddof=1))
+                aggregated[f"ensemble/{metric_name}_stddev"] = std_val
+            else:
+                aggregated[f"ensemble/{metric_name}_stddev"] = 0.0
+
+        # Log all metrics in batch
+        if aggregated:
+            try:
+                mlflow.log_metrics(aggregated)
+                logger.info("Logged %d aggregated ensemble metrics to parent run", len(aggregated))
+            except Exception as e:
+                logger.error("Failed to log aggregated metrics: %s", e)
+
+    def _aggregate_child_run_metrics(self) -> None:
+        """
+        Fetch metrics from all child runs and log aggregated statistics to parent.
+
+        Queries MLflow API for each child run, collects all non-profiling metrics,
+        computes mean and stddev across the ensemble, and logs to parent run
+        with flattened naming convention: ensemble/{metric}_mean, ensemble/{metric}_stddev.
+        """
+        if not self._mlflow_client or not self.parent_run_id or not self._child_run_ids:
+            logger.warning("Cannot aggregate child metrics: missing MLflow client, parent run, or child IDs")
+            return
+
+        # Collect metrics from each child run
+        all_metrics: Dict[str, List[float]] = {}
+
+        for run_id in self._child_run_ids:
+            try:
+                run = self._mlflow_client.get_run(run_id)
+                for metric_name, value in run.data.metrics.items():
+                    # Filter logic applied
+                    if self._should_aggregate_metric(metric_name):
+                        if metric_name not in all_metrics:
+                            all_metrics[metric_name] = []
+                        all_metrics[metric_name].append(value)
+            except Exception as e:
+                logger.warning("Failed to fetch metrics from child run %s: %s", run_id, e)
+                continue
+
+        # Compute and log aggregates
+        self._log_aggregated_metrics(all_metrics)
 
     def predict_ensemble(
         self,
