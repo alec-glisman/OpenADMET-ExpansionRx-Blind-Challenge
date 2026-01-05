@@ -147,6 +147,16 @@ extract_gpu_ids() {
     gpu_ids=$(echo "$gpu_line" | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d ' ')
     if [[ -n "$gpu_ids" && "$gpu_ids" != "null" ]]; then
       echo "$gpu_ids"
+      return 0
+    fi
+  fi
+
+  # No gpu_ids in config - detect all available GPUs from nvidia-smi
+  if command -v nvidia-smi &>/dev/null; then
+    local all_gpus
+    all_gpus=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+    if [[ -n "$all_gpus" ]]; then
+      echo "$all_gpus"
     fi
   fi
 }
@@ -167,8 +177,10 @@ train_ensemble() {
   gpu_ids=$(extract_gpu_ids "$config_file")
 
   if [[ -n "$gpu_ids" ]]; then
-    echo "Setting CUDA_VISIBLE_DEVICES=$gpu_ids (from config gpu_ids)"
+    echo "Setting CUDA_VISIBLE_DEVICES=$gpu_ids"
     export CUDA_VISIBLE_DEVICES="$gpu_ids"
+  else
+    echo "Warning: Could not detect GPUs, CUDA_VISIBLE_DEVICES not set"
   fi
 
   if [[ "$DRY_RUN" == "true" ]]; then

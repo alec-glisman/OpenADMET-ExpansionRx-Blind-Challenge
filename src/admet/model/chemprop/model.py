@@ -1541,7 +1541,6 @@ class ChempropModel:
                 filename=f"best-{{epoch:04}}-{{{early_stopping_monitor}:.2f}}",
                 monitor=early_stopping_monitor,
                 mode="min",
-                save_last=True,
                 save_top_k=1,  # Keep only the single best checkpoint to save storage
             )
             callbacks_list.append(checkpointing)
@@ -1557,7 +1556,6 @@ class ChempropModel:
                 filename=f"best-{{epoch:04}}-{{{early_stopping_monitor}:.2f}}",
                 monitor=early_stopping_monitor,
                 mode="min",
-                save_last=True,
                 save_top_k=1,  # Keep only the single best checkpoint to save storage
             )
             callbacks_list.append(checkpointing)

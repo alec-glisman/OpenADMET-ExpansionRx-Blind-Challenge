@@ -724,15 +724,17 @@ class ModelEnsemble:
         # Handle GPU ID selection via CUDA_VISIBLE_DEVICES
         # CRITICAL: Set CUDA_VISIBLE_DEVICES in parent process BEFORE Ray init
         # Ray detects GPUs at initialization time and will only see GPUs listed in CUDA_VISIBLE_DEVICES
-        gpu_ids = self.config.ray.gpu_ids
+        gpu_ids = self.config.ray.get("gpu_ids", None)
         cuda_visible_devices: Optional[str] = None
+        gpu_id_list: List[str] = []  # List of actual GPU IDs for round-robin assignment
         if gpu_ids is not None and len(gpu_ids) > 0:
-            cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
+            gpu_id_list = [str(g) for g in gpu_ids]
+            cuda_visible_devices = ",".join(gpu_id_list)
             os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
             available_gpus = len(gpu_ids)
             logger.info(f"Restricting to GPU IDs {gpu_ids} via CUDA_VISIBLE_DEVICES={cuda_visible_devices}")
         else:
-            # Detect available GPUs
+            # Detect available GPUs from nvidia-smi and use all of them
             try:
                 result = subprocess.run(
                     ["nvidia-smi", "--query-gpu=index", "--format=csv,noheader"],
@@ -740,7 +742,12 @@ class ModelEnsemble:
                     text=True,
                     check=True,
                 )
-                available_gpus = len(result.stdout.strip().split("\n"))
+                gpu_id_list = [idx.strip() for idx in result.stdout.strip().split("\n") if idx.strip()]
+                available_gpus = len(gpu_id_list)
+                if available_gpus > 0:
+                    cuda_visible_devices = ",".join(gpu_id_list)
+                    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+                    logger.info(f"Using all {available_gpus} GPUs via CUDA_VISIBLE_DEVICES={cuda_visible_devices}")
             except (subprocess.CalledProcessError, FileNotFoundError):
                 available_gpus = 0
                 logger.warning("Could not detect GPUs with nvidia-smi, assuming 0 GPUs")
@@ -801,7 +808,7 @@ class ModelEnsemble:
             parent_run_id: Optional[str],
             tracking_uri: Optional[str],
             experiment_name: str,
-            cuda_visible_devices: Optional[str] = None,
+            available_gpu_ids: Optional[List[str]] = None,
             profiling_mode: str = "phase",
             profiling_top_n: int = 50,
         ) -> Tuple[str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame], Dict[str, Any]]:
@@ -827,18 +834,39 @@ class ModelEnsemble:
                 MLflow tracking URI.
             experiment_name : str
                 MLflow experiment name.
-            cuda_visible_devices : Optional[str]
-                CUDA_VISIBLE_DEVICES value to restrict GPU access.
+            available_gpu_ids : Optional[List[str]]
+                List of GPU IDs to choose from. Worker selects GPU with most free memory.
             profiling_mode : str, default="phase"
                 Profiling detail level: "disabled", "phase", "function", "full".
             profiling_top_n : int, default=50
                 Number of top functions to track in function-level profiling.
             """
-            # Set CUDA_VISIBLE_DEVICES FIRST before any torch imports in worker
+            # Dynamically select GPU with most free memory
+            # Note: CUDA_VISIBLE_DEVICES is already set in parent process, so we work with
+            # the remapped indices (0, 1, ..., N-1) visible to this process
             import os
 
-            if cuda_visible_devices is not None:
-                os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+            num_visible_gpus = len(available_gpu_ids) if available_gpu_ids else 0
+            selected_device_idx = 0  # Default to first visible GPU
+
+            if num_visible_gpus > 1:
+                # Import torch to query GPU memory and set device
+                import torch
+
+                if torch.cuda.is_available():
+                    # Find GPU with most free memory among visible devices
+                    max_free_mem = -1
+                    for device_idx in range(min(num_visible_gpus, torch.cuda.device_count())):
+                        try:
+                            free_mem, total_mem = torch.cuda.mem_get_info(device_idx)
+                            if free_mem > max_free_mem:
+                                max_free_mem = free_mem
+                                selected_device_idx = device_idx
+                        except Exception:
+                            pass
+
+                    # Set the selected device as default for this worker
+                    torch.cuda.set_device(selected_device_idx)
 
             # Reconstruct config from dict - use deep merge to ensure nested values override defaults
             base_config = OmegaConf.structured(ChempropConfig)
@@ -849,6 +877,13 @@ class ModelEnsemble:
             OmegaConf.resolve(config)
 
             model_key = f"split_{split_idx}_fold_{fold_idx}"
+
+            # Log GPU selection (after model_key is defined)
+            import logging
+
+            _logger = logging.getLogger(__name__)
+            if num_visible_gpus > 0:
+                _logger.debug(f"{model_key}: Selected GPU device index {selected_device_idx} (most free memory)")
 
             # Setup profiling for this worker based on profiling_mode
             from admet.util.profiling import (
@@ -1121,7 +1156,7 @@ class ModelEnsemble:
                         self.parent_run_id,
                         self.config.mlflow.tracking_uri,
                         self.config.mlflow.experiment_name,
-                        cuda_visible_devices,
+                        gpu_id_list if gpu_id_list else None,
                         profiling_mode,
                         profiling_top_n,
                     )

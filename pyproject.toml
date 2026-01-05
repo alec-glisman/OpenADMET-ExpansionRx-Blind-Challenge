@@ -23,9 +23,9 @@ dependencies = [
     "xgboost==3.1.2",
     "catboost==1.2.8",
     # deep learning
-    "torch==2.9.1",
-    "torchaudio==2.9.1",
-    "torchvision==0.24.1",
+    "torch==2.7.1",
+    "torchaudio==2.7.1",
+    "torchvision==0.22.1",
     "torchmetrics==1.0.3",
     "ray[data,train,tune,serve]==2.52.0",
     # ML infra
@@ -135,17 +135,17 @@ where = ["src"]
 exclude = ["tests*"]
 
 [tool.uv]
-extra-index-url = ["https://download.pytorch.org/whl/cu130"]
+extra-index-url = ["https://download.pytorch.org/whl/cu118"]
 
 [[tool.uv.index]]
-name = "pytorch-cu130"
-url = "https://download.pytorch.org/whl/cu130"
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu118"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu130" }
-torchvision = { index = "pytorch-cu130" }
-torchaudio = { index = "pytorch-cu130" }
+torch = { index = "pytorch-cuda" }
+torchvision = { index = "pytorch-cuda" }
+torchaudio = { index = "pytorch-cuda" }
 
 [tool.isort]
 profile = "black"
