@@ -39,6 +39,7 @@ from torch.utils.data import DataLoader
 from admet.data.stats import correlation
 from admet.model.base import BaseModel
 from admet.model.chemeleon.callbacks import GradualUnfreezeCallback
+from admet.model.chemprop.config import ProfilingConfig
 from admet.model.chemprop.curriculum import CurriculumState
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.model.config import UnfreezeScheduleConfig
@@ -333,15 +334,19 @@ class ChemeleonModel(BaseModel, MLflowMixin):
 
     model_type = "chemeleon"
 
-    def __init__(self, config: DictConfig) -> None:
+    def __init__(self, config: DictConfig, profiling_config: ProfilingConfig | None = None) -> None:
         """Initialize Chemeleon model.
 
         Parameters
         ----------
         config : DictConfig
             Configuration object.
+        profiling_config : ProfilingConfig | None
+            Optional profiling configuration to override defaults.
+            If None, profiling is enabled by default.
         """
         super().__init__(config)
+        self._profiling_config = profiling_config
 
         # Get model params - support both new and legacy config structures
         model_section = config.get("model", OmegaConf.create({}))
@@ -389,10 +394,17 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self._external_callbacks: list[pl.Callback] = []
 
         # Initialize profiler for tracking phase-level performance
-        self._profiler = TrainingProfiler(
-            name="chemeleon",
-            enabled=True,
-        )
+        if self._profiling_config is not None:
+            self._profiler = TrainingProfiler(
+                name="chemeleon",
+                enabled=self._profiling_config.enabled,
+            )
+        else:
+            # Default: profiling enabled
+            self._profiler = TrainingProfiler(
+                name="chemeleon",
+                enabled=True,
+            )
 
     def add_callback(self, callback: pl.Callback) -> None:
         """Add an external callback to be used during training.
@@ -754,10 +766,12 @@ class ChemeleonModel(BaseModel, MLflowMixin):
 
             # Stop profiler and print summary (always, even on interrupt)
             self._profiler.stop()
-            self._profiler.print_summary()
+            if self._profiling_config is None or self._profiling_config.print_summary:
+                self._profiler.print_summary()
 
             # Log profiling metrics to MLflow
-            if self._mlflow_client is not None and self._mlflow_run_id is not None:
+            log_to_mlflow = self._profiling_config is None or self._profiling_config.log_to_mlflow
+            if log_to_mlflow and self._mlflow_client is not None and self._mlflow_run_id is not None:
                 self._profiler.log_to_mlflow(
                     prefix="profiling",
                     client=self._mlflow_client,

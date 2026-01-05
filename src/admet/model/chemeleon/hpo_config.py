@@ -14,6 +14,9 @@ from typing import Any
 
 from omegaconf import MISSING
 
+from admet.model.chemprop.config import ProfilingConfig
+from admet.model.config import RayLoggingConfig
+
 
 @dataclass
 class ParameterSpace:
@@ -310,6 +313,7 @@ class ChemeleonHPOConfig:
         transfer_learning: Transfer learning configuration
         inter_task_affinity: Inter-task affinity configuration
         joint_sampling: Joint sampling configuration
+        logging: Ray Tune and ensemble logging configuration
         seed: Random seed for reproducibility
         ray_storage_path: Path for Ray Tune storage
         mlflow_tracking_uri: MLflow tracking URI
@@ -347,6 +351,8 @@ class ChemeleonHPOConfig:
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
+    profiling: ProfilingConfig = field(default_factory=ProfilingConfig)
 
     # Reproducibility
     seed: int = 42

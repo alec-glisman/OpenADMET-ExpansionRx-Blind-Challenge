@@ -385,7 +385,9 @@ class QuietProgressReporter(ProgressReporter):
 
     def __init__(self, metric_columns: Optional[list[str]] = None):
         """Initialize the quiet progress reporter."""
-        super().__init__(metric_columns=metric_columns or [])
+        # ProgressReporter is an abstract class without __init__ parameters
+        # Store metric_columns for potential future use
+        self._metric_columns = metric_columns or []
         self._last_update_time = time.time()
         self._update_interval = 5.0  # Only update every 5 seconds
 

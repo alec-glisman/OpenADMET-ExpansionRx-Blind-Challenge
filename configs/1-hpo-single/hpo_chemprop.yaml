@@ -151,6 +151,10 @@ transfer_learning:
   ensemble_size: 5
 logging:
   enabled: true
-  verbose: 0
+  verbose: 1
   max_total_logs_gb: 1.0
   fail_on_upload_error: true
+profiling:
+  enabled: false
+  print_summary: false
+  log_to_mlflow: false

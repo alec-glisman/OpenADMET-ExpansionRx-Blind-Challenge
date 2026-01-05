@@ -243,10 +243,20 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
                 - seed: Random seed
                     - report_every_n_epochs: Epoch cadence for Ray reports (default: 5)
     """
+    import os
     import time
+
+    # Suppress tqdm progress bars FIRST (before any data loading)
+    os.environ["TQDM_DISABLE"] = "1"
 
     # Stagger trial starts to avoid race conditions when multiple trials load datasets simultaneously
     time.sleep(1)
+
+    # Suppress noisy loggers to reduce terminal spam
+    logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.ERROR)
+    logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.ERROR)
+    logging.getLogger("chemprop").setLevel(logging.WARNING)
+    logging.getLogger("mlflow").setLevel(logging.WARNING)
 
     # Extract fixed parameters
     data_path = config.get("data_path")
@@ -265,6 +275,16 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         )
         report_every_n_epochs = 5
     seed = config.get("seed", 42)
+
+    # Extract profiling configuration from HPO config
+    profiling_config_dict = config.get("profiling", {})
+    from admet.model.chemprop.config import ProfilingConfig
+
+    profiling_config = ProfilingConfig(
+        enabled=profiling_config_dict.get("enabled", False),
+        print_summary=profiling_config_dict.get("print_summary", False),
+        log_to_mlflow=profiling_config_dict.get("log_to_mlflow", False),
+    )
 
     # Seed everything for reproducibility before any other operations
     pl.seed_everything(seed, workers=True)
@@ -316,7 +336,8 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     # Build joint sampling config from sampled parameters
     joint_sampling_config = _build_joint_sampling_config(config)
 
-    # Create model (disable MLflow tracking - HPO orchestrator handles logging)
+    # Create model with MLflow tracking disabled (Ray Tune manages MLflow)
+    # Metrics are still computed by PyTorch Lightning and reported via RayTuneReportCallback
     model = ChempropModel(
         df_train=df_train,
         df_validation=df_val,
@@ -325,9 +346,12 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         target_weights=target_weights,
         output_dir=output_dir,
         progress_bar=False,
+        verbose=False,  # Disable epoch logging in HPO trials
         hyperparams=hyperparams,
-        mlflow_tracking=False,  # Disable MLflow in individual trials
+        mlflow_tracking=False,  # Disabled: Ray Tune manages MLflow via AsyncBatchedMLflowCallback
+        mlflow_tracking_uri=None,
         joint_sampling_config=joint_sampling_config,
+        profiling_config=profiling_config,  # Use profiling config from HPO config
     )
 
     # Add Ray Tune callback with checkpoint directory for trial recovery

@@ -149,7 +149,7 @@ search_algorithm:
   n_initial_points: 100
 resources:
   num_samples: 1000
-  cpus_per_trial: 6
+  cpus_per_trial: 4
   gpus_per_trial: 0.5
   max_concurrent_trials: null
   # gpu_ids: [0] # CUDA device ordering (RTX 3080)
@@ -176,7 +176,7 @@ joint_sampling:
   num_samples: null
   seed: 42
   increment_seed_per_epoch: true
-  log_to_mlflow: true
+  log_to_mlflow: false
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 1
@@ -191,9 +191,13 @@ inter_task_affinity:
     - output
     - head
     - readout
-  log_to_mlflow: true
+  log_to_mlflow: false
 logging:
   enabled: true
-  verbose: 0
+  verbose: 1
   max_total_logs_gb: 1.0
   fail_on_upload_error: true
+profiling:
+  enabled: false
+  print_summary: false
+  log_to_mlflow: false

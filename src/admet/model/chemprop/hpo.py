@@ -51,6 +51,8 @@ os.environ.setdefault("TUNE_GLOBAL_CHECKPOINT_S", "600")
 os.environ.setdefault("TUNE_WARN_THRESHOLD_S", "30")  # Warn only if >30s (async callback is fast)
 os.environ.setdefault("TUNE_RESULT_BUFFER_LENGTH", "10")
 os.environ.setdefault("TUNE_RESULT_BUFFER_MIN_TIME_S", "10")
+# Disable tqdm progress bars globally for HPO
+os.environ["TQDM_DISABLE"] = "1"
 
 
 def _trial_dirname_creator(trial) -> str:
@@ -162,7 +164,12 @@ class ChempropHPO:
             # Initialize Ray with custom temp dir if storage path is provided
             # This helps avoid FileNotFoundError during sync when /tmp is cleaned
             # Disable dashboard to avoid MetricsHead startup failures on some systems
+            import os
+
             import ray
+
+            # Suppress Ray future warning about GPU environment variables
+            os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
 
             with self._profiler.phase(TrainingPhase.HPO_RAY_INIT):
                 if not ray.is_initialized():
@@ -219,7 +226,16 @@ class ChempropHPO:
 
             try:
                 with self._profiler.phase(TrainingPhase.HPO_TOTAL):
-                    self.results = tuner.fit()
+                    # Suppress Ray Tune's stdout messages during HPO
+                    import contextlib
+                    from io import StringIO
+
+                    if self.config.logging.verbose == 0:
+                        # Redirect stdout to suppress Ray messages
+                        with contextlib.redirect_stdout(StringIO()):
+                            self.results = tuner.fit()
+                    else:
+                        self.results = tuner.fit()
             except Exception as e:
                 logger.error("HPO failed or interrupted: %s", e)
                 # Try to restore results if possible, or just log what we have
@@ -260,11 +276,13 @@ class ChempropHPO:
 
                 # Stop profiler and print summary
                 self._profiler.stop()
-                self._profiler.print_summary()
+                # Disable profiling output for cleaner logs
+                # self._profiler.print_summary()
 
                 # Log profiling metrics to MLflow if tracking enabled
-                if self._mlflow_run_id:
-                    self._log_profiling_to_mlflow()
+                # Disabled: profiling has minimal overhead but adds clutter
+                # if self._mlflow_run_id:
+                #     self._log_profiling_to_mlflow()
 
         if self.results is None:
             raise RuntimeError("HPO failed to produce any results.")
@@ -423,7 +441,14 @@ class ChempropHPO:
             logger.warning("Failed to log profiling metrics to MLflow: %s", e)
 
     def _log_results(self) -> None:
-        """Log HPO results to MLflow."""
+        """Log HPO results to MLflow including detailed trial metrics.
+
+        Logs:
+        - Best trial configuration and metrics
+        - Best model checkpoint
+        - All trial metrics to MLflow as nested artifacts/parameters
+        - HPO results dataframe and top-k configurations
+        """
         if self.results is None:
             return
 
@@ -466,23 +491,46 @@ class ChempropHPO:
                 except Exception as e:
                     logger.warning("Failed to log best model artifact: %s", e)
 
-        # Save all results as artifact
+        # Log all trial metrics as detailed information
+        logger.info("Logging detailed metrics from all %d trials to MLflow", len(self.results))
+        results_df = self.results.get_dataframe()
+
+        # Extract and log key metrics for each trial
+        metric_cols = [col for col in results_df.columns if col.startswith(("val_", "train_"))]
+
+        # Log summary statistics for each metric across all trials
+        for metric_col in metric_cols:
+            if metric_col in results_df.columns and results_df[metric_col].notna().any():
+                try:
+                    values = results_df[metric_col].dropna()
+                    if len(values) > 0:
+                        mlflow.log_metrics(
+                            {
+                                f"trials.{metric_col}.mean": float(values.mean()),
+                                f"trials.{metric_col}.std": float(values.std()),
+                                f"trials.{metric_col}.min": float(values.min()),
+                                f"trials.{metric_col}.max": float(values.max()),
+                            }
+                        )
+                except Exception as e:
+                    logger.debug("Could not compute stats for metric %s: %s", metric_col, e)
 
         # Save all results as artifact
-        results_df = self.results.get_dataframe()
         output_dir = Path(self.config.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         results_path = output_dir / "hpo_results.csv"
         results_df.to_csv(results_path, index=False)
         mlflow.log_artifact(str(results_path))
+        logger.info("Logged HPO results dataframe with %d trials to MLflow", len(results_df))
 
         # Save top-k configs as JSON
         top_k = self.get_top_k_configs()
         top_k_path = output_dir / "top_k_configs.json"
-        with open(top_k_path, "w") as f:
+        with open(top_k_path, "w", encoding="utf-8") as f:
             json.dump(top_k, f, indent=2)
         mlflow.log_artifact(str(top_k_path))
+        logger.info("Logged top-%d configurations to MLflow", len(top_k))
 
         # End MLflow run
         mlflow.end_run()

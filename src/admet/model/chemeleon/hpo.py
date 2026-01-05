@@ -58,6 +58,8 @@ os.environ.setdefault("TUNE_GLOBAL_CHECKPOINT_S", "600")
 os.environ.setdefault("TUNE_WARN_THRESHOLD_S", "30")
 os.environ.setdefault("TUNE_RESULT_BUFFER_LENGTH", "10")
 os.environ.setdefault("TUNE_RESULT_BUFFER_MIN_TIME_S", "10")
+# Disable tqdm progress bars globally for HPO
+os.environ["TQDM_DISABLE"] = "1"
 
 logger = logging.getLogger("admet.model.chemeleon.hpo")
 
@@ -282,8 +284,17 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
 
     from admet.model.chemeleon import ChemeleonModel
 
+    # Suppress tqdm progress bars FIRST (before any data loading)
+    os.environ["TQDM_DISABLE"] = "1"
+
     # Stagger trial starts to avoid race conditions
     time.sleep(1)
+
+    # Suppress noisy loggers to reduce terminal spam
+    logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.ERROR)
+    logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.ERROR)
+    logging.getLogger("chemprop").setLevel(logging.WARNING)
+    logging.getLogger("mlflow").setLevel(logging.WARNING)
 
     # Extract fixed parameters
     data_path = config.pop("data_path")
@@ -296,6 +307,16 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     checkpoint_path = config.pop("checkpoint_path", "auto")
     freeze_encoder = config.pop("freeze_encoder", True)
     report_every_n_epochs = config.pop("report_every_n_epochs", 5)
+
+    # Extract profiling configuration from HPO config
+    profiling_config_dict = config.pop("profiling", {})
+    from admet.model.chemprop.config import ProfilingConfig
+
+    profiling_config = ProfilingConfig(
+        enabled=profiling_config_dict.get("enabled", False),
+        print_summary=profiling_config_dict.get("print_summary", False),
+        log_to_mlflow=profiling_config_dict.get("log_to_mlflow", False),
+    )
 
     # Extract target weights if provided
     target_weights = config.pop("target_weights", None)
@@ -374,8 +395,12 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
         }
     )
 
-    # Create model
-    model = ChemeleonModel(model_config)
+    # Create model with MLflow tracking disabled (Ray Tune manages MLflow)
+    # Metrics are still computed by PyTorch Lightning and reported via ChemeleonRayTuneCallback
+    model = ChemeleonModel(
+        model_config,
+        profiling_config=profiling_config,  # Use profiling config from HPO config
+    )
 
     # Extract data
     train_smiles = df_train[smiles_column].tolist()
@@ -479,7 +504,12 @@ class ChemeleonHPO:
             ray_temp_dir = str(Path(storage_path) / "_ray_tmp")
             Path(ray_temp_dir).mkdir(parents=True, exist_ok=True)
 
+            import os
+
             import ray
+
+            # Suppress Ray future warning about GPU environment variables
+            os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
 
             if not ray.is_initialized():
                 ray.init(_temp_dir=ray_temp_dir, include_dashboard=False)
@@ -746,7 +776,14 @@ class ChemeleonHPO:
         logger.info("Logged HPO config artifact: %s", config_path)
 
     def _log_results(self) -> None:
-        """Log HPO results to MLflow."""
+        """Log HPO results to MLflow including detailed trial metrics.
+
+        Logs:
+        - Best trial configuration and metrics
+        - Best model checkpoint
+        - Summary statistics across all trials
+        - HPO results dataframe and top-k configurations
+        """
         if self.results is None:
             return
 
@@ -793,6 +830,33 @@ class ChemeleonHPO:
 
         except Exception as e:
             logger.warning("Could not log best result: %s", e)
+
+        # Log detailed metrics from all trials
+        try:
+            results_df = self.results.get_dataframe()
+
+            # Extract and log summary statistics for each metric across all trials
+            metric_cols = [col for col in results_df.columns if col.startswith(("val_", "train_"))]
+
+            for metric_col in metric_cols:
+                if metric_col in results_df.columns:
+                    values = results_df[metric_col].dropna()
+                    if len(values) > 0:
+                        try:
+                            mlflow.log_metrics(
+                                {
+                                    f"trials.{metric_col}.mean": float(values.mean()),
+                                    f"trials.{metric_col}.std": float(values.std()),
+                                    f"trials.{metric_col}.min": float(values.min()),
+                                    f"trials.{metric_col}.max": float(values.max()),
+                                }
+                            )
+                        except Exception as e:
+                            logger.debug("Could not compute stats for %s: %s", metric_col, e)
+
+            logger.info("Logged detailed metrics from %d trials to MLflow", len(results_df))
+        except Exception as e:
+            logger.warning("Could not log detailed trial metrics: %s", e)
 
         # Save all results as CSV artifact
         try:

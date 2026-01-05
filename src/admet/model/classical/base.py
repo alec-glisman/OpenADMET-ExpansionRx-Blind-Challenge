@@ -16,6 +16,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from admet.features.fingerprints import FingerprintGenerator
 from admet.model.base import BaseModel
+from admet.model.chemprop.config import ProfilingConfig
 from admet.model.config import FingerprintConfig
 from admet.model.mlflow_mixin import MLflowMixin
 from admet.util.profiling import TrainingPhase, TrainingProfiler
@@ -47,15 +48,19 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
 
     model_type: str = "classical"
 
-    def __init__(self, config: DictConfig) -> None:
+    def __init__(self, config: DictConfig, profiling_config: ProfilingConfig | None = None) -> None:
         """Initialize classical model base.
 
         Parameters
         ----------
         config : DictConfig
             Configuration dictionary with model, fingerprint, and MLflow settings.
+        profiling_config : ProfilingConfig | None
+            Optional profiling configuration to override defaults.
+            If None, profiling is enabled by default.
         """
         self.config = config
+        self._profiling_config = profiling_config
         self._is_fitted = False
         self._model: MultiOutputRegressor | None = None
         self._target_cols: list[str] = []
@@ -65,10 +70,17 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         self.fingerprint_generator = FingerprintGenerator(self._fingerprint_config)
 
         # Initialize profiler for tracking phase-level performance
-        self._profiler = TrainingProfiler(
-            name=self.model_type,
-            enabled=True,
-        )
+        if self._profiling_config is not None:
+            self._profiler = TrainingProfiler(
+                name=self.model_type,
+                enabled=self._profiling_config.enabled,
+            )
+        else:
+            # Default: profiling enabled
+            self._profiler = TrainingProfiler(
+                name=self.model_type,
+                enabled=True,
+            )
 
         mlflow_config = config.get("mlflow", {})
         if mlflow_config.get("enabled", False):
@@ -238,10 +250,12 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         finally:
             # Stop profiler and print summary (always, even on interrupt)
             self._profiler.stop()
-            self._profiler.print_summary()
+            if self._profiling_config is None or self._profiling_config.print_summary:
+                self._profiler.print_summary()
 
             # Log profiling metrics to MLflow
-            if hasattr(self, "_mlflow_client") and self._mlflow_client is not None:
+            log_to_mlflow = self._profiling_config is None or self._profiling_config.log_to_mlflow
+            if log_to_mlflow and hasattr(self, "_mlflow_client") and self._mlflow_client is not None:
                 if hasattr(self, "_mlflow_run_id") and self._mlflow_run_id is not None:
                     self._profiler.log_to_mlflow(
                         prefix="profiling",

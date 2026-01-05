@@ -70,6 +70,7 @@ from admet.model.chemprop.config import (
     ModelConfig,
     OptimizationConfig,
     PostTrainingConfig,
+    ProfilingConfig,
     TaskAffinityConfig,
 )
 from admet.model.chemprop.curriculum import (
@@ -650,6 +651,7 @@ class ChempropModel:
         target_weights: List[float] = [],
         output_dir: Path | None = None,
         progress_bar: bool = False,
+        verbose: bool = True,
         hyperparams: ChempropHyperparams | None = None,
         mlflow_tracking: bool = True,
         mlflow_tracking_uri: Optional[str] = None,
@@ -663,6 +665,7 @@ class ChempropModel:
         joint_sampling_config: JointSamplingConfig | None = None,
         task_affinity_config: TaskAffinityConfig | None = None,
         inter_task_affinity_config: InterTaskAffinityConfig | None = None,
+        profiling_config: ProfilingConfig | None = None,
         data_dir: Optional[str] = None,
     ) -> None:
         """
@@ -686,6 +689,9 @@ class ChempropModel:
             Directory for saving checkpoints.
         progress_bar : bool, default=False
             Whether to display progress bar during training.
+        verbose : bool, default=True
+            Whether to print epoch progress messages when progress_bar is False.
+            Set to False during HPO to reduce log noise.
         hyperparams : ChempropHyperparams or None, optional
             Model hyperparameters.
         mlflow_tracking : bool, default=True
@@ -719,6 +725,7 @@ class ChempropModel:
         self.target_weights: List[float] = target_weights
         self.output_dir: Path | None = output_dir
         self.progress_bar: bool = progress_bar
+        self.verbose: bool = verbose
         self.hyperparams: ChempropHyperparams = hyperparams or ChempropHyperparams()
         self.data_dir: Optional[str] = data_dir
 
@@ -838,12 +845,15 @@ class ChempropModel:
         # Values: prediction DataFrames
         self._prediction_cache: Dict[str, pd.DataFrame] = {}
 
+        # Profiling configuration
+        self.profiling_config: ProfilingConfig = profiling_config or ProfilingConfig()
+
         # Initialize profiler for tracking phase-level performance
         self._profiler = TrainingProfiler(
             name="chemprop",
             mlflow_client=self._mlflow_client,
             mlflow_run_id=self.mlflow_run_id,
-            enabled=True,
+            enabled=self.profiling_config.enabled,
         )
 
         with self._profiler.phase(TrainingPhase.DATALOADER_CREATION):
@@ -1029,6 +1039,7 @@ class ChempropModel:
             target_weights=list(config.data.target_weights) if config.data.target_weights else [],
             output_dir=output_dir,
             progress_bar=config.optimization.progress_bar,
+            verbose=getattr(config.optimization, "verbose", True),
             hyperparams=hyperparams,
             mlflow_tracking=config.mlflow.tracking,
             mlflow_tracking_uri=config.mlflow.tracking_uri,
@@ -1041,6 +1052,7 @@ class ChempropModel:
             joint_sampling_config=config.joint_sampling,
             task_affinity_config=config.task_affinity,
             inter_task_affinity_config=config.inter_task_affinity,
+            profiling_config=getattr(config, "profiling", None),
             data_dir=config.data.data_dir,
         )
 
@@ -1670,7 +1682,7 @@ class ChempropModel:
                     msg = f"[Epoch {epoch}] Validation complete (no val_loss)"
                     print(msg, file=sys.stderr, flush=True)
 
-        if not self.progress_bar:
+        if not self.progress_bar and self.verbose:
             callbacks_list.append(EpochLoggingCallback())
             logger.info("Epoch logging callback added (progress_bar disabled)")
 
@@ -1858,10 +1870,17 @@ class ChempropModel:
 
             # Stop profiler and log summary
             self._profiler.stop()
-            self._profiler.print_summary()
+            if self.profiling_config.enabled and self.profiling_config.print_summary:
+                self._profiler.print_summary()
 
             # Log profiling metrics to MLflow
-            if self.mlflow_tracking and self._mlflow_client is not None and self.mlflow_run_id is not None:
+            if (
+                self.profiling_config.enabled
+                and self.profiling_config.log_to_mlflow
+                and self.mlflow_tracking
+                and self._mlflow_client is not None
+                and self.mlflow_run_id is not None
+            ):
                 self._profiler.log_to_mlflow(prefix="profiling")
 
         return completed

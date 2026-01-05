@@ -852,6 +852,7 @@ class UnifiedModelConfig:
         ensemble: { ... }  # Ensemble training mode
         joint_sampling: { ... }  # Training strategies
         ray: { ... }
+        logging: { ... }  # Ray logging configuration
 
     Parameters:
         model: Model type and parameters section.
@@ -863,6 +864,7 @@ class UnifiedModelConfig:
         task_affinity: Task affinity grouping configuration.
         inter_task_affinity: Inter-task affinity configuration.
         ray: Ray parallelization configuration.
+        logging: Ray Tune and ensemble logging configuration.
     """
 
     model: ModelSection = field(default_factory=ModelSection)
@@ -874,6 +876,7 @@ class UnifiedModelConfig:
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     ray: RayConfig = field(default_factory=RayConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
 
 
 # ============================================================================

@@ -118,8 +118,12 @@ def distribution(array: np.ndarray) -> DistributionStats:
 
     # ddof=1 requires at least 2 samples; skew/kurtosis require at least 3
     std_val = float(np.std(array, ddof=1)) if count > 1 else 0.0
-    skew_val = float(scipy_stats.skew(array)) if count > 2 else 0.0
-    kurtosis_val = float(scipy_stats.kurtosis(array)) if count > 2 else 0.0
+
+    # Skew/kurtosis are undefined for constant arrays (zero variance)
+    # Check variance to avoid RuntimeWarning from catastrophic cancellation
+    has_variance = std_val > np.finfo(np.float64).eps * np.abs(np.mean(array))
+    skew_val = float(scipy_stats.skew(array)) if count > 2 and has_variance else 0.0
+    kurtosis_val = float(scipy_stats.kurtosis(array)) if count > 2 and has_variance else 0.0
 
     return {
         "min": float(np.min(array)),
@@ -533,12 +537,19 @@ def correlation(
     rmse = root_mean_squared_error(y_true_np, y_pred_np)
     r2 = r2_score(y_true_np, y_pred_np)
 
-    pearson_r_val = pearsonr(y_true_np, y_pred_np).statistic if y_true_np.size >= 2 else float("nan")
+    # Correlation coefficients are undefined for constant arrays
+    y_true_std = np.std(y_true_np)
+    y_pred_std = np.std(y_pred_np)
+    can_compute_correlation = (
+        y_true_np.size >= 2 and y_true_std > np.finfo(np.float64).eps and y_pred_std > np.finfo(np.float64).eps
+    )
+
+    pearson_r_val = pearsonr(y_true_np, y_pred_np).statistic if can_compute_correlation else float("nan")
 
     # Only compute expensive rank correlations if requested
-    if compute_rank_correlations:
-        spearman_rho = spearmanr(y_true_np, y_pred_np).statistic if y_true_np.size >= 2 else float("nan")
-        kendall_tau = kendalltau(y_true_np, y_pred_np).statistic if y_true_np.size >= 2 else float("nan")
+    if compute_rank_correlations and can_compute_correlation:
+        spearman_rho = spearmanr(y_true_np, y_pred_np).statistic
+        kendall_tau = kendalltau(y_true_np, y_pred_np).statistic
     else:
         spearman_rho = float("nan")
         kendall_tau = float("nan")

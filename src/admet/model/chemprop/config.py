@@ -32,6 +32,7 @@ from admet.model.config import (
     InterTaskAffinityConfig,
     JointSamplingConfig,
     RayConfig,
+    RayLoggingConfig,
     TaskAffinityConfig,
     TaskOversamplingConfig,
 )
@@ -173,6 +174,9 @@ class OptimizationConfig:
         Random seed for reproducibility.
     progress_bar : bool, default=False
         Whether to show training progress bar.
+    verbose : bool, default=True
+        Whether to print epoch progress messages when progress_bar is False.
+        Set to False during HPO to reduce log noise.
     weight_decay : float, default=0.0
         L2 regularization weight decay coefficient. Applied via AdamW optimizer.
         Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.
@@ -194,6 +198,7 @@ class OptimizationConfig:
     num_workers: int = 0
     seed: int = 42
     progress_bar: bool = False
+    verbose: bool = True
     weight_decay: float = 0.0
     accumulate_grad_batches: int = 1
 
@@ -533,6 +538,8 @@ class EnsembleConfig:
         schedule for consistent quality-aware sampling.
     ray : RayConfig
         Ray parallelization configuration for distributed ensemble training.
+    logging : RayLoggingConfig
+        Ray logging and output management configuration.
 
     Examples
     --------
@@ -558,3 +565,4 @@ class EnsembleConfig:
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     ray: RayConfig = field(default_factory=RayConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
