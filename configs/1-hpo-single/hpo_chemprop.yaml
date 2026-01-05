@@ -144,7 +144,7 @@ resources:
   cpus_per_trial: 4
   gpus_per_trial: 0.33
   max_concurrent_trials: null
-  gpu_ids: [0] # CUDA device ordering (RTX 3080)
+  # gpu_ids: [0] # CUDA device ordering (RTX 3080)
 transfer_learning:
   top_k: 100
   full_epochs: 60
