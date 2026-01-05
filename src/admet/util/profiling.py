@@ -221,7 +221,8 @@ class PhaseTimer:
         if self.log_on_exit:
             logger.debug(
                 "Phase '%s' completed in %s",
-                self.phase(self.duration),
+                self.phase,
+                format_duration(self.duration),
             )
 
 
@@ -264,11 +265,22 @@ class TrainingProfiler:
         self.enabled = enabled
 
         self._timings: List[TimingRecord] = []
-        self._phase_stats: Dict[str, PhaseStats] = defaultdict(lambda: PhaseStats(phase=""))
+        self._phase_stats: Dict[str, PhaseStats] = {}
         self._active_phases: List[str] = []
         self._lock = threading.Lock()
         self._start_time: Optional[float] = None
         self._end_time: Optional[float] = None
+
+    def __getstate__(self):
+        """Return state for pickling, excluding unpicklable objects."""
+        state = self.__dict__.copy()
+        del state["_lock"]
+        return state
+
+    def __setstate__(self, state):
+        """Restore state after unpickling."""
+        self.__dict__.update(state)
+        self._lock = threading.Lock()
 
     def start(self) -> "TrainingProfiler":
         """Mark the start of the profiled workflow."""
@@ -476,21 +488,28 @@ class TrainingProfiler:
             return
 
         try:
+            import mlflow
+
+            # Use batch logging for better performance
+            metrics_dict = {}
+
             # Log total duration
-            client.log_metric(run_id, f"{prefix}.total_seconds", self.total_duration)
+            metrics_dict[f"{prefix}.total_seconds"] = float(self.total_duration)
 
             # Log per-phase metrics
             for phase, stats in self._phase_stats.items():
                 safe_phase = phase.replace(".", "_").replace("-", "_")
-                client.log_metric(run_id, f"{prefix}.{safe_phase}.total_seconds", stats.total_seconds)
-                client.log_metric(run_id, f"{prefix}.{safe_phase}.mean_seconds", stats.mean_seconds)
-                client.log_metric(run_id, f"{prefix}.{safe_phase}.count", stats.count)
+                metrics_dict[f"{prefix}.{safe_phase}.total_seconds"] = float(stats.total_seconds)
+                metrics_dict[f"{prefix}.{safe_phase}.mean_seconds"] = float(stats.mean_seconds)
+                metrics_dict[f"{prefix}.{safe_phase}.count"] = float(stats.count)
 
                 if self.total_duration > 0:
                     pct = stats.total_seconds / self.total_duration * 100
-                    client.log_metric(run_id, f"{prefix}.{safe_phase}.percentage", pct)
+                    metrics_dict[f"{prefix}.{safe_phase}.percentage"] = float(pct)
 
-            logger.debug("Logged profiling metrics to MLflow run %s", run_id)
+            # Batch log all metrics
+            mlflow.log_metrics(metrics_dict)
+            logger.debug("Logged %d profiling metrics to MLflow run %s", len(metrics_dict), run_id)
 
         except Exception as e:
             logger.warning("Failed to log profiling metrics to MLflow: %s", e)
@@ -778,3 +797,523 @@ def timed_phase(phase: str | TrainingPhase, metadata: Optional[Dict[str, Any]] =
     profiler = get_global_profiler()
     with profiler.phase(phase, metadata) as timer:
         yield timer
+
+
+# ============================================================================
+# Function-Level Profiling (cProfile-based)
+# ============================================================================
+
+
+@dataclass
+class FunctionStats:
+    """Statistics for a single function from cProfile."""
+
+    name: str
+    filename: str
+    lineno: int
+    ncalls: int
+    tottime: float  # Time in function excluding subcalls
+    cumtime: float  # Time in function including subcalls
+    percall_tottime: float
+    percall_cumtime: float
+
+    @property
+    def module(self) -> str:
+        """Extract module name from filename."""
+        if "admet" in self.filename:
+            parts = self.filename.split("admet")
+            if len(parts) > 1:
+                return "admet" + parts[-1].replace("/", ".").replace(".py", "")
+        return self.filename
+
+
+@dataclass
+class ModelProfilingResult:
+    """Complete profiling result for a single model training."""
+
+    model_key: str
+    total_seconds: float
+    phase_stats: Dict[str, Dict[str, float]]  # phase -> {total, mean, count}
+    function_stats: List[Dict[str, Any]]  # Top functions by cumtime
+    start_time: float
+    end_time: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for Ray serialization."""
+        return {
+            "model_key": self.model_key,
+            "total_seconds": self.total_seconds,
+            "phase_stats": self.phase_stats,
+            "function_stats": self.function_stats,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ModelProfilingResult":
+        """Create from dictionary."""
+        return cls(
+            model_key=data["model_key"],
+            total_seconds=data["total_seconds"],
+            phase_stats=data["phase_stats"],
+            function_stats=data["function_stats"],
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+        )
+
+
+class FunctionProfiler:
+    """cProfile-based profiler for capturing function-level timing.
+
+    This profiler captures every function call within the profiled scope,
+    allowing identification of bottlenecks at the function level.
+
+    Parameters
+    ----------
+    filter_module : str, default="admet"
+        Only include functions from modules containing this string.
+    top_n : int, default=50
+        Number of top functions to keep.
+
+    Examples
+    --------
+    >>> fp = FunctionProfiler()
+    >>> with fp:
+    ...     model.fit()
+    >>> fp.print_stats()
+    """
+
+    def __init__(self, filter_module: str = "admet", top_n: int = 50) -> None:
+        import cProfile
+        import pstats
+
+        self.filter_module = filter_module
+        self.top_n = top_n
+        self._profiler: Optional[cProfile.Profile] = None
+        self._stats: Optional[pstats.Stats] = None
+        self._function_stats: List[FunctionStats] = []
+
+    def __enter__(self) -> "FunctionProfiler":
+        """Start profiling."""
+        import cProfile
+
+        self._profiler = cProfile.Profile()
+        self._profiler.enable()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Stop profiling and process stats."""
+        if self._profiler is not None:
+            self._profiler.disable()
+            self._process_stats()
+
+    def _process_stats(self) -> None:
+        """Process cProfile stats into FunctionStats objects."""
+        import io
+        import pstats
+
+        if self._profiler is None:
+            return
+
+        # Create stats object
+        stream = io.StringIO()
+        self._stats = pstats.Stats(self._profiler, stream=stream)
+        self._stats.sort_stats("cumulative")
+
+        # Extract function stats
+        self._function_stats = []
+        for key, value in self._stats.stats.items():
+            filename, lineno, funcname = key
+            ncalls, totcalls, tottime, cumtime, callers = value
+
+            # Filter to our module
+            if self.filter_module and self.filter_module not in filename:
+                continue
+
+            stat = FunctionStats(
+                name=funcname,
+                filename=filename,
+                lineno=lineno,
+                ncalls=ncalls,
+                tottime=tottime,
+                cumtime=cumtime,
+                percall_tottime=tottime / ncalls if ncalls > 0 else 0,
+                percall_cumtime=cumtime / ncalls if ncalls > 0 else 0,
+            )
+            self._function_stats.append(stat)
+
+        # Sort by cumulative time and keep top N
+        self._function_stats.sort(key=lambda x: x.cumtime, reverse=True)
+        self._function_stats = self._function_stats[: self.top_n]
+
+    def get_stats_list(self) -> List[Dict[str, Any]]:
+        """Get function stats as list of dicts for serialization."""
+        return [
+            {
+                "name": s.name,
+                "filename": s.filename,
+                "lineno": s.lineno,
+                "ncalls": s.ncalls,
+                "tottime": s.tottime,
+                "cumtime": s.cumtime,
+                "module": s.module,
+            }
+            for s in self._function_stats
+        ]
+
+    def print_stats(self, top_n: Optional[int] = None) -> None:
+        """Print function-level statistics."""
+        n = top_n or self.top_n
+        stats = self._function_stats[:n]
+
+        if not stats:
+            print("No function stats recorded")
+            return
+
+        print(f"\n{'=' * 100}")
+        print(" FUNCTION-LEVEL PROFILING")
+        print(f"{'=' * 110}")
+        print(f"{'Function':<50} {'Calls':>8} {'Tot(s)':>10} {'Cum(s)':>10} {'Per Call':>10}")
+        print(f"{'-' * 110}")
+
+        for s in stats:
+            func_display = f"{s.module}.{s.name}"[:49]
+            print(
+                f"{func_display:<50} {s.ncalls:>8} {s.tottime:>10.4f} " f"{s.cumtime:>10.4f} {s.percall_cumtime:>10.6f}"
+            )
+
+        print(f"{'=' * 100}\n")
+
+
+class EnsembleProfiler(TrainingProfiler):
+    """Extended profiler for ensemble training with per-model aggregation.
+
+    Collects and aggregates profiling data from individual model training
+    runs (potentially from Ray workers) to provide detailed breakdowns.
+
+    Parameters
+    ----------
+    name : str, default="ensemble"
+        Name identifier.
+    enable_function_profiling : bool, default=False
+        Whether to enable cProfile-based function-level profiling.
+        Note: This adds overhead and should only be used for debugging.
+    """
+
+    def __init__(
+        self,
+        name: str = "ensemble",
+        mlflow_client: Optional["MlflowClient"] = None,
+        mlflow_run_id: Optional[str] = None,
+        enabled: bool = True,
+        enable_function_profiling: bool = False,
+    ) -> None:
+        super().__init__(name, mlflow_client, mlflow_run_id, enabled)
+        self.enable_function_profiling = enable_function_profiling
+        self._model_results: Dict[str, ModelProfilingResult] = {}
+        self._aggregated_functions: Dict[str, Dict[str, float]] = {}
+
+    def register_model_result(self, result: ModelProfilingResult) -> None:
+        """Register profiling result from a model training run.
+
+        Parameters
+        ----------
+        result : ModelProfilingResult
+            Profiling data from a single model.
+        """
+        self._model_results[result.model_key] = result
+
+        # Aggregate function stats across models
+        for func_stat in result.function_stats:
+            func_name = f"{func_stat.get('module', '')}.{func_stat['name']}"
+            if func_name not in self._aggregated_functions:
+                self._aggregated_functions[func_name] = {
+                    "total_cumtime": 0.0,
+                    "total_calls": 0,
+                    "models": 0,
+                }
+            self._aggregated_functions[func_name]["total_cumtime"] += func_stat["cumtime"]
+            self._aggregated_functions[func_name]["total_calls"] += func_stat["ncalls"]
+            self._aggregated_functions[func_name]["models"] += 1
+
+    def register_model_dict(self, data: Dict[str, Any]) -> None:
+        """Register model result from dictionary (from Ray worker)."""
+        result = ModelProfilingResult.from_dict(data)
+        self.register_model_result(result)
+
+    def print_ensemble_summary(self) -> None:
+        """Print detailed ensemble profiling summary with bottleneck identification."""
+        # First print the standard summary
+        self.print_summary()
+
+        if not self._model_results:
+            return
+
+        # Per-model breakdown
+        print(f"\n{'=' * 120}")
+        print(" PER-MODEL TRAINING BREAKDOWN")
+        print(f"{'=' * 120}")
+
+        # Sort by training time
+        sorted_models = sorted(self._model_results.items(), key=lambda x: x[1].total_seconds, reverse=True)
+
+        print(
+            f"{'Model':<25} {'Total':>12} {'Training':>12} {'Predict':>12} {'Metrics':>12} {'Plots':>12} {'Artifacts':>12}"
+        )
+        print(f"{'-' * 120}")
+
+        # Track totals for bottleneck analysis
+        total_training = 0.0
+        total_predict = 0.0
+        total_metrics = 0.0
+        total_plots = 0.0
+        total_artifacts = 0.0
+
+        for model_key, result in sorted_models:
+            phases = result.phase_stats
+            training = phases.get("training_total", {}).get("total", 0)
+            predict = phases.get("ensemble_prediction", {}).get("total", 0)
+            metrics = phases.get("metrics_computation", {}).get("total", 0)
+            plots = phases.get("plot_generation", {}).get("total", 0)
+            artifacts = phases.get("artifact_logging", {}).get("total", 0)
+
+            total_training += training
+            total_predict += predict
+            total_metrics += metrics
+            total_plots += plots
+            total_artifacts += artifacts
+
+            print(
+                f"{model_key:<25} {format_duration(result.total_seconds):>12} "
+                f"{format_duration(training):>12} {format_duration(predict):>12} "
+                f"{format_duration(metrics):>12} {format_duration(plots):>12} "
+                f"{format_duration(artifacts):>12}"
+            )
+
+        # Summary statistics
+        times = [r.total_seconds for r in self._model_results.values()]
+        n_models = len(times)
+        print(f"{'-' * 120}")
+        print(f"{'Min':<25} {format_duration(min(times)):>12}")
+        print(f"{'Max':<25} {format_duration(max(times)):>12}")
+        print(f"{'Mean':<25} {format_duration(sum(times) / len(times)):>12}")
+        print(f"{'Sum (serial)':<25} {format_duration(sum(times)):>12}")
+
+        # Parallelization efficiency
+        ensemble_time = self._phase_stats.get(TrainingPhase.ENSEMBLE_MODEL_TRAIN.value)
+        if ensemble_time and ensemble_time.total_seconds > 0:
+            speedup = sum(times) / ensemble_time.total_seconds
+            efficiency = speedup / n_models * 100  # Percentage of ideal speedup
+            print(f"{'Parallel speedup':<25} {speedup:>11.2f}x ({efficiency:.1f}% efficiency)")
+
+        print(f"{'=' * 120}")
+
+        # Bottleneck analysis
+        print(f"\n{'=' * 120}")
+        print(" BOTTLENECK ANALYSIS (Aggregated across all models)")
+        print(f"{'=' * 120}")
+
+        total_time = sum(times)
+        bottlenecks = [
+            ("Training (PyTorch)", total_training),
+            ("Prediction", total_predict),
+            ("Metrics Computation", total_metrics),
+            ("Plot Generation", total_plots),
+            ("Artifact Logging", total_artifacts),
+        ]
+        bottlenecks.sort(key=lambda x: x[1], reverse=True)
+
+        print(f"{'Phase':<30} {'Total Time':>15} {'Per Model':>15} {'% of Total':>12} {'Optimization Potential':>30}")
+        print(f"{'-' * 120}")
+
+        for phase_name, phase_time in bottlenecks:
+            if phase_time == 0:
+                continue
+            pct = (phase_time / total_time * 100) if total_time > 0 else 0
+            per_model = phase_time / n_models if n_models > 0 else 0
+
+            # Suggest optimization strategies
+            if "Plot" in phase_name and pct > 5:
+                suggestion = "Set post_training.generate_plots=false"
+            elif "Artifact" in phase_name and pct > 5:
+                suggestion = "Enable async_artifact_upload"
+            elif "Prediction" in phase_name and pct > 5:
+                suggestion = "Ensure cache_predictions=true"
+            elif "Metrics" in phase_name and pct > 5:
+                suggestion = "Disable compute_train_metrics"
+            else:
+                suggestion = "-"
+
+            print(
+                f"{phase_name:<30} {format_duration(phase_time):>15} {format_duration(per_model):>15} "
+                f"{pct:>11.1f}% {suggestion:>30}"
+            )
+
+        print(f"{'=' * 120}")
+
+        # Aggregated function hotspots (if available)
+        if self._aggregated_functions:
+            self._print_aggregated_functions()
+
+    def log_ensemble_aggregates_to_mlflow(
+        self,
+        client: "MlflowClient",
+        run_id: str,
+        prefix: str = "profiling.ensemble",
+    ) -> None:
+        """Log aggregated ensemble profiling statistics to MLflow.
+
+        Parameters
+        ----------
+        client : MlflowClient
+            MLflow client for logging.
+        run_id : str
+            Parent run ID to log to.
+        prefix : str, default="profiling.ensemble"
+            Metric name prefix.
+        """
+        if not self._model_results:
+            logger.debug("No model results to aggregate for MLflow logging")
+            return
+
+        try:
+            import mlflow
+
+            metrics_dict = {}
+
+            # Aggregate per-model statistics
+            times = [r.total_seconds for r in self._model_results.values()]
+            n_models = len(times)
+
+            metrics_dict[f"{prefix}.n_models"] = float(n_models)
+            metrics_dict[f"{prefix}.min_seconds"] = float(min(times))
+            metrics_dict[f"{prefix}.max_seconds"] = float(max(times))
+            metrics_dict[f"{prefix}.mean_seconds"] = float(sum(times) / n_models)
+            metrics_dict[f"{prefix}.sum_seconds"] = float(sum(times))
+            metrics_dict[f"{prefix}.std_seconds"] = float(np.std(times))
+
+            # Parallelization efficiency
+            ensemble_time = self._phase_stats.get(TrainingPhase.ENSEMBLE_MODEL_TRAIN.value)
+            if ensemble_time and ensemble_time.total_seconds > 0:
+                speedup = sum(times) / ensemble_time.total_seconds
+                efficiency = speedup / n_models * 100
+                metrics_dict[f"{prefix}.parallel_speedup"] = float(speedup)
+                metrics_dict[f"{prefix}.parallel_efficiency_pct"] = float(efficiency)
+
+            # Aggregate phase statistics across all models
+            total_training = 0.0
+            total_predict = 0.0
+            total_metrics = 0.0
+            total_plots = 0.0
+            total_artifacts = 0.0
+
+            for result in self._model_results.values():
+                phases = result.phase_stats
+                total_training += phases.get("training_total", {}).get("total", 0)
+                total_predict += phases.get("ensemble_prediction", {}).get("total", 0)
+                total_metrics += phases.get("metrics_computation", {}).get("total", 0)
+                total_plots += phases.get("plot_generation", {}).get("total", 0)
+                total_artifacts += phases.get("artifact_logging", {}).get("total", 0)
+
+            total_time = sum(times)
+
+            # Log aggregated phase times and percentages
+            metrics_dict[f"{prefix}.training_total_seconds"] = float(total_training)
+            metrics_dict[f"{prefix}.training_pct"] = float((total_training / total_time * 100) if total_time > 0 else 0)
+
+            metrics_dict[f"{prefix}.prediction_total_seconds"] = float(total_predict)
+            metrics_dict[f"{prefix}.prediction_pct"] = float(
+                (total_predict / total_time * 100) if total_time > 0 else 0
+            )
+
+            metrics_dict[f"{prefix}.metrics_total_seconds"] = float(total_metrics)
+            metrics_dict[f"{prefix}.metrics_pct"] = float((total_metrics / total_time * 100) if total_time > 0 else 0)
+
+            metrics_dict[f"{prefix}.plots_total_seconds"] = float(total_plots)
+            metrics_dict[f"{prefix}.plots_pct"] = float((total_plots / total_time * 100) if total_time > 0 else 0)
+
+            metrics_dict[f"{prefix}.artifacts_total_seconds"] = float(total_artifacts)
+            metrics_dict[f"{prefix}.artifacts_pct"] = float(
+                (total_artifacts / total_time * 100) if total_time > 0 else 0
+            )
+
+            # Per-model averages
+            if n_models > 0:
+                metrics_dict[f"{prefix}.training_per_model_seconds"] = float(total_training / n_models)
+                metrics_dict[f"{prefix}.prediction_per_model_seconds"] = float(total_predict / n_models)
+                metrics_dict[f"{prefix}.metrics_per_model_seconds"] = float(total_metrics / n_models)
+                metrics_dict[f"{prefix}.plots_per_model_seconds"] = float(total_plots / n_models)
+                metrics_dict[f"{prefix}.artifacts_per_model_seconds"] = float(total_artifacts / n_models)
+
+            # Batch log all metrics
+            mlflow.log_metrics(metrics_dict)
+            logger.info("Logged %d aggregated ensemble profiling metrics to MLflow", len(metrics_dict))
+
+        except Exception as e:
+            logger.warning("Failed to log ensemble aggregates to MLflow: %s", e)
+
+    def _print_aggregated_functions(self, top_n: int = 20) -> None:
+        """Print aggregated function hotspots across all models."""
+        print(f"\n{'=' * 100}")
+        print(" AGGREGATED FUNCTION HOTSPOTS (across all models)")
+        print(f"{'=' * 110}")
+
+        sorted_funcs = sorted(
+            self._aggregated_functions.items(),
+            key=lambda x: x[1]["total_cumtime"],
+            reverse=True,
+        )[:top_n]
+
+        print(f"{'Function':<60} {'Cum(s)':>12} {'Calls':>12} {'Models':>8}")
+        print(f"{'-' * 110}")
+
+        for func_name, stats in sorted_funcs:
+            print(
+                f"{func_name[:59]:<60} {stats['total_cumtime']:>12.3f} "
+                f"{stats['total_calls']:>12} {stats['models']:>8}"
+            )
+
+        print(f"{'=' * 100}\n")
+
+
+def create_model_profiling_result(
+    model_key: str,
+    profiler: TrainingProfiler,
+    function_profiler: Optional[FunctionProfiler] = None,
+) -> ModelProfilingResult:
+    """Create a ModelProfilingResult from profiler instances.
+
+    Parameters
+    ----------
+    model_key : str
+        Identifier for the model.
+    profiler : TrainingProfiler
+        Phase-level profiler.
+    function_profiler : FunctionProfiler, optional
+        Function-level profiler.
+
+    Returns
+    -------
+    ModelProfilingResult
+        Combined profiling result.
+    """
+    phase_stats = {}
+    for phase, stats in profiler.get_all_stats().items():
+        phase_stats[phase] = {
+            "total": stats.total_seconds,
+            "mean": stats.mean_seconds,
+            "count": stats.count,
+        }
+
+    function_stats = []
+    if function_profiler is not None:
+        function_stats = function_profiler.get_stats_list()
+
+    return ModelProfilingResult(
+        model_key=model_key,
+        total_seconds=profiler.total_duration,
+        phase_stats=phase_stats,
+        function_stats=function_stats,
+        start_time=profiler._start_time or 0.0,
+        end_time=profiler._end_time or 0.0,
+    )

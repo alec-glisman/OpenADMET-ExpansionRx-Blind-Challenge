@@ -2,7 +2,7 @@ data:
   data_dir: assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data
   splits: null
   folds: null
-  test_file: assets/dataset/set/train_val_local_test.csv
+  test_file: null
   blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
   smiles_col: SMILES
@@ -61,7 +61,7 @@ post_training:
   generate_plots: true
   plot_dpi: 150
   plot_formats:
-  - png
+    - png
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false

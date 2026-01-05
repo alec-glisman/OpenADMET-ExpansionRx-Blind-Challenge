@@ -1,8 +1,8 @@
 data:
   data_dir: assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data
-  splits: null
-  folds: null
-  test_file: assets/dataset/set/train_val_local_test.csv
+  splits: [0] # FIXME: null
+  folds: [0] # FIXME: null
+  test_file: null
   blind_file: assets/dataset/set/blind_test.csv
   output_dir: null
   smiles_col: SMILES
@@ -43,7 +43,7 @@ optimization:
   max_lr: 0.000227
   final_lr: 0.000113
   warmup_epochs: 5
-  max_epochs: 150
+  max_epochs: 150 # FIXME: 150
   patience: 15
   batch_size: 128
   num_workers: 0
@@ -60,10 +60,18 @@ post_training:
   generate_plots: true
   plot_dpi: 150
   plot_formats:
-  - png
+    - png
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false
+profiling:
+  enabled: true
+  mode: full # "disabled", "phase", "function", "full"
+  function_top_n: 50
+  function_filter_module: admet
+  log_to_mlflow: true
+  print_summary: true
+  ensemble_aggregation: true
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 2
@@ -106,6 +114,6 @@ ray:
   gpu_ids: [0]
 logging:
   enabled: true
-  verbose: 0
+  verbose: 2
   max_total_logs_gb: 1.0
   fail_on_upload_error: true

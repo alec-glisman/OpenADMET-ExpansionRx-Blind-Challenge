@@ -83,7 +83,7 @@ from admet.plot.latex import latex_sanitize
 from admet.plot.metrics import plot_metric_bar
 from admet.plot.parity import plot_parity
 from admet.util.logging import configure_logging
-from admet.util.profiling import TrainingPhase, TrainingProfiler
+from admet.util.profiling import EnsembleProfiler, TrainingPhase
 from admet.util.ray_logging import EnsembleProgressTracker
 from admet.util.utils import parse_data_dir_params
 
@@ -261,7 +261,17 @@ class ModelEnsemble:
         self._temp_dir: Optional[Path] = None
 
         # Initialize profiler for ensemble training timing
-        self._profiler = TrainingProfiler(name=f"ensemble_{model_type}")
+        profiling_config = getattr(self.config, "profiling", None)
+        profiling_enabled = True
+        profiling_mode = "phase"
+        if profiling_config is not None:
+            profiling_enabled = profiling_config.enabled and profiling_config.mode != "disabled"
+            profiling_mode = profiling_config.mode
+        self._profiler = EnsembleProfiler(
+            name=f"ensemble_{model_type}",
+            enabled=profiling_enabled,
+            enable_function_profiling=(profiling_mode in ["function", "full"]),
+        )
 
         # Initialize MLflow
         if hasattr(self.config, "mlflow") and self.config.mlflow is not None and self.config.mlflow.tracking:
@@ -792,7 +802,9 @@ class ModelEnsemble:
             tracking_uri: Optional[str],
             experiment_name: str,
             cuda_visible_devices: Optional[str] = None,
-        ) -> Tuple[str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+            profiling_mode: str = "phase",
+            profiling_top_n: int = 50,
+        ) -> Tuple[str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame], Dict[str, Any]]:
             """
             Train a single model as a Ray task.
 
@@ -817,6 +829,10 @@ class ModelEnsemble:
                 MLflow experiment name.
             cuda_visible_devices : Optional[str]
                 CUDA_VISIBLE_DEVICES value to restrict GPU access.
+            profiling_mode : str, default="phase"
+                Profiling detail level: "disabled", "phase", "function", "full".
+            profiling_top_n : int, default=50
+                Number of top functions to track in function-level profiling.
             """
             # Set CUDA_VISIBLE_DEVICES FIRST before any torch imports in worker
             import os
@@ -833,6 +849,23 @@ class ModelEnsemble:
             OmegaConf.resolve(config)
 
             model_key = f"split_{split_idx}_fold_{fold_idx}"
+
+            # Setup profiling for this worker based on profiling_mode
+            from admet.util.profiling import (
+                FunctionProfiler,
+                TrainingPhase,
+                TrainingProfiler,
+                create_model_profiling_result,
+            )
+
+            profiling_enabled = profiling_mode != "disabled"
+            enable_function_profiling = profiling_mode in ["function", "full"]
+
+            _worker_profiler = TrainingProfiler(name=model_key, enabled=profiling_enabled)
+            _worker_profiler.start()
+            _function_profiler = None
+            if enable_function_profiling:
+                _function_profiler = FunctionProfiler(filter_module="admet", top_n=profiling_top_n)
 
             # Suppress verbose worker output
             import os
@@ -879,120 +912,176 @@ class ModelEnsemble:
             # Create model using ModelRegistry (supports all model types)
             model_type = config.model.type if hasattr(config.model, "type") else "chemprop"
 
-            if model_type == "chemprop":
-                # Use Chemprop-specific initialization with full config
-                # Chemprop loads data from config files directly
-                model = ChempropModel.from_config(config)  # type: ignore[arg-type]
+            # Use try-except to ensure profiling data is collected even on failure
+            training_failed = False
+            model = None  # Initialize to None for error handling
+            try:
+                if model_type == "chemprop":
+                    # Use Chemprop-specific initialization with full config
+                    # Chemprop loads data from config files directly
+                    model = ChempropModel.from_config(config)  # type: ignore[arg-type]
 
-                # Log full ensemble config as artifact in child run for complete traceability
-                if model.mlflow_run_id and ensemble_config_dict and model._mlflow_client is not None:
-                    _log_ensemble_config_to_child_run(
-                        model._mlflow_client, model.mlflow_run_id, ensemble_config_dict, model_key
-                    )
+                    # Log full ensemble config as artifact in child run for complete traceability
+                    if model.mlflow_run_id and ensemble_config_dict and model._mlflow_client is not None:
+                        _log_ensemble_config_to_child_run(
+                            model._mlflow_client, model.mlflow_run_id, ensemble_config_dict, model_key
+                        )
 
-                model.fit()
-            else:
-                # Use ModelRegistry for other model types
-                # These models need explicit data loading
-                if isinstance(config, DictConfig):
-                    config_dc = config
+                    # Train with optional function-level profiling
+                    with _worker_profiler.phase(TrainingPhase.TRAINING_TOTAL):
+                        if _function_profiler is not None:
+                            with _function_profiler:
+                                model.fit()
+                        else:
+                            model.fit()
                 else:
-                    config_dc = OmegaConf.create(config)  # type: ignore[assignment]
-                base_model = ModelRegistry.create(config_dc)  # type: ignore[arg-type]
+                    # Use ModelRegistry for other model types
+                    # These models need explicit data loading
+                    if isinstance(config, DictConfig):
+                        config_dc = config
+                    else:
+                        config_dc = OmegaConf.create(config)  # type: ignore[assignment]
+                    base_model = ModelRegistry.create(config_dc)  # type: ignore[arg-type]
 
-                # Load training and validation data from config.data.data_dir
-                data_dir = Path(config.data.data_dir)
-                train_file = data_dir / "train.csv"
-                val_file = data_dir / "validation.csv"
+                    # Load training and validation data from config.data.data_dir
+                    data_dir = Path(config.data.data_dir)
+                    train_file = data_dir / "train.csv"
+                    val_file = data_dir / "validation.csv"
 
-                train_df = pd.read_csv(train_file)
+                    train_df = pd.read_csv(train_file)
+                    smiles_col = config.data.smiles_col
+                    target_cols = list(config.data.target_cols)
+
+                    train_smiles = train_df[smiles_col].tolist()
+                    train_y = train_df[target_cols].values
+
+                    val_smiles, val_y = None, None
+                    if val_file.exists():
+                        val_df = pd.read_csv(val_file)
+                        val_smiles = val_df[smiles_col].tolist()
+                        val_y = val_df[target_cols].values
+
+                    # Train model with explicit data
+                    base_model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
+                    # Non-Chemprop models don't have trainer/dataframes - return early
+                    _worker_profiler.stop()
+                    _prof_result = create_model_profiling_result(model_key, _worker_profiler, None)
+                    return model_key, {}, None, None, _prof_result.to_dict()
+            except Exception as train_err:
+                training_failed = True
+                _logger.error("[%s] Training failed: %s", model_key, train_err)
+
+            # Get metrics from trainer (ChempropModel only) - skip if training failed
+            metrics: Dict[str, float] = {}
+            test_preds: Optional[pd.DataFrame] = None
+            blind_preds: Optional[pd.DataFrame] = None
+
+            if not training_failed and model is not None:
+                with _worker_profiler.phase(TrainingPhase.METRICS_COMPUTATION):
+                    if hasattr(model, "trainer") and model.trainer and model.trainer.callback_metrics:
+                        for key, val in model.trainer.callback_metrics.items():
+                            if hasattr(val, "item"):
+                                metrics[key] = val.item()
+                            else:
+                                metrics[key] = float(val)
+
+                # Get predictions for test and blind
+                with _worker_profiler.phase(TrainingPhase.ENSEMBLE_PREDICTION):
+                    pass  # Initialize prediction variables
                 smiles_col = config.data.smiles_col
                 target_cols = list(config.data.target_cols)
 
-                train_smiles = train_df[smiles_col].tolist()
-                train_y = train_df[target_cols].values
+                # ChempropModel has dataframes dict and extended predict() signature
+                if hasattr(model, "dataframes"):
+                    test_df = model.dataframes.get("test")
+                else:
+                    test_df = None
 
-                val_smiles, val_y = None, None
-                if val_file.exists():
-                    val_df = pd.read_csv(val_file)
-                    val_smiles = val_df[smiles_col].tolist()
-                    val_y = val_df[target_cols].values
+                if test_df is not None:
+                    pred_df = model.predict(
+                        test_df,
+                        generate_plots=True,
+                        split_name="test",
+                        log_metrics=False,
+                    )
+                    # Prepend SMILES and Molecule Name columns to predictions if present
+                    if "Molecule Name" in test_df.columns:
+                        pred_df["Molecule Name"] = test_df["Molecule Name"].values
+                        cols = pred_df.columns.tolist()
+                        cols.insert(0, cols.pop(cols.index("Molecule Name")))
+                        pred_df = pred_df[cols]
 
-                # Train model with explicit data
-                base_model.fit(train_smiles, train_y, val_smiles=val_smiles, val_y=val_y)
-                # Non-Chemprop models don't have trainer/dataframes - return early
-                return model_key, {}, None, None
+                    if smiles_col in test_df.columns:
+                        pred_df[smiles_col] = test_df[smiles_col].values
+                        cols = pred_df.columns.tolist()
+                        cols.insert(0, cols.pop(cols.index(smiles_col)))
+                        pred_df = pred_df[cols]
 
-            # Get metrics from trainer (ChempropModel only)
-            metrics: Dict[str, float] = {}
-            if model.trainer and model.trainer.callback_metrics:
-                for key, val in model.trainer.callback_metrics.items():
-                    if hasattr(val, "item"):
-                        metrics[key] = val.item()
-                    else:
-                        metrics[key] = float(val)
+                    test_preds = pred_df.copy()
+                    test_preds[smiles_col] = test_df[smiles_col].values
+                    for col in target_cols:
+                        if col in test_df.columns:
+                            test_preds[f"{col}_actual"] = test_df[col].values
 
-            # Get predictions for test and blind
-            test_preds: Optional[pd.DataFrame] = None
-            blind_preds: Optional[pd.DataFrame] = None
-            smiles_col = config.data.smiles_col
-            target_cols = list(config.data.target_cols)
+                if hasattr(model, "dataframes"):
+                    blind_df = model.dataframes.get("blind")
+                else:
+                    blind_df = None
 
-            # ChempropModel has dataframes dict and extended predict() signature
-            test_df = model.dataframes.get("test")
-            if test_df is not None:
-                pred_df = model.predict(
-                    test_df,
-                    generate_plots=True,
-                    split_name="test",
-                    log_metrics=False,
-                )
-                # Prepend SMILES and Molecule Name columns to predictions if present
-                if "Molecule Name" in test_df.columns:
-                    pred_df["Molecule Name"] = test_df["Molecule Name"].values
-                    cols = pred_df.columns.tolist()
-                    cols.insert(0, cols.pop(cols.index("Molecule Name")))
-                    pred_df = pred_df[cols]
+                if blind_df is not None:
+                    pred_df = model.predict(
+                        blind_df,
+                        generate_plots=False,
+                        split_name="blind",
+                        log_metrics=False,
+                    )
+                    # Prepend SMILES and Molecule Name columns to predictions if present
+                    if "Molecule Name" in blind_df.columns:
+                        pred_df["Molecule Name"] = blind_df["Molecule Name"].values
+                        cols = pred_df.columns.tolist()
+                        cols.insert(0, cols.pop(cols.index("Molecule Name")))
+                        pred_df = pred_df[cols]
 
-                if smiles_col in test_df.columns:
-                    pred_df[smiles_col] = test_df[smiles_col].values
-                    cols = pred_df.columns.tolist()
-                    cols.insert(0, cols.pop(cols.index(smiles_col)))
-                    pred_df = pred_df[cols]
+                    if smiles_col in blind_df.columns:
+                        pred_df[smiles_col] = blind_df[smiles_col].values
+                        cols = pred_df.columns.tolist()
+                        cols.insert(0, cols.pop(cols.index(smiles_col)))
+                        pred_df = pred_df[cols]
 
-                test_preds = pred_df.copy()
-                test_preds[smiles_col] = test_df[smiles_col].values
-                for col in target_cols:
-                    if col in test_df.columns:
-                        test_preds[f"{col}_actual"] = test_df[col].values
+                    blind_preds = pred_df.copy()
 
-            blind_df = model.dataframes.get("blind")
-            if blind_df is not None:
-                pred_df = model.predict(
-                    blind_df,
-                    generate_plots=False,
-                    split_name="blind",
-                    log_metrics=False,
-                )
-                # Prepend SMILES and Molecule Name columns to predictions if present
-                if "Molecule Name" in blind_df.columns:
-                    pred_df["Molecule Name"] = blind_df["Molecule Name"].values
-                    cols = pred_df.columns.tolist()
-                    cols.insert(0, cols.pop(cols.index("Molecule Name")))
-                    pred_df = pred_df[cols]
+            # ALWAYS finalize profiling and create result (even on training failure)
+            # This ensures we capture timing data for debugging
+            _worker_profiler.stop()
+            _prof_result = create_model_profiling_result(model_key, _worker_profiler, _function_profiler)
 
-                if smiles_col in blind_df.columns:
-                    pred_df[smiles_col] = blind_df[smiles_col].values
-                    cols = pred_df.columns.tolist()
-                    cols.insert(0, cols.pop(cols.index(smiles_col)))
-                    pred_df = pred_df[cols]
+            # Log profiling metrics to this model's MLflow run (if enabled and available)
+            if profiling_enabled and hasattr(model, "mlflow_run_id") and model.mlflow_run_id is not None:
+                if hasattr(model, "_mlflow_client") and model._mlflow_client is not None:
+                    try:
+                        _worker_profiler.log_to_mlflow(
+                            prefix="profiling",
+                            client=model._mlflow_client,
+                            run_id=model.mlflow_run_id,
+                        )
+                        _logger.debug(
+                            "Logged profiling metrics for %s to MLflow run %s", model_key, model.mlflow_run_id
+                        )
+                    except Exception as prof_err:
+                        _logger.warning("Failed to log profiling metrics for %s: %s", model_key, prof_err)
 
-                blind_preds = pred_df.copy()
+            # Close model (ends nested MLflow run) - even if training failed
+            if hasattr(model, "close"):
+                try:
+                    model.close()
+                except Exception as close_err:
+                    _logger.warning("Failed to close model %s: %s", model_key, close_err)
 
-            # Close model (ends nested MLflow run)
-            model.close()
+            # If training failed, re-raise the exception after collecting profiling data
+            if training_failed:
+                raise RuntimeError(f"Training failed for {model_key}")
 
-            return model_key, metrics, test_preds, blind_preds
+            return model_key, metrics, test_preds, blind_preds, _prof_result.to_dict()
 
         # Submit tasks in batches
         all_results = []
@@ -1016,6 +1105,14 @@ class ModelEnsemble:
                     if not isinstance(ensemble_config_dict, dict):
                         ensemble_config_dict = {}
 
+                    # Get profiling configuration
+                    profiling_config = getattr(self.config, "profiling", None)
+                    profiling_mode = "phase"
+                    profiling_top_n = 50
+                    if profiling_config is not None:
+                        profiling_mode = profiling_config.mode
+                        profiling_top_n = profiling_config.function_top_n
+
                     task = train_single_model.remote(
                         config_dict,  # type: ignore[arg-type]
                         ensemble_config_dict,  # type: ignore[arg-type]
@@ -1025,6 +1122,8 @@ class ModelEnsemble:
                         self.config.mlflow.tracking_uri,
                         self.config.mlflow.experiment_name,
                         cuda_visible_devices,
+                        profiling_mode,
+                        profiling_top_n,
                     )
                     pending_tasks.append(task)
                     task_infos.append(info)
@@ -1052,12 +1151,15 @@ class ModelEnsemble:
             self._all_blind_predictions: List[pd.DataFrame] = []
             self._all_metrics: Dict[str, Dict[str, float]] = {}
 
-            for model_key, metrics, test_preds, blind_preds in all_results:
+            for model_key, metrics, test_preds, blind_preds, prof_data in all_results:
                 self._all_metrics[model_key] = metrics
                 if test_preds is not None:
                     self._all_test_predictions.append(test_preds)
                 if blind_preds is not None:
                     self._all_blind_predictions.append(blind_preds)
+                # Aggregate profiling data from worker
+                if prof_data:
+                    self._profiler.register_model_dict(prof_data)
 
             logger.debug("Completed training all %d models", len(all_results))
 
@@ -1071,17 +1173,48 @@ class ModelEnsemble:
             logger.error("Ensemble training failed with error: %s", e)
             raise
         finally:
-            # Stop profiler and print summary (always, even on interrupt)
+            # Stop profiler (always, even on interrupt/error)
             self._profiler.stop()
-            self._profiler.print_summary()
 
-            # Log profiling metrics to MLflow if tracking enabled
-            if self._mlflow_client and self.parent_run_id:
-                self._profiler.log_to_mlflow(
-                    prefix="profiling",
-                    client=self._mlflow_client,
-                    run_id=self.parent_run_id,
-                )
+            # Get profiling config settings
+            profiling_config = getattr(self.config, "profiling", None)
+            should_print_summary = True
+            should_log_to_mlflow = True
+            if profiling_config is not None:
+                should_print_summary = profiling_config.print_summary
+                should_log_to_mlflow = profiling_config.log_to_mlflow
+
+            # ALWAYS print summary if enabled (even on error/interrupt)
+            if should_print_summary:
+                try:
+                    logger.info("=" * 80)
+                    logger.info("PROFILING SUMMARY (collected even on error/interrupt)")
+                    logger.info("=" * 80)
+                    self._profiler.print_ensemble_summary()
+                except Exception as print_err:
+                    logger.error("Failed to print profiling summary: %s", print_err)
+
+            # ALWAYS log profiling metrics to MLflow if enabled (even on error/interrupt)
+            if self._mlflow_client and self.parent_run_id and should_log_to_mlflow:
+                try:
+                    # Log overall profiling metrics
+                    self._profiler.log_to_mlflow(
+                        prefix="profiling",
+                        client=self._mlflow_client,
+                        run_id=self.parent_run_id,
+                    )
+                    logger.info("Logged overall profiling metrics to MLflow parent run")
+
+                    # Log aggregated ensemble statistics
+                    self._profiler.log_ensemble_aggregates_to_mlflow(
+                        client=self._mlflow_client,
+                        run_id=self.parent_run_id,
+                        prefix="profiling.ensemble",
+                    )
+                    logger.info("Logged aggregated ensemble statistics to MLflow parent run")
+
+                except Exception as mlflow_err:
+                    logger.error("Failed to log profiling to MLflow: %s", mlflow_err)
 
     def _generate_ensemble_outputs(self) -> None:
         """Generate ensemble predictions, metrics, and plots."""
@@ -1098,7 +1231,7 @@ class ModelEnsemble:
             test_ensemble = self._aggregate_predictions(self._all_test_predictions, split_name="test")
             self._save_ensemble_predictions(test_ensemble, "test")
             self._generate_ensemble_plots(test_ensemble, "test")
-            self._generate_unlabeled_ensemble_plots(test_ensemble, "test")
+            self._generate_unlabeled_ensemble_plots(test_ensemble, "test", n_models=len(self._all_test_predictions))
 
             # Log test set size
             if self._mlflow_client and self.parent_run_id:
@@ -1108,7 +1241,7 @@ class ModelEnsemble:
         if self._all_blind_predictions:
             blind_ensemble = self._aggregate_predictions(self._all_blind_predictions, split_name="blind")
             self._save_ensemble_predictions(blind_ensemble, "blind")
-            self._generate_unlabeled_ensemble_plots(blind_ensemble, "blind")
+            self._generate_unlabeled_ensemble_plots(blind_ensemble, "blind", n_models=len(self._all_blind_predictions))
 
             # Log blind set size
             if self._mlflow_client and self.parent_run_id:
@@ -1164,8 +1297,15 @@ class ModelEnsemble:
 
             # Calculate statistics
             mean_pred = np.mean(preds, axis=0)
-            std_pred = np.std(preds, axis=0, ddof=1)
-            stderr_pred = std_pred / np.sqrt(n_models)
+
+            # Handle n_models=1 case: ddof=1 requires at least 2 samples
+            if n_models > 1:
+                std_pred = np.std(preds, axis=0, ddof=1)
+                stderr_pred = std_pred / np.sqrt(n_models)
+            else:
+                # Single model: no uncertainty estimate possible
+                std_pred = np.zeros_like(mean_pred)
+                stderr_pred = np.zeros_like(mean_pred)
 
             result[f"{target}_mean"] = mean_pred
             result[f"{target}_std"] = std_pred
@@ -1221,7 +1361,7 @@ class ModelEnsemble:
 
         logger.info("Saved ensemble predictions for %s", split_name)
 
-    def _generate_unlabeled_ensemble_plots(self, predictions: pd.DataFrame, split_name: str) -> None:
+    def _generate_unlabeled_ensemble_plots(self, predictions: pd.DataFrame, split_name: str, n_models: int = 0) -> None:
         """
         Generate ensemble visualizations when the predictions lack ground truth.
 
@@ -1234,6 +1374,9 @@ class ModelEnsemble:
             Aggregated ensemble predictions with mean and stderr columns.
         split_name : str
             Name of the split (e.g., "test", "blind").
+        n_models : int, optional
+            Number of models in the ensemble. If < 2, stderr plots are skipped
+            since uncertainty estimates require multiple models.
         """
         from admet.plot.density import plot_endpoint_distributions
 
@@ -1259,15 +1402,19 @@ class ModelEnsemble:
         )
         plt.close(fig)
 
-        # Plot standard error distributions
-        stderr_plot_path = plot_dir / "uncertainty_distributions.png"
-        fig, _ = plot_endpoint_distributions(
-            predictions,
-            columns=stderr_cols,
-            title=f"Ensemble Standard Errors ({split_name})",
-            save_path=stderr_plot_path,
-        )
-        plt.close(fig)
+        # Plot standard error distributions only if we have 2+ models
+        # (single-model ensembles have all-zero stderr which is uninformative)
+        if n_models >= 2:
+            stderr_plot_path = plot_dir / "uncertainty_distributions.png"
+            fig, _ = plot_endpoint_distributions(
+                predictions,
+                columns=stderr_cols,
+                title=f"Ensemble Standard Errors ({split_name})",
+                save_path=stderr_plot_path,
+            )
+            plt.close(fig)
+        else:
+            logger.info("Skipping stderr distribution plots for %s (n_models=%d < 2)", split_name, n_models)
 
         # Log plots to MLflow
         if self._mlflow_client and self.parent_run_id:
@@ -1581,7 +1728,7 @@ class ModelEnsemble:
 
                 labels.append(clean_target)
                 mean_val = np.mean(values)
-                stderr_val = np.std(values, ddof=1) / np.sqrt(len(values))
+                stderr_val = np.std(values, ddof=1) / np.sqrt(len(values)) if len(values) > 1 else 0.0
                 means.append(mean_val)
                 errors.append(stderr_val)
                 all_values_for_mean.extend(values)
@@ -1611,7 +1758,11 @@ class ModelEnsemble:
             if all_values_for_mean:
                 labels.append("Mean")
                 overall_mean = np.mean(all_values_for_mean)
-                overall_stderr = np.std(all_values_for_mean, ddof=1) / np.sqrt(len(all_values_for_mean))
+                overall_stderr = (
+                    np.std(all_values_for_mean, ddof=1) / np.sqrt(len(all_values_for_mean))
+                    if len(all_values_for_mean) > 1
+                    else 0.0
+                )
                 means.append(overall_mean)
                 errors.append(overall_stderr)
 
@@ -1678,8 +1829,13 @@ class ModelEnsemble:
             values = [m[metric_name] for m in self._all_metrics.values() if metric_name in m]
             if values:
                 ensemble_metrics[f"ensemble_{metric_name}_mean"] = np.mean(values)
-                ensemble_metrics[f"ensemble_{metric_name}_std"] = np.std(values, ddof=1)
-                ensemble_metrics[f"ensemble_{metric_name}_stderr"] = np.std(values, ddof=1) / np.sqrt(len(values))
+                # ddof=1 requires at least 2 samples
+                if len(values) > 1:
+                    ensemble_metrics[f"ensemble_{metric_name}_std"] = np.std(values, ddof=1)
+                    ensemble_metrics[f"ensemble_{metric_name}_stderr"] = np.std(values, ddof=1) / np.sqrt(len(values))
+                else:
+                    ensemble_metrics[f"ensemble_{metric_name}_std"] = 0.0
+                    ensemble_metrics[f"ensemble_{metric_name}_stderr"] = 0.0
 
         mlflow.log_metrics({k: float(v) for k, v in ensemble_metrics.items()})
         logger.info("Logged ensemble metrics to MLflow")
