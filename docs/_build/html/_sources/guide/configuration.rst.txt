@@ -11,10 +11,67 @@ The package uses OmegaConf-based dataclasses for type-safe configuration.
 YAML files under ``configs/`` define settings that are loaded and merged
 with structured defaults.
 
+All model configurations use the **UnifiedModelConfig** schema with a
+discriminator pattern. The ``model.type`` field determines which model-specific
+parameters are validated and used.
+
+UnifiedModelConfig Schema
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The configuration is organized into these top-level sections:
+
+**model**: Model type and architecture settings
+
+- ``type``: Model discriminator (chemprop, chemeleon, xgboost, lightgbm, catboost)
+- ``chemprop``: Chemprop-specific parameters (when type=chemprop)
+- ``chemeleon``: Chemeleon-specific parameters (when type=chemeleon)
+- ``xgboost``: XGBoost-specific parameters (when type=xgboost)
+- ``lightgbm``: LightGBM-specific parameters (when type=lightgbm)
+- ``catboost``: CatBoost-specific parameters (when type=catboost)
+- ``fingerprint``: Fingerprint configuration (for classical models)
+- ``ffn``: Feed-forward network configuration (for neural models)
+
+**data**: Data paths and preprocessing
+
+- ``data_dir``: Directory with train.csv and validation.csv
+- ``test_file``, ``blind_file``: Test/blind evaluation files
+- ``smiles_col``, ``target_cols``: Column names
+- ``target_weights``: Per-task loss weights
+
+**optimization**: Training hyperparameters
+
+- ``criterion``: Loss function (MSE, MAE, Huber)
+- Learning rate schedule: ``init_lr``, ``max_lr``, ``final_lr``
+- ``max_epochs``, ``patience``, ``batch_size``
+- ``weight_decay``: L2 regularization
+
+**mlflow**: Experiment tracking
+
+- ``enabled``, ``tracking_uri``, ``experiment_name``
+- ``nested``: For ensemble runs with child runs per fold
+- ``log_model``, ``log_predictions``: Artifact control
+
+**ensemble** (optional): Ensemble training settings
+
+- ``enabled``: Train across split_*/fold_*/ directories
+- ``splits``, ``folds``: Which splits/folds to use
+
+**joint_sampling** (optional): Task oversampling + curriculum learning
+
+- Only valid for PyTorch models (chemprop, chemeleon)
+- ``task_oversampling``: Balance tasks by sampling frequency
+- ``curriculum``: Quality-aware progressive training
+
+**task_affinity** (optional): Task affinity grouping
+
+- Only valid for PyTorch models (chemprop, chemeleon)
+- Groups tasks by gradient similarity
+- Improves multi-task learning efficiency
+
 Available Configurations
 ------------------------
 
-- ``ChempropConfig``: Single model training
+- ``UnifiedModelConfig``: Master configuration for any model type
 - ``EnsembleConfig``: Ensemble training across splits/folds
 - ``HPOConfig``: Hyperparameter optimization settings
 
@@ -187,21 +244,25 @@ Programmatic Loading
 
    from omegaconf import OmegaConf
    from admet.model.config import UnifiedModelConfig
-   from admet.model.registry import create_model_from_config
+   from admet.model.registry import ModelRegistry
 
    # Load and merge configuration
    config = OmegaConf.merge(
        OmegaConf.structured(UnifiedModelConfig),
-       OmegaConf.load("configs/4-more-models/chemprop.yaml")
+       OmegaConf.load("configs/0-experiment/chemprop.yaml")
    )
+
+   # Create model using factory pattern
+   model = ModelRegistry.create(config)
 
    # Access nested settings (unified format)
    print(config.model.type)              # "chemprop"
-   print(config.model.chemprop.depth)    # 3
+   print(config.model.chemprop.depth)    # 5
    print(config.optimization.max_lr)     # 0.000227
 
-   # Create model from config (automatic type detection)
-   model = create_model_from_config(config)
+   # Train Chemprop model (data is loaded from config.data)
+   model.fit()  # No arguments needed - paths in config
+   predictions = model.predict(test_smiles)
 
 Ray Parallelization Configuration
 ---------------------------------

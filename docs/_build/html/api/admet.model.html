@@ -7,11 +7,11 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/api/admet.model.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="The admet.model package provides model implementations for ADMET property prediction. It currently supports two main model families: Chemprop Models( admet.model.chemprop): Message-passing neural n..." />
+<meta property="og:description" content="The admet.model package provides model implementations for ADMET property prediction. It supports three main model families: Chemprop Models( admet.model.chemprop): Message-passing neural networks ..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="The admet.model package provides model implementations for ADMET property prediction. It currently supports two main model families: Chemprop Models( admet.model.chemprop): Message-passing neural n..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Visualization Tools (admet.plot)" href="admet.plot.html"><link rel="prev" title="Data Pipeline (admet.data)" href="admet.data.html">
+<meta name="description" content="The admet.model package provides model implementations for ADMET property prediction. It supports three main model families: Chemprop Models( admet.model.chemprop): Message-passing neural networks ..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Visualization Tools (admet.plot)" href="admet.plot.html"><link rel="prev" title="Features (admet.features)" href="admet.features.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
@@ -214,6 +214,7 @@
 <ul class="current">
 <li class="toctree-l1 current has-children"><a class="reference internal" href="admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -233,10 +234,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -307,12 +311,14 @@
           <section id="model-package-admet-model">
 <h1>Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)<a class="headerlink" href="#model-package-admet-model" title="Link to this heading">¶</a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">admet.model</span></code> package provides model implementations for ADMET property
-prediction. It currently supports two main model families:</p>
+prediction. It supports three main model families:</p>
 <ul class="simple">
 <li><p><strong>Chemprop Models</strong> (<code class="docutils literal notranslate"><span class="pre">admet.model.chemprop</span></code>): Message-passing neural networks
 using the Chemprop library with PyTorch Lightning integration.</p></li>
+<li><p><strong>Chemeleon Models</strong> (<code class="docutils literal notranslate"><span class="pre">admet.model.chemeleon</span></code>): Pre-trained molecular encoder
+with transfer learning for property prediction.</p></li>
 <li><p><strong>Classical Models</strong> (<code class="docutils literal notranslate"><span class="pre">admet.model.classical</span></code>): Traditional machine learning
-models like XGBoost and LightGBM.</p></li>
+models like XGBoost, LightGBM, and CatBoost.</p></li>
 </ul>
 <dl class="py class">
 <dt class="sig sig-object py">
@@ -625,7 +631,7 @@ ValueError: If input SMILES are invalid.</p>
 </dd>
 </dl>
 <dl class="simple">
-<dt>Parameters:</dt><dd><p><a href="#id1"><span class="problematic" id="id2">**</span></a>params: Parameter names and values to set.</p>
+<dt>Parameters:</dt><dd><p>**params: Parameter names and values to set.</p>
 </dd>
 <dt>Returns:</dt><dd><p>Self for method chaining.</p>
 </dd>
@@ -636,7 +642,7 @@ ValueError: If input SMILES are invalid.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.</span></span><span class="sig-name descname"><span class="pre">BaseModelConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type='???'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/config.html#BaseModelConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.</span></span><span class="sig-name descname"><span class="pre">BaseModelConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type='???'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logging=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/config.html#BaseModelConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Base configuration inherited by all model-specific configs.</p>
 <p>This class defines the common structure for model configurations.
@@ -645,7 +651,8 @@ section (e.g., config.model.chemprop, config.model.xgboost).</p>
 <dl class="simple">
 <dt>Parameters:</dt><dd><p>type: Model type discriminator (“chemprop”, “xgboost”, etc.).
 data: Data configuration section.
-mlflow: MLflow tracking configuration.</p>
+mlflow: MLflow tracking configuration.
+logging: Ray Tune and ensemble logging configuration.</p>
 </dd>
 </dl>
 <dl class="field-list simple">
@@ -654,12 +661,18 @@ mlflow: MLflow tracking configuration.</p>
 <li><p><strong>type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
 <li><p><strong>data</strong> (<em>BaseDataConfig</em>)</p></li>
 <li><p><strong>mlflow</strong> (<em>BaseMlflowConfig</em>)</p></li>
+<li><p><strong>logging</strong> (<em>RayLoggingConfig</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py">
 <span class="sig-name descname"><span class="pre">data</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseDataConfig</span></code></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">logging</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">RayLoggingConfig</span></code></em></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -1750,6 +1763,188 @@ n_jobs: Number of parallel jobs (-1 = all cores).</p>
 
 </dd></dl>
 
+<section id="model-registry">
+<h2>Model Registry<a class="headerlink" href="#model-registry" title="Link to this heading">¶</a></h2>
+<p>The ModelRegistry provides a factory pattern for creating model instances
+from configuration files.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.registry.</span></span><span class="sig-name descname"><span class="pre">ModelRegistry</span></span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Registry for model types with factory pattern.</p>
+<p>Provides decorator-based registration and factory methods for creating
+model instances from configuration.</p>
+<dl>
+<dt>Example:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nd">@ModelRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;my_model&quot;</span><span class="p">)</span>
+<span class="gp">... </span><span class="k">class</span><span class="w"> </span><span class="nc">MyModel</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="c1"># Implementation</span>
+<span class="gp">... </span>    <span class="k">pass</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Later, create model from config</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;my_model&quot;</span><span class="p">}})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry.clear">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry.clear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry.clear" title="Link to this definition">¶</a></dt>
+<dd><p>Clear all registered models (primarily for testing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry.create">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry.create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry.create" title="Link to this definition">¶</a></dt>
+<dd><p>Create model instance from configuration.</p>
+<p>Looks up the model type from config.model.type and instantiates
+the corresponding registered model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>config</strong> (<em>DictConfig</em>)</p>
+</dd>
+</dl>
+<dl>
+<dt>Parameters:</dt><dd><p>config: OmegaConf configuration with model.type field.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Instantiated model of the appropriate type.</p>
+</dd>
+<dt>Raises:</dt><dd><p>ValueError: If model type is unknown or not registered.
+KeyError: If config.model.type is missing.</p>
+</dd>
+<dt>Example:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">,</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">}}</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry.get">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry.get" title="Link to this definition">¶</a></dt>
+<dd><p>Get model class by type identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code>]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>model_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Parameters:</dt><dd><p>model_type: String identifier for the model type.</p>
+</dd>
+<dt>Returns:</dt><dd><p>The registered model class.</p>
+</dd>
+<dt>Raises:</dt><dd><p>KeyError: If model type is not registered.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry.is_registered">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_registered</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry.is_registered"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry.is_registered" title="Link to this definition">¶</a></dt>
+<dd><p>Check if a model type is registered.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>model_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Parameters:</dt><dd><p>model_type: String identifier to check.</p>
+</dd>
+<dt>Returns:</dt><dd><p>True if the model type is registered.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry.list_models">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">list_models</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry.list_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry.list_models" title="Link to this definition">¶</a></dt>
+<dd><p>List all registered model types.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span></p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>List of registered model type identifiers.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.registry.ModelRegistry.register">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/registry.html#ModelRegistry.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.registry.ModelRegistry.register" title="Link to this definition">¶</a></dt>
+<dd><p>Decorator to register a model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code>]], <a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code>]]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>model_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+</dl>
+<dl>
+<dt>Parameters:</dt><dd><p>model_type: String identifier for the model type.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Decorator function that registers the model class.</p>
+</dd>
+<dt>Raises:</dt><dd><p>ValueError: If model_type is already registered.</p>
+</dd>
+<dt>Example:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nd">@ModelRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;xgboost&quot;</span><span class="p">)</span>
+<span class="gp">... </span><span class="k">class</span><span class="w"> </span><span class="nc">XGBoostModel</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">pass</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p><strong>Example Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="c1"># Load configuration</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create model based on config.model.type</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+<span class="c1"># Training API depends on model type:</span>
+<span class="c1"># - Chemprop: model.fit()  # Data loaded from config.data</span>
+<span class="c1"># - Chemeleon/Classical: model.fit(smiles, targets, val_smiles, val_targets)</span>
+
+<span class="c1"># Example for Chemprop (data in config)</span>
+<span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">:</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>  <span class="c1"># Loads data from config.data.data_dir</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c1"># For classical/chemeleon models, provide data explicitly</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_smiles</span><span class="p">,</span> <span class="n">train_targets</span><span class="p">,</span> <span class="n">val_smiles</span><span class="p">,</span> <span class="n">val_targets</span><span class="p">)</span>
+
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_smiles</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 <section id="chemprop-subpackage">
 <h2>Chemprop Subpackage<a class="headerlink" href="#chemprop-subpackage" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">admet.model.chemprop</span></code> subpackage provides a comprehensive toolkit for
@@ -1766,7 +1961,7 @@ training Chemprop MPNN models with advanced features including:</p>
 <h3>Key Classes<a class="headerlink" href="#key-classes" title="Link to this heading">¶</a></h3>
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.ChempropModel">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">ChempropModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_validation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'smiles'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_bar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hyperparams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_tracking</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_tracking_uri</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_experiment_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'chemprop'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_run_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_parent_run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_nested</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curriculum_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curriculum_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sampling_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_affinity_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inter_task_affinity_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/model.html#ChempropModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ChempropModel" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">ChempropModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_validation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'smiles'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_bar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hyperparams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_tracking</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_tracking_uri</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_experiment_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'chemprop'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_run_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_parent_run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_nested</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curriculum_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curriculum_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sampling_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_affinity_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inter_task_affinity_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/model.html#ChempropModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ChempropModel" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>High-level wrapper for Chemprop MPNN training and inference.</p>
 <p>This class handles the full workflow of preparing data, building the model,
@@ -1788,6 +1983,7 @@ are weighted equally.</p></li>
 <li><p><strong>mlflow_tracking</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to enable MLflow tracking for params, metrics, and artifacts.</p></li>
 <li><p><strong>mlflow_experiment_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default='chemprop'</em>) – MLflow experiment name to log runs under.</p></li>
 <li><p><strong>mlflow_run_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em><em>, </em><em>optional</em>) – Optional run name for the MLflow run.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
 <li><p><strong>mlflow_tracking_uri</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
 <li><p><strong>mlflow_run_id</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
 <li><p><strong>mlflow_parent_run_id</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
@@ -1797,6 +1993,7 @@ are weighted equally.</p></li>
 <li><p><strong>joint_sampling_config</strong> (<em>JointSamplingConfig</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>task_affinity_config</strong> (<em>TaskAffinityConfig</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>inter_task_affinity_config</strong> (<em>InterTaskAffinityConfig</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>profiling_config</strong> (<em>ProfilingConfig</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>data_dir</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
@@ -2220,7 +2417,7 @@ and returns the result grid.</p>
 <h3>Configuration Classes<a class="headerlink" href="#configuration-classes" title="Link to this heading">¶</a></h3>
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.ChempropConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">ChempropConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sampling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_affinity=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inter_task_affinity=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/config.html#ChempropConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ChempropConfig" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">ChempropConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">performance_optimization=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">post_training=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sampling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_affinity=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inter_task_affinity=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/config.html#ChempropConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ChempropConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Complete configuration for a Chemprop training run.</p>
 <p>This configuration can be loaded from a YAML file using OmegaConf
@@ -2236,6 +2433,9 @@ configured model.</p>
 <li><p><strong>joint_sampling</strong> (<em>JointSamplingConfig</em>) – Unified configuration for task-aware oversampling and curriculum learning.</p></li>
 <li><p><strong>task_affinity</strong> (<em>TaskAffinityConfig</em>) – Task affinity grouping configuration for multi-task learning.</p></li>
 <li><p><strong>inter_task_affinity</strong> (<em>InterTaskAffinityConfig</em>) – Inter-task affinity computation during training (TAG paper lookahead).</p></li>
+<li><p><strong>performance_optimization</strong> (<em>PerformanceOptimizationConfig</em>)</p></li>
+<li><p><strong>post_training</strong> (<em>PostTrainingConfig</em>)</p></li>
+<li><p><strong>profiling</strong> (<em>ProfilingConfig</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -2299,6 +2499,21 @@ configured model.</p>
 <dd></dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.ChempropConfig.performance_optimization">
+<span class="sig-name descname"><span class="pre">performance_optimization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">PerformanceOptimizationConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.ChempropConfig.performance_optimization" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.ChempropConfig.post_training">
+<span class="sig-name descname"><span class="pre">post_training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">PostTrainingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.ChempropConfig.post_training" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.ChempropConfig.profiling">
+<span class="sig-name descname"><span class="pre">profiling</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">ProfilingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.ChempropConfig.profiling" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.ChempropConfig.task_affinity">
 <span class="sig-name descname"><span class="pre">task_affinity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">TaskAffinityConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.ChempropConfig.task_affinity" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2307,7 +2522,7 @@ configured model.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">EnsembleConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sampling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_affinity=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inter_task_affinity=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ray=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/config.html#EnsembleConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">EnsembleConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">performance_optimization=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">post_training=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sampling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_affinity=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inter_task_affinity=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ray=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logging=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/config.html#EnsembleConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Complete configuration for ensemble Chemprop training.</p>
 <p>This configuration extends the single-model config to support
@@ -2324,6 +2539,10 @@ parallelization.</p>
 When curriculum is enabled, all ensemble members share the same curriculum
 schedule for consistent quality-aware sampling.</p></li>
 <li><p><strong>ray</strong> (<em>RayConfig</em>) – Ray parallelization configuration for distributed ensemble training.</p></li>
+<li><p><strong>logging</strong> (<em>RayLoggingConfig</em>) – Ray logging and output management configuration.</p></li>
+<li><p><strong>performance_optimization</strong> (<em>PerformanceOptimizationConfig</em>)</p></li>
+<li><p><strong>post_training</strong> (<em>PostTrainingConfig</em>)</p></li>
+<li><p><strong>profiling</strong> (<em>ProfilingConfig</em>)</p></li>
 <li><p><strong>task_affinity</strong> (<em>TaskAffinityConfig</em>)</p></li>
 <li><p><strong>inter_task_affinity</strong> (<em>InterTaskAffinityConfig</em>)</p></li>
 </ul>
@@ -2357,6 +2576,11 @@ schedule for consistent quality-aware sampling.</p></li>
 <dd></dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig.logging">
+<span class="sig-name descname"><span class="pre">logging</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">RayLoggingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig.logging" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig.mlflow">
 <span class="sig-name descname"><span class="pre">mlflow</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#admet.model.chemprop.MlflowConfig" title="admet.model.chemprop.config.MlflowConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MlflowConfig</span></code></a></em><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig.mlflow" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2369,6 +2593,21 @@ schedule for consistent quality-aware sampling.</p></li>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig.optimization">
 <span class="sig-name descname"><span class="pre">optimization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig" title="admet.model.chemprop.config.OptimizationConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationConfig</span></code></a></em><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig.optimization" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig.performance_optimization">
+<span class="sig-name descname"><span class="pre">performance_optimization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">PerformanceOptimizationConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig.performance_optimization" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig.post_training">
+<span class="sig-name descname"><span class="pre">post_training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">PostTrainingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig.post_training" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.EnsembleConfig.profiling">
+<span class="sig-name descname"><span class="pre">profiling</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">ProfilingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.EnsembleConfig.profiling" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -2385,7 +2624,7 @@ schedule for consistent quality-aware sampling.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.HPOConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">HPOConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_name='???'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_path='???'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_column='smiles'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_columns=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir='outputs/hpo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_data_path=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_config_path=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ray_storage_path=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_tracking_uri=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_weights=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">asha=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_algorithm=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resources=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transfer_learning=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curriculum=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience=15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_epochs=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">report_every_n_epochs=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed=42</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/hpo_config.html#HPOConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.HPOConfig" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">HPOConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_name='???'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_path='???'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smiles_column='smiles'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_columns=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir='outputs/hpo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_data_path=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_config_path=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ray_storage_path=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_tracking_uri=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_weights=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">asha=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_algorithm=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resources=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transfer_learning=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curriculum=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logging=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience=15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_epochs=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">report_every_n_epochs=15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed=42</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/hpo_config.html#HPOConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.HPOConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Main HPO configuration combining all sub-configurations.</p>
 <dl class="simple">
@@ -2424,6 +2663,8 @@ ray_storage_path: Path for Ray Tune storage (optional)</p>
 <li><p><strong>resources</strong> (<em>ResourceConfig</em>)</p></li>
 <li><p><strong>transfer_learning</strong> (<em>TransferLearningConfig</em>)</p></li>
 <li><p><strong>curriculum</strong> (<em>CurriculumConfig</em>)</p></li>
+<li><p><strong>logging</strong> (<em>RayLoggingConfig</em>)</p></li>
+<li><p><strong>profiling</strong> (<em>ProfilingConfig</em>)</p></li>
 <li><p><strong>patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
 <li><p><strong>warmup_epochs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
 <li><p><strong>report_every_n_epochs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
@@ -2457,6 +2698,11 @@ ray_storage_path: Path for Ray Tune storage (optional)</p>
 <dd></dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.HPOConfig.logging">
+<span class="sig-name descname"><span class="pre">logging</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">RayLoggingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.HPOConfig.logging" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.HPOConfig.mlflow_tracking_uri">
 <span class="sig-name descname"><span class="pre">mlflow_tracking_uri</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> <span class="pre">|</span> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#admet.model.chemprop.HPOConfig.mlflow_tracking_uri" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2472,13 +2718,18 @@ ray_storage_path: Path for Ray Tune storage (optional)</p>
 <dd></dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.HPOConfig.profiling">
+<span class="sig-name descname"><span class="pre">profiling</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">ProfilingConfig</span></code></em><a class="headerlink" href="#admet.model.chemprop.HPOConfig.profiling" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.HPOConfig.ray_storage_path">
 <span class="sig-name descname"><span class="pre">ray_storage_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> <span class="pre">|</span> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#admet.model.chemprop.HPOConfig.ray_storage_path" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.HPOConfig.report_every_n_epochs">
-<span class="sig-name descname"><span class="pre">report_every_n_epochs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#admet.model.chemprop.HPOConfig.report_every_n_epochs" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">report_every_n_epochs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">15</span></em><a class="headerlink" href="#admet.model.chemprop.HPOConfig.report_every_n_epochs" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -2685,7 +2936,7 @@ uses a temporary directory.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.OptimizationConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">OptimizationConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'MAE'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">final_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">150</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_bar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_decay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/config.html#OptimizationConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.OptimizationConfig" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.</span></span><span class="sig-name descname"><span class="pre">OptimizationConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'MAE'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">final_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">150</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_bar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_decay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accumulate_grad_batches</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/config.html#OptimizationConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.OptimizationConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Configuration for training optimization.</p>
 <dl class="field-list simple">
@@ -2703,11 +2954,22 @@ uses a temporary directory.</p></li>
 <li><p><strong>num_workers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=0</em>) – Number of data loader workers.</p></li>
 <li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=42</em>) – Random seed for reproducibility.</p></li>
 <li><p><strong>progress_bar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – Whether to show training progress bar.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to print epoch progress messages when progress_bar is False.
+Set to False during HPO to reduce log noise.</p></li>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>default=0.0</em>) – L2 regularization weight decay coefficient. Applied via AdamW optimizer.
 Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.</p></li>
+<li><p><strong>accumulate_grad_batches</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=1</em>) – Number of batches to accumulate gradients over before performing optimizer step.
+Effective batch size = batch_size * accumulate_grad_batches.
+Set to 1 (default) to disable gradient accumulation.
+Useful for simulating larger batch sizes without OOM errors.</p></li>
 </ul>
 </dd>
 </dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.OptimizationConfig.accumulate_grad_batches">
+<span class="sig-name descname"><span class="pre">accumulate_grad_batches</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#admet.model.chemprop.OptimizationConfig.accumulate_grad_batches" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.OptimizationConfig.batch_size">
 <span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#admet.model.chemprop.OptimizationConfig.batch_size" title="Link to this definition">¶</a></dt>
@@ -2756,6 +3018,11 @@ Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.</p></li>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="admet.model.chemprop.OptimizationConfig.seed">
 <span class="sig-name descname"><span class="pre">seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">42</span></em><a class="headerlink" href="#admet.model.chemprop.OptimizationConfig.seed" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.chemprop.OptimizationConfig.verbose">
+<span class="sig-name descname"><span class="pre">verbose</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#admet.model.chemprop.OptimizationConfig.verbose" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -2978,7 +3245,7 @@ curriculum progression during training.</p>
 <dt class="sig sig-object py" id="admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.ffn.</span></span><span class="sig-name descname"><span class="pre">MixtureOfExpertsRegressionFFN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_experts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_tasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_layers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gate_hidden_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gate_n_layers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">criterion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/ffn.html#MixtureOfExpertsRegressionFFN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Predictor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">HyperparametersMixin</span></code></p>
-<p>Implementation of the Adaptive Mixture of Local Experts <a class="footnote-reference brackets" href="#id4" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> model for regression tasks.
+<p>Implementation of the Adaptive Mixture of Local Experts <a class="footnote-reference brackets" href="#id2" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> model for regression tasks.
 The works by passing the learned representation from message passing into one “gating network”
 and a configurable number of “experts”. The outputs of the individual experts are
 multiplied element-wise by the output of the gating network, enabling the overall
@@ -2986,8 +3253,8 @@ architecture to ‘specialize’ experts in certain types of inputs dynamically 
 training.</p>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id4" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">1</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
 <p>R. A. Jacobs, M. I. Jordan, S. J. Nowlan and G. E. Hinton, “Adaptive Mixtures of Local Experts”
 Neural Computation, vol. 3, no. 1, pp. 79-87, March 1991, doi: 10.1162/neco.1991.3.1.79.</p>
 </aside>
@@ -3248,7 +3515,7 @@ registered hooks while the latter silently ignores them.</p>
 <section id="classical-ml-subpackage">
 <h2>Classical ML Subpackage<a class="headerlink" href="#classical-ml-subpackage" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">admet.model.classical</span></code> subpackage provides wrappers for traditional
-machine learning models.</p>
+machine learning models that use molecular fingerprints as features.</p>
 <p>Classical machine learning models for ADMET prediction.</p>
 <p>This module provides implementations of classical ML models (XGBoost, LightGBM,
 CatBoost) that use molecular fingerprints as features.</p>
@@ -3294,7 +3561,7 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <dd class="field-even"><p>Configured model instance.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>CatBoostModel</p>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.model.classical.CatBoostModel" title="admet.model.classical.CatBoostModel">CatBoostModel</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -3308,14 +3575,17 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.classical.</span></span><span class="sig-name descname"><span class="pre">ClassicalModelBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/base.html#ClassicalModelBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.classical.</span></span><span class="sig-name descname"><span class="pre">ClassicalModelBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/base.html#ClassicalModelBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">MLflowMixin</span></code></p>
 <p>Base class for classical ML models with fingerprint features.</p>
 <p>Provides common functionality for gradient boosting models (XGBoost, LightGBM,
 CatBoost) that operate on molecular fingerprints rather than raw SMILES.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Model configuration with model params, fingerprint settings, and MLflow config.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<em>DictConfig</em>) – Model configuration with model params, fingerprint settings, and MLflow config.</p></li>
+<li><p><strong>profiling_config</strong> (<em>ProfilingConfig</em><em> | </em><em>None</em>)</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py attribute">
@@ -3528,7 +3798,7 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <dd class="field-even"><p>Configured model instance.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>LightGBMModel</p>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.model.classical.LightGBMModel" title="admet.model.classical.LightGBMModel">LightGBMModel</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -3582,7 +3852,7 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <dd class="field-even"><p>Configured model instance.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>XGBoostModel</p>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.model.classical.XGBoostModel" title="admet.model.classical.XGBoostModel">XGBoostModel</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -3594,6 +3864,822 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 
 </dd></dl>
 
+<section id="xgboost-model">
+<h3>XGBoost Model<a class="headerlink" href="#xgboost-model" title="Link to this heading">¶</a></h3>
+<p>Gradient boosting implementation using XGBoost.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.model.classical.XGBoostModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.classical.</span></span><span class="sig-name descname"><span class="pre">XGBoostModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/xgboost_model.html#XGBoostModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.classical.XGBoostModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ClassicalModelBase</span></code></p>
+<p>XGBoost model for ADMET property prediction.</p>
+<p>Uses molecular fingerprints as features and XGBoost gradient boosting
+for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Configuration with model.xgboost params and fingerprint settings.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;xgboost&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s2">&quot;n_estimators&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;max_depth&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="p">},</span>
+<span class="gp">... </span>        <span class="s2">&quot;fingerprint&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;morgan&quot;</span><span class="p">},</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">XGBoostModel</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">smiles_list</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">new_smiles</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.classical.XGBoostModel.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DictConfig</span></em><a class="headerlink" href="#admet.model.classical.XGBoostModel.config" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.classical.XGBoostModel.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/xgboost_model.html#XGBoostModel.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.classical.XGBoostModel.from_config" title="Link to this definition">¶</a></dt>
+<dd><p>Create XGBoost model from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Model configuration.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured model instance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.model.classical.XGBoostModel" title="admet.model.classical.XGBoostModel">XGBoostModel</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.classical.XGBoostModel.model_type">
+<span class="sig-name descname"><span class="pre">model_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'xgboost'</span></em><a class="headerlink" href="#admet.model.classical.XGBoostModel.model_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>Key Features:</strong></p>
+<ul class="simple">
+<li><p>Gradient boosting with highly-tuned hyperparameters</p></li>
+<li><p>Supports multi-output regression via MultiOutputRegressor</p></li>
+<li><p>Configurable tree depth, learning rate, and regularization</p></li>
+<li><p>Fast training and prediction with parallel tree construction</p></li>
+</ul>
+</section>
+<section id="lightgbm-model">
+<h3>LightGBM Model<a class="headerlink" href="#lightgbm-model" title="Link to this heading">¶</a></h3>
+<p>Fast gradient boosting using LightGBM.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.model.classical.LightGBMModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.classical.</span></span><span class="sig-name descname"><span class="pre">LightGBMModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/lightgbm_model.html#LightGBMModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.classical.LightGBMModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ClassicalModelBase</span></code></p>
+<p>LightGBM model for ADMET property prediction.</p>
+<p>Uses molecular fingerprints as features and LightGBM gradient boosting
+for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Configuration with model.lightgbm params and fingerprint settings.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgbm&quot;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;lightgbm&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s2">&quot;n_estimators&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;num_leaves&quot;</span><span class="p">:</span> <span class="mi">31</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="p">},</span>
+<span class="gp">... </span>        <span class="s2">&quot;fingerprint&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;morgan&quot;</span><span class="p">},</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">LightGBMModel</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">smiles_list</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">new_smiles</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.classical.LightGBMModel.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DictConfig</span></em><a class="headerlink" href="#admet.model.classical.LightGBMModel.config" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.classical.LightGBMModel.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/lightgbm_model.html#LightGBMModel.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.classical.LightGBMModel.from_config" title="Link to this definition">¶</a></dt>
+<dd><p>Create LightGBM model from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Model configuration.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured model instance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.model.classical.LightGBMModel" title="admet.model.classical.LightGBMModel">LightGBMModel</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.classical.LightGBMModel.model_type">
+<span class="sig-name descname"><span class="pre">model_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'lightgbm'</span></em><a class="headerlink" href="#admet.model.classical.LightGBMModel.model_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>Key Features:</strong></p>
+<ul class="simple">
+<li><p>Histogram-based gradient boosting for speed</p></li>
+<li><p>Lower memory usage than XGBoost</p></li>
+<li><p>Categorical feature support</p></li>
+<li><p>Built-in handling of missing values</p></li>
+</ul>
+</section>
+<section id="catboost-model">
+<h3>CatBoost Model<a class="headerlink" href="#catboost-model" title="Link to this heading">¶</a></h3>
+<p>Gradient boosting with CatBoost library.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.model.classical.CatBoostModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.classical.</span></span><span class="sig-name descname"><span class="pre">CatBoostModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/catboost_model.html#CatBoostModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.classical.CatBoostModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ClassicalModelBase</span></code></p>
+<p>CatBoost model for ADMET property prediction.</p>
+<p>Uses molecular fingerprints as features and CatBoost gradient boosting
+for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Configuration with model.catboost params and fingerprint settings.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;catboost&quot;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;catboost&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s2">&quot;iterations&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;depth&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="p">},</span>
+<span class="gp">... </span>        <span class="s2">&quot;fingerprint&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;morgan&quot;</span><span class="p">},</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">CatBoostModel</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">smiles_list</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">new_smiles</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.classical.CatBoostModel.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DictConfig</span></em><a class="headerlink" href="#admet.model.classical.CatBoostModel.config" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.classical.CatBoostModel.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/classical/catboost_model.html#CatBoostModel.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.classical.CatBoostModel.from_config" title="Link to this definition">¶</a></dt>
+<dd><p>Create CatBoost model from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Model configuration.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured model instance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.model.classical.CatBoostModel" title="admet.model.classical.CatBoostModel">CatBoostModel</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.model.classical.CatBoostModel.model_type">
+<span class="sig-name descname"><span class="pre">model_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'catboost'</span></em><a class="headerlink" href="#admet.model.classical.CatBoostModel.model_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>Key Features:</strong></p>
+<ul class="simple">
+<li><p>Ordered boosting to reduce overfitting</p></li>
+<li><p>Native categorical feature handling</p></li>
+<li><p>Built-in early stopping</p></li>
+<li><p>GPU acceleration support</p></li>
+</ul>
+</section>
+</section>
+<section id="chemeleon-subpackage">
+<h2>Chemeleon Subpackage<a class="headerlink" href="#chemeleon-subpackage" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">admet.model.chemeleon</span></code> subpackage provides pre-trained molecular
+encoder models for transfer learning.</p>
+<p>Chemeleon foundation model for molecular property prediction.</p>
+<p>This module provides a wrapper around the Chemeleon pre-trained molecular encoder
+for ADMET property prediction with optional fine-tuning capabilities.</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemeleon.</span></span><span class="sig-name descname"><span class="pre">ChemeleonHPO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/hpo.html#ChemeleonHPO"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Orchestrator for CheMeleon hyperparameter optimization.</p>
+<p>This class manages the full HPO workflow:
+1. Builds Ray Tune search space from configuration
+2. Runs HPO trials with ASHA early stopping
+3. Logs results to MLflow
+4. Saves top-k configurations for downstream use</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>ChemeleonHPOConfig</em>)</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">config</span></span></dt>
+<dd><p>HPO configuration</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ChemeleonHPOConfig</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">results</span></span></dt>
+<dd><p>Ray Tune results after running HPO</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tune.ResultGrid | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/hpo.html#ChemeleonHPO.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Run hyperparameter optimization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Ray Tune ResultGrid containing all trial results</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tune.ResultGrid</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">save_top_configs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/hpo.html#ChemeleonHPO.save_top_configs"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Save top-k configurations to file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>k</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>) – Number of top configs to save. Defaults to transfer_learning.top_k.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of top configurations.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, Any]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemeleon.</span></span><span class="sig-name descname"><span class="pre">ChemeleonModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">MLflowMixin</span></code></p>
+<p>Chemeleon foundation model for molecular property prediction.</p>
+<p>This model wraps the pre-trained Chemeleon message-passing encoder with
+a trainable regression head. By default, the encoder is frozen to enable
+efficient transfer learning.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<em>DictConfig</em>) – Configuration containing model and training parameters.
+Expected structure:
+- model.type: “chemeleon”
+- model.chemeleon: ChemeleonModelParams
+- data: DataConfig
+- optimization: OptimizationConfig (optional)
+- mlflow: MLflowConfig (optional)</p></li>
+<li><p><strong>profiling_config</strong> (<em>ProfilingConfig</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">model_type</span></span></dt>
+<dd><p>Model type identifier (“chemeleon”).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">mp</span></span></dt>
+<dd><p>Pre-trained message passing encoder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.BondMessagePassing</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">ffn</span></span></dt>
+<dd><p>Trainable regression head.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.RegressionFFN</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">mpnn</span></span></dt>
+<dd><p>Combined MPNN model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>models.MPNN</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Examples</p>
+<p>Create and train a Chemeleon model:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;chemeleon&quot;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;chemeleon&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s2">&quot;freeze_encoder&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;ffn_hidden_dim&quot;</span><span class="p">:</span> <span class="mi">300</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="p">},</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;target_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;LogD&quot;</span><span class="p">]},</span>
+<span class="gp">... </span>    <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ChemeleonModel</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_smiles</span><span class="p">,</span> <span class="n">train_y</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_smiles</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">add_callback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">callback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.add_callback"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Add an external callback to be used during training.</p>
+<p>This allows external integrations (e.g., Ray Tune HPO) to inject
+callbacks for metric reporting without modifying the training loop.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>callback</strong> (<em>pl.Callback</em>) – PyTorch Lightning callback to add.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smiles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_smiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Train the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>smiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – Training SMILES strings.</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em>) – Training target values. Shape: (n_samples,) or (n_samples, n_tasks).</p></li>
+<li><p><strong>val_smiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Validation SMILES strings.</p></li>
+<li><p><strong>val_y</strong> (<em>np.ndarray</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Validation target values.</p></li>
+<li><p><strong>quality_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Quality labels for curriculum learning (e.g., [“high”, “medium”, “low”]).
+Required if joint_sampling.curriculum.enabled is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Self, for method chaining.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ChemeleonModel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Create model from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Configuration object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Initialized model.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ChemeleonModel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_trainer_callbacks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.get_trainer_callbacks"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Get PyTorch Lightning callbacks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of callbacks including GradualUnfreezeCallback and CorrelationMetricsCallback.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[pl.Callback]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">model_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'chemeleon'</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smiles</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Generate predictions for SMILES.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>smiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – SMILES strings to predict.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Predictions. Shape: (n_samples,) or (n_samples, n_tasks).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If model has not been fitted.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemeleon.</span></span><span class="sig-name descname"><span class="pre">GradualUnfreezeCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/callbacks.html#GradualUnfreezeCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Callback</span></code></p>
+<p>Callback for gradual unfreezing of encoder and decoder.</p>
+<p>This callback implements scheduled unfreezing of the Chemeleon encoder
+(message passing) and decoder (FFN/predictor) components during training.
+This is useful for transfer learning where we want to initially freeze
+pre-trained components and gradually fine-tune them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>UnfreezeScheduleConfig</em>) – Configuration specifying freeze/unfreeze behavior.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">config</span></span></dt>
+<dd><p>The unfreeze schedule configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>UnfreezeScheduleConfig</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">_encoder_unfrozen</span></span></dt>
+<dd><p>Whether the encoder has been unfrozen.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">_decoder_unfrozen</span></span></dt>
+<dd><p>Whether the decoder has been unfrozen.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnfreezeScheduleConfig</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">UnfreezeScheduleConfig</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">freeze_encoder</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">unfreeze_encoder_epoch</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">callback</span> <span class="o">=</span> <span class="n">GradualUnfreezeCallback</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span><span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">callback</span><span class="p">])</span>
+</pre></div>
+</div>
+<dl class="py property">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_decoder_frozen</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em></dt>
+<dd><p>Check if decoder is currently frozen.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_encoder_frozen</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em></dt>
+<dd><p>Check if encoder is currently frozen.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">on_train_epoch_start</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pl_module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/callbacks.html#GradualUnfreezeCallback.on_train_epoch_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Check and apply unfreezing at epoch start.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trainer</strong> (<em>pl.Trainer</em>) – The PyTorch Lightning trainer.</p></li>
+<li><p><strong>pl_module</strong> (<em>pl.LightningModule</em>) – The Lightning module being trained.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<section id="chemeleonmodel">
+<h3>ChemeleonModel<a class="headerlink" href="#chemeleonmodel" title="Link to this heading">¶</a></h3>
+<p>Pre-trained Chemeleon encoder with frozen/unfrozen transfer learning.</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemeleon.</span></span><span class="sig-name descname"><span class="pre">ChemeleonModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiling_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">MLflowMixin</span></code></p>
+<p>Chemeleon foundation model for molecular property prediction.</p>
+<p>This model wraps the pre-trained Chemeleon message-passing encoder with
+a trainable regression head. By default, the encoder is frozen to enable
+efficient transfer learning.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<em>DictConfig</em>) – Configuration containing model and training parameters.
+Expected structure:
+- model.type: “chemeleon”
+- model.chemeleon: ChemeleonModelParams
+- data: DataConfig
+- optimization: OptimizationConfig (optional)
+- mlflow: MLflowConfig (optional)</p></li>
+<li><p><strong>profiling_config</strong> (<em>ProfilingConfig</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">model_type</span></span></dt>
+<dd><p>Model type identifier (“chemeleon”).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">mp</span></span></dt>
+<dd><p>Pre-trained message passing encoder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.BondMessagePassing</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">ffn</span></span></dt>
+<dd><p>Trainable regression head.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.RegressionFFN</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">mpnn</span></span></dt>
+<dd><p>Combined MPNN model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>models.MPNN</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Examples</p>
+<p>Create and train a Chemeleon model:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;chemeleon&quot;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;chemeleon&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s2">&quot;freeze_encoder&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;ffn_hidden_dim&quot;</span><span class="p">:</span> <span class="mi">300</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="p">},</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;target_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;LogD&quot;</span><span class="p">]},</span>
+<span class="gp">... </span>    <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ChemeleonModel</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_smiles</span><span class="p">,</span> <span class="n">train_y</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_smiles</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">add_callback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">callback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.add_callback"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Add an external callback to be used during training.</p>
+<p>This allows external integrations (e.g., Ray Tune HPO) to inject
+callbacks for metric reporting without modifying the training loop.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>callback</strong> (<em>pl.Callback</em>) – PyTorch Lightning callback to add.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">agg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">nn.MeanAggregation</span> <span class="pre">|</span> <span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DictConfig</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">featurizer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">featurizers.SimpleMoleculeMolGraphFeaturizer</span> <span class="pre">|</span> <span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">ffn</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">nn.RegressionFFN</span> <span class="pre">|</span> <span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smiles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_smiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Train the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>smiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – Training SMILES strings.</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em>) – Training target values. Shape: (n_samples,) or (n_samples, n_tasks).</p></li>
+<li><p><strong>val_smiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Validation SMILES strings.</p></li>
+<li><p><strong>val_y</strong> (<em>np.ndarray</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Validation target values.</p></li>
+<li><p><strong>quality_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Quality labels for curriculum learning (e.g., [“high”, “medium”, “low”]).
+Required if joint_sampling.curriculum.enabled is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Self, for method chaining.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ChemeleonModel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Create model from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>DictConfig</em>) – Configuration object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Initialized model.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ChemeleonModel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_trainer_callbacks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.get_trainer_callbacks"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Get PyTorch Lightning callbacks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of callbacks including GradualUnfreezeCallback and CorrelationMetricsCallback.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[pl.Callback]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">model_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'chemeleon'</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">mp</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">nn.BondMessagePassing</span> <span class="pre">|</span> <span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">mpnn</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">models.MPNN</span> <span class="pre">|</span> <span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smiles</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemeleon/model.html#ChemeleonModel.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Generate predictions for SMILES.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>smiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – SMILES strings to predict.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Predictions. Shape: (n_samples,) or (n_samples, n_tasks).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If model has not been fitted.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">scaler</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">trainer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pl.Trainer</span> <span class="pre">|</span> <span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>Key Features:</strong></p>
+<ul class="simple">
+<li><p>Auto-download of pre-trained weights from Zenodo</p></li>
+<li><p>Frozen encoder by default for efficient transfer learning</p></li>
+<li><p>Optional gradual unfreezing schedule</p></li>
+<li><p>Consistent BaseModel interface</p></li>
+<li><p>Curriculum learning support</p></li>
+<li><p>Task affinity grouping</p></li>
+</ul>
+<p><strong>Example Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">({</span>
+    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;chemeleon&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;chemeleon&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;freeze_encoder&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;unfreeze_schedule&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;ffn&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;regression&quot;</span><span class="p">,</span> <span class="s2">&quot;hidden_dim&quot;</span><span class="p">:</span> <span class="mi">1200</span><span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="p">})</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">smiles_train</span><span class="p">,</span> <span class="n">targets_train</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">smiles_test</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 
@@ -3611,14 +4697,14 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="admet.data.html">
+          <a class="prev-page" href="admet.features.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</div>
+                <div class="title">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</div>
                 
               </div>
             </a>
@@ -3653,6 +4739,18 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a><ul>
+<li><a class="reference internal" href="#model-registry">Model Registry</a><ul>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry"><code class="docutils literal notranslate"><span class="pre">ModelRegistry</span></code></a><ul>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry.clear"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.clear()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry.create"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.create()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry.get"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.get()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry.is_registered"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.is_registered()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry.list_models"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.list_models()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.registry.ModelRegistry.register"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.register()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#chemprop-subpackage">Chemprop Subpackage</a><ul>
 <li><a class="reference internal" href="#key-classes">Key Classes</a><ul>
 <li><a class="reference internal" href="#admet.model.chemprop.ChempropModel"><code class="docutils literal notranslate"><span class="pre">ChempropModel</span></code></a><ul>
@@ -3696,6 +4794,9 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.mlflow"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.mlflow</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.model"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.model</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.optimization"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.optimization</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.performance_optimization"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.performance_optimization</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.post_training"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.post_training</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.profiling"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.profiling</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ChempropConfig.task_affinity"><code class="docutils literal notranslate"><span class="pre">ChempropConfig.task_affinity</span></code></a></li>
 </ul>
 </li>
@@ -3703,9 +4804,13 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.data"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.data</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.inter_task_affinity"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.inter_task_affinity</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.joint_sampling"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.joint_sampling</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.logging"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.logging</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.mlflow"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.mlflow</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.model"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.model</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.optimization"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.optimization</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.performance_optimization"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.performance_optimization</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.post_training"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.post_training</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.profiling"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.profiling</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.ray"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.ray</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.EnsembleConfig.task_affinity"><code class="docutils literal notranslate"><span class="pre">EnsembleConfig.task_affinity</span></code></a></li>
 </ul>
@@ -3716,9 +4821,11 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.curriculum"><code class="docutils literal notranslate"><span class="pre">HPOConfig.curriculum</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.data_path"><code class="docutils literal notranslate"><span class="pre">HPOConfig.data_path</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.experiment_name"><code class="docutils literal notranslate"><span class="pre">HPOConfig.experiment_name</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.logging"><code class="docutils literal notranslate"><span class="pre">HPOConfig.logging</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.mlflow_tracking_uri"><code class="docutils literal notranslate"><span class="pre">HPOConfig.mlflow_tracking_uri</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.output_dir"><code class="docutils literal notranslate"><span class="pre">HPOConfig.output_dir</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.patience"><code class="docutils literal notranslate"><span class="pre">HPOConfig.patience</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.profiling"><code class="docutils literal notranslate"><span class="pre">HPOConfig.profiling</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.ray_storage_path"><code class="docutils literal notranslate"><span class="pre">HPOConfig.ray_storage_path</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.report_every_n_epochs"><code class="docutils literal notranslate"><span class="pre">HPOConfig.report_every_n_epochs</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.HPOConfig.resources"><code class="docutils literal notranslate"><span class="pre">HPOConfig.resources</span></code></a></li>
@@ -3760,6 +4867,7 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 </ul>
 </li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig</span></code></a><ul>
+<li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.accumulate_grad_batches"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.accumulate_grad_batches</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.batch_size"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.batch_size</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.criterion"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.criterion</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.final_lr"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.final_lr</span></code></a></li>
@@ -3770,6 +4878,7 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.patience"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.patience</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.progress_bar"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.progress_bar</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.seed"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.seed</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.verbose"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.verbose</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.warmup_epochs"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.warmup_epochs</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.OptimizationConfig.weight_decay"><code class="docutils literal notranslate"><span class="pre">OptimizationConfig.weight_decay</span></code></a></li>
 </ul>
@@ -3829,7 +4938,40 @@ for regression. Supports multi-output prediction via MultiOutputRegressor.</p>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#classical-ml-subpackage">Classical ML Subpackage</a></li>
+<li><a class="reference internal" href="#classical-ml-subpackage">Classical ML Subpackage</a><ul>
+<li><a class="reference internal" href="#xgboost-model">XGBoost Model</a><ul>
+<li><a class="reference internal" href="#admet.model.classical.XGBoostModel"><code class="docutils literal notranslate"><span class="pre">XGBoostModel</span></code></a><ul>
+<li><a class="reference internal" href="#admet.model.classical.XGBoostModel.config"><code class="docutils literal notranslate"><span class="pre">XGBoostModel.config</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.classical.XGBoostModel.from_config"><code class="docutils literal notranslate"><span class="pre">XGBoostModel.from_config()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.classical.XGBoostModel.model_type"><code class="docutils literal notranslate"><span class="pre">XGBoostModel.model_type</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#lightgbm-model">LightGBM Model</a><ul>
+<li><a class="reference internal" href="#admet.model.classical.LightGBMModel"><code class="docutils literal notranslate"><span class="pre">LightGBMModel</span></code></a><ul>
+<li><a class="reference internal" href="#admet.model.classical.LightGBMModel.config"><code class="docutils literal notranslate"><span class="pre">LightGBMModel.config</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.classical.LightGBMModel.from_config"><code class="docutils literal notranslate"><span class="pre">LightGBMModel.from_config()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.classical.LightGBMModel.model_type"><code class="docutils literal notranslate"><span class="pre">LightGBMModel.model_type</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#catboost-model">CatBoost Model</a><ul>
+<li><a class="reference internal" href="#admet.model.classical.CatBoostModel"><code class="docutils literal notranslate"><span class="pre">CatBoostModel</span></code></a><ul>
+<li><a class="reference internal" href="#admet.model.classical.CatBoostModel.config"><code class="docutils literal notranslate"><span class="pre">CatBoostModel.config</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.classical.CatBoostModel.from_config"><code class="docutils literal notranslate"><span class="pre">CatBoostModel.from_config()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.classical.CatBoostModel.model_type"><code class="docutils literal notranslate"><span class="pre">CatBoostModel.model_type</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#chemeleon-subpackage">Chemeleon Subpackage</a><ul>
+<li><a class="reference internal" href="#chemeleonmodel">ChemeleonModel</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

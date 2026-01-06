@@ -204,6 +204,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -223,10 +224,13 @@
 <li class="toctree-l1"><a class="reference internal" href="guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -291,7 +295,7 @@
           
 <section class="genindex-section">
   <h1 id="index">Index</h1>
-  <div class="genindex-jumpbox"><a href="#_"><strong>_</strong></a> | <a href="#A"><strong>A</strong></a> | <a href="#B"><strong>B</strong></a> | <a href="#C"><strong>C</strong></a> | <a href="#D"><strong>D</strong></a> | <a href="#E"><strong>E</strong></a> | <a href="#F"><strong>F</strong></a> | <a href="#G"><strong>G</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#I"><strong>I</strong></a> | <a href="#J"><strong>J</strong></a> | <a href="#K"><strong>K</strong></a> | <a href="#L"><strong>L</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#N"><strong>N</strong></a> | <a href="#O"><strong>O</strong></a> | <a href="#P"><strong>P</strong></a> | <a href="#R"><strong>R</strong></a> | <a href="#S"><strong>S</strong></a> | <a href="#T"><strong>T</strong></a> | <a href="#U"><strong>U</strong></a> | <a href="#V"><strong>V</strong></a> | <a href="#W"><strong>W</strong></a></div>
+  <div class="genindex-jumpbox"><a href="#_"><strong>_</strong></a> | <a href="#A"><strong>A</strong></a> | <a href="#B"><strong>B</strong></a> | <a href="#C"><strong>C</strong></a> | <a href="#D"><strong>D</strong></a> | <a href="#E"><strong>E</strong></a> | <a href="#F"><strong>F</strong></a> | <a href="#G"><strong>G</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#I"><strong>I</strong></a> | <a href="#J"><strong>J</strong></a> | <a href="#K"><strong>K</strong></a> | <a href="#L"><strong>L</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#N"><strong>N</strong></a> | <a href="#O"><strong>O</strong></a> | <a href="#P"><strong>P</strong></a> | <a href="#R"><strong>R</strong></a> | <a href="#S"><strong>S</strong></a> | <a href="#T"><strong>T</strong></a> | <a href="#U"><strong>U</strong></a> | <a href="#V"><strong>V</strong></a> | <a href="#W"><strong>W</strong></a> | <a href="#X"><strong>X</strong></a></div>
 </section>
 <section id="_" class="genindex-section">
   <h2>_</h2>
@@ -307,7 +311,11 @@
   <h2>A</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.accumulate_grad_batches">accumulate_grad_batches (admet.model.chemprop.OptimizationConfig attribute)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.fingerprint.MorganFingerprintGenerator.add_fingerprints_to_dataframe">add_fingerprints_to_dataframe() (admet.data.fingerprint.MorganFingerprintGenerator method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.add_timing">add_timing() (admet.util.profiling.PhaseStats method)</a>
 </li>
         <li>
     admet.data
@@ -379,8 +387,6 @@
           <li><a href="api/admet.plot.html#module-admet.plot.density">module</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     admet.plot.heatmap
 
@@ -388,6 +394,8 @@
           <li><a href="api/admet.plot.html#module-admet.plot.heatmap">module</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     admet.plot.latex
 
@@ -431,6 +439,13 @@
 </li>
         </ul></li>
         <li>
+    admet.util.profiling
+
+        <ul>
+          <li><a href="api/admet.util.html#module-admet.util.profiling">module</a>
+</li>
+        </ul></li>
+        <li>
     admet.util.utils
 
         <ul>
@@ -452,6 +467,8 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.alias">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN attribute)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ARTIFACT_LOGGING">ARTIFACT_LOGGING (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.asha">asha (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
     </ul></td>
@@ -462,6 +479,8 @@
   <h2>B</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.BACKWARD_PASS">BACKWARD_PASS (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.bar_fig">bar_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.base_config_path">base_config_path (admet.model.chemprop.HPOConfig attribute)</a>
@@ -472,6 +491,8 @@
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.BEST_CHECKPOINT_LOAD">BEST_CHECKPOINT_LOAD (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.blind_file">blind_file (admet.model.chemprop.DataConfig attribute)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.boxplot_fig">boxplot_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
@@ -492,11 +513,19 @@
 </li>
         <li><a href="api/admet.data.html#admet.data.smiles.canonicalize_smiles">canonicalize_smiles() (in module admet.data.smiles)</a>
 </li>
+        <li><a href="api/admet.model.html#admet.model.classical.CatBoostModel">CatBoostModel (class in admet.model.classical)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.CHECKPOINT_LOAD">CHECKPOINT_LOAD (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropConfig">ChempropConfig (class in admet.model.chemprop)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropHPO">ChempropHPO (class in admet.model.chemprop)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel">ChempropModel (class in admet.model.chemprop)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.CLEANUP">CLEANUP (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry.clear">clear() (admet.model.registry.ModelRegistry class method)</a>
 </li>
         <li><a href="api/leaderboard.html#admet.leaderboard.client.LeaderboardClient.client">client (admet.leaderboard.client.LeaderboardClient attribute)</a>
 </li>
@@ -524,8 +553,6 @@
 </li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics">ClusterCVDiagnostics (class in admet.data.split)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold">ClusterCVFold (class in admet.data.split)</a>
 </li>
         <li><a href="api/admet.util.html#admet.util.logging.ColorFormatter">ColorFormatter (class in admet.util.logging)</a>
@@ -533,6 +560,10 @@
         <li><a href="api/admet.util.html#admet.util.logging.ColorFormatter.COLORS">COLORS (admet.util.logging.ColorFormatter attribute)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.constant.COLS_WITH_UNITS">COLS_WITH_UNITS (in module admet.data.constant)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="guide/logging.html#term-Compression"><strong>Compression</strong></a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.compute_metrics_by_split">compute_metrics_by_split() (in module admet.plot.metrics)</a>
 </li>
@@ -545,16 +576,42 @@
         <ul>
           <li><a href="api/admet.model.html#admet.model.chemprop.ModelEnsemble.config">(admet.model.chemprop.ModelEnsemble attribute)</a>
 </li>
+          <li><a href="api/admet.model.html#admet.model.classical.CatBoostModel.config">(admet.model.classical.CatBoostModel attribute)</a>
+</li>
+          <li><a href="api/admet.model.html#admet.model.classical.LightGBMModel.config">(admet.model.classical.LightGBMModel attribute)</a>
+</li>
+          <li><a href="api/admet.model.html#admet.model.classical.XGBoostModel.config">(admet.model.classical.XGBoostModel attribute)</a>
+</li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.CONFIG_LOAD">CONFIG_LOAD (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.util.html#admet.util.logging.configure_logging">configure_logging() (in module admet.util.logging)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.correlation">correlation() (in module admet.data.stats)</a>
 </li>
+        <li><a href="api/admet.data.html#admet.data.stats.correlation_batch">correlation_batch() (in module admet.data.stats)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.stats.correlation_batch_torch">correlation_batch_torch() (in module admet.data.stats)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.stats.correlation_torch">correlation_torch() (in module admet.data.stats)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.stats.CorrelationMetrics">CorrelationMetrics (class in admet.data.stats)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.DistributionStats.count">count (admet.data.stats.DistributionStats attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.count">(admet.util.profiling.PhaseStats attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry.create">create() (admet.model.registry.ModelRegistry class method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.create_lightning_profiling_callback">create_lightning_profiling_callback() (in module admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.create_model_profiling_result">create_model_profiling_result() (in module admet.util.profiling)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.criterion">criterion (admet.model.chemprop.OptimizationConfig attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.cumtime">cumtime (admet.util.profiling.FunctionStats attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.curriculum">curriculum (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
@@ -578,12 +635,22 @@
         </ul></li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.data_dir">data_dir (admet.model.chemprop.DataConfig attribute)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.DATA_DISCOVERY">DATA_DISCOVERY (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.DATA_LOAD">DATA_LOAD (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.data_path">data_path (admet.model.chemprop.HPOConfig attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.DATA_PREPROCESSING">DATA_PREPROCESSING (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig">DataConfig (class in admet.model.chemprop)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.DATALOADER_CREATION">DATALOADER_CREATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.DATASET_CREATION">DATASET_CREATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.depth">depth (admet.model.chemprop.ModelConfig attribute)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.split.diameter_prune_tolerance_reassign">diameter_prune_tolerance_reassign() (in module admet.data.split)</a>
@@ -596,6 +663,10 @@
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.dropout">dropout (admet.model.chemprop.ModelConfig attribute)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TimingRecord.duration_seconds">duration_seconds (admet.util.profiling.TimingRecord attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.durations">durations (admet.util.profiling.PhaseStats attribute)</a>
+</li>
     </ul></td>
   </tr></table>
 </section>
@@ -604,18 +675,44 @@
   <h2>E</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.EARLY_STOPPING_CHECK">EARLY_STOPPING_CHECK (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.encode">encode() (admet.model.chemprop.ffn.BranchedFFN method)</a>
 
         <ul>
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.encode">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN method)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.end_time">end_time (admet.util.profiling.ModelProfilingResult attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.TimingRecord.end_time">(admet.util.profiling.TimingRecord attribute)</a>
+</li>
+        </ul></li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.endpoint_figs">endpoint_figs (admet.data.split.ClusterCVDiagnostics attribute)</a>
 </li>
-        <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig">EnsembleConfig (class in admet.model.chemprop)</a>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ENSEMBLE_AGGREGATION">ENSEMBLE_AGGREGATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ENSEMBLE_MODEL_TRAIN">ENSEMBLE_MODEL_TRAIN (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ENSEMBLE_OUTPUT">ENSEMBLE_OUTPUT (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ENSEMBLE_PREDICTION">ENSEMBLE_PREDICTION (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ENSEMBLE_SPLIT_DISCOVERY">ENSEMBLE_SPLIT_DISCOVERY (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.ENSEMBLE_TOTAL">ENSEMBLE_TOTAL (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig">EnsembleConfig (class in admet.model.chemprop)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.EnsembleProfiler">EnsembleProfiler (class in admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.EPOCH">EPOCH (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.EVALUATION">EVALUATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.split.example_default_pipeline">example_default_pipeline() (in module admet.data.split)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.experiment_name">experiment_name (admet.model.chemprop.HPOConfig attribute)</a>
@@ -634,11 +731,15 @@
   <h2>F</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.FEATURE_GENERATION">FEATURE_GENERATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.featurizer">featurizer (admet.model.chemprop.ChempropModel attribute)</a>
 </li>
         <li><a href="api/leaderboard.html#admet.leaderboard.client.LeaderboardClient.fetch_all_tables">fetch_all_tables() (admet.leaderboard.client.LeaderboardClient method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.ffn_type">ffn_type (admet.model.chemprop.ModelConfig attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.filename">filename (admet.util.profiling.FunctionStats attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.final_lr">final_lr (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
@@ -650,8 +751,6 @@
 </li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.fold_id">fold_id (admet.data.split.ClusterCVFold attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.fold_train_cluster_sizes">fold_train_cluster_sizes (admet.data.split.ClusterCVDiagnostics attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.folds">folds (admet.model.chemprop.DataConfig attribute)</a>
@@ -662,19 +761,41 @@
           <li><a href="api/admet.util.html#admet.util.logging.JsonFormatter.format">(admet.util.logging.JsonFormatter method)</a>
 </li>
         </ul></li>
-        <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.forward">forward() (admet.model.chemprop.ffn.BranchedFFN method)</a>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.format_duration">format_duration() (in module admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.stats.RelativeAbsoluteError.forward">forward() (admet.data.stats.RelativeAbsoluteError method)</a>
 
         <ul>
+          <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.forward">(admet.model.chemprop.ffn.BranchedFFN method)</a>
+</li>
           <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN.forward">(admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN method)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.FORWARD_PASS">FORWARD_PASS (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.from_config">from_config() (admet.model.chemprop.ChempropModel class method)</a>
 
         <ul>
           <li><a href="api/admet.model.html#admet.model.chemprop.ModelEnsemble.from_config">(admet.model.chemprop.ModelEnsemble class method)</a>
 </li>
+          <li><a href="api/admet.model.html#admet.model.classical.CatBoostModel.from_config">(admet.model.classical.CatBoostModel class method)</a>
+</li>
+          <li><a href="api/admet.model.html#admet.model.classical.LightGBMModel.from_config">(admet.model.classical.LightGBMModel class method)</a>
+</li>
+          <li><a href="api/admet.model.html#admet.model.classical.XGBoostModel.from_config">(admet.model.classical.XGBoostModel class method)</a>
+</li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.from_dict">from_dict() (admet.util.profiling.ModelProfilingResult class method)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.fingerprint.FingerprintConfig.from_mapping">from_mapping() (admet.data.fingerprint.FingerprintConfig class method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.function_stats">function_stats (admet.util.profiling.ModelProfilingResult attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionProfiler">FunctionProfiler (class in admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats">FunctionStats (class in admet.util.profiling)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -686,13 +807,25 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/leaderboard.html#admet.plot.leaderboard.generate_all_plots">generate_all_plots() (in module admet.plot.leaderboard)</a>
 </li>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry.get">get() (admet.model.registry.ModelRegistry class method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.get_all_stats">get_all_stats() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.split.get_bitbirch_clusters">get_bitbirch_clusters() (in module admet.data.split)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.utils.get_git_commit_hash">get_git_commit_hash() (in module admet.util.utils)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="api/admet.util.html#admet.util.utils.get_git_commit_hash">get_git_commit_hash() (in module admet.util.utils)</a>
+        <li><a href="api/admet.util.html#admet.util.profiling.get_global_profiler">get_global_profiler() (in module admet.util.profiling)</a>
 </li>
         <li><a href="api/admet.util.html#admet.util.logging.get_logging_config">get_logging_config() (in module admet.util.logging)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.get_phase_stats">get_phase_stats() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionProfiler.get_stats_list">get_stats_list() (admet.util.profiling.FunctionProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.get_summary_dict">get_summary_dict() (admet.util.profiling.TrainingProfiler method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropHPO.get_top_k_configs">get_top_k_configs() (admet.model.chemprop.ChempropHPO method)</a>
 </li>
@@ -706,9 +839,19 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.hidden_dim">hidden_dim (admet.model.chemprop.ModelConfig attribute)</a>
 </li>
+        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.hist_fig">hist_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.HPO_RAY_INIT">HPO_RAY_INIT (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.HPO_RESULTS_AGGREGATION">HPO_RESULTS_AGGREGATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="api/admet.data.html#admet.data.split.ClusterCVDiagnostics.hist_fig">hist_fig (admet.data.split.ClusterCVDiagnostics attribute)</a>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.HPO_SEARCH_SPACE_BUILD">HPO_SEARCH_SPACE_BUILD (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.HPO_TOTAL">HPO_TOTAL (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.HPO_TRIAL">HPO_TRIAL (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig">HPOConfig (class in admet.model.chemprop)</a>
 </li>
@@ -721,6 +864,8 @@
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.fingerprint.FingerprintConfig.include_chirality">include_chirality (admet.data.fingerprint.FingerprintConfig attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.INIT">INIT (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.init_lr">init_lr (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
@@ -738,6 +883,8 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.inter_task_affinity">(admet.model.chemprop.EnsembleConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry.is_registered">is_registered() (admet.model.registry.ModelRegistry class method)</a>
+</li>
     </ul></td>
   </tr></table>
 </section>
@@ -780,10 +927,28 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.plot.html#admet.plot.latex.latex_sanitize">latex_sanitize() (in module admet.plot.latex)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/leaderboard.html#admet.leaderboard.client.LeaderboardClient">LeaderboardClient (class in admet.leaderboard.client)</a>
 </li>
+        <li><a href="api/admet.model.html#admet.model.classical.LightGBMModel">LightGBMModel (class in admet.model.classical)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.LightningProfilingCallback">LightningProfilingCallback (class in admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.lineno">lineno (admet.util.profiling.FunctionStats attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry.list_models">list_models() (admet.model.registry.ModelRegistry class method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.EnsembleProfiler.log_ensemble_aggregates_to_mlflow">log_ensemble_aggregates_to_mlflow() (admet.util.profiling.EnsembleProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.log_to_mlflow">log_to_mlflow() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.logging">logging (admet.model.chemprop.EnsembleConfig attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.logging">(admet.model.chemprop.HPOConfig attribute)</a>
+</li>
+        </ul></li>
     </ul></td>
   </tr></table>
 </section>
@@ -802,19 +967,29 @@
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.max_lr">max_lr (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.max_seconds">max_seconds (admet.util.profiling.PhaseStats attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.maybe_advance_phase">maybe_advance_phase() (admet.model.chemprop.curriculum.CurriculumState method)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.DistributionStats.mean">mean (admet.data.stats.DistributionStats attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.mean_seconds">mean_seconds (admet.util.profiling.PhaseStats property)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.DistributionStats.median">median (admet.data.stats.DistributionStats attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig.message_hidden_dim">message_hidden_dim (admet.model.chemprop.ModelConfig attribute)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TimingRecord.metadata">metadata (admet.util.profiling.TimingRecord attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.metrics">metrics (admet.model.chemprop.ChempropModel attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.METRICS_COMPUTATION">METRICS_COMPUTATION (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.metrics_to_latex_table">metrics_to_latex_table() (in module admet.plot.metrics)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.DistributionStats.min">min (admet.data.stats.DistributionStats attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.min_seconds">min_seconds (admet.util.profiling.PhaseStats attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.MixtureOfExpertsRegressionFFN">MixtureOfExpertsRegressionFFN (class in admet.model.chemprop.ffn)</a>
 </li>
@@ -824,6 +999,12 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.mlflow">(admet.model.chemprop.EnsembleConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="guide/logging.html#term-MLflow-Artifact"><strong>MLflow Artifact</strong></a>
+</li>
+        <li><a href="guide/logging.html#term-MLflow-Run"><strong>MLflow Run</strong></a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.MLFLOW_INIT">MLFLOW_INIT (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.mlflow_run_id">mlflow_run_id (admet.model.chemprop.ChempropModel attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.mlflow_tracking_uri">mlflow_tracking_uri (admet.model.chemprop.HPOConfig attribute)</a>
@@ -836,12 +1017,30 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.model">(admet.model.chemprop.EnsembleConfig attribute)</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.MODEL_INIT">MODEL_INIT (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.model_key">model_key (admet.util.profiling.ModelProfilingResult attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.MODEL_SAVE">MODEL_SAVE (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.model.html#admet.model.classical.CatBoostModel.model_type">model_type (admet.model.classical.CatBoostModel attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.model.html#admet.model.classical.LightGBMModel.model_type">(admet.model.classical.LightGBMModel attribute)</a>
+</li>
+          <li><a href="api/admet.model.html#admet.model.classical.XGBoostModel.model_type">(admet.model.classical.XGBoostModel attribute)</a>
+</li>
+        </ul></li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelConfig">ModelConfig (class in admet.model.chemprop)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelEnsemble">ModelEnsemble (class in admet.model.chemprop)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult">ModelProfilingResult (class in admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry">ModelRegistry (class in admet.model.registry)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelEnsemble.models">models (admet.model.chemprop.ModelEnsemble attribute)</a>
 </li>
         <li>
@@ -882,11 +1081,15 @@
 </li>
           <li><a href="api/admet.util.html#module-admet.util.logging">admet.util.logging</a>
 </li>
+          <li><a href="api/admet.util.html#module-admet.util.profiling">admet.util.profiling</a>
+</li>
           <li><a href="api/admet.util.html#module-admet.util.utils">admet.util.utils</a>
 </li>
           <li><a href="api/admet.plot.html#module-admet.visualize">admet.visualize</a>
 </li>
         </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.module">module (admet.util.profiling.FunctionStats property)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.fingerprint.MorganFingerprintGenerator">MorganFingerprintGenerator (class in admet.data.fingerprint)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.mpnn">mpnn (admet.model.chemprop.ChempropModel attribute)</a>
@@ -917,13 +1120,17 @@
         </ul></li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_train_clusters">n_train_clusters (admet.data.split.ClusterCVFold attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_train_mols">n_train_mols (admet.data.split.ClusterCVFold attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_val_clusters">n_val_clusters (admet.data.split.ClusterCVFold attribute)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.n_val_mols">n_val_mols (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.name">name (admet.util.profiling.FunctionStats attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.ncalls">ncalls (admet.util.profiling.FunctionStats attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.MlflowConfig.nested">nested (admet.model.chemprop.MlflowConfig attribute)</a>
 </li>
@@ -941,9 +1148,19 @@
   <h2>O</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.ProfilingCallback.on_train_epoch_end">on_train_epoch_end() (admet.util.profiling.ProfilingCallback method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ProfilingCallback.on_train_epoch_start">on_train_epoch_start() (admet.util.profiling.ProfilingCallback method)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.curriculum.CurriculumCallback.on_train_start">on_train_start() (admet.model.chemprop.curriculum.CurriculumCallback method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.curriculum.CurriculumCallback.on_validation_epoch_end">on_validation_epoch_end() (admet.model.chemprop.curriculum.CurriculumCallback method)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.ProfilingCallback.on_validation_epoch_end">(admet.util.profiling.ProfilingCallback method)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ProfilingCallback.on_validation_epoch_start">on_validation_epoch_start() (admet.util.profiling.ProfilingCallback method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropConfig.optimization">optimization (admet.model.chemprop.ChempropConfig attribute)</a>
 
@@ -954,6 +1171,8 @@
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig">OptimizationConfig (class in admet.model.chemprop)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.OPTIMIZER_STEP">OPTIMIZER_STEP (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ffn.BranchedFFN.output_dim">output_dim (admet.model.chemprop.ffn.BranchedFFN property)</a>
 
@@ -995,6 +1214,30 @@
         </ul></li>
         <li><a href="api/admet.data.html#admet.data.stats.CorrelationMetrics.pearson_r">pearson_r (admet.data.stats.CorrelationMetrics attribute)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.percall_cumtime">percall_cumtime (admet.util.profiling.FunctionStats attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.percall_tottime">percall_tottime (admet.util.profiling.FunctionStats attribute)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.ChempropConfig.performance_optimization">performance_optimization (admet.model.chemprop.ChempropConfig attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.performance_optimization">(admet.model.chemprop.EnsembleConfig attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.phase">phase (admet.util.profiling.PhaseStats attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.TimingRecord.phase">(admet.util.profiling.TimingRecord attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.phase">phase() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.phase_stats">phase_stats (admet.util.profiling.ModelProfilingResult attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats">PhaseStats (class in admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseTimer">PhaseTimer (class in admet.util.profiling)</a>
+</li>
         <li><a href="api/admet.data.html#admet.data.split.pipeline">pipeline() (in module admet.data.split)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.metrics.plot_all_metrics">plot_all_metrics() (in module admet.plot.metrics)</a>
@@ -1010,6 +1253,8 @@
         <li><a href="api/admet.plot.html#admet.plot.density.plot_endpoint_distributions">plot_endpoint_distributions() (in module admet.plot.density)</a>
 </li>
         <li><a href="api/admet.plot.html#admet.plot.split.plot_endpoint_finite_value_counts">plot_endpoint_finite_value_counts() (in module admet.plot.split)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.PLOT_GENERATION">PLOT_GENERATION (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
@@ -1041,9 +1286,33 @@
 </li>
         <li><a href="api/admet.plot.html#admet.plot.split.plot_train_val_dataset_sizes">plot_train_val_dataset_sizes() (in module admet.plot.split)</a>
 </li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.ChempropConfig.post_training">post_training (admet.model.chemprop.ChempropConfig attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.post_training">(admet.model.chemprop.EnsembleConfig attribute)</a>
+</li>
+        </ul></li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.predict">predict() (admet.model.chemprop.ChempropModel method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ModelEnsemble.predict_ensemble">predict_ensemble() (admet.model.chemprop.ModelEnsemble method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.EnsembleProfiler.print_ensemble_summary">print_ensemble_summary() (admet.util.profiling.EnsembleProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionProfiler.print_stats">print_stats() (admet.util.profiling.FunctionProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.print_summary">print_summary() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.profile_phase">profile_phase() (in module admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.ChempropConfig.profiling">profiling (admet.model.chemprop.ChempropConfig attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.profiling">(admet.model.chemprop.EnsembleConfig attribute)</a>
+</li>
+          <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.profiling">(admet.model.chemprop.HPOConfig attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ProfilingCallback">ProfilingCallback (class in admet.util.profiling)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.progress_bar">progress_bar (admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
@@ -1063,13 +1332,27 @@
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.EnsembleConfig.ray">ray (admet.model.chemprop.EnsembleConfig attribute)</a>
 </li>
+        <li><a href="guide/logging.html#term-Ray-Trial"><strong>Ray Trial</strong></a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.ray_storage_path">ray_storage_path (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
-        <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.report_every_n_epochs">report_every_n_epochs (admet.model.chemprop.HPOConfig attribute)</a>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.record_timing">record_timing() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.registry.ModelRegistry.register">register() (admet.model.registry.ModelRegistry class method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.EnsembleProfiler.register_model_dict">register_model_dict() (admet.util.profiling.EnsembleProfiler method)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.EnsembleProfiler.register_model_result">register_model_result() (admet.util.profiling.EnsembleProfiler method)</a>
+</li>
+        <li><a href="api/admet.data.html#admet.data.stats.RelativeAbsoluteError">RelativeAbsoluteError (class in admet.data.stats)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.report_every_n_epochs">report_every_n_epochs (admet.model.chemprop.HPOConfig attribute)</a>
+</li>
         <li><a href="api/admet.util.html#admet.util.logging.ColorFormatter.RESET">RESET (admet.util.logging.ColorFormatter attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.reset">reset() (admet.util.profiling.TrainingProfiler method)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.resources">resources (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
@@ -1107,11 +1390,15 @@
           <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.seed">(admet.model.chemprop.OptimizationConfig attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.set_global_profiler">set_global_profiler() (in module admet.util.profiling)</a>
+</li>
         <li><a href="api/admet.util.html#admet.util.utils.set_global_seeds">set_global_seeds() (in module admet.util.utils)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.stats.DistributionStats.skew">skew (admet.data.stats.DistributionStats attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.SMILES_CANONICALIZATION">SMILES_CANONICALIZATION (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.smiles_col">smiles_col (admet.model.chemprop.DataConfig attribute)</a>
 </li>
@@ -1123,7 +1410,19 @@
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.splits">splits (admet.model.chemprop.DataConfig attribute)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.start">start() (admet.util.profiling.TrainingProfiler method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.start_time">start_time (admet.util.profiling.ModelProfilingResult attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.TimingRecord.start_time">(admet.util.profiling.TimingRecord attribute)</a>
+</li>
+        </ul></li>
         <li><a href="api/admet.data.html#admet.data.stats.DistributionStats.std">std (admet.data.stats.DistributionStats attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.std_seconds">std_seconds (admet.util.profiling.PhaseStats property)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.stop">stop() (admet.util.profiling.TrainingProfiler method)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -1138,6 +1437,8 @@
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.target_columns">target_columns (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.target_metric_key">target_metric_key() (admet.model.chemprop.curriculum.CurriculumState method)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.TARGET_SCALING">TARGET_SCALING (admet.util.profiling.TrainingPhase attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.DataConfig.target_weights">target_weights (admet.model.chemprop.DataConfig attribute)</a>
 
@@ -1157,13 +1458,31 @@
 </li>
         <li><a href="api/admet.plot.html#admet.plot.latex.text_distribution">text_distribution() (in module admet.plot.latex)</a>
 </li>
+        <li><a href="api/admet.util.html#admet.util.profiling.timed_phase">timed_phase() (in module admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TimingRecord">TimingRecord (class in admet.util.profiling)</a>
+</li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.to_config">to_config() (admet.model.chemprop.ChempropModel method)</a>
 </li>
         <li><a href="api/leaderboard.html#admet.leaderboard.parser.to_dataframe">to_dataframe() (in module admet.leaderboard.parser)</a>
 </li>
+        <li><a href="api/admet.data.html#admet.data.fingerprint.FingerprintConfig.to_dict">to_dict() (admet.data.fingerprint.FingerprintConfig method)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.to_dict">(admet.util.profiling.ModelProfilingResult method)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler.total_duration">total_duration (admet.util.profiling.TrainingProfiler property)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="api/admet.data.html#admet.data.fingerprint.FingerprintConfig.to_dict">to_dict() (admet.data.fingerprint.FingerprintConfig method)</a>
+        <li><a href="api/admet.util.html#admet.util.profiling.ModelProfilingResult.total_seconds">total_seconds (admet.util.profiling.ModelProfilingResult attribute)</a>
+
+        <ul>
+          <li><a href="api/admet.util.html#admet.util.profiling.PhaseStats.total_seconds">(admet.util.profiling.PhaseStats attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/admet.util.html#admet.util.profiling.FunctionStats.tottime">tottime (admet.util.profiling.FunctionStats attribute)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.MlflowConfig.tracking">tracking (admet.model.chemprop.MlflowConfig attribute)</a>
 </li>
@@ -1182,6 +1501,14 @@
 </li>
         </ul></li>
         <li><a href="api/admet.model.html#admet.model.chemprop.ChempropModel.trainer">trainer (admet.model.chemprop.ChempropModel attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.TRAINER_SETUP">TRAINER_SETUP (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.TRAINING_TOTAL">TRAINING_TOTAL (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase">TrainingPhase (class in admet.util.profiling)</a>
+</li>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingProfiler">TrainingProfiler (class in admet.util.profiling)</a>
 </li>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.transfer_learning">transfer_learning (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
@@ -1217,11 +1544,17 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.val_clusters">val_clusters (admet.data.split.ClusterCVFold attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.HPOConfig.val_data_path">val_data_path (admet.model.chemprop.HPOConfig attribute)</a>
 </li>
         <li><a href="api/admet.data.html#admet.data.split.ClusterCVFold.val_indices">val_indices (admet.data.split.ClusterCVFold attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.util.html#admet.util.profiling.TrainingPhase.VALIDATION">VALIDATION (admet.util.profiling.TrainingPhase attribute)</a>
+</li>
+        <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.verbose">verbose (admet.model.chemprop.OptimizationConfig attribute)</a>
+</li>
+        <li><a href="guide/logging.html#term-Verbosity-Level"><strong>Verbosity Level</strong></a>
 </li>
     </ul></td>
   </tr></table>
@@ -1240,6 +1573,16 @@
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/admet.model.html#admet.model.chemprop.OptimizationConfig.weight_decay">weight_decay (admet.model.chemprop.OptimizationConfig attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="X" class="genindex-section">
+  <h2>X</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/admet.model.html#admet.model.classical.XGBoostModel">XGBoostModel (class in admet.model.classical)</a>
 </li>
     </ul></td>
   </tr></table>

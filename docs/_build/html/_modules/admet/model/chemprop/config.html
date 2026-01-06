@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -224,10 +225,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -324,6 +328,7 @@
     <span class="n">InterTaskAffinityConfig</span><span class="p">,</span>
     <span class="n">JointSamplingConfig</span><span class="p">,</span>
     <span class="n">RayConfig</span><span class="p">,</span>
+    <span class="n">RayLoggingConfig</span><span class="p">,</span>
     <span class="n">TaskAffinityConfig</span><span class="p">,</span>
     <span class="n">TaskOversamplingConfig</span><span class="p">,</span>
 <span class="p">)</span>
@@ -334,6 +339,9 @@
     <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;OptimizationConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;MlflowConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PerformanceOptimizationConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PostTrainingConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ProfilingConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;TaskOversamplingConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;CurriculumConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;JointSamplingConfig&quot;</span><span class="p">,</span>
@@ -470,9 +478,17 @@
 <span class="sd">        Random seed for reproducibility.</span>
 <span class="sd">    progress_bar : bool, default=False</span>
 <span class="sd">        Whether to show training progress bar.</span>
+<span class="sd">    verbose : bool, default=True</span>
+<span class="sd">        Whether to print epoch progress messages when progress_bar is False.</span>
+<span class="sd">        Set to False during HPO to reduce log noise.</span>
 <span class="sd">    weight_decay : float, default=0.0</span>
 <span class="sd">        L2 regularization weight decay coefficient. Applied via AdamW optimizer.</span>
 <span class="sd">        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.</span>
+<span class="sd">    accumulate_grad_batches : int, default=1</span>
+<span class="sd">        Number of batches to accumulate gradients over before performing optimizer step.</span>
+<span class="sd">        Effective batch size = batch_size * accumulate_grad_batches.</span>
+<span class="sd">        Set to 1 (default) to disable gradient accumulation.</span>
+<span class="sd">        Useful for simulating larger batch sizes without OOM errors.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">criterion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MAE&quot;</span>
@@ -486,7 +502,9 @@
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
     <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span></div>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">accumulate_grad_batches</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span></div>
 
 
 
@@ -525,6 +543,169 @@
     <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">nested</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProfilingConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for performance profiling during training and ensemble runs.</span>
+
+<span class="sd">    Provides granular control over profiling detail level and overhead to identify</span>
+<span class="sd">    bottlenecks in training, post-training operations, and ensemble workflows.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    enabled : bool, default=True</span>
+<span class="sd">        Whether to enable phase-level profiling (minimal overhead).</span>
+<span class="sd">    mode : str, default=&quot;phase&quot;</span>
+<span class="sd">        Profiling detail level:</span>
+<span class="sd">        - &quot;disabled&quot;: No profiling</span>
+<span class="sd">        - &quot;phase&quot;: Phase-level timing only (low overhead, ~1% slowdown)</span>
+<span class="sd">        - &quot;function&quot;: Function-level cProfile profiling (moderate overhead, ~5-10% slowdown)</span>
+<span class="sd">        - &quot;full&quot;: Full profiling with extended function tracking (high overhead, ~15-25% slowdown)</span>
+<span class="sd">    function_top_n : int, default=50</span>
+<span class="sd">        Number of top functions to track in function-level profiling.</span>
+<span class="sd">    function_filter_module : str, default=&quot;admet&quot;</span>
+<span class="sd">        Only track functions from modules containing this string.</span>
+<span class="sd">    log_to_mlflow : bool, default=True</span>
+<span class="sd">        Whether to log profiling metrics to MLflow.</span>
+<span class="sd">    print_summary : bool, default=True</span>
+<span class="sd">        Whether to print profiling summary to console.</span>
+<span class="sd">    ensemble_aggregation : bool, default=True</span>
+<span class="sd">        Whether to aggregate profiling data across ensemble models.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Minimal profiling for production (default)</span>
+<span class="sd">    &gt;&gt;&gt; profiling = ProfilingConfig(mode=&quot;phase&quot;)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Detailed profiling for debugging bottlenecks</span>
+<span class="sd">    &gt;&gt;&gt; profiling = ProfilingConfig(mode=&quot;function&quot;, function_top_n=100)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Disable profiling completely</span>
+<span class="sd">    &gt;&gt;&gt; profiling = ProfilingConfig(enabled=False)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;phase&quot;</span>  <span class="c1"># &quot;disabled&quot;, &quot;phase&quot;, &quot;function&quot;, &quot;full&quot;</span>
+    <span class="n">function_top_n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
+    <span class="n">function_filter_module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;admet&quot;</span>
+    <span class="n">log_to_mlflow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">print_summary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">ensemble_aggregation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PerformanceOptimizationConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for performance optimizations during training.</span>
+
+<span class="sd">    These settings control runtime performance features that can significantly</span>
+<span class="sd">    speed up training and post-training operations. All optimizations are disabled</span>
+<span class="sd">    by default for maximum compatibility and safety.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    use_mixed_precision : bool, default=False</span>
+<span class="sd">        Enable automatic mixed precision (AMP) training using FP16.</span>
+<span class="sd">        Provides 40-60% speedup and 30% lower GPU memory usage on modern GPUs.</span>
+<span class="sd">        May cause minor (&lt;0.5%) variation in metrics due to FP16 rounding.</span>
+<span class="sd">        Recommended: Enable after validating metrics on your dataset.</span>
+<span class="sd">    async_checkpoint_upload : bool, default=False</span>
+<span class="sd">        Upload checkpoints to MLflow asynchronously in background thread.</span>
+<span class="sd">        Reduces I/O blocking during training by 5-10%.</span>
+<span class="sd">        Checkpoints are queued and uploaded without blocking training loop.</span>
+<span class="sd">        Recommended: Safe to enable, provides modest speedup.</span>
+<span class="sd">    checkpoint_save_interval_seconds : float, default=0.0</span>
+<span class="sd">        Minimum time (seconds) between checkpoint saves.</span>
+<span class="sd">        Set to 0.0 (default) to save every improvement (no throttling).</span>
+<span class="sd">        Set to 60.0 to save at most once per minute.</span>
+<span class="sd">        Useful for reducing I/O overhead when model improves frequently.</span>
+<span class="sd">        Recommended: 0.0 for most cases, 30-60 for very frequent improvements.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Conservative defaults (all disabled)</span>
+<span class="sd">    &gt;&gt;&gt; perf = PerformanceOptimizationConfig()</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Enable mixed precision for maximum speed</span>
+<span class="sd">    &gt;&gt;&gt; perf = PerformanceOptimizationConfig(use_mixed_precision=True)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Enable all optimizations</span>
+<span class="sd">    &gt;&gt;&gt; perf = PerformanceOptimizationConfig(</span>
+<span class="sd">    ...     use_mixed_precision=True,</span>
+<span class="sd">    ...     async_checkpoint_upload=True,</span>
+<span class="sd">    ...     checkpoint_save_interval_seconds=30.0</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">use_mixed_precision</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">async_checkpoint_upload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">checkpoint_save_interval_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PostTrainingConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for post-training operations (plots, artifacts, metrics).</span>
+
+<span class="sd">    These settings control what happens after training completes, allowing</span>
+<span class="sd">    optimization of the post-training phase which can be slow due to:</span>
+<span class="sd">    - Multiple redundant predict() calls</span>
+<span class="sd">    - Slow plot generation</span>
+<span class="sd">    - MLflow artifact uploads</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    generate_plots : bool, default=True</span>
+<span class="sd">        Whether to generate parity plots and metric bar charts.</span>
+<span class="sd">        Setting to False can significantly speed up post-training.</span>
+<span class="sd">    plot_dpi : int, default=150</span>
+<span class="sd">        DPI for saved plots. Lower values (100) are faster, higher (300) better quality.</span>
+<span class="sd">    plot_formats : List[str], default=[&quot;png&quot;]</span>
+<span class="sd">        Output formats for plots. PNG is fastest, PDF/SVG are slower but scalable.</span>
+<span class="sd">    log_model_to_mlflow : bool, default=True</span>
+<span class="sd">        Whether to register the model with mlflow.pytorch.log_model().</span>
+<span class="sd">        This can be slow for large models.</span>
+<span class="sd">    async_artifact_upload : bool, default=False</span>
+<span class="sd">        Whether to upload artifacts asynchronously (non-blocking).</span>
+<span class="sd">        Experimental: may cause issues if run ends before upload completes.</span>
+<span class="sd">    cache_predictions : bool, default=True</span>
+<span class="sd">        Whether to cache predictions to avoid redundant predict() calls.</span>
+<span class="sd">        Recommended True for performance.</span>
+<span class="sd">    compute_test_metrics : bool, default=True</span>
+<span class="sd">        Whether to compute metrics on the test set after training.</span>
+<span class="sd">    compute_train_metrics : bool, default=False</span>
+<span class="sd">        Whether to compute metrics on the training set. Usually False</span>
+<span class="sd">        to save time since validation metrics are more informative.</span>
+<span class="sd">    compute_rank_correlations : bool, default=True</span>
+<span class="sd">        Whether to compute rank-based correlations (Spearman, Kendall).</span>
+<span class="sd">        These are computationally expensive. Set to False to speed up</span>
+<span class="sd">        metrics computation by ~30-50% if you only need MAE/RMSE/R2/Pearson.</span>
+<span class="sd">    compute_per_quality_metrics : bool, default=True</span>
+<span class="sd">        Whether to compute per-quality metrics when curriculum learning is active.</span>
+<span class="sd">        Setting to False can significantly speed up metrics computation for</span>
+<span class="sd">        datasets with many quality levels.</span>
+<span class="sd">    use_gpu_metrics : str, default=&quot;auto&quot;</span>
+<span class="sd">        Whether to use GPU acceleration for metrics computation.</span>
+<span class="sd">        Options:</span>
+<span class="sd">        - &quot;auto&quot;: Auto-detect GPU availability and use if present (recommended)</span>
+<span class="sd">        - &quot;true&quot;: Force GPU usage (will fail if GPU unavailable)</span>
+<span class="sd">        - &quot;false&quot;: Force CPU usage</span>
+<span class="sd">        Provides 2-5x speedup for large datasets when GPU available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">generate_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">plot_dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
+    <span class="n">plot_formats</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;png&quot;</span><span class="p">])</span>
+    <span class="n">log_model_to_mlflow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">async_artifact_upload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">cache_predictions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">compute_test_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">compute_train_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">compute_rank_correlations</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">compute_per_quality_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">use_gpu_metrics</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
 
 
 <span class="c1"># NOTE: TaskOversamplingConfig, CurriculumConfig, JointSamplingConfig,</span>
@@ -594,6 +775,9 @@
     <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">)</span>
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
+    <span class="n">performance_optimization</span><span class="p">:</span> <span class="n">PerformanceOptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PerformanceOptimizationConfig</span><span class="p">)</span>
+    <span class="n">post_training</span><span class="p">:</span> <span class="n">PostTrainingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PostTrainingConfig</span><span class="p">)</span>
+    <span class="n">profiling</span><span class="p">:</span> <span class="n">ProfilingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ProfilingConfig</span><span class="p">)</span>
     <span class="n">joint_sampling</span><span class="p">:</span> <span class="n">JointSamplingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">JointSamplingConfig</span><span class="p">)</span>
     <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
     <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span></div>
@@ -667,6 +851,8 @@
 <span class="sd">        schedule for consistent quality-aware sampling.</span>
 <span class="sd">    ray : RayConfig</span>
 <span class="sd">        Ray parallelization configuration for distributed ensemble training.</span>
+<span class="sd">    logging : RayLoggingConfig</span>
+<span class="sd">        Ray logging and output management configuration.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -685,10 +871,14 @@
     <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">)</span>
     <span class="n">optimization</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">)</span>
     <span class="n">mlflow</span><span class="p">:</span> <span class="n">MlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MlflowConfig</span><span class="p">)</span>
+    <span class="n">performance_optimization</span><span class="p">:</span> <span class="n">PerformanceOptimizationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PerformanceOptimizationConfig</span><span class="p">)</span>
+    <span class="n">post_training</span><span class="p">:</span> <span class="n">PostTrainingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PostTrainingConfig</span><span class="p">)</span>
+    <span class="n">profiling</span><span class="p">:</span> <span class="n">ProfilingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ProfilingConfig</span><span class="p">)</span>
     <span class="n">joint_sampling</span><span class="p">:</span> <span class="n">JointSamplingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">JointSamplingConfig</span><span class="p">)</span>
     <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
     <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span>
-    <span class="n">ray</span><span class="p">:</span> <span class="n">RayConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayConfig</span><span class="p">)</span></div>
+    <span class="n">ray</span><span class="p">:</span> <span class="n">RayConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayConfig</span><span class="p">)</span>
+    <span class="n">logging</span><span class="p">:</span> <span class="n">RayLoggingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayLoggingConfig</span><span class="p">)</span></div>
 
 </pre></div>
         </article>

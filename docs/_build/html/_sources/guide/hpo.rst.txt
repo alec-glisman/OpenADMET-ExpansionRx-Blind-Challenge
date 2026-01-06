@@ -323,8 +323,8 @@ Architecture Parameters
 
 **Weight Decay:**
 
-Weight decay provides L2 regularization through the AdamW optimizer, which 
-implements decoupled weight decay (Loshchilov & Hutter, 2019). This is more 
+Weight decay provides L2 regularization through the AdamW optimizer, which
+implements decoupled weight decay (Loshchilov & Hutter, 2019). This is more
 effective than traditional L2 penalty for neural networks.
 
 - Set ``weight_decay: 0.0`` to disable (default)
@@ -527,4 +527,3 @@ Cross-References
 - See :doc:`modeling` for general modeling guide
 - See :doc:`configuration` for configuration file format
 - See :doc:`splitting` for dataset preparation
-
