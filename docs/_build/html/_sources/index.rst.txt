@@ -91,10 +91,13 @@ Documentation sections
    guide/configuration
    guide/config_reference
    guide/modeling
+   guide/classical_models
    guide/hpo
    guide/curriculum
    guide/task_affinity
+   guide/debugging_per_quality_metrics
    guide/mlflow_artifacts
+   guide/logging
    planning/index
 
 

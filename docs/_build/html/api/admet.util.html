@@ -214,6 +214,7 @@
 <ul class="current">
 <li class="toctree-l1 current has-children"><a class="reference internal" href="admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -233,10 +234,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -468,16 +472,1431 @@ and whether structured logging is active.</p>
 </dd></dl>
 
 </section>
+<section id="profiling">
+<h3>profiling<a class="headerlink" href="#profiling" title="Link to this heading">¶</a></h3>
+<p>Performance profiling for ensemble training workflows.</p>
+<section id="performance-profiling-utilities">
+<span id="module-admet.util.profiling"></span><h4>Performance Profiling Utilities<a class="headerlink" href="#performance-profiling-utilities" title="Link to this heading">¶</a></h4>
+<p>Comprehensive profiling system for tracking runtime performance across
+training, HPO, and ensemble workflows. Provides visibility into phase-level
+timing breakdowns with MLflow integration.</p>
+<section id="id1">
+<h5>Contents<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h5>
+<section id="id2">
+<h6>Classes<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h6>
+<ul class="simple">
+<li><p><a class="reference internal" href="#admet.util.profiling.PhaseTimer" title="admet.util.profiling.PhaseTimer"><code class="xref py py-class docutils literal notranslate"><span class="pre">PhaseTimer</span></code></a> - Context manager for timing individual phases</p></li>
+<li><p><a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainingProfiler</span></code></a> - Full training profiler with nested phase support</p></li>
+<li><p><a class="reference internal" href="#admet.util.profiling.ProfilingCallback" title="admet.util.profiling.ProfilingCallback"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProfilingCallback</span></code></a> - PyTorch Lightning callback for epoch-level profiling</p></li>
+</ul>
+</section>
+<section id="id3">
+<h6>Functions<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h6>
+<ul class="simple">
+<li><p><a class="reference internal" href="#admet.util.profiling.profile_phase" title="admet.util.profiling.profile_phase"><code class="xref py py-func docutils literal notranslate"><span class="pre">profile_phase()</span></code></a> - Decorator for profiling function execution</p></li>
+<li><p><a class="reference internal" href="#admet.util.profiling.format_duration" title="admet.util.profiling.format_duration"><code class="xref py py-func docutils literal notranslate"><span class="pre">format_duration()</span></code></a> - Human-readable duration formatting</p></li>
+</ul>
+</section>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.EnsembleProfiler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">EnsembleProfiler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ensemble'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_function_profiling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#EnsembleProfiler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.EnsembleProfiler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainingProfiler</span></code></a></p>
+<p>Extended profiler for ensemble training with per-model aggregation.</p>
+<p>Collects and aggregates profiling data from individual model training
+runs (potentially from Ray workers) to provide detailed breakdowns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;ensemble&quot;</em>) – Name identifier.</p></li>
+<li><p><strong>enable_function_profiling</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – Whether to enable cProfile-based function-level profiling.
+Note: This adds overhead and should only be used for debugging.</p></li>
+<li><p><strong>mlflow_client</strong> (<em>Optional</em><em>[</em><em>'MlflowClient'</em><em>]</em>)</p></li>
+<li><p><strong>mlflow_run_id</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>enabled</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.EnsembleProfiler.log_ensemble_aggregates_to_mlflow">
+<span class="sig-name descname"><span class="pre">log_ensemble_aggregates_to_mlflow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'profiling.ensemble'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#EnsembleProfiler.log_ensemble_aggregates_to_mlflow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.EnsembleProfiler.log_ensemble_aggregates_to_mlflow" title="Link to this definition">¶</a></dt>
+<dd><p>Log aggregated ensemble profiling statistics to MLflow.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> (<em>MlflowClient</em>) – MLflow client for logging.</p></li>
+<li><p><strong>run_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Parent run ID to log to.</p></li>
+<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;profiling.ensemble&quot;</em>) – Metric name prefix.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.EnsembleProfiler.print_ensemble_summary">
+<span class="sig-name descname"><span class="pre">print_ensemble_summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#EnsembleProfiler.print_ensemble_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.EnsembleProfiler.print_ensemble_summary" title="Link to this definition">¶</a></dt>
+<dd><p>Print detailed ensemble profiling summary with bottleneck identification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.EnsembleProfiler.register_model_dict">
+<span class="sig-name descname"><span class="pre">register_model_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#EnsembleProfiler.register_model_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.EnsembleProfiler.register_model_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Register model result from dictionary (from Ray worker).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.EnsembleProfiler.register_model_result">
+<span class="sig-name descname"><span class="pre">register_model_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#EnsembleProfiler.register_model_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.EnsembleProfiler.register_model_result" title="Link to this definition">¶</a></dt>
+<dd><p>Register profiling result from a model training run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>result</strong> (<a class="reference internal" href="#admet.util.profiling.ModelProfilingResult" title="admet.util.profiling.ModelProfilingResult"><em>ModelProfilingResult</em></a>) – Profiling data from a single model.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionProfiler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">FunctionProfiler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filter_module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'admet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#FunctionProfiler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.FunctionProfiler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>cProfile-based profiler for capturing function-level timing.</p>
+<p>This profiler captures every function call within the profiled scope,
+allowing identification of bottlenecks at the function level.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filter_module</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;admet&quot;</em>) – Only include functions from modules containing this string.</p></li>
+<li><p><strong>top_n</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=50</em>) – Number of top functions to keep.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fp</span> <span class="o">=</span> <span class="n">FunctionProfiler</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">fp</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fp</span><span class="o">.</span><span class="n">print_stats</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionProfiler.get_stats_list">
+<span class="sig-name descname"><span class="pre">get_stats_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#FunctionProfiler.get_stats_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.FunctionProfiler.get_stats_list" title="Link to this definition">¶</a></dt>
+<dd><p>Get function stats as list of dicts for serialization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionProfiler.print_stats">
+<span class="sig-name descname"><span class="pre">print_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">top_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#FunctionProfiler.print_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.FunctionProfiler.print_stats" title="Link to this definition">¶</a></dt>
+<dd><p>Print function-level statistics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>top_n</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">FunctionStats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lineno</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ncalls</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tottime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cumtime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">percall_tottime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">percall_cumtime</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#FunctionStats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.FunctionStats" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Statistics for a single function from cProfile.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>lineno</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>ncalls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>tottime</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>cumtime</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>percall_tottime</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>percall_cumtime</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.cumtime">
+<span class="sig-name descname"><span class="pre">cumtime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.cumtime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.filename">
+<span class="sig-name descname"><span class="pre">filename</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.filename" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.lineno">
+<span class="sig-name descname"><span class="pre">lineno</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.lineno" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.module">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">module</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.module" title="Link to this definition">¶</a></dt>
+<dd><p>Extract module name from filename.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.ncalls">
+<span class="sig-name descname"><span class="pre">ncalls</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.ncalls" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.percall_cumtime">
+<span class="sig-name descname"><span class="pre">percall_cumtime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.percall_cumtime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.percall_tottime">
+<span class="sig-name descname"><span class="pre">percall_tottime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.percall_tottime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.FunctionStats.tottime">
+<span class="sig-name descname"><span class="pre">tottime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.FunctionStats.tottime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.LightningProfilingCallback">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">LightningProfilingCallback</span></span><a class="reference internal" href="../_modules/admet/util/profiling.html#LightningProfilingCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.LightningProfilingCallback" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>PyTorch Lightning Callback class for profiling.</p>
+<p>This is a proper Lightning callback that inherits from pl.Callback.
+Import this in modules that use Lightning.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">ModelProfilingResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_seconds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_stats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function_stats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ModelProfilingResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Complete profiling result for a single model training.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>total_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>phase_stats</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>function_stats</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>start_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>end_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.end_time">
+<span class="sig-name descname"><span class="pre">end_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.end_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.from_dict">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ModelProfilingResult.from_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.from_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Create from dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult" title="admet.util.profiling.ModelProfilingResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelProfilingResult</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.function_stats">
+<span class="sig-name descname"><span class="pre">function_stats</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a><span class="pre">,</span> <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a><span class="pre">]]</span></em><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.function_stats" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.model_key">
+<span class="sig-name descname"><span class="pre">model_key</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></em><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.model_key" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.phase_stats">
+<span class="sig-name descname"><span class="pre">phase_stats</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a><span class="pre">,</span> <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a><span class="pre">,</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a><span class="pre">]]</span></em><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.phase_stats" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.start_time">
+<span class="sig-name descname"><span class="pre">start_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.start_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ModelProfilingResult.to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.to_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Convert to dictionary for Ray serialization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.ModelProfilingResult.total_seconds">
+<span class="sig-name descname"><span class="pre">total_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.ModelProfilingResult.total_seconds" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">PhaseStats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_seconds=0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_seconds=inf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seconds=0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">durations=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#PhaseStats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.PhaseStats" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Aggregated statistics for a phase across multiple measurements.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>count</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>total_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>min_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>durations</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.add_timing">
+<span class="sig-name descname"><span class="pre">add_timing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">duration</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#PhaseStats.add_timing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.PhaseStats.add_timing" title="Link to this definition">¶</a></dt>
+<dd><p>Add a timing measurement.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.count">
+<span class="sig-name descname"><span class="pre">count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.count" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.durations">
+<span class="sig-name descname"><span class="pre">durations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a><span class="pre">]</span></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.durations" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.max_seconds">
+<span class="sig-name descname"><span class="pre">max_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.max_seconds" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.mean_seconds">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mean_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.mean_seconds" title="Link to this definition">¶</a></dt>
+<dd><p>Average duration in seconds.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.min_seconds">
+<span class="sig-name descname"><span class="pre">min_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">inf</span></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.min_seconds" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.phase">
+<span class="sig-name descname"><span class="pre">phase</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.phase" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.std_seconds">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">std_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.std_seconds" title="Link to this definition">¶</a></dt>
+<dd><p>Standard deviation of durations.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseStats.total_seconds">
+<span class="sig-name descname"><span class="pre">total_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#admet.util.profiling.PhaseStats.total_seconds" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.PhaseTimer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">PhaseTimer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_on_exit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#PhaseTimer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.PhaseTimer" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Context manager for timing a single phase.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference internal" href="#admet.util.profiling.TrainingPhase" title="admet.util.profiling.TrainingPhase"><em>TrainingPhase</em></a>) – Name of the phase being timed.</p></li>
+<li><p><strong>profiler</strong> (<a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><em>TrainingProfiler</em></a><em>, </em><em>optional</em>) – Parent profiler to record timing to.</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>, </em><em>optional</em>) – Additional metadata to attach to the timing record.</p></li>
+<li><p><strong>log_on_exit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to log timing on context exit.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">PhaseTimer</span><span class="p">(</span><span class="s2">&quot;data_load&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">timer</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">data</span> <span class="o">=</span> <span class="n">load_data</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data loading took </span><span class="si">{</span><span class="n">timer</span><span class="o">.</span><span class="n">duration</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.ProfilingCallback">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">ProfilingCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">profiler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_every_n_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ProfilingCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ProfilingCallback" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>PyTorch Lightning callback for epoch-level profiling.</p>
+<p>Tracks timing for training epochs, validation, and other training events.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>profiler</strong> (<a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><em>TrainingProfiler</em></a>) – Parent profiler to record timings to.</p></li>
+<li><p><strong>log_every_n_epochs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=1</em>) – How often to log epoch timings.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">profiler</span> <span class="o">=</span> <span class="n">TrainingProfiler</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">callback</span> <span class="o">=</span> <span class="n">ProfilingCallback</span><span class="p">(</span><span class="n">profiler</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span><span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">callback</span><span class="p">])</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.ProfilingCallback.on_train_epoch_end">
+<span class="sig-name descname"><span class="pre">on_train_epoch_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pl_module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ProfilingCallback.on_train_epoch_end"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ProfilingCallback.on_train_epoch_end" title="Link to this definition">¶</a></dt>
+<dd><p>Record end of training epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>trainer</strong> (<em>Trainer</em>)</p></li>
+<li><p><strong>pl_module</strong> (<em>LightningModule</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.ProfilingCallback.on_train_epoch_start">
+<span class="sig-name descname"><span class="pre">on_train_epoch_start</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pl_module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ProfilingCallback.on_train_epoch_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ProfilingCallback.on_train_epoch_start" title="Link to this definition">¶</a></dt>
+<dd><p>Record start of training epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>trainer</strong> (<em>Trainer</em>)</p></li>
+<li><p><strong>pl_module</strong> (<em>LightningModule</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.ProfilingCallback.on_validation_epoch_end">
+<span class="sig-name descname"><span class="pre">on_validation_epoch_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pl_module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ProfilingCallback.on_validation_epoch_end"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ProfilingCallback.on_validation_epoch_end" title="Link to this definition">¶</a></dt>
+<dd><p>Record end of validation epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>trainer</strong> (<em>Trainer</em>)</p></li>
+<li><p><strong>pl_module</strong> (<em>LightningModule</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.ProfilingCallback.on_validation_epoch_start">
+<span class="sig-name descname"><span class="pre">on_validation_epoch_start</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pl_module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#ProfilingCallback.on_validation_epoch_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.ProfilingCallback.on_validation_epoch_start" title="Link to this definition">¶</a></dt>
+<dd><p>Record start of validation epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>trainer</strong> (<em>Trainer</em>)</p></li>
+<li><p><strong>pl_module</strong> (<em>LightningModule</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.TimingRecord">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">TimingRecord</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration_seconds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TimingRecord"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TimingRecord" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Record of a single timing measurement.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>duration_seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>start_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>end_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TimingRecord.duration_seconds">
+<span class="sig-name descname"><span class="pre">duration_seconds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.TimingRecord.duration_seconds" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TimingRecord.end_time">
+<span class="sig-name descname"><span class="pre">end_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.TimingRecord.end_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TimingRecord.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a><span class="pre">[</span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a><span class="pre">,</span> <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a><span class="pre">]</span></em><a class="headerlink" href="#admet.util.profiling.TimingRecord.metadata" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TimingRecord.phase">
+<span class="sig-name descname"><span class="pre">phase</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></em><a class="headerlink" href="#admet.util.profiling.TimingRecord.phase" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TimingRecord.start_time">
+<span class="sig-name descname"><span class="pre">start_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.util.profiling.TimingRecord.start_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">TrainingPhase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingPhase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingPhase" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Standard phases in model training workflow.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ARTIFACT_LOGGING">
+<span class="sig-name descname"><span class="pre">ARTIFACT_LOGGING</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'artifact_logging'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ARTIFACT_LOGGING" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.BACKWARD_PASS">
+<span class="sig-name descname"><span class="pre">BACKWARD_PASS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'backward_pass'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.BACKWARD_PASS" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.BEST_CHECKPOINT_LOAD">
+<span class="sig-name descname"><span class="pre">BEST_CHECKPOINT_LOAD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'best_checkpoint_load'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.BEST_CHECKPOINT_LOAD" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.CHECKPOINT_LOAD">
+<span class="sig-name descname"><span class="pre">CHECKPOINT_LOAD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'checkpoint_load'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.CHECKPOINT_LOAD" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.CLEANUP">
+<span class="sig-name descname"><span class="pre">CLEANUP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'cleanup'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.CLEANUP" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.CONFIG_LOAD">
+<span class="sig-name descname"><span class="pre">CONFIG_LOAD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'config_load'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.CONFIG_LOAD" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.DATALOADER_CREATION">
+<span class="sig-name descname"><span class="pre">DATALOADER_CREATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'dataloader_creation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.DATALOADER_CREATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.DATASET_CREATION">
+<span class="sig-name descname"><span class="pre">DATASET_CREATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'dataset_creation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.DATASET_CREATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.DATA_DISCOVERY">
+<span class="sig-name descname"><span class="pre">DATA_DISCOVERY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'data_discovery'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.DATA_DISCOVERY" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.DATA_LOAD">
+<span class="sig-name descname"><span class="pre">DATA_LOAD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'data_load'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.DATA_LOAD" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.DATA_PREPROCESSING">
+<span class="sig-name descname"><span class="pre">DATA_PREPROCESSING</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'data_preprocessing'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.DATA_PREPROCESSING" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.EARLY_STOPPING_CHECK">
+<span class="sig-name descname"><span class="pre">EARLY_STOPPING_CHECK</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'early_stopping_check'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.EARLY_STOPPING_CHECK" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ENSEMBLE_AGGREGATION">
+<span class="sig-name descname"><span class="pre">ENSEMBLE_AGGREGATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ensemble_aggregation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_AGGREGATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ENSEMBLE_MODEL_TRAIN">
+<span class="sig-name descname"><span class="pre">ENSEMBLE_MODEL_TRAIN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ensemble_model_train'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_MODEL_TRAIN" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ENSEMBLE_OUTPUT">
+<span class="sig-name descname"><span class="pre">ENSEMBLE_OUTPUT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ensemble_output'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_OUTPUT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ENSEMBLE_PREDICTION">
+<span class="sig-name descname"><span class="pre">ENSEMBLE_PREDICTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ensemble_prediction'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_PREDICTION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ENSEMBLE_SPLIT_DISCOVERY">
+<span class="sig-name descname"><span class="pre">ENSEMBLE_SPLIT_DISCOVERY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ensemble_split_discovery'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_SPLIT_DISCOVERY" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.ENSEMBLE_TOTAL">
+<span class="sig-name descname"><span class="pre">ENSEMBLE_TOTAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ensemble_total'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_TOTAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.EPOCH">
+<span class="sig-name descname"><span class="pre">EPOCH</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'epoch'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.EPOCH" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.EVALUATION">
+<span class="sig-name descname"><span class="pre">EVALUATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'evaluation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.EVALUATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.FEATURE_GENERATION">
+<span class="sig-name descname"><span class="pre">FEATURE_GENERATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'feature_generation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.FEATURE_GENERATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.FORWARD_PASS">
+<span class="sig-name descname"><span class="pre">FORWARD_PASS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'forward_pass'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.FORWARD_PASS" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.HPO_RAY_INIT">
+<span class="sig-name descname"><span class="pre">HPO_RAY_INIT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'hpo_ray_init'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.HPO_RAY_INIT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.HPO_RESULTS_AGGREGATION">
+<span class="sig-name descname"><span class="pre">HPO_RESULTS_AGGREGATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'hpo_results_aggregation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.HPO_RESULTS_AGGREGATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.HPO_SEARCH_SPACE_BUILD">
+<span class="sig-name descname"><span class="pre">HPO_SEARCH_SPACE_BUILD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'hpo_search_space_build'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.HPO_SEARCH_SPACE_BUILD" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.HPO_TOTAL">
+<span class="sig-name descname"><span class="pre">HPO_TOTAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'hpo_total'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.HPO_TOTAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.HPO_TRIAL">
+<span class="sig-name descname"><span class="pre">HPO_TRIAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'hpo_trial'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.HPO_TRIAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.INIT">
+<span class="sig-name descname"><span class="pre">INIT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'init'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.INIT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.METRICS_COMPUTATION">
+<span class="sig-name descname"><span class="pre">METRICS_COMPUTATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'metrics_computation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.METRICS_COMPUTATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.MLFLOW_INIT">
+<span class="sig-name descname"><span class="pre">MLFLOW_INIT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mlflow_init'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.MLFLOW_INIT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.MODEL_INIT">
+<span class="sig-name descname"><span class="pre">MODEL_INIT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'model_init'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.MODEL_INIT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.MODEL_SAVE">
+<span class="sig-name descname"><span class="pre">MODEL_SAVE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'model_save'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.MODEL_SAVE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.OPTIMIZER_STEP">
+<span class="sig-name descname"><span class="pre">OPTIMIZER_STEP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'optimizer_step'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.OPTIMIZER_STEP" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.PLOT_GENERATION">
+<span class="sig-name descname"><span class="pre">PLOT_GENERATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'plot_generation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.PLOT_GENERATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.SMILES_CANONICALIZATION">
+<span class="sig-name descname"><span class="pre">SMILES_CANONICALIZATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'smiles_canonicalization'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.SMILES_CANONICALIZATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.TARGET_SCALING">
+<span class="sig-name descname"><span class="pre">TARGET_SCALING</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'target_scaling'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.TARGET_SCALING" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.TRAINER_SETUP">
+<span class="sig-name descname"><span class="pre">TRAINER_SETUP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'trainer_setup'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.TRAINER_SETUP" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.TRAINING_TOTAL">
+<span class="sig-name descname"><span class="pre">TRAINING_TOTAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'training_total'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.TRAINING_TOTAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingPhase.VALIDATION">
+<span class="sig-name descname"><span class="pre">VALIDATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'validation'</span></em><a class="headerlink" href="#admet.util.profiling.TrainingPhase.VALIDATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">TrainingProfiler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'training'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Comprehensive profiler for tracking training performance.</p>
+<p>Supports nested phases, MLflow integration, and summary generation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;training&quot;</em>) – Name identifier for this profiler instance.</p></li>
+<li><p><strong>mlflow_client</strong> (<em>MlflowClient</em><em>, </em><em>optional</em>) – MLflow client for logging metrics.</p></li>
+<li><p><strong>mlflow_run_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – MLflow run ID to log metrics to.</p></li>
+<li><p><strong>enabled</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether profiling is enabled.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">profiler</span> <span class="o">=</span> <span class="n">TrainingProfiler</span><span class="p">(</span><span class="s2">&quot;chemprop_training&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="s2">&quot;data_load&quot;</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;train.csv&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="s2">&quot;model_init&quot;</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">profiler</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.get_all_stats">
+<span class="sig-name descname"><span class="pre">get_all_stats</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.get_all_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.get_all_stats" title="Link to this definition">¶</a></dt>
+<dd><p>Get statistics for all phases.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Mapping of phase names to statistics.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.get_phase_stats">
+<span class="sig-name descname"><span class="pre">get_phase_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.get_phase_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.get_phase_stats" title="Link to this definition">¶</a></dt>
+<dd><p>Get statistics for a specific phase.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Phase identifier.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Statistics for the phase, or None if not recorded.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.util.profiling.PhaseStats" title="admet.util.profiling.PhaseStats">PhaseStats</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.get_summary_dict">
+<span class="sig-name descname"><span class="pre">get_summary_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.get_summary_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.get_summary_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Get a summary dictionary suitable for logging.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Summary with phase timings and statistics.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.log_to_mlflow">
+<span class="sig-name descname"><span class="pre">log_to_mlflow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'profiling'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.log_to_mlflow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.log_to_mlflow" title="Link to this definition">¶</a></dt>
+<dd><p>Log profiling metrics to MLflow.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;profiling&quot;</em>) – Prefix for metric names.</p></li>
+<li><p><strong>client</strong> (<em>MlflowClient</em><em>, </em><em>optional</em>) – MLflow client. Uses instance client if not provided.</p></li>
+<li><p><strong>run_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – MLflow run ID. Uses instance run_id if not provided.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.phase">
+<span class="sig-name descname"><span class="pre">phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_on_exit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.phase" title="Link to this definition">¶</a></dt>
+<dd><p>Context manager for timing a phase.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference internal" href="#admet.util.profiling.TrainingPhase" title="admet.util.profiling.TrainingPhase"><em>TrainingPhase</em></a>) – Phase identifier.</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>, </em><em>optional</em>) – Additional metadata.</p></li>
+<li><p><strong>log_on_exit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to log on exit.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>PhaseTimer</em> – Timer instance for the phase.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.print_summary">
+<span class="sig-name descname"><span class="pre">print_summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">top_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.print_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.print_summary" title="Link to this definition">¶</a></dt>
+<dd><p>Print a formatted summary of profiling results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>top_n</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=20</em>) – Number of top phases to display.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.record_timing">
+<span class="sig-name descname"><span class="pre">record_timing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.record_timing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.record_timing" title="Link to this definition">¶</a></dt>
+<dd><p>Record a timing measurement.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Phase identifier.</p></li>
+<li><p><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Duration in seconds.</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>, </em><em>optional</em>) – Additional metadata.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.reset" title="Link to this definition">¶</a></dt>
+<dd><p>Reset all profiling data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.start" title="Link to this definition">¶</a></dt>
+<dd><p>Mark the start of the profiled workflow.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainingProfiler</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#TrainingProfiler.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.stop" title="Link to this definition">¶</a></dt>
+<dd><p>Mark the end of the profiled workflow.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainingProfiler</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="admet.util.profiling.TrainingProfiler.total_duration">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">total_duration</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><a class="headerlink" href="#admet.util.profiling.TrainingProfiler.total_duration" title="Link to this definition">¶</a></dt>
+<dd><p>Total duration from start to stop in seconds.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.create_lightning_profiling_callback">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">create_lightning_profiling_callback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">profiler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_every_n_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#create_lightning_profiling_callback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.create_lightning_profiling_callback" title="Link to this definition">¶</a></dt>
+<dd><p>Create a PyTorch Lightning callback for profiling.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>profiler</strong> (<a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><em>TrainingProfiler</em></a>) – Parent profiler.</p></li>
+<li><p><strong>log_every_n_epochs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>default=1</em>) – How often to log epoch timings.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Lightning callback instance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pl.Callback</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.create_model_profiling_result">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">create_model_profiling_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function_profiler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#create_model_profiling_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.create_model_profiling_result" title="Link to this definition">¶</a></dt>
+<dd><p>Create a ModelProfilingResult from profiler instances.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Identifier for the model.</p></li>
+<li><p><strong>profiler</strong> (<a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><em>TrainingProfiler</em></a>) – Phase-level profiler.</p></li>
+<li><p><strong>function_profiler</strong> (<a class="reference internal" href="#admet.util.profiling.FunctionProfiler" title="admet.util.profiling.FunctionProfiler"><em>FunctionProfiler</em></a><em>, </em><em>optional</em>) – Function-level profiler.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Combined profiling result.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult" title="admet.util.profiling.ModelProfilingResult">ModelProfilingResult</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.format_duration">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">format_duration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seconds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#format_duration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.format_duration" title="Link to this definition">¶</a></dt>
+<dd><p>Format duration in human-readable form.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>seconds</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Duration in seconds.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Formatted duration string (e.g., “1h 23m 45.6s”, “45.6s”, “123.4ms”).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.get_global_profiler">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">get_global_profiler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#get_global_profiler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.get_global_profiler" title="Link to this definition">¶</a></dt>
+<dd><p>Get or create the global profiler instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Global profiler instance.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler">TrainingProfiler</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.profile_phase">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">profile_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profiler_attr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'_profiler'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#profile_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.profile_phase" title="Link to this definition">¶</a></dt>
+<dd><p>Decorator to profile a function as a phase.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference internal" href="#admet.util.profiling.TrainingPhase" title="admet.util.profiling.TrainingPhase"><em>TrainingPhase</em></a>) – Phase identifier.</p></li>
+<li><p><strong>profiler_attr</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>default=&quot;_profiler&quot;</em>) – Name of the profiler attribute on self.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Decorated function.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Callable</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">MyModel</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="gp">... </span>        <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span> <span class="o">=</span> <span class="n">TrainingProfiler</span><span class="p">()</span>
+<span class="gp">...</span>
+<span class="gp">... </span>    <span class="nd">@profile_phase</span><span class="p">(</span><span class="s2">&quot;data_load&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="gp">... </span>        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;data.csv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.set_global_profiler">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">set_global_profiler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">profiler</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#set_global_profiler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.set_global_profiler" title="Link to this definition">¶</a></dt>
+<dd><p>Set the global profiler instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>profiler</strong> (<a class="reference internal" href="#admet.util.profiling.TrainingProfiler" title="admet.util.profiling.TrainingProfiler"><em>TrainingProfiler</em></a>) – Profiler to set as global.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="admet.util.profiling.timed_phase">
+<span class="sig-prename descclassname"><span class="pre">admet.util.profiling.</span></span><span class="sig-name descname"><span class="pre">timed_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/profiling.html#timed_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.util.profiling.timed_phase" title="Link to this definition">¶</a></dt>
+<dd><p>Convenience context manager using global profiler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><a class="reference internal" href="#admet.util.profiling.TrainingPhase" title="admet.util.profiling.TrainingPhase"><em>TrainingPhase</em></a>) – Phase identifier.</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>, </em><em>optional</em>) – Additional metadata.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>PhaseTimer</em> – Timer instance.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">timed_phase</span><span class="p">(</span><span class="s2">&quot;data_load&quot;</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">data</span> <span class="o">=</span> <span class="n">load_data</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="ray-logging">
+<h3>ray_logging<a class="headerlink" href="#ray-logging" title="Link to this heading">¶</a></h3>
+<p>Ray Tune integration for distributed logging.</p>
+<p>Ray Tune logging utilities for capturing and managing output.</p>
+<p>This module provides utilities to configure Ray’s logging infrastructure,
+redirect verbose output to files, upload logs as MLflow artifacts, and
+track ensemble training progress with minimal terminal output.</p>
+<section id="key-components">
+<h4>Key Components<a class="headerlink" href="#key-components" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>RayLogManager</dt><dd><p>Context manager that configures Ray environment variables for logging,
+collects trial logs after experiment completion, compresses them, and
+uploads as MLflow artifacts. Handles cleanup and interrupt signals.</p>
+</dd>
+<dt>QuietProgressReporter</dt><dd><p>Minimal progress reporter that displays only completion summaries
+instead of per-trial details, keeping terminal output clean.</p>
+</dd>
+<dt>LogArtifactCallback</dt><dd><p>Ray Tune callback that collects logs from all trials and uploads
+them to MLflow as a compressed artifact after experiment completion.</p>
+</dd>
+<dt>EnsembleProgressTracker</dt><dd><p>Progress tracker for ensemble model training that provides visual
+feedback for split/fold training without verbose output.</p>
+</dd>
+</dl>
+</section>
+<section id="usage-example">
+<h4>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading">¶</a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">RayLogManager</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">mlflow_run_id</span><span class="o">=</span><span class="s2">&quot;run_123&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./results&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">fail_on_upload_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span> <span class="k">as</span> <span class="n">manager</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="c1"># Run HPO or ensemble training with Ray Tune</span>
+<span class="gp">... </span>    <span class="n">results</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.ray_logging.</span></span><span class="sig-name descname"><span class="pre">EnsembleProgressTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">total_models</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_tasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#EnsembleProgressTracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Progress tracker for ensemble model training with clean display.</p>
+<p>Provides visual feedback for split/fold training completion without
+verbose output, updating periodically with estimated time remaining.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>total_models</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Total number of models to train.</p></li>
+<li><p><strong>update_interval</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Seconds between progress updates. Default: 10.0.</p></li>
+<li><p><strong>total_tasks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tracker</span> <span class="o">=</span> <span class="n">EnsembleProgressTracker</span><span class="p">(</span><span class="n">total_models</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">models</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="gp">... </span>    <span class="n">tracker</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py property">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">completed_tasks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em></dt>
+<dd><p>Alias for completed for backward compatibility.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">finish</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#EnsembleProgressTracker.finish"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Log completion message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">total_tasks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em></dt>
+<dd><p>Alias for total_models for backward compatibility.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">completed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#EnsembleProgressTracker.update"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Update progress with completion count.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>completed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of models completed so far.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.ray_logging.</span></span><span class="sig-name descname"><span class="pre">LogArtifactCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mlflow_run_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_total_logs_gb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fail_on_upload_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#LogArtifactCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.ray.io/en/latest/tune/api/doc/ray.tune.Callback.html#ray.tune.Callback" title="(in Ray)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callback</span></code></a></p>
+<p>Ray Tune callback to upload trial logs to MLflow after experiment.</p>
+<p>Collects logs from all completed trials and uploads them as a
+compressed artifact to MLflow when the experiment finishes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mlflow_run_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – The MLflow run ID to associate uploaded artifacts with.</p></li>
+<li><p><strong>output_dir</strong> (<em>Path</em>) – Directory containing trial results and logs.</p></li>
+<li><p><strong>max_total_logs_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Maximum total logs size in GB. Default: 1.0.</p></li>
+<li><p><strong>fail_on_upload_error</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – If True, raise on upload failure; else log warning. Default: True.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>This callback is called by Ray Tune after experiment completion.
+It is separate from RayLogManager to allow flexible integration
+with different experiment orchestration patterns.</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">callback</span> <span class="o">=</span> <span class="n">LogArtifactCallback</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">mlflow_run_id</span><span class="o">=</span><span class="s2">&quot;run_123&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./results&quot;</span><span class="p">),</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">train_fn</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">tune_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">TuneConfig</span><span class="p">(</span><span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">callback</span><span class="p">]),</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">on_experiment_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#LogArtifactCallback.on_experiment_end"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Upload collected logs when experiment ends.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trials</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>Any</em><em>]</em>) – List of all trials in the experiment.</p></li>
+<li><p><strong>**info</strong> (<em>Any</em>) – Additional context info.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.ray_logging.</span></span><span class="sig-name descname"><span class="pre">QuietProgressReporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#QuietProgressReporter"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.ray.io/en/latest/tune/api/doc/ray.tune.ProgressReporter.html#ray.tune.ProgressReporter" title="(in Ray)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgressReporter</span></code></a></p>
+<p>Minimal progress reporter for Ray Tune with clean terminal output.</p>
+<p>Only displays completion summary instead of per-trial details,
+significantly reducing terminal verbosity during HPO and ensemble training.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>metric_columns</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – Columns to display in summary. Default: None (uses Ray defaults).</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>This reporter is optimized for production runs where the main interest
+is completion status and final results, not per-trial intermediate metrics.</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">train_fn</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">tune_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">TuneConfig</span><span class="p">(</span><span class="n">progress_reporter</span><span class="o">=</span><span class="n">QuietProgressReporter</span><span class="p">()),</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">report_progress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#QuietProgressReporter.report_progress"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Report progress with minimal output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trials</strong> (<em>Any</em>) – Ray Tune trial list.</p></li>
+<li><p><strong>done</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether the experiment is complete.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">should_report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#QuietProgressReporter.should_report"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Determine if progress should be reported.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trials</strong> (<em>Any</em>) – Ray Tune trial list.</p></li>
+<li><p><strong>done</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether experiment is complete.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if should report (only on completion or first run).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.ray_logging.</span></span><span class="sig-name descname"><span class="pre">RayLogManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mlflow_run_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_total_logs_gb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fail_on_upload_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#RayLogManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Context manager for Ray Tune logging configuration and artifact upload.</p>
+<p>Configures Ray environment variables to enable logging, collects trial
+logs after experiment completion, compresses them, and uploads to MLflow
+as artifacts. Handles cleanup and interrupt signals gracefully.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mlflow_run_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – The MLflow run ID to associate uploaded artifacts with.</p></li>
+<li><p><strong>output_dir</strong> (<em>Path</em>) – Directory where Ray Tune saves results and trial logs.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Logging verbosity (0=quiet, 1=standard, 2=debug). Default: 0.</p></li>
+<li><p><strong>max_total_logs_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Max total logs size in GB per experiment. Default: 1.0.</p></li>
+<li><p><strong>fail_on_upload_error</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – If True, raise on upload failure; else log warning. Default: True.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">log_dir</span></span></dt>
+<dd><p>Directory containing collected logs (created on __enter__).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">logs_archive_path</span></span></dt>
+<dd><p>Path to compressed logs archive after collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<p>Ray workers run in separate processes, so sys.stdout/stderr redirection
+in the main process will NOT capture worker output. This manager uses
+Ray’s built-in logging infrastructure via environment variables:
+- RAY_LOG_TO_DRIVER: Enable per-worker log output
+- RAY_LOGGING_LEVEL: Set logging level for Ray components</p>
+<p>After experiment completion, logs are collected from trial directories,
+compressed (gzip), and uploaded to MLflow. Total size is limited to
+prevent excessive artifact storage.</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">RayLogManager</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">mlflow_run_id</span><span class="o">=</span><span class="s2">&quot;abc123&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./results&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span> <span class="k">as</span> <span class="n">manager</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">results</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="c1"># Logs automatically collected and uploaded</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.util.ray_logging.</span></span><span class="sig-name descname"><span class="pre">RayLoggingConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_total_logs_gb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fail_on_upload_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/util/ray_logging.html#RayLoggingConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Configuration for Ray Tune logging behavior.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>enabled</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>max_total_logs_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>fail_on_upload_error</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">enabled</span></span></dt>
+<dd><p>Whether to enable Ray logging to files. Default: True.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">verbose</span></span></dt>
+<dd><p>Logging verbosity level (0=quiet, 1=standard, 2=debug). Default: 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">max_total_logs_gb</span></span></dt>
+<dd><p>Maximum total size (in GB) of logs per experiment. Older logs
+are truncated if this limit is exceeded. Default: 1.0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">fail_on_upload_error</span></span></dt>
+<dd><p>If True, raise exception immediately on MLflow upload failure.
+If False, log warning and continue. Default: True.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">fail_on_upload_error</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">max_total_logs_gb</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">verbose</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
 <section id="utils">
 <h3>utils<a class="headerlink" href="#utils" title="Link to this heading">¶</a></h3>
 <p>General utility functions.</p>
 <section id="general-utilities">
 <span id="module-admet.util.utils"></span><h4>General Utilities<a class="headerlink" href="#general-utilities" title="Link to this heading">¶</a></h4>
 <p>Utility helpers for reproducibility, seeding, and small conveniences.</p>
-<section id="id1">
-<h5>Contents<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h5>
-<section id="id2">
-<h6>Functions<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h6>
+<section id="id4">
+<h5>Contents<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h5>
+<section id="id5">
+<h6>Functions<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h6>
 <ul class="simple">
 <li><p><a class="reference internal" href="#admet.util.utils.set_global_seeds" title="admet.util.utils.set_global_seeds"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_global_seeds()</span></code></a> – Seed Python/NumPy/Torch RNGs for reproducibility.</p></li>
 <li><p><a class="reference internal" href="#admet.util.utils.get_git_commit_hash" title="admet.util.utils.get_git_commit_hash"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_git_commit_hash()</span></code></a> – Retrieve the current git commit hash if available.</p></li>
@@ -656,10 +2075,153 @@ does not override those settings.</p>
 <li><a class="reference internal" href="#admet.util.logging.get_logging_config"><code class="docutils literal notranslate"><span class="pre">get_logging_config()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#profiling">profiling</a><ul>
+<li><a class="reference internal" href="#performance-profiling-utilities">Performance Profiling Utilities</a><ul>
+<li><a class="reference internal" href="#id1">Contents</a><ul>
+<li><a class="reference internal" href="#id2">Classes</a></li>
+<li><a class="reference internal" href="#id3">Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.EnsembleProfiler"><code class="docutils literal notranslate"><span class="pre">EnsembleProfiler</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.EnsembleProfiler.log_ensemble_aggregates_to_mlflow"><code class="docutils literal notranslate"><span class="pre">EnsembleProfiler.log_ensemble_aggregates_to_mlflow()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.EnsembleProfiler.print_ensemble_summary"><code class="docutils literal notranslate"><span class="pre">EnsembleProfiler.print_ensemble_summary()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.EnsembleProfiler.register_model_dict"><code class="docutils literal notranslate"><span class="pre">EnsembleProfiler.register_model_dict()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.EnsembleProfiler.register_model_result"><code class="docutils literal notranslate"><span class="pre">EnsembleProfiler.register_model_result()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionProfiler"><code class="docutils literal notranslate"><span class="pre">FunctionProfiler</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionProfiler.get_stats_list"><code class="docutils literal notranslate"><span class="pre">FunctionProfiler.get_stats_list()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionProfiler.print_stats"><code class="docutils literal notranslate"><span class="pre">FunctionProfiler.print_stats()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats"><code class="docutils literal notranslate"><span class="pre">FunctionStats</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.cumtime"><code class="docutils literal notranslate"><span class="pre">FunctionStats.cumtime</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.filename"><code class="docutils literal notranslate"><span class="pre">FunctionStats.filename</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.lineno"><code class="docutils literal notranslate"><span class="pre">FunctionStats.lineno</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.module"><code class="docutils literal notranslate"><span class="pre">FunctionStats.module</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.name"><code class="docutils literal notranslate"><span class="pre">FunctionStats.name</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.ncalls"><code class="docutils literal notranslate"><span class="pre">FunctionStats.ncalls</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.percall_cumtime"><code class="docutils literal notranslate"><span class="pre">FunctionStats.percall_cumtime</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.percall_tottime"><code class="docutils literal notranslate"><span class="pre">FunctionStats.percall_tottime</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.FunctionStats.tottime"><code class="docutils literal notranslate"><span class="pre">FunctionStats.tottime</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.LightningProfilingCallback"><code class="docutils literal notranslate"><span class="pre">LightningProfilingCallback</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.end_time"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.end_time</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.from_dict"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.from_dict()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.function_stats"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.function_stats</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.model_key"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.model_key</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.phase_stats"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.phase_stats</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.start_time"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.start_time</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.to_dict"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.to_dict()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ModelProfilingResult.total_seconds"><code class="docutils literal notranslate"><span class="pre">ModelProfilingResult.total_seconds</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats"><code class="docutils literal notranslate"><span class="pre">PhaseStats</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.add_timing"><code class="docutils literal notranslate"><span class="pre">PhaseStats.add_timing()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.count"><code class="docutils literal notranslate"><span class="pre">PhaseStats.count</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.durations"><code class="docutils literal notranslate"><span class="pre">PhaseStats.durations</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.max_seconds"><code class="docutils literal notranslate"><span class="pre">PhaseStats.max_seconds</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.mean_seconds"><code class="docutils literal notranslate"><span class="pre">PhaseStats.mean_seconds</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.min_seconds"><code class="docutils literal notranslate"><span class="pre">PhaseStats.min_seconds</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.phase"><code class="docutils literal notranslate"><span class="pre">PhaseStats.phase</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.std_seconds"><code class="docutils literal notranslate"><span class="pre">PhaseStats.std_seconds</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseStats.total_seconds"><code class="docutils literal notranslate"><span class="pre">PhaseStats.total_seconds</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.PhaseTimer"><code class="docutils literal notranslate"><span class="pre">PhaseTimer</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ProfilingCallback"><code class="docutils literal notranslate"><span class="pre">ProfilingCallback</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.ProfilingCallback.on_train_epoch_end"><code class="docutils literal notranslate"><span class="pre">ProfilingCallback.on_train_epoch_end()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ProfilingCallback.on_train_epoch_start"><code class="docutils literal notranslate"><span class="pre">ProfilingCallback.on_train_epoch_start()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ProfilingCallback.on_validation_epoch_end"><code class="docutils literal notranslate"><span class="pre">ProfilingCallback.on_validation_epoch_end()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.ProfilingCallback.on_validation_epoch_start"><code class="docutils literal notranslate"><span class="pre">ProfilingCallback.on_validation_epoch_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.TimingRecord"><code class="docutils literal notranslate"><span class="pre">TimingRecord</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.TimingRecord.duration_seconds"><code class="docutils literal notranslate"><span class="pre">TimingRecord.duration_seconds</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TimingRecord.end_time"><code class="docutils literal notranslate"><span class="pre">TimingRecord.end_time</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TimingRecord.metadata"><code class="docutils literal notranslate"><span class="pre">TimingRecord.metadata</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TimingRecord.phase"><code class="docutils literal notranslate"><span class="pre">TimingRecord.phase</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TimingRecord.start_time"><code class="docutils literal notranslate"><span class="pre">TimingRecord.start_time</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase"><code class="docutils literal notranslate"><span class="pre">TrainingPhase</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ARTIFACT_LOGGING"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ARTIFACT_LOGGING</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.BACKWARD_PASS"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.BACKWARD_PASS</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.BEST_CHECKPOINT_LOAD"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.BEST_CHECKPOINT_LOAD</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.CHECKPOINT_LOAD"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.CHECKPOINT_LOAD</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.CLEANUP"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.CLEANUP</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.CONFIG_LOAD"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.CONFIG_LOAD</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.DATALOADER_CREATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.DATALOADER_CREATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.DATASET_CREATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.DATASET_CREATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.DATA_DISCOVERY"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.DATA_DISCOVERY</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.DATA_LOAD"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.DATA_LOAD</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.DATA_PREPROCESSING"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.DATA_PREPROCESSING</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.EARLY_STOPPING_CHECK"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.EARLY_STOPPING_CHECK</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_AGGREGATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ENSEMBLE_AGGREGATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_MODEL_TRAIN"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ENSEMBLE_MODEL_TRAIN</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_OUTPUT"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ENSEMBLE_OUTPUT</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_PREDICTION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ENSEMBLE_PREDICTION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_SPLIT_DISCOVERY"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ENSEMBLE_SPLIT_DISCOVERY</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.ENSEMBLE_TOTAL"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.ENSEMBLE_TOTAL</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.EPOCH"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.EPOCH</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.EVALUATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.EVALUATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.FEATURE_GENERATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.FEATURE_GENERATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.FORWARD_PASS"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.FORWARD_PASS</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.HPO_RAY_INIT"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.HPO_RAY_INIT</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.HPO_RESULTS_AGGREGATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.HPO_RESULTS_AGGREGATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.HPO_SEARCH_SPACE_BUILD"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.HPO_SEARCH_SPACE_BUILD</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.HPO_TOTAL"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.HPO_TOTAL</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.HPO_TRIAL"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.HPO_TRIAL</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.INIT"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.INIT</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.METRICS_COMPUTATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.METRICS_COMPUTATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.MLFLOW_INIT"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.MLFLOW_INIT</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.MODEL_INIT"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.MODEL_INIT</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.MODEL_SAVE"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.MODEL_SAVE</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.OPTIMIZER_STEP"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.OPTIMIZER_STEP</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.PLOT_GENERATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.PLOT_GENERATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.SMILES_CANONICALIZATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.SMILES_CANONICALIZATION</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.TARGET_SCALING"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.TARGET_SCALING</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.TRAINER_SETUP"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.TRAINER_SETUP</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.TRAINING_TOTAL"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.TRAINING_TOTAL</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingPhase.VALIDATION"><code class="docutils literal notranslate"><span class="pre">TrainingPhase.VALIDATION</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler</span></code></a><ul>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.get_all_stats"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.get_all_stats()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.get_phase_stats"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.get_phase_stats()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.get_summary_dict"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.get_summary_dict()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.log_to_mlflow"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.log_to_mlflow()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.phase"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.phase()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.print_summary"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.print_summary()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.record_timing"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.record_timing()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.reset"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.reset()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.start"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.start()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.stop"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.stop()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.TrainingProfiler.total_duration"><code class="docutils literal notranslate"><span class="pre">TrainingProfiler.total_duration</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#admet.util.profiling.create_lightning_profiling_callback"><code class="docutils literal notranslate"><span class="pre">create_lightning_profiling_callback()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.create_model_profiling_result"><code class="docutils literal notranslate"><span class="pre">create_model_profiling_result()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.get_global_profiler"><code class="docutils literal notranslate"><span class="pre">get_global_profiler()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.profile_phase"><code class="docutils literal notranslate"><span class="pre">profile_phase()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.set_global_profiler"><code class="docutils literal notranslate"><span class="pre">set_global_profiler()</span></code></a></li>
+<li><a class="reference internal" href="#admet.util.profiling.timed_phase"><code class="docutils literal notranslate"><span class="pre">timed_phase()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#ray-logging">ray_logging</a><ul>
+<li><a class="reference internal" href="#key-components">Key Components</a></li>
+<li><a class="reference internal" href="#usage-example">Usage Example</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#utils">utils</a><ul>
 <li><a class="reference internal" href="#general-utilities">General Utilities</a><ul>
-<li><a class="reference internal" href="#id1">Contents</a><ul>
-<li><a class="reference internal" href="#id2">Functions</a></li>
+<li><a class="reference internal" href="#id4">Contents</a><ul>
+<li><a class="reference internal" href="#id5">Functions</a></li>
 </ul>
 </li>
 </ul>

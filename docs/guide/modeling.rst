@@ -19,40 +19,46 @@ Single Model Training
 
 .. code-block:: python
 
-   from admet.model.chemprop import ChempropModel, ChempropConfig
+   from admet.model.registry import ModelRegistry
+   from admet.model.config import UnifiedModelConfig
    from omegaconf import OmegaConf
 
    # Load configuration from YAML
-   config = OmegaConf.load("configs/0-experiment/chemprop.yaml")
-   cfg = OmegaConf.structured(ChempropConfig(**config))
+   config = OmegaConf.merge(
+       OmegaConf.structured(UnifiedModelConfig),
+       OmegaConf.load("configs/0-experiment/chemprop.yaml")
+   )
 
    # Create and train model
-   model = ChempropModel.from_config(cfg)
-   model.fit(train_df, val_df)
+   model = ModelRegistry.create(config)
+   model.fit()  # Data is loaded from config.data
 
-   # Make predictions
-   predictions = model.predict(test_df)
+   # Make predictions on test SMILES
+   test_smiles = ["CCO", "CCCO", "c1ccccc1"]
+   predictions = model.predict(test_smiles)
 
 Ensemble Training
 ^^^^^^^^^^^^^^^^^
 
-For production use, train multiple models across different data splits:
+For production use, train multiple models across different data splits using
+the ``ModelEnsemble`` class:
 
 .. code-block:: python
 
-   from admet.model.chemprop import ModelEnsemble, EnsembleConfig
+   from admet.model.chemprop.ensemble import ModelEnsemble
    from omegaconf import OmegaConf
 
    # Load ensemble configuration
    config = OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
-   cfg = OmegaConf.structured(EnsembleConfig(**config))
 
-   # Train ensemble (parallelized with Ray)
-   ensemble = ModelEnsemble.from_config(cfg)
-   ensemble.train_all()
+   # Create ensemble and train across splits/folds (parallelized with Ray)
+   ensemble = ModelEnsemble.from_config(config)
+   ensemble.discover_splits_folds()
+   ensemble.train_all(max_parallel=4)
 
-   # Make ensemble predictions with uncertainty
-   predictions = ensemble.predict_ensemble(test_df)
+   # Make ensemble predictions with uncertainty quantification
+   test_smiles = ["CCO", "CCCO", "c1ccccc1"]
+   predictions = ensemble.predict_ensemble(test_smiles)
 
 FFN Architecture Options
 ^^^^^^^^^^^^^^^^^^^^^^^^

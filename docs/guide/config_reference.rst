@@ -757,16 +757,17 @@ Loading Configurations
 .. code-block:: python
 
     from omegaconf import OmegaConf
-    from admet.model.chemprop import ChempropConfig, ChempropModel
+    from admet.model.registry import ModelRegistry
+    from admet.model.config import UnifiedModelConfig
 
     # Load config
     config = OmegaConf.merge(
-        OmegaConf.structured(ChempropConfig),
+        OmegaConf.structured(UnifiedModelConfig),
         OmegaConf.load("configs/chemprop.yaml")
     )
 
     # Use config
-    model = ChempropModel.from_config(config)
+    model = ModelRegistry.create(config)
 
 **CLI**:
 

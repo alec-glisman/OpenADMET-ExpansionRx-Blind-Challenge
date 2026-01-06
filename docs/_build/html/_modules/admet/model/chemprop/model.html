@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -224,10 +225,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -326,6 +330,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">queue</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
@@ -350,7 +355,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.smiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">parallel_canonicalize_smiles</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">correlation</span><span class="p">,</span> <span class="n">distribution</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">correlation</span><span class="p">,</span> <span class="n">correlation_batch</span><span class="p">,</span> <span class="n">distribution</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ChempropConfig</span><span class="p">,</span>
     <span class="n">CurriculumConfig</span><span class="p">,</span>
@@ -360,6 +365,8 @@
     <span class="n">MlflowConfig</span><span class="p">,</span>
     <span class="n">ModelConfig</span><span class="p">,</span>
     <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">PostTrainingConfig</span><span class="p">,</span>
+    <span class="n">ProfilingConfig</span><span class="p">,</span>
     <span class="n">TaskAffinityConfig</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.curriculum</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -374,6 +381,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">METRIC_NAMES</span><span class="p">,</span> <span class="n">compute_metrics_df</span><span class="p">,</span> <span class="n">plot_metric_bar</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.parity</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_parity</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.profiling</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingPhase</span><span class="p">,</span> <span class="n">TrainingProfiler</span><span class="p">,</span> <span class="n">create_lightning_profiling_callback</span>
 
 <span class="c1"># Module logger</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.model&quot;</span><span class="p">)</span>
@@ -471,7 +479,7 @@
     <span class="k">return</span> <span class="n">attr</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">normalize_unified_config</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DictConfig</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_unified_config</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DictConfig</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Normalize a unified config to the legacy ChempropConfig format.</span>
 
@@ -566,6 +574,42 @@
     <span class="k">return</span> <span class="n">name</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_dataloader_kwargs</span><span class="p">(</span><span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">is_train</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get optimized DataLoader kwargs for performance.</span>
+
+<span class="sd">    Returns kwargs that enable GPU training optimizations when appropriate:</span>
+<span class="sd">    - pin_memory: Pre-loads data to GPU pinned memory for faster transfers</span>
+<span class="sd">    - persistent_workers: Keeps workers alive between epochs (reduces startup overhead)</span>
+<span class="sd">    - prefetch_factor: Number of batches to prefetch per worker</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    num_workers : int</span>
+<span class="sd">        Number of data loading workers.</span>
+<span class="sd">    is_train : bool, default=True</span>
+<span class="sd">        Whether this is for training (enables more aggressive prefetching).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict[str, Any]</span>
+<span class="sd">        Kwargs to pass to DataLoader constructor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Enable pin_memory for GPU training (faster CPU-&gt;GPU transfers)</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;pin_memory&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Enable persistent_workers and prefetch_factor when using multiprocessing</span>
+    <span class="k">if</span> <span class="n">num_workers</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;persistent_workers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># Prefetch 2 batches per worker for training, 1 for validation</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;prefetch_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">is_train</span> <span class="k">else</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">kwargs</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">MLflowModelCheckpoint</span><span class="p">(</span><span class="n">ModelCheckpoint</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Model checkpoint callback that registers best models with MLflow.</span>
@@ -573,12 +617,18 @@
 <span class="sd">    Extends PyTorch Lightning&#39;s ModelCheckpoint to automatically log</span>
 <span class="sd">    the best model checkpoint to MLflow when a new best model is saved.</span>
 
+<span class="sd">    Supports async uploads and throttling for performance optimization.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    mlflow_client : MlflowClient</span>
 <span class="sd">        The MLflow client instance for logging artifacts.</span>
 <span class="sd">    run_id : str</span>
 <span class="sd">        The MLflow run ID.</span>
+<span class="sd">    async_upload : bool, default=False</span>
+<span class="sd">        Whether to upload checkpoints asynchronously in background thread.</span>
+<span class="sd">    throttle_interval_seconds : float, default=0.0</span>
+<span class="sd">        Minimum time (seconds) between checkpoint saves. 0.0 = no throttling.</span>
 <span class="sd">    **kwargs</span>
 <span class="sd">        Additional arguments passed to ModelCheckpoint.</span>
 
@@ -594,11 +644,63 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">mlflow_client</span><span class="p">:</span> <span class="n">MlflowClient</span><span class="p">,</span>
         <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">async_upload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">throttle_interval_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="o">=</span> <span class="n">mlflow_client</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_run_id</span> <span class="o">=</span> <span class="n">run_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_async_upload</span> <span class="o">=</span> <span class="n">async_upload</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_throttle_interval</span> <span class="o">=</span> <span class="n">throttle_interval_seconds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_save_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="c1"># Task 1.3: Setup async upload thread if enabled</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_async_upload</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">queue</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_upload_queue</span><span class="p">:</span> <span class="n">queue</span><span class="o">.</span><span class="n">Queue</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_upload_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
+                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_upload_worker</span><span class="p">,</span>
+                <span class="n">daemon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Non-daemon for graceful shutdown</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MLflowCheckpointUpload&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_upload_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Async checkpoint upload enabled - uploads in background thread&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_upload_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Background thread worker for async uploads (Task 1.3).&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upload_queue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># Shutdown signal</span>
+                    <span class="k">break</span>
+
+                <span class="n">checkpoint_path</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">,</span> <span class="n">best_score</span> <span class="o">=</span> <span class="n">task</span>
+
+                <span class="c1"># Upload checkpoint</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_run_id</span><span class="p">,</span>
+                    <span class="n">checkpoint_path</span><span class="p">,</span>
+                    <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Log best model score</span>
+                <span class="k">if</span> <span class="n">best_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_run_id</span><span class="p">,</span>
+                        <span class="s2">&quot;best_val_loss&quot;</span><span class="p">,</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">best_score</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Async uploaded checkpoint: </span><span class="si">{</span><span class="n">checkpoint_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="n">queue</span><span class="o">.</span><span class="n">Empty</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Async checkpoint upload failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">on_save_checkpoint</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -610,7 +712,7 @@
 <span class="sd">        Called when a checkpoint is saved.</span>
 
 <span class="sd">        Logs the checkpoint as an MLflow artifact when a new best model</span>
-<span class="sd">        is saved.</span>
+<span class="sd">        is saved. Supports throttling and async uploads.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -621,26 +723,55 @@
 <span class="sd">        checkpoint : Dict[str, Any]</span>
 <span class="sd">            The checkpoint dictionary.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Task 3.4: Check throttle interval</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_throttle_interval</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">time_since_last_save</span> <span class="o">=</span> <span class="n">current_time</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_save_time</span>
+            <span class="k">if</span> <span class="n">time_since_last_save</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_throttle_interval</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Checkpoint save throttled (</span><span class="si">{</span><span class="n">time_since_last_save</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s &lt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_throttle_interval</span><span class="si">}</span><span class="s2">s)&quot;</span><span class="p">)</span>
+                <span class="k">return</span>  <span class="c1"># Skip save</span>
+
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_save_checkpoint</span><span class="p">(</span><span class="n">trainer</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_save_time</span> <span class="o">=</span> <span class="n">current_time</span>
 
         <span class="c1"># Log best model checkpoint to MLflow when it&#39;s updated</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_model_path</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="c1"># Log the best checkpoint as an artifact</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_run_id</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">best_model_path</span><span class="p">,</span>
-                    <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;checkpoints/best&quot;</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="c1"># Log best model score</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_model_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_async_upload</span><span class="p">:</span>
+                    <span class="c1"># Task 1.3: Queue for async upload</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_upload_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">best_model_path</span><span class="p">,</span> <span class="s2">&quot;checkpoints/best&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_model_score</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Synchronous upload (original behavior)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_run_id</span><span class="p">,</span>
-                        <span class="s2">&quot;best_val_loss&quot;</span><span class="p">,</span>
-                        <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_model_score</span><span class="p">),</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">best_model_path</span><span class="p">,</span>
+                        <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;checkpoints/best&quot;</span><span class="p">,</span>
                     <span class="p">)</span>
+                    <span class="c1"># Log best model score</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_model_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_run_id</span><span class="p">,</span>
+                            <span class="s2">&quot;best_val_loss&quot;</span><span class="p">,</span>
+                            <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_model_score</span><span class="p">),</span>
+                        <span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log checkpoint to MLflow: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">teardown</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainer</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">Trainer</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Graceful shutdown: drain upload queue before exit (Task 1.3).&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">teardown</span><span class="p">(</span><span class="n">trainer</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_async_upload</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Draining async checkpoint upload queue...&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_upload_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># Shutdown signal</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_upload_thread</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upload_thread</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Async upload thread did not terminate in time&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Async upload thread terminated gracefully&quot;</span><span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
@@ -675,6 +806,10 @@
 <span class="sd">    weight_decay : float, default=0.0</span>
 <span class="sd">        L2 regularization weight decay coefficient. Applied via AdamW optimizer.</span>
 <span class="sd">        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.</span>
+<span class="sd">    accumulate_grad_batches : int, default=1</span>
+<span class="sd">        Number of batches to accumulate gradients over before optimizer step.</span>
+<span class="sd">        Effective batch size = batch_size * accumulate_grad_batches.</span>
+<span class="sd">        Set to 1 (default) to disable. Useful for simulating larger batch sizes.</span>
 <span class="sd">    depth : int, default=3</span>
 <span class="sd">        Number of message passing iterations.</span>
 <span class="sd">    message_hidden_dim : int, default=300</span>
@@ -712,6 +847,7 @@
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
     <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">accumulate_grad_batches</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Gradient accumulation for simulating larger batch sizes</span>
 
     <span class="c1"># Message passing</span>
     <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
@@ -813,6 +949,7 @@
         <span class="n">target_weights</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
         <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">hyperparams</span><span class="p">:</span> <span class="n">ChempropHyperparams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">mlflow_tracking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">mlflow_tracking_uri</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -826,6 +963,7 @@
         <span class="n">joint_sampling_config</span><span class="p">:</span> <span class="n">JointSamplingConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">task_affinity_config</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inter_task_affinity_config</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">profiling_config</span><span class="p">:</span> <span class="n">ProfilingConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">data_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -849,6 +987,9 @@
 <span class="sd">            Directory for saving checkpoints.</span>
 <span class="sd">        progress_bar : bool, default=False</span>
 <span class="sd">            Whether to display progress bar during training.</span>
+<span class="sd">        verbose : bool, default=True</span>
+<span class="sd">            Whether to print epoch progress messages when progress_bar is False.</span>
+<span class="sd">            Set to False during HPO to reduce log noise.</span>
 <span class="sd">        hyperparams : ChempropHyperparams or None, optional</span>
 <span class="sd">            Model hyperparameters.</span>
 <span class="sd">        mlflow_tracking : bool, default=True</span>
@@ -882,6 +1023,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">target_weights</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_weights</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">output_dir</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">progress_bar</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">verbose</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">:</span> <span class="n">ChempropHyperparams</span> <span class="o">=</span> <span class="n">hyperparams</span> <span class="ow">or</span> <span class="n">ChempropHyperparams</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_dir</span>
 
@@ -988,9 +1130,36 @@
         <span class="c1"># Joint sampler reference for MLflow stats callback</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_joint_sampler</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">JointSampler</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloaders</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_model</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_trainer</span><span class="p">()</span>
+        <span class="c1"># Performance optimization configuration</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceOptimizationConfig</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_performance_optimization</span><span class="p">:</span> <span class="n">PerformanceOptimizationConfig</span> <span class="o">=</span> <span class="n">PerformanceOptimizationConfig</span><span class="p">()</span>
+
+        <span class="c1"># Post-training configuration for optimization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="p">:</span> <span class="n">PostTrainingConfig</span> <span class="o">=</span> <span class="n">PostTrainingConfig</span><span class="p">()</span>
+
+        <span class="c1"># Prediction cache for avoiding redundant predict() calls</span>
+        <span class="c1"># Keys: split names (&quot;train&quot;, &quot;validation&quot;, &quot;test&quot;)</span>
+        <span class="c1"># Values: prediction DataFrames</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Profiling configuration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">profiling_config</span><span class="p">:</span> <span class="n">ProfilingConfig</span> <span class="o">=</span> <span class="n">profiling_config</span> <span class="ow">or</span> <span class="n">ProfilingConfig</span><span class="p">()</span>
+
+        <span class="c1"># Initialize profiler for tracking phase-level performance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span> <span class="o">=</span> <span class="n">TrainingProfiler</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;chemprop&quot;</span><span class="p">,</span>
+            <span class="n">mlflow_client</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="p">,</span>
+            <span class="n">mlflow_run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
+            <span class="n">enabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">profiling_config</span><span class="o">.</span><span class="n">enabled</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">DATALOADER_CREATION</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloaders</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">MODEL_INIT</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_model</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">TRAINER_SETUP</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_trainer</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_phase_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">curriculum_config</span><span class="p">:</span> <span class="n">CurriculumConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CurriculumPhaseConfig</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build CurriculumPhaseConfig from CurriculumConfig.</span>
@@ -1142,6 +1311,8 @@
             <span class="n">num_workers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
             <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
             <span class="n">criterion</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">criterion</span><span class="p">,</span>
+            <span class="n">weight_decay</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">weight_decay</span><span class="p">,</span>
+            <span class="n">accumulate_grad_batches</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">accumulate_grad_batches</span><span class="p">,</span>
             <span class="c1"># Model architecture</span>
             <span class="n">depth</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
             <span class="n">message_hidden_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">message_hidden_dim</span><span class="p">,</span>
@@ -1168,6 +1339,7 @@
             <span class="n">target_weights</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_weights</span><span class="p">)</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_weights</span> <span class="k">else</span> <span class="p">[],</span>
             <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
             <span class="n">progress_bar</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="p">,</span> <span class="s2">&quot;verbose&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
             <span class="n">hyperparams</span><span class="o">=</span><span class="n">hyperparams</span><span class="p">,</span>
             <span class="n">mlflow_tracking</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="p">,</span>
             <span class="n">mlflow_tracking_uri</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking_uri</span><span class="p">,</span>
@@ -1180,11 +1352,20 @@
             <span class="n">joint_sampling_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">joint_sampling</span><span class="p">,</span>
             <span class="n">task_affinity_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">task_affinity</span><span class="p">,</span>
             <span class="n">inter_task_affinity_config</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">inter_task_affinity</span><span class="p">,</span>
+            <span class="n">profiling_config</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;profiling&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="n">data_dir</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Store blind dataframe for later prediction</span>
         <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="p">[</span><span class="s2">&quot;blind&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_blind</span>
+
+        <span class="c1"># Apply performance optimization configuration if present</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;performance_optimization&quot;</span><span class="p">):</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">_performance_optimization</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">performance_optimization</span>
+
+        <span class="c1"># Apply post-training configuration if present</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;post_training&quot;</span><span class="p">):</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">_post_training_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">post_training</span>
 
         <span class="k">return</span> <span class="n">model</span></div>
 
@@ -1371,6 +1552,7 @@
                         <span class="n">num_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
                         <span class="n">collate_fn</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span>
                         <span class="n">drop_last</span><span class="o">=</span><span class="n">drop_last</span><span class="p">,</span>
+                        <span class="o">**</span><span class="n">_get_dataloader_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span> <span class="n">is_train</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
                     <span class="p">)</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                         <span class="s2">&quot;JointSampler enabled: task_alpha=</span><span class="si">%.2f</span><span class="s2">, curriculum=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -1408,6 +1590,7 @@
                     <span class="n">num_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>
                     <span class="n">collate_fn</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span>
                     <span class="n">drop_last</span><span class="o">=</span><span class="n">drop_last</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">_get_dataloader_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span> <span class="n">is_train</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
                 <span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="s2">&quot;Dynamic curriculum sampling enabled for training: phase=</span><span class="si">%s</span><span class="s2">, qualities=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -1424,6 +1607,13 @@
                     <span class="n">shuffle</span><span class="o">=</span><span class="p">(</span><span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">),</span>
                     <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
                 <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_dataloader_len</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return length of dataloader if available, else default (1).&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1671,11 +1861,13 @@
             <span class="n">checkpointing</span> <span class="o">=</span> <span class="n">MLflowModelCheckpoint</span><span class="p">(</span>
                 <span class="n">mlflow_client</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
                 <span class="n">run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
+                <span class="n">async_upload</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_performance_optimization</span><span class="o">.</span><span class="n">async_checkpoint_upload</span><span class="p">,</span>  <span class="c1"># Task 1.3</span>
+                <span class="n">throttle_interval_seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_performance_optimization</span><span class="o">.</span><span class="n">checkpoint_save_interval_seconds</span><span class="p">,</span>  <span class="c1"># Task 3.4</span>
                 <span class="n">dirpath</span><span class="o">=</span><span class="n">checkpoint_dir</span><span class="p">,</span>
                 <span class="n">filename</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;best-</span><span class="se">{{</span><span class="s2">epoch:04</span><span class="se">}}</span><span class="s2">-</span><span class="se">{{</span><span class="si">{</span><span class="n">early_stopping_monitor</span><span class="si">}</span><span class="s2">:.2f</span><span class="se">}}</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="n">monitor</span><span class="o">=</span><span class="n">early_stopping_monitor</span><span class="p">,</span>
                 <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">,</span>
-                <span class="n">save_last</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">save_top_k</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># Keep only the single best checkpoint to save storage</span>
             <span class="p">)</span>
             <span class="n">callbacks_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">checkpointing</span><span class="p">)</span>
 
@@ -1690,7 +1882,7 @@
                 <span class="n">filename</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;best-</span><span class="se">{{</span><span class="s2">epoch:04</span><span class="se">}}</span><span class="s2">-</span><span class="se">{{</span><span class="si">{</span><span class="n">early_stopping_monitor</span><span class="si">}</span><span class="s2">:.2f</span><span class="se">}}</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="n">monitor</span><span class="o">=</span><span class="n">early_stopping_monitor</span><span class="p">,</span>
                 <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">,</span>
-                <span class="n">save_last</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">save_top_k</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># Keep only the single best checkpoint to save storage</span>
             <span class="p">)</span>
             <span class="n">callbacks_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">checkpointing</span><span class="p">)</span>
 
@@ -1804,9 +1996,34 @@
                     <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;[Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">] Validation complete (no val_loss)&quot;</span>
                     <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
             <span class="n">callbacks_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">EpochLoggingCallback</span><span class="p">())</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Epoch logging callback added (progress_bar disabled)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Helper to safely determine dataloader length for objects that may not</span>
+        <span class="c1"># implement __len__ (some tests monkeypatch dataloader factories to plain</span>
+        <span class="c1"># objects). Fall back to a default of 1 when length is unavailable.</span>
+        <span class="c1"># Determine optimal log_every_n_steps based on training data size</span>
+        <span class="c1"># Logging every step adds overhead; reduce frequency for large datasets</span>
+        <span class="n">train_batches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dataloader_len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">log_every_n_steps</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="n">train_batches</span> <span class="o">//</span> <span class="mi">10</span><span class="p">))</span>  <span class="c1"># Log 10 times per epoch max</span>
+
+        <span class="c1"># Determine precision (Task 1.1: Mixed Precision Training)</span>
+        <span class="n">precision</span> <span class="o">=</span> <span class="s2">&quot;16-mixed&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_performance_optimization</span><span class="o">.</span><span class="n">use_mixed_precision</span> <span class="k">else</span> <span class="s2">&quot;32-true&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_performance_optimization</span><span class="o">.</span><span class="n">use_mixed_precision</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Mixed precision (FP16) training enabled - expect 40-60</span><span class="si">%%</span><span class="s2"> speedup&quot;</span><span class="p">)</span>
+        <span class="c1"># Trainer precision is typed as a Literal in Lightning; cast to Any to satisfy mypy</span>
+        <span class="n">precision_any</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">precision</span>
+
+        <span class="c1"># Gradient accumulation (Task 3.3)</span>
+        <span class="n">accumulate_grad_batches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">accumulate_grad_batches</span>
+        <span class="k">if</span> <span class="n">accumulate_grad_batches</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">effective_batch_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">*</span> <span class="n">accumulate_grad_batches</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Gradient accumulation enabled: </span><span class="si">%d</span><span class="s2"> batches (effective batch size: </span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="n">accumulate_grad_batches</span><span class="p">,</span>
+                <span class="n">effective_batch_size</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span>
             <span class="n">logger</span><span class="o">=</span><span class="n">pl_logger</span><span class="p">,</span>
@@ -1814,10 +2031,13 @@
             <span class="n">enable_progress_bar</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">progress_bar</span><span class="p">,</span>
             <span class="n">accelerator</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
             <span class="n">devices</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">precision</span><span class="o">=</span><span class="n">precision_any</span><span class="p">,</span>  <span class="c1"># Task 1.1: Mixed precision support (cast to Any to satisfy typing)</span>
+            <span class="n">accumulate_grad_batches</span><span class="o">=</span><span class="n">accumulate_grad_batches</span><span class="p">,</span>  <span class="c1"># Task 3.3: Gradient accumulation</span>
             <span class="n">max_epochs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">max_epochs</span><span class="p">,</span>
             <span class="n">callbacks</span><span class="o">=</span><span class="n">callbacks_list</span><span class="p">,</span>
-            <span class="n">log_every_n_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># Log metrics every step for visibility</span>
+            <span class="n">log_every_n_steps</span><span class="o">=</span><span class="n">log_every_n_steps</span><span class="p">,</span>
             <span class="n">deterministic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Enable deterministic algorithms for reproducibility</span>
+            <span class="n">gradient_clip_val</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>  <span class="c1"># Clip gradients for training stability</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="ChempropModel.fit">
@@ -1844,13 +2064,20 @@
 <span class="sd">        bool</span>
 <span class="sd">            True if training completed normally, False if interrupted.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Start profiler for overall training timing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+        <span class="c1"># Clear prediction cache from any previous training runs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
         <span class="c1"># Set random seeds for reproducibility across all libraries</span>
         <span class="c1"># This ensures deterministic training when the same seed is used</span>
         <span class="n">pl</span><span class="o">.</span><span class="n">seed_everything</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Random seed set to </span><span class="si">%d</span><span class="s2"> for reproducibility&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
 
         <span class="c1"># Compute task affinity before preparing model (if enabled)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_compute_task_affinity</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="s2">&quot;task_affinity_computation&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compute_task_affinity</span><span class="p">()</span>
 
         <span class="c1"># Log hyperparameters and dataset info at start of training</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1859,8 +2086,9 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_log_hyperparams</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_log_dataset_info</span><span class="p">()</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="s2">&quot;mlflow_hyperparams_logging&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_hyperparams</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_dataset_info</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;MLflow tracking skipped: tracking=</span><span class="si">%s</span><span class="s2">, logger=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="p">)</span>
 
@@ -1869,17 +2097,24 @@
 
         <span class="n">training_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
 
+        <span class="c1"># Add profiling callback to track epoch-level timing</span>
+        <span class="n">profiling_callback</span> <span class="o">=</span> <span class="n">create_lightning_profiling_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">profiling_callback</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">callbacks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">profiling_callback</span><span class="p">)</span>
+
         <span class="n">completed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting training...&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Train dataloader: </span><span class="si">%d</span><span class="s2"> batches&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]))</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Validation dataloader: </span><span class="si">%d</span><span class="s2"> batches&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;validation&quot;</span><span class="p">]))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Train dataloader: </span><span class="si">%d</span><span class="s2"> batches&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dataloader_len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)))</span>
+            <span class="n">val_len</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dataloader_len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;validation&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Validation dataloader: </span><span class="si">%d</span><span class="s2"> batches&quot;</span><span class="p">,</span> <span class="n">val_len</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Callbacks: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">callbacks</span><span class="p">])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">,</span>
-                <span class="n">train_dataloaders</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">],</span>
-                <span class="n">val_dataloaders</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;validation&quot;</span><span class="p">],</span>
-            <span class="p">)</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">TRAINING_TOTAL</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">,</span>
+                    <span class="n">train_dataloaders</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">],</span>
+                    <span class="n">val_dataloaders</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;validation&quot;</span><span class="p">],</span>
+                <span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;trainer.fit() returned successfully&quot;</span><span class="p">)</span>
             <span class="n">completed</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
@@ -1934,21 +2169,77 @@
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Post-training: logging evaluation metrics and artifacts&quot;</span><span class="p">)</span>
                 <span class="c1"># Only log metrics if training completed or we have a best model</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_log_evaluation_metrics</span><span class="p">()</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_log_training_artifacts</span><span class="p">(</span><span class="n">completed</span><span class="p">)</span>
+                    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">METRICS_COMPUTATION</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_log_evaluation_metrics</span><span class="p">()</span>
+                    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">ARTIFACT_LOGGING</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_log_training_artifacts</span><span class="p">(</span><span class="n">completed</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">log_err</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to log artifacts after training: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">log_err</span><span class="p">)</span>
+                    <span class="n">error_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">log_err</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                    <span class="c1"># Ignore duplicate key errors from concurrent MLflow logging</span>
+                    <span class="k">if</span> <span class="s2">&quot;duplicate&quot;</span> <span class="ow">in</span> <span class="n">error_str</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;constraint&quot;</span> <span class="ow">in</span> <span class="n">error_str</span> <span class="ow">or</span> <span class="s2">&quot;unique&quot;</span> <span class="ow">in</span> <span class="n">error_str</span><span class="p">):</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Skipping duplicate metrics (already logged by Lightning): </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">log_err</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to log artifacts after training: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">log_err</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Post-training skipped: tracking=</span><span class="si">%s</span><span class="s2">, logger=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="p">)</span>
 
             <span class="c1"># Generate evaluation plots for train and validation sets</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_generate_training_plots</span><span class="p">()</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">PLOT_GENERATION</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_generate_training_plots</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">plot_err</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate training plots: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">plot_err</span><span class="p">)</span>
 
+            <span class="c1"># Stop profiler and log summary</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">profiling_config</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">profiling_config</span><span class="o">.</span><span class="n">print_summary</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+
+            <span class="c1"># Log profiling metrics to MLflow</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">profiling_config</span><span class="o">.</span><span class="n">enabled</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">profiling_config</span><span class="o">.</span><span class="n">log_to_mlflow</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">log_to_mlflow</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;profiling&quot;</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">completed</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_cached_or_compute_predictions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get predictions from cache or compute fresh predictions.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split_name : str</span>
+<span class="sd">            Name of the data split (&#39;train&#39;, &#39;validation&#39;, &#39;test&#39;).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame or None</span>
+<span class="sd">            Predictions DataFrame, or None if split data doesn&#39;t exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df_split</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">df_split</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Check cache first (prediction caching enabled by default)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">cache_predictions</span> <span class="ow">and</span> <span class="n">split_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using cached predictions for </span><span class="si">%s</span><span class="s2"> split (plots)&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span>
+
+        <span class="c1"># Compute predictions</span>
+        <span class="n">preds_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_split</span><span class="p">,</span> <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Cache if enabled</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">cache_predictions</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">preds_df</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cached predictions for </span><span class="si">%s</span><span class="s2"> split (plots)&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">preds_df</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_generate_training_plots</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1957,27 +2248,40 @@
 <span class="sd">        Creates parity plots comparing true vs predicted values for each</span>
 <span class="sd">        target column on both training and validation datasets. Plots are</span>
 <span class="sd">        logged to MLflow if active, saved to output_dir if specified.</span>
+
+<span class="sd">        This method respects PostTrainingConfig settings:</span>
+<span class="sd">        - generate_plots: If False, skips all plot generation</span>
+<span class="sd">        - cache_predictions: If True, reuses predictions from metrics computation</span>
+<span class="sd">        - plot_dpi: Controls plot resolution</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Check if we should generate plots</span>
+        <span class="c1"># Check if plot generation is enabled</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">generate_plots</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Plot generation disabled via post_training.generate_plots=False&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Check if we should save plots</span>
         <span class="n">should_save</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">should_save</span><span class="p">:</span>
             <span class="k">return</span>
 
-        <span class="c1"># Generate plots for training set</span>
-        <span class="n">df_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">df_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">train_preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_train</span><span class="p">,</span> <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_generate_evaluation_plots</span><span class="p">(</span><span class="n">df_train</span><span class="p">,</span> <span class="n">train_preds</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate training plots: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="c1"># Generate plots for training set (only if compute_train_metrics is True)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">compute_train_metrics</span><span class="p">:</span>
+            <span class="n">df_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">df_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">train_preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cached_or_compute_predictions</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">train_preds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_generate_evaluation_plots</span><span class="p">(</span><span class="n">df_train</span><span class="p">,</span> <span class="n">train_preds</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate training plots: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
         <span class="c1"># Generate plots for validation set</span>
         <span class="n">df_validation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;validation&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">df_validation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">val_preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_validation</span><span class="p">,</span> <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_generate_evaluation_plots</span><span class="p">(</span><span class="n">df_validation</span><span class="p">,</span> <span class="n">val_preds</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;validation&quot;</span><span class="p">)</span>
+                <span class="n">val_preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cached_or_compute_predictions</span><span class="p">(</span><span class="s2">&quot;validation&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">val_preds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_generate_evaluation_plots</span><span class="p">(</span><span class="n">df_validation</span><span class="p">,</span> <span class="n">val_preds</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;validation&quot;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate validation plots: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
@@ -2465,9 +2769,10 @@
                         <span class="n">n_missing</span> <span class="o">=</span> <span class="n">df_train</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
                         <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_train</span><span class="p">)</span>
                         <span class="n">missing_rate</span> <span class="o">=</span> <span class="n">n_missing</span> <span class="o">/</span> <span class="n">n_total</span> <span class="k">if</span> <span class="n">n_total</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+                        <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
-                            <span class="sa">f</span><span class="s2">&quot;data.train_missing_rate.</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;data.train_missing_rate.</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
                             <span class="nb">round</span><span class="p">(</span><span class="n">missing_rate</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
                         <span class="p">)</span>
 
@@ -2549,6 +2854,31 @@
                 <span class="n">failed_metrics</span><span class="p">[:</span><span class="mi">5</span><span class="p">],</span>  <span class="c1"># Only show first 5</span>
             <span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_gpu_metrics_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Resolve use_gpu_metrics setting to a boolean (Task 3.2).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            True if GPU should be used for metrics, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+        <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">use_gpu_metrics</span>
+        <span class="k">if</span> <span class="n">setting</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
+            <span class="n">gpu_available</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">gpu_available</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;GPU metrics auto-enabled (GPU available)&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">gpu_available</span>
+        <span class="k">elif</span> <span class="n">setting</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">setting</span> <span class="o">==</span> <span class="s2">&quot;false&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Backward compatibility: treat bool as string</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">setting</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_evaluation_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute and log correlation metrics on validation and test sets.</span>
@@ -2629,52 +2959,72 @@
 <span class="sd">        pd.DataFrame</span>
 <span class="sd">            Updated accumulator with this split&#39;s metrics.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Generate predictions (disable metric logging here since we log metrics ourselves)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">preds_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_split</span><span class="p">,</span> <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate </span><span class="si">%s</span><span class="s2"> predictions: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">df_out</span>
+        <span class="c1"># Check prediction cache first (avoids redundant predict() calls)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">cache_predictions</span> <span class="ow">and</span> <span class="n">split_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">:</span>
+            <span class="n">preds_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using cached predictions for </span><span class="si">%s</span><span class="s2"> split&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Generate predictions (disable metric logging here since we log metrics ourselves)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">preds_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_split</span><span class="p">,</span> <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="c1"># Cache predictions if enabled</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">cache_predictions</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">preds_df</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cached predictions for </span><span class="si">%s</span><span class="s2"> split&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate </span><span class="si">%s</span><span class="s2"> predictions: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">df_out</span>
 
         <span class="c1"># Collect metrics for batch logging to avoid database contention</span>
         <span class="n">metrics_to_log</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">all_metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># For computing mean across targets</span>
 
-        <span class="c1"># Compute correlation metrics for each target (overall)</span>
-        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">target</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df_split</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-                <span class="k">continue</span>
+        <span class="c1"># Use list accumulation instead of repeated DataFrame concatenation (50-70% faster)</span>
+        <span class="n">rows_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
 
-            <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">df_split</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-            <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">preds_df</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="c1"># Use vectorized batch computation (10-30x faster than loop)</span>
+        <span class="c1"># Stack all target columns into a 2D array for batch processing</span>
+        <span class="n">valid_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">df_split</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">valid_targets</span><span class="p">:</span>
+            <span class="n">y_true_batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">df_split</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">valid_targets</span><span class="p">])</span>
+            <span class="n">y_pred_batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">preds_df</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">valid_targets</span><span class="p">])</span>
 
-            <span class="c1"># Compute correlation metrics using stats module</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="n">correlation</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
+            <span class="c1"># Convert to tensors for GPU-native computation (auto-uses torchmetrics)</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-            <span class="c1"># Add metrics to output dataframe</span>
-            <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">metric_value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">row</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-                    <span class="p">{</span>
-                        <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">split_name</span><span class="p">],</span>
-                        <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">target</span><span class="p">],</span>
-                        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;overall&quot;</span><span class="p">],</span>
-                        <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric_name</span><span class="p">],</span>
-                        <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric_value</span><span class="p">],</span>
-                    <span class="p">}</span>
-                <span class="p">)</span>
-                <span class="n">df_out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_out</span><span class="p">,</span> <span class="n">row</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">compute_rank</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">compute_rank_correlations</span>
+            <span class="c1"># Task 3.2: GPU metrics with auto-detection</span>
+            <span class="n">use_gpu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_gpu_metrics_setting</span><span class="p">()</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">use_gpu</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+            <span class="n">y_true_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y_true_batch</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">y_pred_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y_pred_batch</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">batch_metrics</span> <span class="o">=</span> <span class="n">correlation_batch</span><span class="p">(</span><span class="n">y_true_tensor</span><span class="p">,</span> <span class="n">y_pred_tensor</span><span class="p">,</span> <span class="n">compute_rank_correlations</span><span class="o">=</span><span class="n">compute_rank</span><span class="p">)</span>
 
-                <span class="c1"># Collect metric for batch logging</span>
-                <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-                <span class="n">mlflow_metric_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="n">metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="c1"># Process batch results</span>
+            <span class="k">for</span> <span class="n">target</span><span class="p">,</span> <span class="n">metrics</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">valid_targets</span><span class="p">,</span> <span class="n">batch_metrics</span><span class="p">):</span>
+                <span class="c1"># Add metrics to output dataframe (accumulate in list)</span>
+                <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">metric_value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">rows_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split_name</span><span class="p">,</span>
+                            <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+                            <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="s2">&quot;overall&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                            <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">metric_value</span><span class="p">,</span>
+                        <span class="p">}</span>
+                    <span class="p">)</span>
 
-                <span class="c1"># Collect for mean calculation across targets</span>
-                <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_metrics</span><span class="p">:</span>
-                    <span class="n">all_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="n">metric_val_float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">metric_val_float</span><span class="p">):</span>
-                    <span class="n">all_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric_val_float</span><span class="p">)</span>
+                    <span class="c1"># Collect metric for batch logging</span>
+                    <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+                    <span class="n">mlflow_metric_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+
+                    <span class="c1"># Collect for mean calculation across targets</span>
+                    <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_metrics</span><span class="p">:</span>
+                        <span class="n">all_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="n">metric_val_float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">metric_val_float</span><span class="p">):</span>
+                        <span class="n">all_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric_val_float</span><span class="p">)</span>
 
         <span class="c1"># Calculate and log mean metrics across all targets</span>
         <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">all_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -2683,17 +3033,16 @@
                 <span class="n">mlflow_metric_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/mean/</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="n">metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean_value</span>
 
-                <span class="c1"># Add to output dataframe</span>
-                <span class="n">row</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="c1"># Add to output dataframe (accumulate in list)</span>
+                <span class="n">rows_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="p">{</span>
-                        <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">split_name</span><span class="p">],</span>
-                        <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">],</span>
-                        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;overall&quot;</span><span class="p">],</span>
-                        <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric_name</span><span class="p">],</span>
-                        <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">mean_value</span><span class="p">],</span>
+                        <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split_name</span><span class="p">,</span>
+                        <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="s2">&quot;overall&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                        <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">mean_value</span><span class="p">,</span>
                     <span class="p">}</span>
                 <span class="p">)</span>
-                <span class="n">df_out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_out</span><span class="p">,</span> <span class="n">row</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Log overall metrics in batch</span>
         <span class="k">if</span> <span class="n">metrics_to_log</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2702,6 +3051,7 @@
         <span class="c1"># Compute per-quality metrics if enabled and curriculum learning is active</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">log_per_quality</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">compute_per_quality_metrics</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">quality_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">quality_col</span> <span class="ow">in</span> <span class="n">df_split</span><span class="o">.</span><span class="n">columns</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">curriculum_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -2731,21 +3081,23 @@
                     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
                         <span class="k">continue</span>
 
-                    <span class="c1"># Compute correlation metrics</span>
-                    <span class="n">metrics</span> <span class="o">=</span> <span class="n">correlation</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
+                    <span class="c1"># Compute correlation metrics using tensors for GPU-native computation</span>
+                    <span class="n">compute_rank</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="o">.</span><span class="n">compute_rank_correlations</span>
+                    <span class="n">y_true_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                    <span class="n">y_pred_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                    <span class="n">metrics</span> <span class="o">=</span> <span class="n">correlation</span><span class="p">(</span><span class="n">y_true_t</span><span class="p">,</span> <span class="n">y_pred_t</span><span class="p">,</span> <span class="n">compute_rank_correlations</span><span class="o">=</span><span class="n">compute_rank</span><span class="p">)</span>
 
-                    <span class="c1"># Add metrics to output dataframe</span>
+                    <span class="c1"># Add metrics to output dataframe (accumulate in list)</span>
                     <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">metric_value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                        <span class="n">row</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                        <span class="n">rows_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                             <span class="p">{</span>
-                                <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">split_name</span><span class="p">],</span>
-                                <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">target</span><span class="p">],</span>
-                                <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">quality</span><span class="p">],</span>
-                                <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric_name</span><span class="p">],</span>
-                                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric_value</span><span class="p">],</span>
+                                <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split_name</span><span class="p">,</span>
+                                <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+                                <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="n">quality</span><span class="p">,</span>
+                                <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">metric_value</span><span class="p">,</span>
                             <span class="p">}</span>
                         <span class="p">)</span>
-                        <span class="n">df_out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_out</span><span class="p">,</span> <span class="n">row</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
                         <span class="c1"># Collect quality-specific metrics for batch logging</span>
                         <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
@@ -2759,6 +3111,11 @@
             <span class="c1"># Log quality distribution</span>
             <span class="n">quality_counts</span> <span class="o">=</span> <span class="p">{</span><span class="n">q</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">quality_indices</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">indices</span><span class="p">}</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> quality distribution: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span> <span class="n">quality_counts</span><span class="p">)</span>
+
+        <span class="c1"># Create DataFrame once from accumulated rows (much faster than repeated concat)</span>
+        <span class="k">if</span> <span class="n">rows_list</span><span class="p">:</span>
+            <span class="n">df_new</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows_list</span><span class="p">)</span>
+            <span class="n">df_out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_out</span><span class="p">,</span> <span class="n">df_new</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">df_out</span>
 

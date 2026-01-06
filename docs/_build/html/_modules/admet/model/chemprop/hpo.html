@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -224,10 +225,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -318,6 +322,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
@@ -330,8 +335,20 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HPOConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_search_space</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_search_space</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_trainable</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_chemprop_trial</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.hpo_mlflow_callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobustMLflowLoggerCallback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.hpo_mlflow_callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncBatchedMLflowCallback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.profiling</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingPhase</span><span class="p">,</span> <span class="n">TrainingProfiler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.ray_logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuietProgressReporter</span><span class="p">,</span> <span class="n">RayLogManager</span>
+
+<span class="c1"># Set Ray Tune environment variables at module load time (BEFORE ray.init)</span>
+<span class="c1"># These must be set before Ray workers spawn to take effect</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_WARN_SLOW_EXPERIMENT_CHECKPOINT_SYNC_THRESHOLD_S&quot;</span><span class="p">,</span> <span class="s2">&quot;300&quot;</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_GLOBAL_CHECKPOINT_S&quot;</span><span class="p">,</span> <span class="s2">&quot;600&quot;</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_WARN_THRESHOLD_S&quot;</span><span class="p">,</span> <span class="s2">&quot;30&quot;</span><span class="p">)</span>  <span class="c1"># Warn only if &gt;30s (async callback is fast)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_RESULT_BUFFER_LENGTH&quot;</span><span class="p">,</span> <span class="s2">&quot;10&quot;</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_RESULT_BUFFER_MIN_TIME_S&quot;</span><span class="p">,</span> <span class="s2">&quot;10&quot;</span><span class="p">)</span>
+<span class="c1"># Disable tqdm progress bars globally for HPO</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TQDM_DISABLE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_trial_dirname_creator</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -368,6 +385,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span> <span class="n">tune</span><span class="o">.</span><span class="n">ResultGrid</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span> <span class="o">=</span> <span class="n">TrainingProfiler</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;hpo&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ChempropHPO.run">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ChempropHPO.run">[docs]</a>
@@ -380,133 +398,189 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Ray Tune ResultGrid containing all trial results</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Start profiler for overall HPO timing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
         <span class="c1"># Setup MLflow tracking</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_mlflow</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">MLFLOW_INIT</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_mlflow</span><span class="p">()</span>
 
-        <span class="c1"># Build search space</span>
-        <span class="n">search_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_search_space</span><span class="p">()</span>
-
-        <span class="c1"># Build ASHA scheduler</span>
-        <span class="n">scheduler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_scheduler</span><span class="p">()</span>
-
-        <span class="c1"># Build search algorithm (Optuna, BayesOpt, etc.)</span>
-        <span class="n">search_alg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_search_algorithm</span><span class="p">()</span>
-
-        <span class="c1"># Configure Ray Tune</span>
-        <span class="c1"># Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict</span>
-        <span class="n">tune_config</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">TuneConfig</span><span class="p">(</span>
-            <span class="n">scheduler</span><span class="o">=</span><span class="n">scheduler</span><span class="p">,</span>
-            <span class="n">search_alg</span><span class="o">=</span><span class="n">search_alg</span><span class="p">,</span>  <span class="c1"># Add search algorithm</span>
-            <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
-            <span class="n">max_concurrent_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">max_concurrent_trials</span><span class="p">,</span>
-            <span class="n">trial_dirname_creator</span><span class="o">=</span><span class="n">_trial_dirname_creator</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Configure resources per trial</span>
-        <span class="n">trainable</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">with_resources</span><span class="p">(</span>
-            <span class="n">train_chemprop_trial</span><span class="p">,</span>
-            <span class="n">resources</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">cpus_per_trial</span><span class="p">,</span>
-                <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">gpus_per_trial</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Setup storage path (must be absolute for Ray Tune)</span>
-        <span class="n">storage_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray_storage_path</span>
-        <span class="k">if</span> <span class="n">storage_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">storage_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;ray_results&quot;</span><span class="p">)</span>
-        <span class="c1"># Convert to absolute path if relative</span>
-        <span class="n">storage_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
-
-        <span class="c1"># Create a dedicated temp directory inside the storage path to avoid issues</span>
-        <span class="c1"># when system /tmp is cleaned during long-running HPO jobs</span>
-        <span class="n">ray_temp_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;_ray_tmp&quot;</span><span class="p">)</span>
-        <span class="n">Path</span><span class="p">(</span><span class="n">ray_temp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="c1"># Initialize Ray with custom temp dir if storage path is provided</span>
-        <span class="c1"># This helps avoid FileNotFoundError during sync when /tmp is cleaned</span>
-        <span class="c1"># Disable dashboard to avoid MetricsHead startup failures on some systems</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
-            <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
-                <span class="n">_temp_dir</span><span class="o">=</span><span class="n">ray_temp_dir</span><span class="p">,</span>
-                <span class="n">include_dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Disable dashboard to avoid startup errors</span>
+        <span class="c1"># Setup Ray logging (if enabled in config)</span>
+        <span class="n">ray_log_manager</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
+            <span class="n">ray_log_manager</span> <span class="o">=</span> <span class="n">RayLogManager</span><span class="p">(</span>
+                <span class="n">mlflow_run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">,</span>
+                <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">),</span>
+                <span class="n">verbose</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">verbose</span><span class="p">,</span>
+                <span class="n">max_total_logs_gb</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">max_total_logs_gb</span><span class="p">,</span>
+                <span class="n">fail_on_upload_error</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">fail_on_upload_error</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ray initialized with temp dir: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ray_temp_dir</span><span class="p">)</span>
 
-        <span class="c1"># Run HPO</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;Starting HPO: </span><span class="si">%d</span><span class="s2"> trials, metric=</span><span class="si">%s</span><span class="s2">, mode=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="c1"># Use context manager for logging if enabled</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">ray_log_manager</span> <span class="k">if</span> <span class="n">ray_log_manager</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_null_context</span><span class="p">()</span>
 
-        <span class="c1"># Setup MLflow callback for per-trial logging</span>
-        <span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parent_run_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
-            <span class="c1"># Attach Ray Tune trial runs as children of the parent HPO run</span>
-            <span class="n">tags</span><span class="p">[</span><span class="s2">&quot;mlflow.parentRunId&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span>
+        <span class="k">with</span> <span class="n">ctx</span><span class="p">:</span>
+            <span class="c1"># Build search space</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">HPO_SEARCH_SPACE_BUILD</span><span class="p">):</span>
+                <span class="n">search_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_search_space</span><span class="p">()</span>
 
-        <span class="n">mlflow_callback</span> <span class="o">=</span> <span class="n">RobustMLflowLoggerCallback</span><span class="p">(</span>
-            <span class="n">tracking_uri</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">(),</span>
-            <span class="n">experiment_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
-            <span class="n">save_artifact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Disable artifact saving during HPO to avoid performance bottleneck</span>
-            <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">,</span>
-        <span class="p">)</span>
+                <span class="c1"># Build ASHA scheduler</span>
+                <span class="n">scheduler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_scheduler</span><span class="p">()</span>
 
-        <span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="p">(</span>
-            <span class="n">trainable</span><span class="p">,</span>
-            <span class="n">param_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
-            <span class="n">tune_config</span><span class="o">=</span><span class="n">tune_config</span><span class="p">,</span>
-            <span class="n">run_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">RunConfig</span><span class="p">(</span>
-                <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
-                <span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">,</span>
-                <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">mlflow_callback</span><span class="p">],</span>
-                <span class="n">sync_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">SyncConfig</span><span class="p">(),</span>
-            <span class="p">),</span>
-        <span class="p">)</span>
+                <span class="c1"># Build search algorithm (Optuna, BayesOpt, etc.)</span>
+                <span class="n">search_alg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_search_algorithm</span><span class="p">()</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;HPO failed or interrupted: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-            <span class="c1"># Try to restore results if possible, or just log what we have</span>
-            <span class="c1"># Note: tuner.fit() might raise, but we might still have partial results on disk</span>
-            <span class="c1"># However, getting the ResultGrid object from a failed run is tricky without restoring.</span>
-            <span class="c1"># For now, we&#39;ll just log the error and try to proceed if self.results was set (unlikely)</span>
-            <span class="c1"># or if we can recover something.</span>
-            <span class="c1"># Actually, Ray Tune usually returns the ResultGrid even on failure if configured,</span>
-            <span class="c1"># but here it raises.</span>
-            <span class="c1"># We can try to restore the tuner to get results.</span>
+            <span class="c1"># Configure Ray Tune</span>
+            <span class="c1"># Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict</span>
+            <span class="n">tune_config</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">TuneConfig</span><span class="p">(</span>
+                <span class="n">scheduler</span><span class="o">=</span><span class="n">scheduler</span><span class="p">,</span>
+                <span class="n">search_alg</span><span class="o">=</span><span class="n">search_alg</span><span class="p">,</span>  <span class="c1"># Add search algorithm</span>
+                <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
+                <span class="n">max_concurrent_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">max_concurrent_trials</span><span class="p">,</span>
+                <span class="n">trial_dirname_creator</span><span class="o">=</span><span class="n">_trial_dirname_creator</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Configure resources per trial</span>
+            <span class="n">trainable</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">with_resources</span><span class="p">(</span>
+                <span class="n">train_chemprop_trial</span><span class="p">,</span>
+                <span class="n">resources</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">cpus_per_trial</span><span class="p">,</span>
+                    <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">gpus_per_trial</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Setup storage path (must be absolute for Ray Tune)</span>
+            <span class="n">storage_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray_storage_path</span>
+            <span class="k">if</span> <span class="n">storage_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">storage_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;ray_results&quot;</span><span class="p">)</span>
+            <span class="c1"># Convert to absolute path if relative</span>
+            <span class="n">storage_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+
+            <span class="c1"># Create a dedicated temp directory inside the storage path to avoid issues</span>
+            <span class="c1"># when system /tmp is cleaned during long-running HPO jobs</span>
+            <span class="n">ray_temp_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;_ray_tmp&quot;</span><span class="p">)</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">ray_temp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># Initialize Ray with custom temp dir if storage path is provided</span>
+            <span class="c1"># This helps avoid FileNotFoundError during sync when /tmp is cleaned</span>
+            <span class="c1"># Disable dashboard to avoid MetricsHead startup failures on some systems</span>
+
+            <span class="c1"># Suppress Ray future warning about GPU environment variables</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>
+
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">HPO_RAY_INIT</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">ray</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+                    <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+                        <span class="n">_temp_dir</span><span class="o">=</span><span class="n">ray_temp_dir</span><span class="p">,</span>
+                        <span class="n">include_dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Disable dashboard to avoid startup errors</span>
+                    <span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ray initialized with temp dir: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ray_temp_dir</span><span class="p">)</span>
+
+            <span class="c1"># Run HPO</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Starting HPO: </span><span class="si">%d</span><span class="s2"> trials, metric=</span><span class="si">%s</span><span class="s2">, mode=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Setup async batched MLflow callback for per-trial logging (non-blocking)</span>
+            <span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parent_run_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
+                <span class="c1"># Attach Ray Tune trial runs as children of the parent HPO run</span>
+                <span class="n">tags</span><span class="p">[</span><span class="s2">&quot;mlflow.parentRunId&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span>
+
+            <span class="n">mlflow_callback</span> <span class="o">=</span> <span class="n">AsyncBatchedMLflowCallback</span><span class="p">(</span>
+                <span class="n">tracking_uri</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">(),</span>
+                <span class="n">experiment_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
+                <span class="n">save_artifact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Disable artifact saving during HPO to avoid performance bottleneck</span>
+                <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Use quiet progress reporter if logging is enabled</span>
+            <span class="n">progress_reporter</span> <span class="o">=</span> <span class="n">QuietProgressReporter</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">enabled</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="p">(</span>
+                <span class="n">trainable</span><span class="p">,</span>
+                <span class="n">param_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">tune_config</span><span class="o">=</span><span class="n">tune_config</span><span class="p">,</span>
+                <span class="n">run_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">RunConfig</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
+                    <span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">,</span>
+                    <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">verbose</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">progress_reporter</span><span class="o">=</span><span class="n">progress_reporter</span><span class="p">,</span>
+                    <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">mlflow_callback</span><span class="p">],</span>
+                    <span class="n">sync_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">SyncConfig</span><span class="p">(</span>
+                        <span class="n">sync_period</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>  <span class="c1"># Sync every 5 minutes instead of every result</span>
+                    <span class="p">),</span>
+                    <span class="n">checkpoint_config</span><span class="o">=</span><span class="n">tune</span><span class="o">.</span><span class="n">CheckpointConfig</span><span class="p">(</span>
+                        <span class="n">num_to_keep</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># Keep only 2 checkpoints per trial (reduces state size)</span>
+                        <span class="n">checkpoint_score_attribute</span><span class="o">=</span><span class="s2">&quot;val_loss&quot;</span><span class="p">,</span>
+                        <span class="n">checkpoint_score_order</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Attempting to restore Tuner to retrieve partial results...&quot;</span><span class="p">)</span>
-                <span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span>
-                    <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">),</span>
-                    <span class="n">trainable</span><span class="o">=</span><span class="n">trainable</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">get_results</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">restore_error</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not restore Tuner results: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">restore_error</span><span class="p">)</span>
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="c1"># Log results to MLflow (best so far)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_log_results</span><span class="p">()</span>
-                <span class="c1"># Backfill disabled: RobustMLflowLoggerCallback already logs during trials</span>
-                <span class="c1"># Uncomment only if you need to recover metrics after HPO failure:</span>
-                <span class="c1"># logger.info(&quot;Backfilling MLflow with metrics from all trials...&quot;)</span>
-                <span class="c1"># backfill_mlflow_from_ray_results(</span>
-                <span class="c1">#     self.results,</span>
-                <span class="c1">#     experiment_name=self.config.experiment_name,</span>
-                <span class="c1">#     parent_run_id=self._mlflow_run_id,</span>
-                <span class="c1">#     tracking_uri=self.config.mlflow_tracking_uri,</span>
-                <span class="c1"># )</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No results to log to MLflow.&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
-                    <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">HPO_TOTAL</span><span class="p">):</span>
+                    <span class="c1"># Suppress Ray Tune&#39;s stdout messages during HPO</span>
+                    <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+                    <span class="kn">from</span><span class="w"> </span><span class="nn">io</span><span class="w"> </span><span class="kn">import</span> <span class="n">StringIO</span>
+
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">verbose</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="c1"># Redirect stdout to suppress Ray messages</span>
+                        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">redirect_stdout</span><span class="p">(</span><span class="n">StringIO</span><span class="p">()):</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;HPO failed or interrupted: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+                <span class="c1"># Try to restore results if possible, or just log what we have</span>
+                <span class="c1"># Note: tuner.fit() might raise, but we might still have partial results on disk</span>
+                <span class="c1"># However, getting the ResultGrid object from a failed run is tricky without restoring.</span>
+                <span class="c1"># For now, we&#39;ll just log the error and try to proceed if self.results was set (unlikely)</span>
+                <span class="c1"># or if we can recover something.</span>
+                <span class="c1"># Actually, Ray Tune usually returns the ResultGrid even on failure if configured,</span>
+                <span class="c1"># but here it raises.</span>
+                <span class="c1"># We can try to restore the tuner to get results.</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Attempting to restore Tuner to retrieve partial results...&quot;</span><span class="p">)</span>
+                    <span class="n">tuner</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">Tuner</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span>
+                        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">),</span>
+                        <span class="n">trainable</span><span class="o">=</span><span class="n">trainable</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">tuner</span><span class="o">.</span><span class="n">get_results</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">restore_error</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not restore Tuner results: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">restore_error</span><span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="c1"># Log results to MLflow (best so far)</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">phase</span><span class="p">(</span><span class="n">TrainingPhase</span><span class="o">.</span><span class="n">HPO_RESULTS_AGGREGATION</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_log_results</span><span class="p">()</span>
+                        <span class="c1"># Backfill disabled: RobustMLflowLoggerCallback already logs during trials</span>
+                        <span class="c1"># Uncomment only if you need to recover metrics after HPO failure:</span>
+                        <span class="c1"># logger.info(&quot;Backfilling MLflow with metrics from all trials...&quot;)</span>
+                        <span class="c1"># backfill_mlflow_from_ray_results(</span>
+                        <span class="c1">#     self.results,</span>
+                        <span class="c1">#     experiment_name=self.config.experiment_name,</span>
+                        <span class="c1">#     parent_run_id=self._mlflow_run_id,</span>
+                        <span class="c1">#     tracking_uri=self.config.mlflow_tracking_uri,</span>
+                        <span class="c1"># )</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No results to log to MLflow.&quot;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
+                            <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span>
+
+                <span class="c1"># Stop profiler and print summary</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+                <span class="c1"># Disable profiling output for cleaner logs</span>
+                <span class="c1"># self._profiler.print_summary()</span>
+
+                <span class="c1"># Log profiling metrics to MLflow if tracking enabled</span>
+                <span class="c1"># Disabled: profiling has minimal overhead but adds clutter</span>
+                <span class="c1"># if self._mlflow_run_id:</span>
+                <span class="c1">#     self._log_profiling_to_mlflow()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;HPO failed to produce any results.&quot;</span><span class="p">)</span>
@@ -583,57 +657,52 @@
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;optuna&quot;</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="kn">import</span><span class="w"> </span><span class="nn">optuna</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.optuna</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptunaSearch</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">optuna</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.optuna</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptunaSearch</span>
 
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="s2">&quot;Using Optuna search algorithm (TPESampler) with </span><span class="si">%d</span><span class="s2"> initial random points&quot;</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">OptunaSearch</span><span class="p">(</span>
-                    <span class="n">sampler</span><span class="o">=</span><span class="n">optuna</span><span class="o">.</span><span class="n">samplers</span><span class="o">.</span><span class="n">TPESampler</span><span class="p">(</span>
-                        <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
-                        <span class="n">n_startup_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
-                    <span class="p">),</span>
-                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
-                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Optuna not installed, falling back to random search&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Using Optuna search algorithm (TPESampler) with </span><span class="si">%d</span><span class="s2"> initial random points&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">OptunaSearch</span><span class="p">(</span>
+                <span class="n">sampler</span><span class="o">=</span><span class="n">optuna</span><span class="o">.</span><span class="n">samplers</span><span class="o">.</span><span class="n">TPESampler</span><span class="p">(</span>
+                    <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                    <span class="n">n_startup_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;bayesopt&quot;</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.bayesopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesOptSearch</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.bayesopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesOptSearch</span>
 
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using BayesOptSearch algorithm&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">BayesOptSearch</span><span class="p">(</span>
-                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
-                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-                    <span class="n">random_state</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;bayesian-optimization not installed, falling back to random search&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using BayesOptSearch algorithm&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">BayesOptSearch</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                <span class="n">random_state</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;hyperopt&quot;</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.hyperopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">HyperOptSearch</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.hyperopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">HyperOptSearch</span>
 
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using HyperOpt search algorithm&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">HyperOptSearch</span><span class="p">(</span>
-                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
-                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-                    <span class="n">random_state_seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;hyperopt not installed, falling back to random search&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using HyperOpt search algorithm&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">HyperOptSearch</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                <span class="n">random_state_seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Unknown search algorithm type: </span><span class="si">%s</span><span class="s2">, falling back to random search&quot;</span><span class="p">,</span> <span class="n">algo_type</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_null_context</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a no-op context manager for when logging is disabled.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">nullcontext</span>
+
+        <span class="k">return</span> <span class="n">nullcontext</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_mlflow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure MLflow tracking.&quot;&quot;&quot;</span>
@@ -646,8 +715,39 @@
         <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;hpo_master_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">run</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_profiling_to_mlflow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log profiling metrics to MLflow using fluent API.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;profiling&quot;</span>
+
+            <span class="c1"># Log total duration</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.total_seconds&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">total_duration</span><span class="p">)</span>
+
+            <span class="c1"># Log per-phase metrics</span>
+            <span class="k">for</span> <span class="n">phase</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">get_all_stats</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">safe_phase</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">safe_phase</span><span class="si">}</span><span class="s2">.total_seconds&quot;</span><span class="p">,</span> <span class="n">stats</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">safe_phase</span><span class="si">}</span><span class="s2">.mean_seconds&quot;</span><span class="p">,</span> <span class="n">stats</span><span class="o">.</span><span class="n">mean_seconds</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">safe_phase</span><span class="si">}</span><span class="s2">.count&quot;</span><span class="p">,</span> <span class="n">stats</span><span class="o">.</span><span class="n">count</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">total_duration</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">pct</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">total_seconds</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">total_duration</span> <span class="o">*</span> <span class="mi">100</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">safe_phase</span><span class="si">}</span><span class="s2">.percentage&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct</span><span class="p">))</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged profiling metrics to MLflow&quot;</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log profiling metrics to MLflow: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log HPO results to MLflow.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log HPO results to MLflow including detailed trial metrics.</span>
+
+<span class="sd">        Logs:</span>
+<span class="sd">        - Best trial configuration and metrics</span>
+<span class="sd">        - Best model checkpoint</span>
+<span class="sd">        - All trial metrics to MLflow as nested artifacts/parameters</span>
+<span class="sd">        - HPO results dataframe and top-k configurations</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
 
@@ -690,23 +790,46 @@
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log best model artifact: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
-        <span class="c1"># Save all results as artifact</span>
+        <span class="c1"># Log all trial metrics as detailed information</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logging detailed metrics from all </span><span class="si">%d</span><span class="s2"> trials to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">))</span>
+        <span class="n">results_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_dataframe</span><span class="p">()</span>
+
+        <span class="c1"># Extract and log key metrics for each trial</span>
+        <span class="n">metric_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">results_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;val_&quot;</span><span class="p">,</span> <span class="s2">&quot;train_&quot;</span><span class="p">))]</span>
+
+        <span class="c1"># Log summary statistics for each metric across all trials</span>
+        <span class="k">for</span> <span class="n">metric_col</span> <span class="ow">in</span> <span class="n">metric_cols</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric_col</span> <span class="ow">in</span> <span class="n">results_df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="n">results_df</span><span class="p">[</span><span class="n">metric_col</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">results_df</span><span class="p">[</span><span class="n">metric_col</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span>
+                            <span class="p">{</span>
+                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">std</span><span class="p">()),</span>
+                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.min&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.max&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+                            <span class="p">}</span>
+                        <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Could not compute stats for metric </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metric_col</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
         <span class="c1"># Save all results as artifact</span>
-        <span class="n">results_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_dataframe</span><span class="p">()</span>
         <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
         <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;hpo_results.csv&quot;</span>
         <span class="n">results_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">results_path</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged HPO results dataframe with </span><span class="si">%d</span><span class="s2"> trials to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_df</span><span class="p">))</span>
 
         <span class="c1"># Save top-k configs as JSON</span>
         <span class="n">top_k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_top_k_configs</span><span class="p">()</span>
         <span class="n">top_k_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;top_k_configs.json&quot;</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">top_k</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged top-</span><span class="si">%d</span><span class="s2"> configurations to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_k</span><span class="p">))</span>
 
         <span class="c1"># End MLflow run</span>
         <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span>

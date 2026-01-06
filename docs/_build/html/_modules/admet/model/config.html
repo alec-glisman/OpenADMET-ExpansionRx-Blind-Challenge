@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -224,10 +225,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -380,6 +384,28 @@
 
 
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RayLoggingConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for Ray Tune and ensemble logging behavior.</span>
+
+<span class="sd">    Controls how verbose output is captured, compressed, and uploaded</span>
+<span class="sd">    to MLflow artifacts. Reduces terminal noise during long HPO/ensemble runs.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        enabled: Whether to enable Ray logging to files. Default: True.</span>
+<span class="sd">        verbose: Logging verbosity level (0=quiet, 1=standard, 2=debug). Default: 0.</span>
+<span class="sd">        max_total_logs_gb: Maximum total size (GB) of logs per experiment.</span>
+<span class="sd">            Older logs are truncated if exceeded. Default: 1.0.</span>
+<span class="sd">        fail_on_upload_error: If True, raise exception immediately on MLflow</span>
+<span class="sd">            upload failure. If False, log warning and continue. Default: True.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_total_logs_gb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">fail_on_upload_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+
 <span class="c1"># Valid model types (documentation and validation)</span>
 <span class="c1"># OmegaConf does not support Literal types, so we use str with runtime validation</span>
 <span class="n">MODEL_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;chemprop&quot;</span><span class="p">,</span> <span class="s2">&quot;chemeleon&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;catboost&quot;</span><span class="p">)</span>
@@ -401,11 +427,13 @@
 <span class="sd">        type: Model type discriminator (&quot;chemprop&quot;, &quot;xgboost&quot;, etc.).</span>
 <span class="sd">        data: Data configuration section.</span>
 <span class="sd">        mlflow: MLflow tracking configuration.</span>
+<span class="sd">        logging: Ray Tune and ensemble logging configuration.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">MISSING</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">BaseDataConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">BaseDataConfig</span><span class="p">)</span>
-    <span class="n">mlflow</span><span class="p">:</span> <span class="n">BaseMlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">BaseMlflowConfig</span><span class="p">)</span></div>
+    <span class="n">mlflow</span><span class="p">:</span> <span class="n">BaseMlflowConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">BaseMlflowConfig</span><span class="p">)</span>
+    <span class="n">logging</span><span class="p">:</span> <span class="n">RayLoggingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayLoggingConfig</span><span class="p">)</span></div>
 
 
 
@@ -1072,12 +1100,16 @@
 <span class="sd">    Parameters:</span>
 <span class="sd">        max_parallel: Maximum models to train in parallel.</span>
 <span class="sd">        num_cpus: CPUs to allocate to Ray (None = auto).</span>
-<span class="sd">        num_gpus: GPUs to allocate to Ray (None = auto).</span>
+<span class="sd">        num_gpus: GPUs to allocate to Ray (None = auto, derived from gpu_ids if set).</span>
+<span class="sd">        gpu_ids: Specific GPU IDs to use (as reported by nvidia-smi). Example: [0, 2]</span>
+<span class="sd">            to use GPUs 0 and 2. Sets CUDA_VISIBLE_DEVICES before Ray init.</span>
+<span class="sd">            If None, uses all available GPUs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">max_parallel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">num_cpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">num_gpus</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">gpu_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="nd">@dataclass</span>
@@ -1143,6 +1175,7 @@
 <span class="sd">        ensemble: { ... }  # Ensemble training mode</span>
 <span class="sd">        joint_sampling: { ... }  # Training strategies</span>
 <span class="sd">        ray: { ... }</span>
+<span class="sd">        logging: { ... }  # Ray logging configuration</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        model: Model type and parameters section.</span>
@@ -1154,6 +1187,7 @@
 <span class="sd">        task_affinity: Task affinity grouping configuration.</span>
 <span class="sd">        inter_task_affinity: Inter-task affinity configuration.</span>
 <span class="sd">        ray: Ray parallelization configuration.</span>
+<span class="sd">        logging: Ray Tune and ensemble logging configuration.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">model</span><span class="p">:</span> <span class="n">ModelSection</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ModelSection</span><span class="p">)</span>
@@ -1165,6 +1199,7 @@
     <span class="n">task_affinity</span><span class="p">:</span> <span class="n">TaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TaskAffinityConfig</span><span class="p">)</span>
     <span class="n">inter_task_affinity</span><span class="p">:</span> <span class="n">InterTaskAffinityConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InterTaskAffinityConfig</span><span class="p">)</span>
     <span class="n">ray</span><span class="p">:</span> <span class="n">RayConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayConfig</span><span class="p">)</span>
+    <span class="n">logging</span><span class="p">:</span> <span class="n">RayLoggingConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RayLoggingConfig</span><span class="p">)</span>
 
 
 <span class="c1"># ============================================================================</span>

@@ -204,11 +204,11 @@ Then train normally:
 
 .. code-block:: python
 
-   from admet.model.chemprop import ChempropModel
+   from admet.model.registry import ModelRegistry
    from omegaconf import OmegaConf
 
    config = OmegaConf.load("configs/curriculum/chemprop_curriculum.yaml")
-   model = ChempropModel.from_config(config)
+   model = ModelRegistry.create(config)
    model.fit()
 
 Configuration

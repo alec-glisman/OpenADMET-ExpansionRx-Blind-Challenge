@@ -214,6 +214,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
@@ -233,10 +234,13 @@
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
@@ -313,11 +317,66 @@ settings are configured using OmegaConf dataclasses and YAML files.</p>
 <p>The package uses OmegaConf-based dataclasses for type-safe configuration.
 YAML files under <code class="docutils literal notranslate"><span class="pre">configs/</span></code> define settings that are loaded and merged
 with structured defaults.</p>
+<p>All model configurations use the <strong>UnifiedModelConfig</strong> schema with a
+discriminator pattern. The <code class="docutils literal notranslate"><span class="pre">model.type</span></code> field determines which model-specific
+parameters are validated and used.</p>
+<section id="unifiedmodelconfig-schema">
+<h3>UnifiedModelConfig Schema<a class="headerlink" href="#unifiedmodelconfig-schema" title="Link to this heading">¶</a></h3>
+<p>The configuration is organized into these top-level sections:</p>
+<p><strong>model</strong>: Model type and architecture settings</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: Model discriminator (chemprop, chemeleon, xgboost, lightgbm, catboost)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chemprop</span></code>: Chemprop-specific parameters (when type=chemprop)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chemeleon</span></code>: Chemeleon-specific parameters (when type=chemeleon)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xgboost</span></code>: XGBoost-specific parameters (when type=xgboost)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lightgbm</span></code>: LightGBM-specific parameters (when type=lightgbm)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">catboost</span></code>: CatBoost-specific parameters (when type=catboost)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fingerprint</span></code>: Fingerprint configuration (for classical models)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ffn</span></code>: Feed-forward network configuration (for neural models)</p></li>
+</ul>
+<p><strong>data</strong>: Data paths and preprocessing</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">data_dir</span></code>: Directory with train.csv and validation.csv</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_file</span></code>, <code class="docutils literal notranslate"><span class="pre">blind_file</span></code>: Test/blind evaluation files</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smiles_col</span></code>, <code class="docutils literal notranslate"><span class="pre">target_cols</span></code>: Column names</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_weights</span></code>: Per-task loss weights</p></li>
+</ul>
+<p><strong>optimization</strong>: Training hyperparameters</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">criterion</span></code>: Loss function (MSE, MAE, Huber)</p></li>
+<li><p>Learning rate schedule: <code class="docutils literal notranslate"><span class="pre">init_lr</span></code>, <code class="docutils literal notranslate"><span class="pre">max_lr</span></code>, <code class="docutils literal notranslate"><span class="pre">final_lr</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_epochs</span></code>, <code class="docutils literal notranslate"><span class="pre">patience</span></code>, <code class="docutils literal notranslate"><span class="pre">batch_size</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weight_decay</span></code>: L2 regularization</p></li>
+</ul>
+<p><strong>mlflow</strong>: Experiment tracking</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code>, <code class="docutils literal notranslate"><span class="pre">tracking_uri</span></code>, <code class="docutils literal notranslate"><span class="pre">experiment_name</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nested</span></code>: For ensemble runs with child runs per fold</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_model</span></code>, <code class="docutils literal notranslate"><span class="pre">log_predictions</span></code>: Artifact control</p></li>
+</ul>
+<p><strong>ensemble</strong> (optional): Ensemble training settings</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code>: Train across split_*/fold_*/ directories</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">splits</span></code>, <code class="docutils literal notranslate"><span class="pre">folds</span></code>: Which splits/folds to use</p></li>
+</ul>
+<p><strong>joint_sampling</strong> (optional): Task oversampling + curriculum learning</p>
+<ul class="simple">
+<li><p>Only valid for PyTorch models (chemprop, chemeleon)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task_oversampling</span></code>: Balance tasks by sampling frequency</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum</span></code>: Quality-aware progressive training</p></li>
+</ul>
+<p><strong>task_affinity</strong> (optional): Task affinity grouping</p>
+<ul class="simple">
+<li><p>Only valid for PyTorch models (chemprop, chemeleon)</p></li>
+<li><p>Groups tasks by gradient similarity</p></li>
+<li><p>Improves multi-task learning efficiency</p></li>
+</ul>
+</section>
 </section>
 <section id="available-configurations">
 <h2>Available Configurations<a class="headerlink" href="#available-configurations" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ChempropConfig</span></code>: Single model training</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UnifiedModelConfig</span></code>: Master configuration for any model type</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EnsembleConfig</span></code>: Ensemble training across splits/folds</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">HPOConfig</span></code>: Hyperparameter optimization settings</p></li>
 </ul>
@@ -481,21 +540,25 @@ with structured defaults.</p>
 <h2>Programmatic Loading<a class="headerlink" href="#programmatic-loading" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnifiedModelConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_model_from_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
 
 <span class="c1"># Load and merge configuration</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">UnifiedModelConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/4-more-models/chemprop.yaml&quot;</span><span class="p">)</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
+
+<span class="c1"># Create model using factory pattern</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
 <span class="c1"># Access nested settings (unified format)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>              <span class="c1"># &quot;chemprop&quot;</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">chemprop</span><span class="o">.</span><span class="n">depth</span><span class="p">)</span>    <span class="c1"># 3</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">chemprop</span><span class="o">.</span><span class="n">depth</span><span class="p">)</span>    <span class="c1"># 5</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_lr</span><span class="p">)</span>     <span class="c1"># 0.000227</span>
 
-<span class="c1"># Create model from config (automatic type detection)</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">create_model_from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="c1"># Train Chemprop model (data is loaded from config.data)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>  <span class="c1"># No arguments needed - paths in config</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_smiles</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -698,7 +761,10 @@ for reliable curriculum learning.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Configuration Guide</a><ul>
-<li><a class="reference internal" href="#configuration-system">Configuration System</a></li>
+<li><a class="reference internal" href="#configuration-system">Configuration System</a><ul>
+<li><a class="reference internal" href="#unifiedmodelconfig-schema">UnifiedModelConfig Schema</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#available-configurations">Available Configurations</a></li>
 <li><a class="reference internal" href="#single-model-configuration">Single Model Configuration</a></li>
 <li><a class="reference internal" href="#supported-model-types">Supported Model Types</a></li>

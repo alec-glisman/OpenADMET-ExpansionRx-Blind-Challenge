@@ -8,14 +8,16 @@ Distribution, Metabolism, Excretion, Toxicity) property prediction.
 The package is organized into the following subpackages:
 
 - :doc:`admet.data` - Data loading, chemistry utilities, and dataset splitting
-- :doc:`admet.model` - Model implementations (Chemprop, Classical ML)
+- :doc:`admet.features` - Molecular fingerprints and descriptor generation
+- :doc:`admet.model` - Model implementations (Chemprop, Chemeleon, Classical ML)
 - :doc:`admet.plot` - Visualization utilities for plots and figures
-- :doc:`admet.util` - Utility functions and logging configuration
+- :doc:`admet.util` - Utility functions, profiling, and logging configuration
 
 .. toctree::
    :maxdepth: 1
 
    admet.data
+   admet.features
    admet.model
    admet.plot
    admet.util
@@ -26,4 +28,4 @@ Package Version
 .. code-block:: python
 
    import admet
-   print(admet.__version__)  # "0.0.1"
+   print(admet.__version__)  # "1.2.0"

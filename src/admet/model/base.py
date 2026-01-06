@@ -134,7 +134,7 @@ class BaseModel(ABC):
         """Set model parameters (sklearn compatibility).
 
         Parameters:
-            **params: Parameter names and values to set.
+            \\**params: Parameter names and values to set.
 
         Returns:
             Self for method chaining.
