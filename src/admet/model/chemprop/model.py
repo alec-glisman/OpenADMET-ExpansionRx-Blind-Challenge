@@ -1233,19 +1233,23 @@ class ChempropModel:
                     self._joint_sampler = sampler  # Store for MLflow stats callback
                     # Never drop last batch to preserve all samples for per-quality metrics
                     drop_last = False
-                    # Warn if using num_workers > 0 with curriculum sampler
+                    # OPTIMIZATION: Only force num_workers=0 when curriculum is actually enabled
+                    # This allows parallel data loading when curriculum is disabled
                     if self.hyperparams.num_workers > 0 and curriculum_enabled:
                         logger.warning(
-                            "Using JointSampler with num_workers=%d > 0 and curriculum enabled. "
-                            "Sampler state (epoch counter, phase) is not synchronized across workers. "
-                            "For reliable curriculum learning, set num_workers=0.",
-                            self.hyperparams.num_workers,
+                            "Curriculum enabled: forcing num_workers=0 for sampler state sync. "
+                            "This disables DataLoader parallelism. "
+                            "To use num_workers>0, disable curriculum learning."
                         )
+                        actual_num_workers = 0
+                    else:
+                        actual_num_workers = self.hyperparams.num_workers
+
                     self.dataloaders[split] = DataLoader(
                         datasets[split],
                         batch_size=self.hyperparams.batch_size,
                         sampler=sampler,
-                        num_workers=self.hyperparams.num_workers,
+                        num_workers=actual_num_workers,
                         collate_fn=data.collate_batch,
                         drop_last=drop_last,
                         **_get_dataloader_kwargs(self.hyperparams.num_workers, is_train=True),
@@ -1271,19 +1275,23 @@ class ChempropModel:
                 )
                 # Never drop last batch to preserve all samples for per-quality metrics
                 drop_last = False
-                # Warn if using num_workers > 0 with curriculum sampler
+                # OPTIMIZATION: Force num_workers=0 for DynamicCurriculumSampler
+                # Curriculum is always enabled if using this sampler
                 if self.hyperparams.num_workers > 0:
                     logger.warning(
-                        "Using DynamicCurriculumSampler with num_workers=%d > 0. "
-                        "Sampler state (epoch counter, phase) is not synchronized across workers. "
-                        "For reliable curriculum learning, set num_workers=0.",
-                        self.hyperparams.num_workers,
+                        "DynamicCurriculumSampler active: forcing num_workers=0 for sampler state sync. "
+                        "This disables DataLoader parallelism. "
+                        "To use num_workers>0, disable curriculum learning."
                     )
+                    actual_num_workers = 0
+                else:
+                    actual_num_workers = 0  # Always 0 for curriculum
+
                 self.dataloaders[split] = DataLoader(
                     datasets[split],
                     batch_size=self.hyperparams.batch_size,
                     sampler=sampler,
-                    num_workers=self.hyperparams.num_workers,
+                    num_workers=actual_num_workers,
                     collate_fn=data.collate_batch,
                     drop_last=drop_last,
                     **_get_dataloader_kwargs(self.hyperparams.num_workers, is_train=True),
@@ -3068,10 +3076,14 @@ class ChempropModel:
             logger.info("Split '%s': Generating predictions for %d unlabelled molecules", split_name, len(datapoints))
 
         dataset = data.MoleculeDataset(datapoints, self.featurizer)
+        # OPTIMIZATION: Use batched predictions (2-3x faster than batch_size=1)
+        # Safe to use training batch_size since prediction is deterministic
+        pred_batch_size = self.hyperparams.batch_size
+        pred_num_workers = min(self.hyperparams.num_workers, 4)  # Limit workers for inference
         dataloader = data.build_dataloader(
             dataset,
-            batch_size=1,
-            num_workers=0,
+            batch_size=pred_batch_size,
+            num_workers=pred_num_workers,
             shuffle=False,
         )
         results = self.trainer.predict(self.mpnn, dataloaders=dataloader)

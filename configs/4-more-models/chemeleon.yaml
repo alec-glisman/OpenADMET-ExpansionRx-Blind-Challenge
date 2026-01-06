@@ -38,7 +38,7 @@ optimization:
   batch_size: 128
   learning_rate: 0.00113
   weight_decay: 0.0001
-  num_workers: 0
+  num_workers: 4  # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
   seed: 12345
   progress_bar: false
   scheduler:

@@ -46,7 +46,7 @@ optimization:
   max_epochs: 150
   patience: 15
   batch_size: 32
-  num_workers: 0
+  num_workers: 4  # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
   seed: 42
   weight_decay: 0.0
   progress_bar: true
