@@ -20,11 +20,13 @@ References:
 
 from __future__ import annotations
 
+import fcntl
 import logging
+import math
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
 import torch
@@ -32,16 +34,20 @@ from chemprop import data, featurizers, models, nn
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
+from ray import tune
 from torch.utils.data import DataLoader
 
+from admet.data.stats import correlation
 from admet.model.base import BaseModel
 from admet.model.chemeleon.callbacks import GradualUnfreezeCallback
+from admet.model.chemprop.config import ProfilingConfig
 from admet.model.chemprop.curriculum import CurriculumState
 from admet.model.chemprop.joint_sampler import JointSampler
 from admet.model.config import UnfreezeScheduleConfig
 from admet.model.ffn_factory import create_ffn_predictor
 from admet.model.mlflow_mixin import MLflowMixin
 from admet.model.registry import ModelRegistry
+from admet.util.profiling import TrainingPhase, TrainingProfiler, create_lightning_profiling_callback
 
 if TYPE_CHECKING:
     pass
@@ -53,6 +59,254 @@ ZENODO_URL = "https://zenodo.org/records/15460715/files/chemeleon_mp.pt"
 
 # Default cache directory
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "admet" / "chemeleon"
+
+
+def _get_dataloader_kwargs(num_workers: int, is_train: bool = True) -> dict[str, Any]:
+    """
+    Get optimized DataLoader kwargs for performance.
+
+    Returns kwargs that enable GPU training optimizations when appropriate:
+    - pin_memory: Pre-loads data to GPU pinned memory for faster transfers
+    - persistent_workers: Keeps workers alive between epochs (reduces startup overhead)
+    - prefetch_factor: Number of batches to prefetch per worker
+
+    Parameters
+    ----------
+    num_workers : int
+        Number of data loading workers.
+    is_train : bool, default=True
+        Whether this is for training (enables more aggressive prefetching).
+
+    Returns
+    -------
+    dict[str, Any]
+        Kwargs to pass to DataLoader constructor.
+    """
+    kwargs: dict[str, Any] = {}
+
+    # Enable pin_memory for GPU training (faster CPU->GPU transfers)
+    if torch.cuda.is_available():
+        kwargs["pin_memory"] = True
+
+    # Enable persistent_workers and prefetch_factor when using multiprocessing
+    if num_workers > 0:
+        kwargs["persistent_workers"] = True
+        # Prefetch 2 batches per worker for training, 1 for validation
+        kwargs["prefetch_factor"] = 2 if is_train else 1
+
+    return kwargs
+
+
+class CorrelationMetricsCallback(pl.Callback):
+    """Callback to compute and log correlation metrics during validation.
+
+    Computes RAE, Pearson r, Spearman ρ, and Kendall τ metrics on validation
+    outputs and logs them to MLflow and Ray Tune for HPO tracking.
+
+    Attributes
+    ----------
+    scaler : Any
+        Data scaler to inverse-transform predictions
+    target_cols : list[str]
+        Target column names
+    val_loader : DataLoader | None
+        Validation dataloader for computing metrics
+    report_every_n_epochs : int
+        Epoch cadence for reporting (default: 5)
+    """
+
+    def __init__(
+        self,
+        scaler: Any = None,
+        target_cols: list[str] | None = None,
+        val_loader: DataLoader | None = None,
+        report_every_n_epochs: int = 5,
+        compute_rank_correlations: bool = True,
+    ) -> None:
+        """Initialize the callback.
+
+        Parameters
+        ----------
+        scaler : Any
+            Data scaler for inverse-transforming predictions
+        target_cols : list[str] | None
+            Target column names
+        val_loader : DataLoader | None
+            Validation dataloader for computing metrics
+        report_every_n_epochs : int
+            Epoch cadence for Ray reporting (default: 5)
+        compute_rank_correlations : bool, default=True
+            Whether to compute expensive rank correlations (Spearman, Kendall).
+            Set to False to speed up metrics computation by 30-50%.
+        """
+        super().__init__()
+        self.scaler = scaler
+        self.target_cols = target_cols or []
+        self.val_loader = val_loader
+        self.report_every_n_epochs = max(1, report_every_n_epochs)
+        self.compute_rank_correlations = compute_rank_correlations
+        self._last_reported_epoch: int | None = None
+
+    def on_validation_epoch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+    ) -> None:
+        """Compute correlation metrics after validation epoch."""
+        if self.val_loader is None:
+            return
+
+        epoch_index = int(trainer.current_epoch) + 1
+
+        # Skip reporting based on epoch cadence
+        if (
+            self._last_reported_epoch is not None
+            and epoch_index - self._last_reported_epoch < self.report_every_n_epochs
+        ):
+            return
+
+        try:
+            # Collect predictions and targets from validation dataloader
+            y_true_list = []
+            y_pred_list = []
+
+            pl_module.eval()
+            with torch.no_grad():
+                for batch in self.val_loader:
+                    if isinstance(batch, (list, tuple)):
+                        # Chemprop batch format: (bmg, V_d, X_d, targets, ...)
+                        if len(batch) >= 4:
+                            bmg, V_d, X_d, targets = batch[0], batch[1], batch[2], batch[3]
+
+                            # Move to device
+                            device = next(pl_module.parameters()).device
+                            if hasattr(bmg, "to"):
+                                bmg.to(device)
+                            if V_d is not None and hasattr(V_d, "to"):
+                                V_d = V_d.to(device)
+                            if X_d is not None and hasattr(X_d, "to"):
+                                X_d = X_d.to(device)
+                            targets = targets.to(device) if hasattr(targets, "to") else targets
+
+                            # Get predictions
+                            preds = pl_module(bmg, V_d, X_d)
+
+                            # Handle shape: squeeze last dim if it's 1 (single-task case)
+                            if preds.ndim == 3 and preds.shape[-1] == 1:
+                                preds = preds[..., 0]
+
+                            y_true_list.append(targets.cpu().numpy())
+                            y_pred_list.append(preds.cpu().numpy())
+                        else:
+                            logger.warning("Unexpected batch format, skipping metrics computation")
+                            return
+                    elif isinstance(batch, dict):
+                        # Dictionary format
+                        if "y_true" in batch and "y_pred" in batch:
+                            y_t = batch["y_true"]
+                            y_p = batch["y_pred"]
+                            # Keep as tensors for GPU-native metric computation
+                            y_true_list.append(y_t)
+                            y_pred_list.append(y_p)
+                    else:
+                        logger.warning("Unsupported batch format, skipping metrics computation")
+                        return
+
+            if not y_true_list or not y_pred_list:
+                return
+
+            # Concatenate predictions and targets (keep as tensors)
+            import torch
+
+            y_true = torch.cat(y_true_list, dim=0)
+            y_pred = torch.cat(y_pred_list, dim=0)
+
+            # Unscale if scaler is available (convert to numpy only if needed)
+            if self.scaler is not None:
+                y_true_np = y_true.cpu().numpy()
+                y_pred_np = y_pred.cpu().numpy()
+                y_true_np = self.scaler.inverse_transform(y_true_np)
+                y_pred_np = self.scaler.inverse_transform(y_pred_np)
+                y_true = torch.from_numpy(y_true_np).to(y_true.device)
+                y_pred = torch.from_numpy(y_pred_np).to(y_pred.device)
+
+            # Ensure 2D tensors
+            if y_true.ndim == 1:
+                y_true = y_true.unsqueeze(1)
+            if y_pred.ndim == 1:
+                y_pred = y_pred.unsqueeze(1)
+
+            # Compute metrics for each target
+            metrics_dict: dict[str, float] = {}
+
+            for task_idx in range(y_true.shape[1]):
+                task_name = self.target_cols[task_idx] if task_idx < len(self.target_cols) else f"target_{task_idx}"
+                y_t = y_true[:, task_idx]
+                y_p = y_pred[:, task_idx]
+
+                # Compute correlation metrics using torch tensors (GPU-native)
+                metrics = correlation(y_t, y_p, compute_rank_correlations=self.compute_rank_correlations)
+
+                # Log metrics with task prefix
+                for metric_name, metric_value in metrics.items():
+                    # Accept numpy floats, Python floats/ints, and torch tensors
+                    try:
+                        temp = metric_value
+                        if isinstance(temp, (int, float, np.floating)):
+                            val = float(cast(float, temp))
+                        elif isinstance(temp, torch.Tensor):
+                            val = float(cast(torch.Tensor, temp).item())
+                        else:
+                            try:
+                                val = float(cast(float, temp))
+                            except Exception:
+                                raise
+                    except (TypeError, ValueError, AttributeError):
+                        continue
+                    if not math.isnan(val):
+                        mlflow_key = f"val_{metric_name}_{task_name}"
+                        metrics_dict[mlflow_key] = val
+
+            # Also compute overall metrics (pooled across tasks) - keep as tensors
+            y_true_pool = y_true.flatten()
+            y_pred_pool = y_pred.flatten()
+            metrics_pool = correlation(
+                y_true_pool, y_pred_pool, compute_rank_correlations=self.compute_rank_correlations
+            )
+
+            for metric_name, metric_value in metrics_pool.items():
+                try:
+                    temp = metric_value
+                    if isinstance(temp, (int, float, np.floating)):
+                        val = float(cast(float, temp))
+                    elif isinstance(temp, torch.Tensor):
+                        val = float(cast(torch.Tensor, temp).item())
+                    else:
+                        try:
+                            val = float(cast(float, temp))
+                        except Exception:
+                            raise
+                except (TypeError, ValueError, AttributeError):
+                    continue
+                if not math.isnan(val):
+                    mlflow_key = f"val_{metric_name}_overall"
+                    metrics_dict[mlflow_key] = val
+
+            # Log to MLflow
+            if trainer.logger is not None:
+                trainer.logger.log_metrics(metrics_dict, step=epoch_index)
+
+            # Log to Ray Tune for HPO
+            try:
+                tune.report(**metrics_dict)
+            except Exception:
+                pass
+
+            self._last_reported_epoch = epoch_index
+            logger.info("Logged correlation metrics at epoch %d", epoch_index)
+
+        except Exception as e:
+            logger.warning("Failed to compute correlation metrics: %s", e)
 
 
 @ModelRegistry.register("chemeleon")
@@ -108,15 +362,19 @@ class ChemeleonModel(BaseModel, MLflowMixin):
 
     model_type = "chemeleon"
 
-    def __init__(self, config: DictConfig) -> None:
+    def __init__(self, config: DictConfig, profiling_config: ProfilingConfig | None = None) -> None:
         """Initialize Chemeleon model.
 
         Parameters
         ----------
         config : DictConfig
             Configuration object.
+        profiling_config : ProfilingConfig | None
+            Optional profiling configuration to override defaults.
+            If None, profiling is enabled by default.
         """
         super().__init__(config)
+        self._profiling_config = profiling_config
 
         # Get model params - support both new and legacy config structures
         model_section = config.get("model", OmegaConf.create({}))
@@ -132,10 +390,12 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self.mpnn: models.MPNN | None = None
         self.trainer: pl.Trainer | None = None
         self.scaler: Any = None
+        self.featurizer: featurizers.SimpleMoleculeMolGraphFeaturizer | None = None
+        self.agg: nn.MeanAggregation | None = None
 
         self._smiles_col = config.get("data", {}).get("smiles_col", "smiles")
         self._target_cols: list[str] = list(config.get("data", {}).get("target_cols", []))
-        self._target_weights: list[float] = []
+        self._target_weights: list[float] = list(config.get("data", {}).get("target_weights", []) or [])
         self._quality_col: str = config.get("data", {}).get("quality_col", "quality")
 
         # Checkpoint directory (created during training)
@@ -148,6 +408,44 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         # Unfreeze callback
         unfreeze_config = self._get_unfreeze_config()
         self._unfreeze_callback = GradualUnfreezeCallback(unfreeze_config)
+
+        # Correlation metrics callback (for RAE, Pearson, Spearman, Kendall)
+        # Check if compute_rank_correlations is specified in model params
+        compute_rank = self._model_params.get("compute_rank_correlations", True)
+        self._correlation_metrics_callback = CorrelationMetricsCallback(
+            scaler=None,  # Will be set after scaler is created
+            target_cols=self._target_cols,
+            compute_rank_correlations=compute_rank,
+        )
+
+        # External callbacks (e.g., for HPO integration)
+        self._external_callbacks: list[pl.Callback] = []
+
+        # Initialize profiler for tracking phase-level performance
+        if self._profiling_config is not None:
+            self._profiler = TrainingProfiler(
+                name="chemeleon",
+                enabled=self._profiling_config.enabled,
+            )
+        else:
+            # Default: profiling enabled
+            self._profiler = TrainingProfiler(
+                name="chemeleon",
+                enabled=True,
+            )
+
+    def add_callback(self, callback: pl.Callback) -> None:
+        """Add an external callback to be used during training.
+
+        This allows external integrations (e.g., Ray Tune HPO) to inject
+        callbacks for metric reporting without modifying the training loop.
+
+        Parameters
+        ----------
+        callback : pl.Callback
+            PyTorch Lightning callback to add.
+        """
+        self._external_callbacks.append(callback)
 
     def _get_model_param(self, key: str, default: Any) -> Any:
         """Get model parameter with default."""
@@ -191,25 +489,58 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         self.agg = nn.MeanAggregation()
 
         # Initialize FFN using shared factory
+        # Cast to int since Ray Tune may sample floats for integer hyperparameters
         ffn_type = self._get_model_param("ffn_type", "regression")
+        ffn_hidden_dim = self._get_model_param("ffn_hidden_dim", 300)
+        ffn_num_layers = self._get_model_param("ffn_num_layers", 2)
+        n_experts = self._get_model_param("n_experts", None)
+        trunk_n_layers = self._get_model_param("trunk_n_layers", None)
+        trunk_hidden_dim = self._get_model_param("trunk_hidden_dim", None)
+
         self.ffn = create_ffn_predictor(
             ffn_type=ffn_type,
             input_dim=self.mp.output_dim,
             n_tasks=n_tasks,
-            hidden_dim=self._get_model_param("ffn_hidden_dim", 300),
-            n_layers=self._get_model_param("ffn_num_layers", 2),
+            hidden_dim=int(ffn_hidden_dim) if ffn_hidden_dim is not None else 300,
+            n_layers=int(ffn_num_layers) if ffn_num_layers is not None else 2,
             dropout=self._get_model_param("dropout", 0.0),
-            n_experts=self._get_model_param("n_experts", None),
-            trunk_n_layers=self._get_model_param("trunk_n_layers", None),
-            trunk_hidden_dim=self._get_model_param("trunk_hidden_dim", None),
+            n_experts=int(n_experts) if n_experts is not None else None,
+            trunk_n_layers=int(trunk_n_layers) if trunk_n_layers is not None else None,
+            trunk_hidden_dim=int(trunk_hidden_dim) if trunk_hidden_dim is not None else None,
         )
 
-        # Create MPNN
+        # Set default target weights if not provided
+        if not self._target_weights:
+            self._target_weights = [1.0] * n_tasks
+
+        # Create metrics with task weights for proper multi-task loss weighting
+        metrics = [
+            nn.metrics.MAE(self._target_weights),
+            nn.metrics.MSE(self._target_weights),
+            nn.metrics.RMSE(self._target_weights),
+            nn.metrics.R2Score(self._target_weights),
+        ]
+
+        # Get learning rate parameters from optimization config
+        opt_config = self.config.get("optimization", {})
+        max_lr = opt_config.get("learning_rate", 1e-4)
+        warmup_ratio = opt_config.get("lr_warmup_ratio", 1.0)
+        final_ratio = opt_config.get("lr_final_ratio", 1.0)
+        init_lr = max_lr * warmup_ratio
+        final_lr = max_lr * final_ratio
+        warmup_epochs = opt_config.get("warmup_epochs", 2)
+
+        # Create MPNN with metrics and learning rate schedule
         self.mpnn = models.MPNN(
             message_passing=self.mp,
             agg=self.agg,
             predictor=self.ffn,
             batch_norm=self._get_model_param("batch_norm", False),
+            metrics=metrics,
+            warmup_epochs=warmup_epochs,
+            init_lr=init_lr,
+            max_lr=max_lr,
+            final_lr=final_lr,
         )
 
     def _load_pretrained_mp(self, path: str) -> nn.BondMessagePassing:
@@ -246,7 +577,10 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         return mp
 
     def _download_from_zenodo(self) -> str:
-        """Download checkpoint from Zenodo.
+        """Download checkpoint from Zenodo with file locking for parallel safety.
+
+        Uses file locking to prevent race conditions when multiple Ray workers
+        attempt to download the checkpoint simultaneously.
 
         Returns
         -------
@@ -256,13 +590,53 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         cache_dir = DEFAULT_CACHE_DIR
         cache_dir.mkdir(parents=True, exist_ok=True)
         checkpoint_path = cache_dir / "chemeleon_mp.pt"
+        lock_path = cache_dir / "chemeleon_mp.pt.lock"
 
-        if not checkpoint_path.exists():
-            logger.info("Downloading Chemeleon checkpoint from %s", ZENODO_URL)
-            urllib.request.urlretrieve(ZENODO_URL, checkpoint_path)
-            logger.info("Downloaded to %s", checkpoint_path)
+        # Use file locking to prevent concurrent downloads
+        with open(lock_path, "w", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                if not checkpoint_path.exists() or not self._validate_checkpoint(checkpoint_path):
+                    logger.info("Downloading Chemeleon checkpoint from %s", ZENODO_URL)
+                    # Download to temp file first, then move atomically
+                    temp_path = checkpoint_path.with_suffix(".pt.tmp")
+                    try:
+                        urllib.request.urlretrieve(ZENODO_URL, temp_path)
+                        # Validate downloaded file before moving
+                        if self._validate_checkpoint(temp_path):
+                            temp_path.rename(checkpoint_path)
+                            logger.info("Downloaded to %s", checkpoint_path)
+                        else:
+                            temp_path.unlink(missing_ok=True)
+                            raise RuntimeError("Downloaded checkpoint is corrupted")
+                    except Exception:
+                        temp_path.unlink(missing_ok=True)
+                        raise
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
         return str(checkpoint_path)
+
+    def _validate_checkpoint(self, path: Path) -> bool:
+        """Validate that a checkpoint file is a valid PyTorch archive.
+
+        Parameters
+        ----------
+        path : Path
+            Path to checkpoint file.
+
+        Returns
+        -------
+        bool
+            True if the checkpoint is valid, False otherwise.
+        """
+        try:
+            # Try to load just the file headers to validate structure
+            torch.load(path, map_location="cpu", weights_only=False)
+            return True
+        except Exception as e:
+            logger.warning("Checkpoint validation failed for %s: %s", path, e)
+            return False
 
     def _freeze_encoder(self) -> None:
         """Freeze message passing encoder."""
@@ -309,59 +683,88 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         ChemeleonModel
             Self, for method chaining.
         """
+        # Start profiler for overall training timing
+        self._profiler.start()
+
         # Initialize MLflow if enabled
-        self.init_mlflow(run_name=self.config.get("mlflow", {}).get("run_name"))
+        with self._profiler.phase(TrainingPhase.MLFLOW_INIT):
+            self.init_mlflow(run_name=self.config.get("mlflow", {}).get("run_name"))
 
         # Determine number of tasks
         if y.ndim == 1:
             y = y.reshape(-1, 1)
         n_tasks = y.shape[1]
 
-        # Initialize model
-        self._init_model(n_tasks)
+        # Initialize model (includes loading pretrained checkpoint)
+        with self._profiler.phase(TrainingPhase.MODEL_INIT):
+            self._init_model(n_tasks)
 
         # Set target columns if not specified
         if not self._target_cols:
             self._target_cols = [f"target_{i}" for i in range(n_tasks)]
 
         # Create datasets
-        train_dataset = self._create_dataset(smiles, y)
-        val_dataset = None
-        if val_smiles is not None and val_y is not None:
-            if val_y.ndim == 1:
-                val_y = val_y.reshape(-1, 1)
-            val_dataset = self._create_dataset(val_smiles, val_y)
+        with self._profiler.phase(TrainingPhase.DATASET_CREATION):
+            train_dataset = self._create_dataset(smiles, y)
+            val_dataset = None
+            if val_smiles is not None and val_y is not None:
+                if val_y.ndim == 1:
+                    val_y = val_y.reshape(-1, 1)
+                val_dataset = self._create_dataset(val_smiles, val_y)
 
         # Scale targets
-        self.scaler = train_dataset.normalize_targets()
-        if val_dataset is not None:
-            val_dataset.normalize_targets(self.scaler)
+        with self._profiler.phase(TrainingPhase.TARGET_SCALING):
+            self.scaler = train_dataset.normalize_targets()
+            if val_dataset is not None:
+                val_dataset.normalize_targets(self.scaler)
+
+        # Update correlation metrics callback with scaler
+        self._correlation_metrics_callback.scaler = self.scaler
 
         # Create dataloaders with optional JointSampler
         opt_config = self.config.get("optimization", {})
         batch_size = opt_config.get("batch_size", 32)
         num_workers = opt_config.get("num_workers", 0)
 
-        train_loader = self._create_train_dataloader(
-            train_dataset,
-            y,
-            quality_labels,
-            batch_size,
-            num_workers,
-        )
-
-        val_loader = None
-        if val_dataset is not None:
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=batch_size,
-                shuffle=False,
-                num_workers=num_workers,
-                collate_fn=data.collate_batch,
+        with self._profiler.phase(TrainingPhase.DATALOADER_CREATION):
+            train_loader = self._create_train_dataloader(
+                train_dataset,
+                y,
+                quality_labels,
+                batch_size,
+                num_workers,
             )
 
+            val_loader = None
+            if val_dataset is not None:
+                val_loader = DataLoader(
+                    val_dataset,
+                    batch_size=batch_size,
+                    shuffle=False,
+                    num_workers=num_workers,
+                    collate_fn=data.collate_batch,
+                    **_get_dataloader_kwargs(num_workers, is_train=False),
+                )
+
+        # Update correlation metrics callback with validation loader
+        self._correlation_metrics_callback.val_loader = val_loader
+
         # Setup trainer
-        self._setup_trainer()
+        with self._profiler.phase(TrainingPhase.TRAINER_SETUP):
+            self._setup_trainer()
+
+        # Add profiling callback
+        profiling_callback = create_lightning_profiling_callback(self._profiler)
+        if self.trainer is not None:
+            callbacks = getattr(self.trainer, "callbacks", None)
+            if callbacks is not None:
+                if profiling_callback not in callbacks:
+                    callbacks.append(profiling_callback)
+            else:
+                # Fallback for Lightning versions that don't expose `callbacks` attribute
+                add_cb = getattr(self.trainer, "add_callback", None)
+                if callable(add_cb):
+                    add_cb(profiling_callback)
 
         # Log params
         self.log_params_from_config()
@@ -370,24 +773,49 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         if self.trainer is None:
             msg = "Trainer not initialized"
             raise RuntimeError(msg)
-        self.trainer.fit(
-            self.mpnn,  # type: ignore[arg-type]
-            train_loader,
-            val_loader,
-        )
 
-        # Load best checkpoint weights (PyTorch Lightning does NOT auto-restore)
-        self._load_best_checkpoint()
+        try:
+            with self._profiler.phase(TrainingPhase.TRAINING_TOTAL):
+                self.trainer.fit(
+                    self.mpnn,  # type: ignore[arg-type]
+                    train_loader,
+                    val_loader,
+                )
 
-        self._fitted = True
+            # Load best checkpoint weights (PyTorch Lightning does NOT auto-restore)
+            with self._profiler.phase(TrainingPhase.BEST_CHECKPOINT_LOAD):
+                self._load_best_checkpoint()
 
-        # Clean up checkpoint directory
-        if self._checkpoint_dir is not None:
-            self._checkpoint_dir.cleanup()
-            self._checkpoint_dir = None
+            self._fitted = True
 
-        # End MLflow run
-        self.end_mlflow()
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user. Saving profiling info...")
+        except Exception as e:
+            logger.error("Training failed with error: %s", e)
+            raise
+        finally:
+            # Clean up checkpoint directory
+            with self._profiler.phase(TrainingPhase.CLEANUP):
+                if self._checkpoint_dir is not None:
+                    self._checkpoint_dir.cleanup()
+                    self._checkpoint_dir = None
+
+            # Stop profiler and print summary (always, even on interrupt)
+            self._profiler.stop()
+            if self._profiling_config is None or self._profiling_config.print_summary:
+                self._profiler.print_summary()
+
+            # Log profiling metrics to MLflow
+            log_to_mlflow = self._profiling_config is None or self._profiling_config.log_to_mlflow
+            if log_to_mlflow and self._mlflow_client is not None and self._mlflow_run_id is not None:
+                self._profiler.log_to_mlflow(
+                    prefix="profiling",
+                    client=self._mlflow_client,
+                    run_id=self._mlflow_run_id,
+                )
+
+            # End MLflow run
+            self.end_mlflow()
 
         return self
 
@@ -408,10 +836,8 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         """
         datapoints = []
         for smi, targets in zip(smiles, y):
-            mol_data = data.MoleculeDatapoint(
-                mol=data.Molecule(smi),
-                y=targets.tolist() if isinstance(targets, np.ndarray) else [targets],
-            )
+            target_list = targets.tolist() if isinstance(targets, np.ndarray) else [targets]
+            mol_data = data.MoleculeDatapoint.from_smi(smi, target_list)
             datapoints.append(mol_data)
 
         return data.MoleculeDataset(datapoints, featurizer=self.featurizer)
@@ -454,6 +880,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
                 shuffle=True,
                 num_workers=num_workers,
                 collate_fn=data.collate_batch,
+                **_get_dataloader_kwargs(num_workers, is_train=True),
             )
 
         # Get joint sampling configuration
@@ -500,6 +927,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             sampler=self._joint_sampler,
             num_workers=num_workers,
             collate_fn=data.collate_batch,
+            **_get_dataloader_kwargs(num_workers, is_train=True),
         )
 
     def _setup_trainer(self) -> None:
@@ -532,12 +960,19 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             )
         )
 
+        # Add external callbacks
+        callbacks.extend(self._external_callbacks)
+
+        # Set optimal float32 matrix multiplication precision for better GPU performance
+        torch.set_float32_matmul_precision("medium")
+
         self.trainer = pl.Trainer(
             max_epochs=opt_config.get("max_epochs", 100),
             enable_progress_bar=opt_config.get("progress_bar", False),
             callbacks=callbacks,
             logger=False,  # We use MLflow directly
             accelerator="auto",
+            gradient_clip_val=1.0,  # Clip gradients for training stability
         )
 
     def _load_best_checkpoint(self) -> None:
@@ -618,7 +1053,7 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             raise RuntimeError("Model has not been fitted. Call fit() first.")
 
         # Create dataset
-        datapoints = [data.MoleculeDatapoint(mol=data.Molecule(smi)) for smi in smiles]
+        datapoints = [data.MoleculeDatapoint.from_smi(smi) for smi in smiles]
         dataset = data.MoleculeDataset(datapoints, featurizer=self.featurizer)
 
         # Create dataloader
@@ -671,6 +1106,6 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         Returns
         -------
         list[pl.Callback]
-            List of callbacks including GradualUnfreezeCallback.
+            List of callbacks including GradualUnfreezeCallback and CorrelationMetricsCallback.
         """
-        return [self._unfreeze_callback]
+        return [self._unfreeze_callback, self._correlation_metrics_callback]

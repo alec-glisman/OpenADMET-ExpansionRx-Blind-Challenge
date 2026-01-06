@@ -1,122 +1,99 @@
-experiment_name: chemprop-hpo-5
-output_dir: /media/aglisman/Data/models/admet-chemprop-hpo-5
-ray_storage_path: /media/aglisman/Data/ray-tune-5
+experiment_name: chemprop_hpo
+output_dir: /media/aglisman/Data/models/chemprop-hpo
+ray_storage_path: /media/aglisman/Data/ray/chemprop
 mlflow_tracking_uri: http://127.0.0.1:8084
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
 target_columns:
-- LogD
-- Log KSOL
-- Log HLM CLint
-- Log MLM CLint
-- Log Caco-2 Permeability Papp A>B
-- Log Caco-2 Permeability Efflux
-- Log MPPB
-- Log MBPB
-- Log MGMB
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
 target_weights:
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
-- 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 seed: 42
+patience: 15
+warmup_epochs: 5
+report_every_n_epochs: 1
 search_space:
   learning_rate:
     type: loguniform
     low: 0.0001
     high: 0.03
   lr_warmup_ratio:
-    type: choice
-    values:
-    - 0.1
-    - 0.5
-    - 1.0
-    - 2.0
-    - 5.0
-    - 10.0
+    type: loguniform
+    low: 0.1
+    high: 10.0
   lr_final_ratio:
-    type: choice
-    values:
-    - 0.001
-    - 0.002
-    - 0.005
-    - 0.01
-    - 0.02
-    - 0.05
-    - 0.08
-    - 0.1
-    - 0.2
-    - 0.5
-    - 1.0
+    type: loguniform
+    low: 0.001
+    high: 1.0
   dropout:
+    type: uniform
+    low: 0.0
+    high: 0.3
+  weight_decay_enabled:
     type: choice
     values:
-    - 0.0
-    - 0.05
-    - 0.1
-    - 0.15
-    - 0.2
-    - 0.25
-    - 0.3
+      - true
+      - false
+  weight_decay:
+    type: loguniform
+    low: 1.0e-06
+    high: 0.001
+    conditional_on: weight_decay_enabled
+    conditional_values:
+      - true
   batch_size:
     type: choice
     values:
-    - 32
-    - 64
-    - 128
-    - 256
+      - 32
+      - 64
+      - 128
+      - 256
   depth:
     type: randint
     low: 2
     high: 8
   message_hidden_dim:
+    type: quniform
+    low: 200
+    high: 1200
+    q: 100
+  batch_norm:
     type: choice
     values:
-    - 200
-    - 300
-    - 400
-    - 500
-    - 600
-    - 700
-    - 800
-    - 900
-    - 1000
-    - 1100
-    - 1200
-  aggregation:
-    type: choice
-    values:
-    - norm
+      - true
+      - false
   ffn_type:
     type: choice
     values:
-    - mlp
-    - moe
-    - branched
+      - regression
+      - mixture_of_experts
+      - branched
   ffn_num_layers:
     type: randint
     low: 0
     high: 5
   ffn_hidden_dim:
-    type: choice
-    values:
-    - 200
-    - 300
-    - 400
-    - 500
-    - 600
-    - 700
-    - 800
-    - 900
-    - 1000
-    - 1100
-    - 1200
+    type: quniform
+    low: 200
+    high: 1200
+    q: 100
   n_experts:
     type: qrandint
     low: 2
@@ -124,54 +101,33 @@ search_space:
     q: 2
     conditional_on: ffn_type
     conditional_values:
-    - moe
+      - mixture_of_experts
   trunk_depth:
     type: randint
     low: 0
     high: 5
     conditional_on: ffn_type
     conditional_values:
-    - branched
+      - branched
   trunk_hidden_dim:
-    type: choice
-    values:
-    - 100
-    - 200
-    - 300
-    - 400
-    - 500
-    - 600
-    - 700
-    - 800
-    - 900
-    - 1000
-    - 1100
-    - 1200
+    type: quniform
+    low: 100
+    high: 1200
+    q: 100
     conditional_on: ffn_type
     conditional_values:
-    - branched
+      - branched
   joint_sampling:
     enabled:
       type: choice
       values:
-      - true
-      - false
+        - true
+        - false
     task_oversampling:
       alpha:
-        type: choice
-        values:
-        - 0.0
-        - 0.02
-        - 0.05
-        - 0.1
-        - 0.2
-        - 0.3
-        - 0.4
-        - 0.5
-        - 0.6
-        - 0.7
-        - 0.9
-        - 1.0
+        type: uniform
+        low: 0.0
+        high: 1.0
 asha:
   metric: val_mae
   mode: min
@@ -179,47 +135,26 @@ asha:
   grace_period: 15
   reduction_factor: 3
   brackets: 1
+search_algorithm:
+  type: optuna
+  seed: 42
+  n_initial_points: 100
 resources:
-  num_samples: 2000
-  cpus_per_trial: 5
-  gpus_per_trial: 0.25
+  num_samples: 1000
+  cpus_per_trial: 4
+  gpus_per_trial: 0.33
   max_concurrent_trials: null
+  # gpu_ids: [0] # CUDA device ordering (RTX 3080)
 transfer_learning:
   top_k: 100
   full_epochs: 60
   ensemble_size: 5
-inter_task_affinity:
+logging:
+  enabled: true
+  verbose: 1
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true
+profiling:
   enabled: false
-  compute_every_n_steps: 10
-  log_every_n_steps: 100
-  log_epoch_summary: true
-  log_step_matrices: false
-  lookahead_lr: 0.001
-  use_optimizer_lr: true
-  exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
-  log_to_mlflow: true
-joint_sampling:
-  enabled: false
-  task_oversampling:
-    alpha: 0.0
-  curriculum:
-    enabled: false
-    quality_col: Quality
-    qualities:
-    - high
-    - medium
-    - low
-    patience: 5
-    strategy: sampled
-    reset_early_stopping_on_phase_change: false
-    log_per_quality_metrics: true
-    seed: 42
-  num_samples: null
-  seed: 42
-  increment_seed_per_epoch: true
-  log_to_mlflow: true
+  print_summary: false
+  log_to_mlflow: false

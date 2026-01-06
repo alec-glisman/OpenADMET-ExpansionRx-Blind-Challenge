@@ -1,0 +1,50 @@
+model:
+  chemprop:
+    model:
+      depth: 5
+      message_hidden_dim: 600
+      hidden_dim: 600
+      num_layers: 2
+      dropout: 0.1
+      batch_norm: true
+      ffn_type: regression
+      aggregation: mean
+    optimization:
+      max_epochs: 150
+      patience: 15
+      batch_size: 32
+      init_lr: 0.0001
+      max_lr: 0.001
+      final_lr: 0.0001
+      warmup_epochs: 5
+      criterion: MAE
+      weight_decay: 1.0e-05
+data:
+  data_dir: /path/to/data
+  smiles_col: SMILES
+  target_cols:
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
+mlflow:
+  enabled: true
+  experiment_name: weight_decay_experiment
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

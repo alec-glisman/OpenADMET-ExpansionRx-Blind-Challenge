@@ -24,45 +24,57 @@ def _build_parameter_space(param: ParameterSpace) -> Any:
 
     Raises:
         ValueError: If parameter type is unknown or required fields are missing.
+
+    Note:
+        Uses bracket notation for 'values' attribute access to avoid conflict
+        with OmegaConf DictConfig's .values() method.
     """
-    if param.type == "uniform":
-        if param.low is None or param.high is None:
+    # Use getattr to support both dataclass-style and OmegaConf objects
+    param_type = getattr(param, "type", None)
+    low = getattr(param, "low", None)
+    high = getattr(param, "high", None)
+    q = getattr(param, "q", None)
+    # 'values' may be present on the config type
+    values = getattr(param, "values", None)
+
+    if param_type == "uniform":
+        if low is None or high is None:
             msg = "uniform distribution requires 'low' and 'high'"
             raise ValueError(msg)
-        return tune.uniform(param.low, param.high)
+        return tune.uniform(low, high)
 
-    elif param.type == "loguniform":
-        if param.low is None or param.high is None:
+    elif param_type == "loguniform":
+        if low is None or high is None:
             msg = "loguniform distribution requires 'low' and 'high'"
             raise ValueError(msg)
-        return tune.loguniform(param.low, param.high)
+        return tune.loguniform(low, high)
 
-    elif param.type == "quniform":
-        if param.low is None or param.high is None or param.q is None:
+    elif param_type == "quniform":
+        if low is None or high is None or q is None:
             msg = "quniform distribution requires 'low', 'high', and 'q'"
             raise ValueError(msg)
-        return tune.quniform(param.low, param.high, param.q)
+        return tune.quniform(low, high, q)
 
-    elif param.type == "choice":
-        if param.values is None:
+    elif param_type == "choice":
+        if values is None:
             msg = "choice distribution requires 'values'"
             raise ValueError(msg)
-        return tune.choice(param.values)
+        return tune.choice(list(values))
 
-    elif param.type == "randint":
-        if param.low is None or param.high is None:
+    elif param_type == "randint":
+        if low is None or high is None:
             msg = "randint distribution requires 'low' and 'high'"
             raise ValueError(msg)
-        return tune.randint(int(param.low), int(param.high))
+        return tune.randint(int(low), int(high))
 
-    elif param.type == "qrandint":
-        if param.low is None or param.high is None or param.q is None:
+    elif param_type == "qrandint":
+        if low is None or high is None or q is None:
             msg = "qrandint distribution requires 'low', 'high', and 'q'"
             raise ValueError(msg)
-        return tune.qrandint(int(param.low), int(param.high), int(param.q))
+        return tune.qrandint(int(low), int(high), int(q))
 
     else:
-        msg = f"Unknown parameter type: {param.type}"
+        msg = f"Unknown parameter type: {param_type}"
         raise ValueError(msg)
 
 
@@ -99,6 +111,7 @@ def build_search_space(
 
     # Simple parameters (no conditions)
     # Note: weight_decay is not included as it's not currently applied in ChempropHyperparams
+    # Note: aggregation/aggregation_norm removed - hardcoded to NormAggregation in model
     simple_params = [
         "learning_rate",
         "lr_warmup_ratio",
@@ -106,14 +119,13 @@ def build_search_space(
         "warmup_epochs",
         "patience",
         "dropout",
+        "batch_norm",
         "depth",
         "message_hidden_dim",
         "ffn_num_layers",
         "ffn_hidden_dim",
         "batch_size",
         "ffn_type",
-        "aggregation",
-        "aggregation_norm",
     ]
 
     for param_name in simple_params:
@@ -188,6 +200,22 @@ def build_search_space(
             param_name = f"target_weight_{safe_name}"
             space[param_name] = _build_parameter_space(config.target_weights)
 
+    # Joint sampling search space (nested structure)
+    if config.joint_sampling is not None:
+        js = config.joint_sampling
+        # Handle enabled flag
+        if hasattr(js, "enabled") and js.enabled is not None:
+            space["joint_sampling_enabled"] = _build_parameter_space(
+                ParameterSpace(**js.enabled) if isinstance(js.enabled, dict) else js.enabled
+            )
+        # Handle task_oversampling.alpha
+        if hasattr(js, "task_oversampling") and js.task_oversampling is not None:
+            to = js.task_oversampling
+            if hasattr(to, "alpha") and to.alpha is not None:
+                space["joint_sampling_alpha"] = _build_parameter_space(
+                    ParameterSpace(**to.alpha) if isinstance(to.alpha, dict) else to.alpha
+                )
+
     return space
 
 
@@ -212,6 +240,7 @@ def get_default_search_space() -> SearchSpaceConfig:
         patience=ParameterSpace(type="choice", values=[10, 15, 20, 25]),
         # Regularization
         dropout=ParameterSpace(type="uniform", low=0.0, high=0.4),
+        batch_norm=ParameterSpace(type="choice", values=[True, False]),
         # Message passing (MPNN)
         depth=ParameterSpace(type="choice", values=[2, 3, 4, 5, 6]),
         message_hidden_dim=ParameterSpace(type="choice", values=[256, 512, 768, 1024]),

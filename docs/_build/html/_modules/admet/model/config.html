@@ -363,6 +363,8 @@
 <span class="sd">        parent_run_id: Parent run ID for nested runs (ensemble).</span>
 <span class="sd">        nested: Whether to create a nested run.</span>
 <span class="sd">        log_model: Whether to log the trained model as artifact.</span>
+<span class="sd">        log_predictions: Whether to log prediction CSV artifacts (can be large).</span>
+<span class="sd">        compress_artifacts: Whether to compress model artifacts (reduces size 50-80%).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -372,7 +374,9 @@
     <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">parent_run_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">nested</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">log_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span></div>
+    <span class="n">log_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">log_predictions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">compress_artifacts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 
 
@@ -987,6 +991,8 @@
 <span class="sd">        parent_run_id: Parent run ID for nested runs.</span>
 <span class="sd">        nested: Whether to create a nested run.</span>
 <span class="sd">        log_model: Whether to log trained model as artifact.</span>
+<span class="sd">        log_predictions: Whether to log prediction CSV artifacts (can be large).</span>
+<span class="sd">        compress_artifacts: Whether to compress model artifacts (reduces size 50-80%).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -998,6 +1004,8 @@
     <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">nested</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">log_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">log_predictions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">compress_artifacts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
 
 <span class="nd">@dataclass</span>
@@ -1289,7 +1297,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             

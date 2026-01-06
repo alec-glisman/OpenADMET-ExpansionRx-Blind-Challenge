@@ -103,7 +103,7 @@ def canonicalize_smiles(smiles: str, isomeric: bool = True) -> Optional[str]:
 
 
 def parallel_canonicalize_smiles(
-    smiles_list: Iterable, isomeric: bool = True, max_workers: int | None = None
+    smiles_list: Iterable, isomeric: bool = True, max_workers: int | None = None, disable: bool = False
 ) -> List[Optional[str]]:
     """Canonicalise many SMILES strings concurrently.
 
@@ -119,6 +119,8 @@ def parallel_canonicalize_smiles(
         Preserve isomeric information, by default ``True``.
     max_workers : int | None, optional
         Explicit thread count; ``None`` applies an automatic heuristic.
+    disable : bool, optional
+        Whether to disable the progress bar, by default ``False``.
 
     Returns
     -------
@@ -163,6 +165,7 @@ def parallel_canonicalize_smiles(
             futures.as_completed(future_to_index),
             total=n,
             desc="Canonicalizing SMILES",
+            disable=disable,
         ):
             idx = future_to_index[completed]
             exc = completed.exception()

@@ -9,7 +9,8 @@ from typing import Any
 
 from omegaconf import MISSING
 
-from admet.model.chemprop.config import CurriculumConfig
+from admet.model.chemprop.config import CurriculumConfig, ProfilingConfig
+from admet.model.config import RayLoggingConfig
 
 
 @dataclass
@@ -49,6 +50,9 @@ class SearchSpaceConfig:
         warmup_epochs: Number of warmup epochs search space
         patience: Early stopping patience search space
         dropout: Dropout rate search space
+        batch_norm: Batch normalization toggle search space
+        weight_decay_enabled: Weight decay (L2 regularization) toggle search space
+        weight_decay: Weight decay coefficient search space (conditional on weight_decay_enabled)
         depth: Message passing depth search space
         message_hidden_dim: Message passing hidden dimension (MPNN) search space
         ffn_num_layers: FFN layers search space
@@ -61,6 +65,7 @@ class SearchSpaceConfig:
         aggregation: Message aggregation function search space
         aggregation_norm: Aggregation normalization search space
         target_weights: Per-endpoint loss weights search space (applied to each target)
+        joint_sampling: Joint sampling search space (nested config for enabled, task_oversampling.alpha)
     """
 
     # Learning rate schedule
@@ -72,6 +77,9 @@ class SearchSpaceConfig:
 
     # Regularization
     dropout: ParameterSpace | None = None
+    batch_norm: ParameterSpace | None = None
+    weight_decay_enabled: ParameterSpace | None = None
+    weight_decay: ParameterSpace | None = None
 
     # Message passing architecture
     depth: ParameterSpace | None = None
@@ -92,6 +100,9 @@ class SearchSpaceConfig:
 
     # Task weighting
     target_weights: ParameterSpace | None = None
+
+    # Joint sampling search space (nested config)
+    joint_sampling: Any | None = None
 
 
 @dataclass
@@ -124,12 +135,33 @@ class ResourceConfig:
         cpus_per_trial: CPU cores per trial
         gpus_per_trial: GPU fraction per trial (0.25 = 4 trials per GPU)
         max_concurrent_trials: Maximum concurrent trials (None = auto)
+        gpu_ids: List of GPU IDs to use (CUDA device ordering, not nvidia-smi)
     """
 
     num_samples: int = 500
     cpus_per_trial: int = 4
     gpus_per_trial: float = 0.25
     max_concurrent_trials: int | None = None
+    gpu_ids: list[int] | None = None
+
+
+@dataclass
+class SearchAlgorithmConfig:
+    """Configuration for Ray Tune search algorithm.
+
+    Enables Bayesian optimization (Optuna) or other adaptive search methods
+    instead of pure random sampling. This can significantly improve HPO
+    efficiency by learning which hyperparameter regions perform well.
+
+    Attributes:
+        type: Search algorithm type - "random" (default), "optuna", "bayesopt", "hyperopt"
+        seed: Random seed for reproducibility
+        n_initial_points: Number of random trials before using surrogate model (Optuna only)
+    """
+
+    type: str = "optuna"  # Use Optuna by default for adaptive search
+    seed: int = 42
+    n_initial_points: int = 20  # Random exploration phase
 
 
 @dataclass
@@ -189,9 +221,17 @@ class HPOConfig:
     # Sub-configurations
     search_space: SearchSpaceConfig = field(default_factory=SearchSpaceConfig)
     asha: ASHAConfig = field(default_factory=ASHAConfig)
+    search_algorithm: SearchAlgorithmConfig = field(default_factory=SearchAlgorithmConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
+    profiling: ProfilingConfig = field(default_factory=ProfilingConfig)
+
+    # Training parameters (exposed to HPO and passed to trainable)
+    patience: int = 15  # Early stopping patience (epochs)
+    warmup_epochs: int = 5  # LR warmup epochs
+    report_every_n_epochs: int = 15  # Ray Tune reporting cadence (epochs) - reduces I/O bottleneck
 
     # Reproducibility
     seed: int = 42

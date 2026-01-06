@@ -32,6 +32,7 @@ from admet.model.config import (
     InterTaskAffinityConfig,
     JointSamplingConfig,
     RayConfig,
+    RayLoggingConfig,
     TaskAffinityConfig,
     TaskOversamplingConfig,
 )
@@ -42,6 +43,9 @@ __all__ = [
     "ModelConfig",
     "OptimizationConfig",
     "MlflowConfig",
+    "PerformanceOptimizationConfig",
+    "PostTrainingConfig",
+    "ProfilingConfig",
     "TaskOversamplingConfig",
     "CurriculumConfig",
     "JointSamplingConfig",
@@ -170,6 +174,17 @@ class OptimizationConfig:
         Random seed for reproducibility.
     progress_bar : bool, default=False
         Whether to show training progress bar.
+    verbose : bool, default=True
+        Whether to print epoch progress messages when progress_bar is False.
+        Set to False during HPO to reduce log noise.
+    weight_decay : float, default=0.0
+        L2 regularization weight decay coefficient. Applied via AdamW optimizer.
+        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.
+    accumulate_grad_batches : int, default=1
+        Number of batches to accumulate gradients over before performing optimizer step.
+        Effective batch size = batch_size * accumulate_grad_batches.
+        Set to 1 (default) to disable gradient accumulation.
+        Useful for simulating larger batch sizes without OOM errors.
     """
 
     criterion: str = "MAE"
@@ -183,6 +198,9 @@ class OptimizationConfig:
     num_workers: int = 0
     seed: int = 42
     progress_bar: bool = False
+    verbose: bool = True
+    weight_decay: float = 0.0
+    accumulate_grad_batches: int = 1
 
 
 @dataclass
@@ -217,6 +235,169 @@ class MlflowConfig:
     run_id: Optional[str] = None
     parent_run_id: Optional[str] = None
     nested: bool = False
+
+
+@dataclass
+class ProfilingConfig:
+    """
+    Configuration for performance profiling during training and ensemble runs.
+
+    Provides granular control over profiling detail level and overhead to identify
+    bottlenecks in training, post-training operations, and ensemble workflows.
+
+    Parameters
+    ----------
+    enabled : bool, default=True
+        Whether to enable phase-level profiling (minimal overhead).
+    mode : str, default="phase"
+        Profiling detail level:
+        - "disabled": No profiling
+        - "phase": Phase-level timing only (low overhead, ~1% slowdown)
+        - "function": Function-level cProfile profiling (moderate overhead, ~5-10% slowdown)
+        - "full": Full profiling with extended function tracking (high overhead, ~15-25% slowdown)
+    function_top_n : int, default=50
+        Number of top functions to track in function-level profiling.
+    function_filter_module : str, default="admet"
+        Only track functions from modules containing this string.
+    log_to_mlflow : bool, default=True
+        Whether to log profiling metrics to MLflow.
+    print_summary : bool, default=True
+        Whether to print profiling summary to console.
+    ensemble_aggregation : bool, default=True
+        Whether to aggregate profiling data across ensemble models.
+
+    Examples
+    --------
+    >>> # Minimal profiling for production (default)
+    >>> profiling = ProfilingConfig(mode="phase")
+    >>>
+    >>> # Detailed profiling for debugging bottlenecks
+    >>> profiling = ProfilingConfig(mode="function", function_top_n=100)
+    >>>
+    >>> # Disable profiling completely
+    >>> profiling = ProfilingConfig(enabled=False)
+    """
+
+    enabled: bool = True
+    mode: str = "phase"  # "disabled", "phase", "function", "full"
+    function_top_n: int = 50
+    function_filter_module: str = "admet"
+    log_to_mlflow: bool = True
+    print_summary: bool = True
+    ensemble_aggregation: bool = True
+
+
+@dataclass
+class PerformanceOptimizationConfig:
+    """
+    Configuration for performance optimizations during training.
+
+    These settings control runtime performance features that can significantly
+    speed up training and post-training operations. All optimizations are disabled
+    by default for maximum compatibility and safety.
+
+    Parameters
+    ----------
+    use_mixed_precision : bool, default=False
+        Enable automatic mixed precision (AMP) training using FP16.
+        Provides 40-60% speedup and 30% lower GPU memory usage on modern GPUs.
+        May cause minor (<0.5%) variation in metrics due to FP16 rounding.
+        Recommended: Enable after validating metrics on your dataset.
+    async_checkpoint_upload : bool, default=False
+        Upload checkpoints to MLflow asynchronously in background thread.
+        Reduces I/O blocking during training by 5-10%.
+        Checkpoints are queued and uploaded without blocking training loop.
+        Recommended: Safe to enable, provides modest speedup.
+    checkpoint_save_interval_seconds : float, default=0.0
+        Minimum time (seconds) between checkpoint saves.
+        Set to 0.0 (default) to save every improvement (no throttling).
+        Set to 60.0 to save at most once per minute.
+        Useful for reducing I/O overhead when model improves frequently.
+        Recommended: 0.0 for most cases, 30-60 for very frequent improvements.
+
+    Examples
+    --------
+    >>> # Conservative defaults (all disabled)
+    >>> perf = PerformanceOptimizationConfig()
+    >>>
+    >>> # Enable mixed precision for maximum speed
+    >>> perf = PerformanceOptimizationConfig(use_mixed_precision=True)
+    >>>
+    >>> # Enable all optimizations
+    >>> perf = PerformanceOptimizationConfig(
+    ...     use_mixed_precision=True,
+    ...     async_checkpoint_upload=True,
+    ...     checkpoint_save_interval_seconds=30.0
+    ... )
+    """
+
+    use_mixed_precision: bool = False
+    async_checkpoint_upload: bool = False
+    checkpoint_save_interval_seconds: float = 0.0
+
+
+@dataclass
+class PostTrainingConfig:
+    """
+    Configuration for post-training operations (plots, artifacts, metrics).
+
+    These settings control what happens after training completes, allowing
+    optimization of the post-training phase which can be slow due to:
+    - Multiple redundant predict() calls
+    - Slow plot generation
+    - MLflow artifact uploads
+
+    Parameters
+    ----------
+    generate_plots : bool, default=True
+        Whether to generate parity plots and metric bar charts.
+        Setting to False can significantly speed up post-training.
+    plot_dpi : int, default=150
+        DPI for saved plots. Lower values (100) are faster, higher (300) better quality.
+    plot_formats : List[str], default=["png"]
+        Output formats for plots. PNG is fastest, PDF/SVG are slower but scalable.
+    log_model_to_mlflow : bool, default=True
+        Whether to register the model with mlflow.pytorch.log_model().
+        This can be slow for large models.
+    async_artifact_upload : bool, default=False
+        Whether to upload artifacts asynchronously (non-blocking).
+        Experimental: may cause issues if run ends before upload completes.
+    cache_predictions : bool, default=True
+        Whether to cache predictions to avoid redundant predict() calls.
+        Recommended True for performance.
+    compute_test_metrics : bool, default=True
+        Whether to compute metrics on the test set after training.
+    compute_train_metrics : bool, default=False
+        Whether to compute metrics on the training set. Usually False
+        to save time since validation metrics are more informative.
+    compute_rank_correlations : bool, default=True
+        Whether to compute rank-based correlations (Spearman, Kendall).
+        These are computationally expensive. Set to False to speed up
+        metrics computation by ~30-50% if you only need MAE/RMSE/R2/Pearson.
+    compute_per_quality_metrics : bool, default=True
+        Whether to compute per-quality metrics when curriculum learning is active.
+        Setting to False can significantly speed up metrics computation for
+        datasets with many quality levels.
+    use_gpu_metrics : str, default="auto"
+        Whether to use GPU acceleration for metrics computation.
+        Options:
+        - "auto": Auto-detect GPU availability and use if present (recommended)
+        - "true": Force GPU usage (will fail if GPU unavailable)
+        - "false": Force CPU usage
+        Provides 2-5x speedup for large datasets when GPU available.
+    """
+
+    generate_plots: bool = True
+    plot_dpi: int = 150
+    plot_formats: List[str] = field(default_factory=lambda: ["png"])
+    log_model_to_mlflow: bool = True
+    async_artifact_upload: bool = False
+    cache_predictions: bool = True
+    compute_test_metrics: bool = True
+    compute_train_metrics: bool = False
+    compute_rank_correlations: bool = True
+    compute_per_quality_metrics: bool = True
+    use_gpu_metrics: str = "auto"
 
 
 # NOTE: TaskOversamplingConfig, CurriculumConfig, JointSamplingConfig,
@@ -284,6 +465,9 @@ class ChempropConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    performance_optimization: PerformanceOptimizationConfig = field(default_factory=PerformanceOptimizationConfig)
+    post_training: PostTrainingConfig = field(default_factory=PostTrainingConfig)
+    profiling: ProfilingConfig = field(default_factory=ProfilingConfig)
     joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
@@ -354,6 +538,8 @@ class EnsembleConfig:
         schedule for consistent quality-aware sampling.
     ray : RayConfig
         Ray parallelization configuration for distributed ensemble training.
+    logging : RayLoggingConfig
+        Ray logging and output management configuration.
 
     Examples
     --------
@@ -372,7 +558,11 @@ class EnsembleConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    performance_optimization: PerformanceOptimizationConfig = field(default_factory=PerformanceOptimizationConfig)
+    post_training: PostTrainingConfig = field(default_factory=PostTrainingConfig)
+    profiling: ProfilingConfig = field(default_factory=ProfilingConfig)
     joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     ray: RayConfig = field(default_factory=RayConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)

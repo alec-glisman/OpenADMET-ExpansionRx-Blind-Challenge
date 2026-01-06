@@ -325,12 +325,12 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">tune</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ray.air.integrations.mlflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLflowLoggerCallback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.schedulers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASHAScheduler</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HPOConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_search_space</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_search_space</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_trainable</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_chemprop_trial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.hpo_mlflow_callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobustMLflowLoggerCallback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
 
 
@@ -389,10 +389,14 @@
         <span class="c1"># Build ASHA scheduler</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_scheduler</span><span class="p">()</span>
 
+        <span class="c1"># Build search algorithm (Optuna, BayesOpt, etc.)</span>
+        <span class="n">search_alg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_search_algorithm</span><span class="p">()</span>
+
         <span class="c1"># Configure Ray Tune</span>
         <span class="c1"># Note: metric/mode are specified in scheduler, not TuneConfig, to avoid conflict</span>
         <span class="n">tune_config</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">TuneConfig</span><span class="p">(</span>
             <span class="n">scheduler</span><span class="o">=</span><span class="n">scheduler</span><span class="p">,</span>
+            <span class="n">search_alg</span><span class="o">=</span><span class="n">search_alg</span><span class="p">,</span>  <span class="c1"># Add search algorithm</span>
             <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
             <span class="n">max_concurrent_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">max_concurrent_trials</span><span class="p">,</span>
             <span class="n">trial_dirname_creator</span><span class="o">=</span><span class="n">_trial_dirname_creator</span><span class="p">,</span>
@@ -445,10 +449,10 @@
             <span class="c1"># Attach Ray Tune trial runs as children of the parent HPO run</span>
             <span class="n">tags</span><span class="p">[</span><span class="s2">&quot;mlflow.parentRunId&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span>
 
-        <span class="n">mlflow_callback</span> <span class="o">=</span> <span class="n">MLflowLoggerCallback</span><span class="p">(</span>
+        <span class="n">mlflow_callback</span> <span class="o">=</span> <span class="n">RobustMLflowLoggerCallback</span><span class="p">(</span>
             <span class="n">tracking_uri</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">(),</span>
             <span class="n">experiment_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
-            <span class="n">save_artifact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">save_artifact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Disable artifact saving during HPO to avoid performance bottleneck</span>
             <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -490,6 +494,15 @@
             <span class="c1"># Log results to MLflow (best so far)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_log_results</span><span class="p">()</span>
+                <span class="c1"># Backfill disabled: RobustMLflowLoggerCallback already logs during trials</span>
+                <span class="c1"># Uncomment only if you need to recover metrics after HPO failure:</span>
+                <span class="c1"># logger.info(&quot;Backfilling MLflow with metrics from all trials...&quot;)</span>
+                <span class="c1"># backfill_mlflow_from_ray_results(</span>
+                <span class="c1">#     self.results,</span>
+                <span class="c1">#     experiment_name=self.config.experiment_name,</span>
+                <span class="c1">#     parent_run_id=self._mlflow_run_id,</span>
+                <span class="c1">#     tracking_uri=self.config.mlflow_tracking_uri,</span>
+                <span class="c1"># )</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No results to log to MLflow.&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
@@ -526,6 +539,11 @@
         <span class="n">space</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span>
         <span class="n">space</span><span class="p">[</span><span class="s2">&quot;seed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span>
 
+        <span class="c1"># Training parameters (pass through from HPO config)</span>
+        <span class="n">space</span><span class="p">[</span><span class="s2">&quot;patience&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">patience</span>
+        <span class="n">space</span><span class="p">[</span><span class="s2">&quot;warmup_epochs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warmup_epochs</span>
+        <span class="n">space</span><span class="p">[</span><span class="s2">&quot;report_every_n_epochs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">report_every_n_epochs</span>
+
         <span class="c1"># Pass fixed target weights if provided</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">target_weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">space</span><span class="p">[</span><span class="s2">&quot;target_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">target_weights</span>
@@ -547,6 +565,75 @@
             <span class="n">reduction_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">reduction_factor</span><span class="p">,</span>
             <span class="n">brackets</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">brackets</span><span class="p">,</span>
         <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_search_algorithm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the search algorithm (Optuna, BayesOpt, HyperOpt, or random).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Configured search algorithm or None for random search</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No search algorithm configured, using random search&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">algo_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;random&quot;</span> <span class="ow">or</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Random search algorithm selected&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;optuna&quot;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">optuna</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.optuna</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptunaSearch</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Using Optuna search algorithm (TPESampler) with </span><span class="si">%d</span><span class="s2"> initial random points&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">OptunaSearch</span><span class="p">(</span>
+                    <span class="n">sampler</span><span class="o">=</span><span class="n">optuna</span><span class="o">.</span><span class="n">samplers</span><span class="o">.</span><span class="n">TPESampler</span><span class="p">(</span>
+                        <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                        <span class="n">n_startup_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
+                    <span class="p">),</span>
+                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Optuna not installed, falling back to random search&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;bayesopt&quot;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.bayesopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesOptSearch</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using BayesOptSearch algorithm&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">BayesOptSearch</span><span class="p">(</span>
+                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                    <span class="n">random_state</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;bayesian-optimization not installed, falling back to random search&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;hyperopt&quot;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.hyperopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">HyperOptSearch</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using HyperOpt search algorithm&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">HyperOptSearch</span><span class="p">(</span>
+                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                    <span class="n">random_state_seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;hyperopt not installed, falling back to random search&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Unknown search algorithm type: </span><span class="si">%s</span><span class="s2">, falling back to random search&quot;</span><span class="p">,</span> <span class="n">algo_type</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_mlflow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure MLflow tracking.&quot;&quot;&quot;</span>
@@ -760,7 +847,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             

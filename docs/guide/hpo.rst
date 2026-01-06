@@ -92,6 +92,16 @@ Define hyperparameter distributions for optimization:
        low: 0.0
        high: 0.4
 
+     # Weight decay (L2 regularization via AdamW)
+     weight_decay_enabled:
+       type: choice
+       values: [true, false]
+
+     weight_decay:
+       type: loguniform
+       low: 1.0e-6
+       high: 1.0e-3
+
      # Message passing architecture
      depth:
        type: choice
@@ -173,6 +183,50 @@ Key parameters:
 - ``max_t``: Maximum training epochs for the best trials (default: 100)
 - ``grace_period``: Minimum epochs before a trial can be stopped (default: 15)
 - ``reduction_factor``: Fraction of trials promoted at each rung (default: 3)
+
+Search Algorithm Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configure advanced search algorithms for Bayesian optimization:
+
+.. code-block:: yaml
+
+   search_algorithm:
+     type: optuna        # Options: random, optuna, bayesopt, hyperopt
+     seed: 42            # Random seed for reproducibility
+     n_initial_points: 20  # Random exploration before Bayesian phase
+
+Supported search algorithms:
+
+- ``random`` (default): Pure random sampling across search space
+- ``optuna``: Bayesian optimization with TPE (Tree-structured Parzen Estimator)
+- ``bayesopt``: Gaussian Process-based Bayesian optimization
+- ``hyperopt``: Tree-structured Parzen Estimator from HyperOpt library
+
+**Bayesian Optimization Benefits:**
+
+- **Adaptive Sampling**: Learns which hyperparameter regions perform well
+- **Improved Efficiency**: 3-5x fewer trials to find optimal configurations
+- **Exploration vs. Exploitation**: Balances trying new regions vs. refining known good areas
+
+**When to Use:**
+
+- Use ``optuna`` for most cases (default recommendation)
+- Use ``random`` for initial broad exploration or when search space is small
+- Use ``bayesopt`` or ``hyperopt`` for specific algorithm preferences
+
+**Installation:**
+
+.. code-block:: bash
+
+   # Optuna (recommended)
+   pip install optuna
+
+   # BayesOpt
+   pip install bayesian-optimization
+
+   # HyperOpt
+   pip install hyperopt
 
 Resource Configuration
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -263,6 +317,19 @@ Architecture Parameters
    * - ``dropout``
      - Dropout rate
      - 0.0 to 0.4
+   * - ``weight_decay``
+     - L2 regularization via AdamW
+     - 1e-6 to 1e-3 (loguniform)
+
+**Weight Decay:**
+
+Weight decay provides L2 regularization through the AdamW optimizer, which
+implements decoupled weight decay (Loshchilov & Hutter, 2019). This is more
+effective than traditional L2 penalty for neural networks.
+
+- Set ``weight_decay: 0.0`` to disable (default)
+- Use ``weight_decay_enabled: choice([true, false])`` in HPO to explore on/off
+- Typical effective range: 1e-6 to 1e-3 (use loguniform sampling)
 
 FFN Type Parameters
 ^^^^^^^^^^^^^^^^^^^
@@ -460,4 +527,3 @@ Cross-References
 - See :doc:`modeling` for general modeling guide
 - See :doc:`configuration` for configuration file format
 - See :doc:`splitting` for dataset preparation
-

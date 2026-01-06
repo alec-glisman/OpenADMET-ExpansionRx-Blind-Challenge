@@ -340,7 +340,6 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">data</span><span class="p">,</span> <span class="n">featurizers</span><span class="p">,</span> <span class="n">models</span><span class="p">,</span> <span class="n">nn</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">chemprop.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegressionFFN</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightning</span><span class="w"> </span><span class="kn">import</span> <span class="n">pytorch</span> <span class="k">as</span> <span class="n">pl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightning.pytorch.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">EarlyStopping</span><span class="p">,</span> <span class="n">ModelCheckpoint</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightning.pytorch.loggers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLFlowLogger</span>
@@ -370,7 +369,6 @@
     <span class="n">PerQualityMetricsCallback</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.curriculum_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">DynamicCurriculumSampler</span><span class="p">,</span> <span class="n">get_quality_indices</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.ffn</span><span class="w"> </span><span class="kn">import</span> <span class="n">BranchedFFN</span><span class="p">,</span> <span class="n">MixtureOfExpertsRegressionFFN</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.joint_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">JointSampler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.ffn_factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_ffn_predictor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.plot.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">METRIC_NAMES</span><span class="p">,</span> <span class="n">compute_metrics_df</span><span class="p">,</span> <span class="n">plot_metric_bar</span>
@@ -382,6 +380,61 @@
 
 
 <span class="c1"># TODO: think about task weights: _tasks = [1.018, 1.000, 1.364, 1.134, 2.377, 2.373]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MPNNWithWeightDecay</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">MPNN</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;MPNN subclass with weight decay support via AdamW optimizer.</span>
+
+<span class="sd">    This subclass overrides configure_optimizers to use AdamW instead of Adam,</span>
+<span class="sd">    enabling proper L2 regularization through weight decay.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    weight_decay : float, default=0.0</span>
+<span class="sd">        L2 regularization coefficient. Set to 0.0 to disable.</span>
+<span class="sd">    *args, **kwargs</span>
+<span class="sd">        All other arguments are passed to the parent MPNN class.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    AdamW implements weight decay decoupled from the gradient-based update,</span>
+<span class="sd">    which is more effective than L2 regularization added to the loss.</span>
+<span class="sd">    See: Loshchilov &amp; Hutter (2019) &quot;Decoupled Weight Decay Regularization&quot;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight_decay</span> <span class="o">=</span> <span class="n">weight_decay</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">configure_optimizers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure AdamW optimizer with weight decay and NoamLike scheduler.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">chemprop.schedulers</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_NoamLike_LRSched</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">optim</span>
+
+        <span class="c1"># Use AdamW for proper weight decay implementation</span>
+        <span class="n">opt</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">AdamW</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_lr</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weight_decay</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">train_dataloader</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">estimated_stepping_batches</span>
+
+        <span class="n">steps_per_epoch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">num_training_batches</span>
+        <span class="n">warmup_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">warmup_epochs</span> <span class="o">*</span> <span class="n">steps_per_epoch</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">max_epochs</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;For infinite training, the number of cooldown epochs in learning rate scheduler &quot;</span>
+                <span class="s2">&quot;is set to 100 times the number of warmup epochs.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">cooldown_steps</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">warmup_steps</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cooldown_epochs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">max_epochs</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">warmup_epochs</span>
+            <span class="n">cooldown_steps</span> <span class="o">=</span> <span class="n">cooldown_epochs</span> <span class="o">*</span> <span class="n">steps_per_epoch</span>
+
+        <span class="n">lr_sched</span> <span class="o">=</span> <span class="n">build_NoamLike_LRSched</span><span class="p">(</span><span class="n">opt</span><span class="p">,</span> <span class="n">warmup_steps</span><span class="p">,</span> <span class="n">cooldown_steps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_lr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_lr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_lr</span><span class="p">)</span>
+
+        <span class="n">lr_sched_config</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;scheduler&quot;</span><span class="p">:</span> <span class="n">lr_sched</span><span class="p">,</span> <span class="s2">&quot;interval&quot;</span><span class="p">:</span> <span class="s2">&quot;step&quot;</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="n">opt</span><span class="p">,</span> <span class="s2">&quot;lr_scheduler&quot;</span><span class="p">:</span> <span class="n">lr_sched_config</span><span class="p">}</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">CriterionName</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
@@ -416,6 +469,50 @@
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to instantiate criterion &#39;</span><span class="si">{</span><span class="n">criterion</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
     <span class="k">return</span> <span class="n">attr</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_unified_config</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DictConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Normalize a unified config to the legacy ChempropConfig format.</span>
+
+<span class="sd">    Handles both unified config structure (with model.type and model.chemprop)</span>
+<span class="sd">    and legacy flat structure (model params directly under model).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : DictConfig</span>
+<span class="sd">        Configuration to normalize. Can be either:</span>
+<span class="sd">        - Unified format: model.type=&quot;chemprop&quot;, model.chemprop={...}</span>
+<span class="sd">        - Legacy format: model={depth: 5, hidden_dim: 600, ...}</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    DictConfig</span>
+<span class="sd">        Normalized config compatible with ChempropConfig schema.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+    <span class="n">model_section</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span>
+
+    <span class="c1"># Check if this is a unified config (has model.type and model.chemprop)</span>
+    <span class="k">if</span> <span class="n">model_section</span> <span class="ow">and</span> <span class="s2">&quot;type&quot;</span> <span class="ow">in</span> <span class="n">model_section</span><span class="p">:</span>
+        <span class="n">model_type</span> <span class="o">=</span> <span class="n">model_section</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">model_type</span> <span class="o">!=</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expected model.type=&#39;chemprop&#39; but got &#39;</span><span class="si">{</span><span class="n">model_type</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                <span class="s2">&quot;Use the appropriate model module for other model types.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Extract chemprop-specific params and flatten to model section</span>
+        <span class="n">chemprop_params</span> <span class="o">=</span> <span class="n">model_section</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;chemprop&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="c1"># Always create new model section with flattened params (even if empty)</span>
+        <span class="c1"># This removes &#39;type&#39; and &#39;chemprop&#39; keys from the model section</span>
+        <span class="n">new_model</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">chemprop_params</span><span class="p">)</span> <span class="k">if</span> <span class="n">chemprop_params</span> <span class="k">else</span> <span class="p">{})</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">new_model</span>
+
+    <span class="k">return</span> <span class="n">config</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -575,6 +672,9 @@
 <span class="sd">        Number of data loading workers.</span>
 <span class="sd">    seed : int, default=42</span>
 <span class="sd">        Random seed for reproducibility.</span>
+<span class="sd">    weight_decay : float, default=0.0</span>
+<span class="sd">        L2 regularization weight decay coefficient. Applied via AdamW optimizer.</span>
+<span class="sd">        Typical values: 1e-6 to 1e-4. Set to 0.0 to disable.</span>
 <span class="sd">    depth : int, default=3</span>
 <span class="sd">        Number of message passing iterations.</span>
 <span class="sd">    message_hidden_dim : int, default=300</span>
@@ -611,6 +711,7 @@
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
     <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
 
     <span class="c1"># Message passing</span>
     <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
@@ -1365,7 +1466,7 @@
             <span class="n">output_transform</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">MPNN</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="o">=</span> <span class="n">MPNNWithWeightDecay</span><span class="p">(</span>
             <span class="n">message_passing</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mp</span><span class="p">,</span>
             <span class="n">agg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">agg</span><span class="p">,</span>
             <span class="n">predictor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ffn</span><span class="p">,</span>
@@ -1375,6 +1476,7 @@
             <span class="n">init_lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">init_lr</span><span class="p">,</span>
             <span class="n">max_lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">max_lr</span><span class="p">,</span>
             <span class="n">final_lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">final_lr</span><span class="p">,</span>
+            <span class="n">weight_decay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">weight_decay</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Store task affinity info as MPNN attributes for downstream access</span>
@@ -1762,6 +1864,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;MLflow tracking skipped: tracking=</span><span class="si">%s</span><span class="s2">, logger=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="p">)</span>
 
+        <span class="c1"># Record training start time for duration logging</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+
+        <span class="n">training_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+
         <span class="n">completed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting training...&quot;</span><span class="p">)</span>
@@ -1798,6 +1905,29 @@
             <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+
+            <span class="c1"># Log training timing metrics</span>
+            <span class="n">training_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+            <span class="n">training_duration</span> <span class="o">=</span> <span class="p">(</span><span class="n">training_end_time</span> <span class="o">-</span> <span class="n">training_start_time</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;training.start_time&quot;</span><span class="p">,</span> <span class="n">training_start_time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;training.end_time&quot;</span><span class="p">,</span> <span class="n">training_end_time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;training.duration_seconds&quot;</span><span class="p">,</span> <span class="n">training_duration</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;training.duration_minutes&quot;</span><span class="p">,</span> <span class="n">training_duration</span> <span class="o">/</span> <span class="mf">60.0</span>
+                    <span class="p">)</span>
+                    <span class="c1"># Log epochs completed (if trainer available)</span>
+                    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;trainer&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;training.epochs_completed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">current_epoch</span>
+                        <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">timing_err</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log training timing: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">timing_err</span><span class="p">)</span>
 
             <span class="c1"># Log evaluation metrics and final artifacts</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1870,10 +2000,10 @@
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;target_cols&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;n_targets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
 
-        <span class="c1"># Calculate and log total number of trainable parameters</span>
+        <span class="c1"># Log comprehensive model architecture information</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">total_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
-            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;total_parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_params</span>
+            <span class="n">model_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_model_info</span><span class="p">()</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model_info</span><span class="p">)</span>
 
         <span class="c1"># Parse and log data_dir parameters if available</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1908,6 +2038,339 @@
             <span class="n">params</span><span class="p">[</span><span class="s2">&quot;inter_task_affinity.log_every_n_steps&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inter_task_affinity_config</span><span class="o">.</span><span class="n">log_every_n_steps</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span><span class="o">.</span><span class="n">log_hyperparams</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="c1"># Log environment and git info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_environment_info</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_model_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get comprehensive model architecture information.</span>
+
+<span class="sd">        Returns a dictionary containing:</span>
+<span class="sd">        - Parameter counts (total, trainable, fixed)</span>
+<span class="sd">        - Model size in MB</span>
+<span class="sd">        - Module breakdown by layer type</span>
+<span class="sd">        - Architecture summary</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dict[str, Any]</span>
+<span class="sd">            Dictionary of model information for MLflow logging.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">info</span>
+
+        <span class="c1"># Parameter counts</span>
+        <span class="n">total_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+        <span class="n">trainable_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+        <span class="n">fixed_params</span> <span class="o">=</span> <span class="n">total_params</span> <span class="o">-</span> <span class="n">trainable_params</span>
+
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.total_parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_params</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.trainable_parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trainable_params</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.fixed_parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fixed_params</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.trainable_ratio&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">trainable_params</span> <span class="o">/</span> <span class="n">total_params</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="k">if</span> <span class="n">total_params</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="c1"># Model size in MB (assuming float32 = 4 bytes per parameter)</span>
+        <span class="n">model_size_mb</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_params</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.size_mb&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">model_size_mb</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># Detailed parameter breakdown by module type</span>
+        <span class="n">module_params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">module_trainable</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">_name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+            <span class="c1"># Get the top-level module type</span>
+            <span class="n">module_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+
+            <span class="c1"># Count parameters directly owned by this module (not children)</span>
+            <span class="n">direct_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+            <span class="n">direct_trainable</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">direct_params</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">module_params</span><span class="p">[</span><span class="n">module_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">module_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">module_type</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">direct_params</span>
+                <span class="n">module_trainable</span><span class="p">[</span><span class="n">module_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">module_trainable</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">module_type</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">direct_trainable</span>
+
+        <span class="c1"># Log top module types by parameter count</span>
+        <span class="n">sorted_modules</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">module_params</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">mod_type</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_modules</span><span class="p">[:</span><span class="mi">10</span><span class="p">]):</span>  <span class="c1"># Top 10 modules</span>
+            <span class="n">info</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model.module_</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mod_type</span>
+            <span class="n">info</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model.module_</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">_params&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
+            <span class="n">info</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model.module_</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">_trainable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">module_trainable</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">mod_type</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Architecture layout - depth and width information</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.n_module_types&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">module_params</span><span class="p">)</span>
+
+        <span class="c1"># Count layer types</span>
+        <span class="n">n_linear</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;Linear&quot;</span><span class="p">)</span>
+        <span class="n">n_conv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span> <span class="k">if</span> <span class="s2">&quot;Conv&quot;</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="n">n_norm</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span> <span class="k">if</span> <span class="s2">&quot;Norm&quot;</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">or</span> <span class="s2">&quot;BatchNorm&quot;</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="n">n_dropout</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span> <span class="k">if</span> <span class="s2">&quot;Dropout&quot;</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="n">n_activation</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="mi">1</span>
+            <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ReLU&quot;</span><span class="p">,</span> <span class="s2">&quot;GELU&quot;</span><span class="p">,</span> <span class="s2">&quot;SiLU&quot;</span><span class="p">,</span> <span class="s2">&quot;Tanh&quot;</span><span class="p">,</span> <span class="s2">&quot;Sigmoid&quot;</span><span class="p">,</span> <span class="s2">&quot;LeakyReLU&quot;</span><span class="p">,</span> <span class="s2">&quot;ELU&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.n_linear_layers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_linear</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.n_conv_layers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_conv</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.n_norm_layers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_norm</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.n_dropout_layers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_dropout</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.n_activation_layers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_activation</span>
+
+        <span class="c1"># Model class name and framework info</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.class_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.framework&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;PyTorch&quot;</span>
+
+        <span class="c1"># Log model architecture summary as a truncated string</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">model_repr</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">)</span>
+            <span class="c1"># Truncate to fit MLflow param limits (500 chars)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_repr</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">450</span><span class="p">:</span>
+                <span class="n">model_repr</span> <span class="o">=</span> <span class="n">model_repr</span><span class="p">[:</span><span class="mi">447</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;...&quot;</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.architecture_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_repr</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;model.architecture_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Unable to generate summary&quot;</span>
+
+        <span class="k">return</span> <span class="n">info</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_model_architecture_artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Log detailed model architecture as an artifact.</span>
+
+<span class="sd">        Creates a text file with the full model architecture representation</span>
+<span class="sd">        and logs it to MLflow as an artifact.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+            <span class="n">arch_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;model_architecture.txt&quot;</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">arch_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;MODEL ARCHITECTURE SUMMARY</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Model class and basic info</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model Class: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Framework: PyTorch</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Parameter summary</span>
+                <span class="n">total_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+                <span class="n">trainable_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+                <span class="n">fixed_params</span> <span class="o">=</span> <span class="n">total_params</span> <span class="o">-</span> <span class="n">trainable_params</span>
+                <span class="n">model_size_mb</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_params</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>
+
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;PARAMETER SUMMARY</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">40</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total Parameters:     </span><span class="si">{</span><span class="n">total_params</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Trainable Parameters: </span><span class="si">{</span><span class="n">trainable_params</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fixed Parameters:     </span><span class="si">{</span><span class="n">fixed_params</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model Size (MB):      </span><span class="si">{</span><span class="n">model_size_mb</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Module breakdown</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;MODULE BREAKDOWN</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">40</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">module_info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+                    <span class="n">module_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+                    <span class="n">direct_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+                    <span class="n">direct_trainable</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">direct_params</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">module_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">module_info</span><span class="p">:</span>
+                            <span class="n">module_info</span><span class="p">[</span><span class="n">module_type</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;trainable&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+                        <span class="n">module_info</span><span class="p">[</span><span class="n">module_type</span><span class="p">][</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">direct_params</span>
+                        <span class="n">module_info</span><span class="p">[</span><span class="n">module_type</span><span class="p">][</span><span class="s2">&quot;trainable&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">direct_trainable</span>
+                        <span class="n">module_info</span><span class="p">[</span><span class="n">module_type</span><span class="p">][</span><span class="s2">&quot;count&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="c1"># Sort by parameter count</span>
+                <span class="n">sorted_modules</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">module_info</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;total&quot;</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Module Type&#39;</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Count&#39;</span><span class="si">:</span><span class="s2">&gt;8</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Total Params&#39;</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Trainable&#39;</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">mod_type</span><span class="p">,</span> <span class="n">counts</span> <span class="ow">in</span> <span class="n">sorted_modules</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">mod_type</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">counts</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;8</span><span class="si">}</span><span class="s2"> &quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">counts</span><span class="p">[</span><span class="s1">&#39;total&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15,</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">counts</span><span class="p">[</span><span class="s1">&#39;trainable&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15,</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Full architecture representation</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;FULL ARCHITECTURE</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">40</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">))</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Named parameters with shapes</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;PARAMETER SHAPES</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">40</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+                    <span class="n">trainable_str</span> <span class="o">=</span> <span class="s2">&quot;✓&quot;</span> <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="k">else</span> <span class="s2">&quot;✗&quot;</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">trainable_str</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> params)</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">arch_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Cleanup</span>
+            <span class="n">arch_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">temp_dir</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged model architecture artifact to MLflow&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log model architecture artifact: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_environment_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get comprehensive environment and hardware information.</span>
+
+<span class="sd">        Returns a dictionary containing Python version, package versions,</span>
+<span class="sd">        GPU/CUDA info, and system details for reproducibility.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dict[str, Any]</span>
+<span class="sd">            Dictionary of environment info for MLflow logging.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+
+        <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Python version</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.python_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">python_version</span><span class="p">()</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.python_implementation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">python_implementation</span><span class="p">()</span>
+
+        <span class="c1"># OS info</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.os_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.os_release&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.platform&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">()</span>
+
+        <span class="c1"># Key package versions</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.pytorch_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">__version__</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.lightning_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">__version__</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">chemprop</span>
+
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.chemprop_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chemprop</span><span class="o">.</span><span class="n">__version__</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.chemprop_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">rdkit</span>
+
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.rdkit_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rdkit</span><span class="o">.</span><span class="n">__version__</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.rdkit_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
+
+        <span class="c1"># CUDA and GPU information</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.cuda_available&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.cuda_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">cuda</span> <span class="ow">or</span> <span class="s2">&quot;unknown&quot;</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.cudnn_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cudnn</span><span class="o">.</span><span class="n">version</span><span class="p">())</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cudnn</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;N/A&quot;</span>
+            <span class="p">)</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.gpu_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span>
+
+            <span class="c1"># Get GPU details for each device</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()):</span>
+                <span class="n">props</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_device_properties</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">info</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;env.gpu_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">props</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">info</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;env.gpu_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_memory_gb&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">props</span><span class="o">.</span><span class="n">total_memory</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="n">info</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;env.gpu_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_compute_capability&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">props</span><span class="o">.</span><span class="n">major</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">props</span><span class="o">.</span><span class="n">minor</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.cuda_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;N/A&quot;</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.gpu_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># MPS (Apple Silicon) availability</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="p">,</span> <span class="s2">&quot;mps&quot;</span><span class="p">):</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;env.mps_available&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">mps</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">info</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_git_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get git repository information for reproducibility.</span>
+
+<span class="sd">        Returns commit hash, branch name, and dirty status.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dict[str, Any]</span>
+<span class="sd">            Dictionary of git info for MLflow logging.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+
+        <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Get current commit hash</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span>
+                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;git.commit_hash&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;git.commit_short&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()[:</span><span class="mi">8</span><span class="p">]</span>
+
+            <span class="c1"># Get current branch</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;--abbrev-ref&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span>
+                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;git.branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+            <span class="c1"># Check if repo is dirty (uncommitted changes)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;--porcelain&quot;</span><span class="p">],</span>
+                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;git.is_dirty&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+            <span class="c1"># Get remote URL (useful for identifying repo)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="s2">&quot;--get&quot;</span><span class="p">,</span> <span class="s2">&quot;remote.origin.url&quot;</span><span class="p">],</span>
+                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;git.remote_url&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">TimeoutExpired</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Could not retrieve git info: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;git.available&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="n">info</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_environment_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log environment and git information to MLflow.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Log environment info</span>
+            <span class="n">env_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_environment_info</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">env_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+            <span class="c1"># Log git info</span>
+            <span class="n">git_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_git_info</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">git_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged environment and git info to MLflow&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log environment info: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_dataset_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1963,6 +2426,69 @@
                 <span class="n">csv_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="n">temp_dir</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span>
 
+        <span class="c1"># Log molecular statistics (unique SMILES, missingness)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_molecular_stats</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_molecular_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Log molecular-level statistics to MLflow.</span>
+
+<span class="sd">        Logs unique SMILES counts, target missingness rates, and</span>
+<span class="sd">        label distribution statistics for multi-task learning analysis.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">df_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+            <span class="n">df_validation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;validation&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Log unique molecule counts</span>
+            <span class="k">if</span> <span class="n">df_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">smiles_col</span> <span class="ow">in</span> <span class="n">df_train</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">n_unique_train</span> <span class="o">=</span> <span class="n">df_train</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span>
+                <span class="n">n_total_train</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_train</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;data.train_unique_smiles&quot;</span><span class="p">,</span> <span class="n">n_unique_train</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;data.train_duplicate_ratio&quot;</span><span class="p">,</span>
+                    <span class="nb">round</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="n">n_unique_train</span> <span class="o">/</span> <span class="n">n_total_train</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span> <span class="k">if</span> <span class="n">n_total_train</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">df_validation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">smiles_col</span> <span class="ow">in</span> <span class="n">df_validation</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">n_unique_val</span> <span class="o">=</span> <span class="n">df_validation</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="s2">&quot;data.val_unique_smiles&quot;</span><span class="p">,</span> <span class="n">n_unique_val</span><span class="p">)</span>
+
+            <span class="c1"># Log missingness statistics per target (important for multi-task learning)</span>
+            <span class="k">if</span> <span class="n">df_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">df_train</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                        <span class="n">n_missing</span> <span class="o">=</span> <span class="n">df_train</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                        <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_train</span><span class="p">)</span>
+                        <span class="n">missing_rate</span> <span class="o">=</span> <span class="n">n_missing</span> <span class="o">/</span> <span class="n">n_total</span> <span class="k">if</span> <span class="n">n_total</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;data.train_missing_rate.</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="nb">round</span><span class="p">(</span><span class="n">missing_rate</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+                        <span class="p">)</span>
+
+            <span class="c1"># Log target correlation matrix summary (useful for multi-task analysis)</span>
+            <span class="k">if</span> <span class="n">df_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">target_df</span> <span class="o">=</span> <span class="n">df_train</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_df</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+                    <span class="n">corr_matrix</span> <span class="o">=</span> <span class="n">target_df</span><span class="o">.</span><span class="n">corr</span><span class="p">()</span>
+                    <span class="c1"># Log mean absolute correlation between targets</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                    <span class="n">mean_abs_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">corr_matrix</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span>
+                        <span class="s2">&quot;data.mean_target_correlation&quot;</span><span class="p">,</span>
+                        <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">mean_abs_corr</span><span class="p">),</span> <span class="mi">4</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged molecular statistics to MLflow&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log molecular stats: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_metrics_with_retry</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">initial_delay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1994,7 +2520,6 @@
 
         <span class="n">failed_metrics</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">logged</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">for</span> <span class="n">attempt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_retries</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
@@ -2003,7 +2528,6 @@
                         <span class="n">value</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
                         <span class="n">step</span><span class="o">=</span><span class="n">unique_step</span><span class="p">,</span>
                     <span class="p">)</span>
-                    <span class="n">logged</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">break</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">error_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
@@ -2143,7 +2667,7 @@
                 <span class="c1"># Collect metric for batch logging</span>
                 <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
                 <span class="n">mlflow_metric_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="n">metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[assignment]</span>
+                <span class="n">metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
 
                 <span class="c1"># Collect for mean calculation across targets</span>
                 <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_metrics</span><span class="p">:</span>
@@ -2226,7 +2750,7 @@
                         <span class="c1"># Collect quality-specific metrics for batch logging</span>
                         <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_mlflow_metric_name</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
                         <span class="n">mlflow_metric_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">quality</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="n">quality_metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[assignment]</span>
+                        <span class="n">quality_metrics_to_log</span><span class="p">[</span><span class="n">mlflow_metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_value</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
 
             <span class="c1"># Log quality-specific metrics in batch</span>
             <span class="k">if</span> <span class="n">quality_metrics_to_log</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2386,6 +2910,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
         <span class="n">yaml_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">temp_dir</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span>
+
+        <span class="c1"># Log detailed model architecture artifact</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_model_architecture_artifact</span><span class="p">()</span>
 
         <span class="c1"># Restore best model weights before logging to MLflow</span>
         <span class="c1"># PyTorch Lightning&#39;s ModelCheckpoint saves best weights to disk but does NOT</span>
@@ -2876,6 +3403,9 @@
 <span class="sd">    This function loads the configuration from a YAML file, creates a model,</span>
 <span class="sd">    trains it, and generates predictions for test and blind datasets if specified.</span>
 
+<span class="sd">    Supports both unified config format (model.type + model.chemprop) and</span>
+<span class="sd">    legacy flat format (model params directly under model section).</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    config_path : str</span>
@@ -2893,10 +3423,16 @@
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading configuration from: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config_path</span><span class="p">)</span>
 
-    <span class="c1"># Load configuration from YAML</span>
+    <span class="c1"># Load raw config first to check for unified format</span>
+    <span class="n">raw_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span>
+
+    <span class="c1"># Normalize unified config to legacy format if needed</span>
+    <span class="n">normalized_config</span> <span class="o">=</span> <span class="n">normalize_unified_config</span><span class="p">(</span><span class="n">raw_config</span><span class="p">)</span>
+
+    <span class="c1"># Merge with schema defaults</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
         <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">),</span>
-        <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">config_path</span><span class="p">),</span>
+        <span class="n">normalized_config</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="c1"># Log the configuration</span>
@@ -2998,7 +3534,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             

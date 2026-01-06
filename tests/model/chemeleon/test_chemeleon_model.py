@@ -1,0 +1,448 @@
+"""Tests for ChemeleonModel and callbacks."""
+
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from omegaconf import OmegaConf
+
+from admet.model.config import UnfreezeScheduleConfig
+from admet.model.registry import ModelRegistry
+
+
+@pytest.fixture(autouse=True)
+def clear_and_register():
+    """Clear registry and re-register chemeleon model."""
+    ModelRegistry.clear()
+
+    # Force re-import to trigger decorator registration
+    import admet.model.chemeleon.model
+
+    importlib.reload(admet.model.chemeleon.model)
+
+    yield
+    ModelRegistry.clear()
+
+
+from admet.model.chemeleon import ChemeleonModel, GradualUnfreezeCallback  # noqa: E402
+
+
+class TestGradualUnfreezeCallback:
+    """Tests for GradualUnfreezeCallback."""
+
+    def test_init_frozen(self):
+        """Test initialization with frozen encoder."""
+        config = UnfreezeScheduleConfig(
+            freeze_encoder=True,
+            freeze_decoder_initially=True,
+        )
+        callback = GradualUnfreezeCallback(config)
+
+        assert callback.is_encoder_frozen
+        assert callback.is_decoder_frozen
+
+    def test_init_unfrozen(self):
+        """Test initialization with unfrozen components."""
+        config = UnfreezeScheduleConfig(
+            freeze_encoder=False,
+            freeze_decoder_initially=False,
+        )
+        callback = GradualUnfreezeCallback(config)
+
+        assert not callback.is_encoder_frozen
+        assert not callback.is_decoder_frozen
+
+    def test_unfreeze_at_epoch(self):
+        """Test unfreezing at specified epoch."""
+        config = UnfreezeScheduleConfig(
+            freeze_encoder=True,
+            unfreeze_encoder_epoch=5,
+        )
+        callback = GradualUnfreezeCallback(config)
+
+        # Create mock trainer and module
+        trainer = MagicMock()
+        trainer.current_epoch = 5
+
+        pl_module = MagicMock()
+        mock_encoder = MagicMock()
+        pl_module.message_passing = mock_encoder
+
+        callback.on_train_epoch_start(trainer, pl_module)
+
+        # Encoder should be unfrozen
+        assert not callback.is_encoder_frozen
+
+    def test_no_unfreeze_before_epoch(self):
+        """Test encoder stays frozen before unfreeze epoch."""
+        config = UnfreezeScheduleConfig(
+            freeze_encoder=True,
+            unfreeze_encoder_epoch=10,
+        )
+        callback = GradualUnfreezeCallback(config)
+
+        trainer = MagicMock()
+        trainer.current_epoch = 5
+
+        pl_module = MagicMock()
+
+        callback.on_train_epoch_start(trainer, pl_module)
+
+        # Encoder should still be frozen
+        assert callback.is_encoder_frozen
+
+
+class TestChemeleonModel:
+    """Tests for ChemeleonModel."""
+
+    def test_registration(self):
+        """Test model is registered with ModelRegistry."""
+        assert ModelRegistry.is_registered("chemeleon")
+        assert ModelRegistry.get("chemeleon").__name__ == "ChemeleonModel"
+
+    def test_from_config(self):
+        """Test creating model from config."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "checkpoint_path": "auto",
+                        "freeze_encoder": True,
+                        "ffn_hidden_dim": 256,
+                    },
+                },
+                "data": {
+                    "smiles_col": "smiles",
+                    "target_cols": ["target"],
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel.from_config(config)
+
+        assert model.model_type == "chemeleon"
+        assert model.is_fitted is False
+
+    def test_registry_create(self):
+        """Test creating via ModelRegistry."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "checkpoint_path": "auto",
+                    },
+                },
+                "data": {"target_cols": ["target"]},
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ModelRegistry.create(config)
+
+        assert model.__class__.__name__ == "ChemeleonModel"
+        assert model.model_type == "chemeleon"
+
+    def test_predict_without_fit_raises(self):
+        """Test that predict raises if not fitted."""
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel(config)
+
+        with pytest.raises(RuntimeError, match="not been fitted"):
+            model.predict(["CCO"])
+
+    def test_get_trainer_callbacks(self):
+        """Test get_trainer_callbacks returns unfreeze and correlation callbacks."""
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel(config)
+        callbacks = model.get_trainer_callbacks()
+
+        # Should have GradualUnfreezeCallback and CorrelationMetricsCallback
+        assert len(callbacks) == 2
+        callback_types = [type(cb).__name__ for cb in callbacks]
+        assert "GradualUnfreezeCallback" in callback_types
+        assert "CorrelationMetricsCallback" in callback_types
+
+    def test_download_from_zenodo(self, tmp_path):
+        """Test auto-download from Zenodo."""
+        import tempfile
+
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {"checkpoint_path": "auto"},
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel(config)
+
+        # Mock the download and validation within a temp directory context
+        with tempfile.TemporaryDirectory() as cache_dir:
+            cache_path = Path(cache_dir)
+
+            def mock_urlretrieve(url, dest):
+                # Create a fake checkpoint file
+                Path(dest).touch()
+
+            with (
+                patch("admet.model.chemeleon.model.Path.home", return_value=cache_path),
+                patch(
+                    "admet.model.chemeleon.model.urllib.request.urlretrieve",
+                    side_effect=mock_urlretrieve,
+                ),
+                patch.object(ChemeleonModel, "_validate_checkpoint", return_value=True),
+            ):
+                # Directly test the method behavior
+                result_path = model._download_from_zenodo()
+
+                assert "chemeleon_mp.pt" in result_path
+
+    def test_get_best_checkpoint_path_from_callback(self):
+        """Test _get_best_checkpoint_path finds checkpoint via ModelCheckpoint callback."""
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from lightning.pytorch.callbacks import ModelCheckpoint
+
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel(config)
+
+        # Create a mock trainer with ModelCheckpoint callback
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_path = Path(tmpdir) / "best.ckpt"
+            checkpoint_path.touch()
+
+            mock_callback = MagicMock(spec=ModelCheckpoint)
+            mock_callback.best_model_path = str(checkpoint_path)
+
+            mock_trainer = MagicMock()
+            mock_trainer.callbacks = [mock_callback]
+            model.trainer = mock_trainer
+
+            result = model._get_best_checkpoint_path()
+            assert result == str(checkpoint_path)
+
+    def test_get_best_checkpoint_path_returns_none_when_not_found(self):
+        """Test _get_best_checkpoint_path returns None when no checkpoint exists."""
+        from unittest.mock import MagicMock
+
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel(config)
+
+        # Create mock trainer with no ModelCheckpoint callback
+        mock_trainer = MagicMock()
+        mock_trainer.callbacks = []
+        model.trainer = mock_trainer
+
+        result = model._get_best_checkpoint_path()
+        assert result is None
+
+    def test_checkpoint_dir_persistence_during_setup(self):
+        """Test that checkpoint directory persists after _setup_trainer."""
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "optimization": {"max_epochs": 1},
+                "mlflow": {"enabled": False},
+            }
+        )
+
+        model = ChemeleonModel(config)
+        model._setup_trainer()
+
+        # Checkpoint directory should exist and be accessible
+        assert model._checkpoint_dir is not None
+        from pathlib import Path
+
+        assert Path(model._checkpoint_dir.name).exists()
+
+        # Clean up
+        model._checkpoint_dir.cleanup()
+
+
+class TestChemeleonFFNTypes:
+    """Tests for CheMeleon FFN architecture support."""
+
+    def test_default_ffn_type_is_regression(self):
+        """Test that default ffn_type is regression."""
+        config = OmegaConf.create(
+            {
+                "model": {"type": "chemeleon"},
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        ffn_type = model._get_model_param("ffn_type", "regression")
+        assert ffn_type == "regression"
+
+    @pytest.mark.parametrize(
+        "ffn_type",
+        ["regression", "mixture_of_experts", "branched"],
+    )
+    def test_ffn_type_config_accepted(self, ffn_type: str):
+        """Test that all FFN types are accepted in config."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "ffn_type": ffn_type,
+                        "n_experts": 4 if ffn_type == "mixture_of_experts" else None,
+                        "trunk_n_layers": 2 if ffn_type == "branched" else None,
+                    },
+                },
+                "data": {"target_cols": ["target_0", "target_1"]},
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("ffn_type", "regression") == ffn_type
+
+    def test_moe_n_experts_config(self):
+        """Test n_experts parameter is accessible."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "ffn_type": "mixture_of_experts",
+                        "n_experts": 6,
+                    },
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("n_experts", None) == 6
+
+    def test_branched_trunk_config(self):
+        """Test branched trunk parameters are accessible."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "ffn_type": "branched",
+                        "trunk_n_layers": 3,
+                        "trunk_hidden_dim": 400,
+                    },
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("trunk_n_layers", None) == 3
+        assert model._get_model_param("trunk_hidden_dim", None) == 400
+
+    def test_batch_norm_config(self):
+        """Test batch_norm parameter is accessible."""
+        config = OmegaConf.create(
+            {
+                "model": {
+                    "type": "chemeleon",
+                    "chemeleon": {
+                        "batch_norm": True,
+                    },
+                },
+                "mlflow": {"enabled": False},
+            }
+        )
+        model = ChemeleonModel(config)
+        assert model._get_model_param("batch_norm", False) is True
+
+
+class TestCorrelationMetricsCallback:
+    """Tests for CorrelationMetricsCallback."""
+
+    def test_init_defaults(self):
+        """Test callback initialization with defaults."""
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        callback = CorrelationMetricsCallback()
+
+        assert callback.scaler is None
+        assert callback.target_cols == []
+        assert callback.val_loader is None
+        assert callback.report_every_n_epochs == 5
+        assert callback._last_reported_epoch is None
+
+    def test_init_with_params(self):
+        """Test callback initialization with parameters."""
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        target_cols = ["LogD", "KSOL"]
+        callback = CorrelationMetricsCallback(
+            target_cols=target_cols,
+            report_every_n_epochs=3,
+        )
+
+        assert callback.target_cols == target_cols
+        assert callback.report_every_n_epochs == 3
+
+    def test_skips_when_val_loader_none(self):
+        """Test callback skips computation when val_loader is None."""
+        from lightning import pytorch as pl
+
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        callback = CorrelationMetricsCallback(val_loader=None)
+        trainer = MagicMock(spec=pl.Trainer)
+        pl_module = MagicMock(spec=pl.LightningModule)
+
+        # Should return early without raising
+        callback.on_validation_epoch_end(trainer, pl_module)
+
+    def test_skips_based_on_epoch_cadence(self):
+        """Test callback respects epoch cadence."""
+        from lightning import pytorch as pl
+
+        from admet.model.chemeleon.model import CorrelationMetricsCallback
+
+        callback = CorrelationMetricsCallback(
+            val_loader=MagicMock(),
+            report_every_n_epochs=5,
+        )
+        callback._last_reported_epoch = 1
+
+        trainer = MagicMock(spec=pl.Trainer)
+        trainer.current_epoch = 2  # Only 1 epoch later
+        pl_module = MagicMock(spec=pl.LightningModule)
+
+        # Should return early due to epoch cadence
+        callback.on_validation_epoch_end(trainer, pl_module)
+
+        # Last reported epoch should not change
+        assert callback._last_reported_epoch == 1

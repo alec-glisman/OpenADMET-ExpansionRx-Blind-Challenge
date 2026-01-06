@@ -43,7 +43,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import matplotlib.pyplot as plt
 import mlflow
@@ -349,6 +349,183 @@ def _plot_affinity_clustermap(
             ax.axhline(idx - 0.5, color="gray", linestyle="--", linewidth=0.7)
             ax.axvline(idx - 0.5, color="gray", linestyle="--", linewidth=0.7)
 
+    return fig
+
+
+def _plot_affinity_asymmetry(
+    affinity_matrix: np.ndarray,
+    task_names: List[str],
+    dpi: int,
+) -> Any:
+    """
+    Plot asymmetry heatmap showing |Z_ij - Z_ji| for all task pairs.
+
+    This visualization helps identify which task pairs have asymmetric
+    transfer relationships (one task helps another more than vice versa).
+
+    Parameters
+    ----------
+    affinity_matrix : np.ndarray
+        Affinity matrix of shape (n_tasks, n_tasks).
+    task_names : List[str]
+        Task names.
+    dpi : int
+        Resolution for the figure.
+
+    Returns
+    -------
+    plt.Figure
+        The matplotlib figure.
+    """
+    import matplotlib.pyplot as plt
+
+    n_tasks = len(task_names)
+    asymmetry = np.zeros((n_tasks, n_tasks))
+
+    for i in range(n_tasks):
+        for j in range(n_tasks):
+            asymmetry[i, j] = abs(affinity_matrix[i, j] - affinity_matrix[j, i])
+
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
+    im = ax.imshow(asymmetry, cmap="YlOrRd", vmin=0, vmax=asymmetry.max())
+    ax.set_xticks(range(n_tasks))
+    ax.set_yticks(range(n_tasks))
+    ax.set_xticklabels(task_names, rotation=45, ha="right")
+    ax.set_yticklabels(task_names)
+    ax.set_title("Task Affinity Asymmetry |Z_ij - Z_ji|")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Asymmetry")
+
+    # Add text annotations for high asymmetry pairs
+    for i in range(n_tasks):
+        for j in range(n_tasks):
+            if asymmetry[i, j] > 0.3:  # Highlight significant asymmetries
+                ax.text(j, i, f"{asymmetry[i, j]:.2f}", ha="center", va="center", color="white", fontsize=8)
+
+    plt.tight_layout()
+    return fig
+
+
+def _plot_affinity_network(
+    affinity_matrix: np.ndarray,
+    task_names: List[str],
+    groups: Optional[List[List[str]]],
+    threshold: float = 0.2,
+    dpi: int = 150,
+) -> Any:
+    """
+    Plot network graph showing strong affinity relationships between tasks.
+
+    Nodes represent tasks, edges represent strong affinities (> threshold).
+    Edge color indicates affinity strength (green=positive, red=negative).
+    Node color indicates group membership if groups are provided.
+
+    Parameters
+    ----------
+    affinity_matrix : np.ndarray
+        Affinity matrix of shape (n_tasks, n_tasks).
+    task_names : List[str]
+        Task names.
+    groups : Optional[List[List[str]]]
+        Task groups for coloring nodes.
+    threshold : float
+        Minimum absolute affinity to draw an edge.
+    dpi : int
+        Resolution for the figure.
+
+    Returns
+    -------
+    plt.Figure
+        The matplotlib figure.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Default colormap (ensures a variable is defined for type checkers)
+    cmap = plt.get_cmap("tab10")
+
+    n_tasks = len(task_names)
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 10), dpi=dpi)
+
+    # Layout tasks in a circle
+    angles = np.linspace(0, 2 * np.pi, n_tasks, endpoint=False)
+    x = np.cos(angles)
+    y = np.sin(angles)
+
+    # Determine node colors by group
+    if groups:
+        task_to_group = {}
+        for g_idx, group in enumerate(groups):
+            for task in group:
+                task_to_group[task] = g_idx
+
+        # Use a colormap with distinct colors
+        cmap = plt.cm.get_cmap("tab10")
+        node_colors = [cmap(task_to_group.get(task, 0) / max(1, len(groups))) for task in task_names]
+    else:
+        from matplotlib import colors as mcolors
+
+        node_colors = [mcolors.to_rgba("skyblue")] * n_tasks
+
+    # Draw edges for strong affinities
+    for i in range(n_tasks):
+        for j in range(i + 1, n_tasks):
+            # Use symmetrized affinity for undirected edges
+            avg_affinity = (affinity_matrix[i, j] + affinity_matrix[j, i]) / 2
+
+            if abs(avg_affinity) > threshold:
+                # Edge color and width based on affinity
+                if avg_affinity > 0:
+                    color = plt.get_cmap("Greens")(min(1.0, avg_affinity / 0.5))
+                    linestyle = "-"
+                else:
+                    color = plt.get_cmap("Reds")(min(1.0, abs(avg_affinity) / 0.5))
+                    linestyle = "--"
+
+                width = 1 + 3 * abs(avg_affinity)
+
+                ax.plot(
+                    [x[i], x[j]], [y[i], y[j]], color=color, linewidth=width, linestyle=linestyle, alpha=0.6, zorder=1
+                )
+
+    # Draw nodes
+    ax.scatter(x, y, c=node_colors, s=500, zorder=2, edgecolors="black", linewidths=1.5)
+
+    # Add labels
+    for i, task in enumerate(task_names):
+        # Shorten long task names for readability
+        label = task if len(task) <= 20 else task[:17] + "..."
+        # Position labels slightly outside the circle
+        label_x = x[i] * 1.15
+        label_y = y[i] * 1.15
+        ax.text(label_x, label_y, label, ha="center", va="center", fontsize=9, weight="bold", zorder=3)
+
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title(
+        f"Task Affinity Network (|affinity| > {threshold})\n" f"Green=Positive, Red=Negative, Width=Strength",
+        fontsize=12,
+        weight="bold",
+    )
+
+    # Add legend for groups if available
+    if groups and len(groups) > 1:
+        from matplotlib.patches import Patch
+
+        legend_elements = [
+            Patch(
+                facecolor=cmap(g_idx / len(groups)),
+                edgecolor="black",
+                label=f"Group {g_idx}: {', '.join(group[:2])}" + ("..." if len(group) > 2 else ""),
+            )
+            for g_idx, group in enumerate(groups)
+        ]
+        ax.legend(handles=legend_elements, loc="upper left", fontsize=8, bbox_to_anchor=(0, 1), framealpha=0.9)
+
+    plt.tight_layout()
     return fig
 
 
@@ -853,6 +1030,9 @@ class InterTaskAffinityCallback(Callback):
             with tempfile.NamedTemporaryFile(mode="w", suffix="_affinity_matrix.csv", delete=False) as f:
                 df.to_csv(f.name)
                 mlflow.log_artifact(f.name, "inter_task_affinity")
+
+            # Compute and log summary statistics for inter-group affinity
+            self._log_affinity_summary_statistics(Z_final)
             # Log parameter classification (shared vs non-shared)
             param_audit = self.computer.get_param_audit()
             if param_audit:
@@ -875,7 +1055,7 @@ class InterTaskAffinityCallback(Callback):
                         self.target_cols,
                         self.config.n_groups,
                         method=self.config.clustering_method,
-                        linkage=self.config.clustering_linkage,
+                        linkage=cast(Any, self.config.clustering_linkage),
                     )
                     if groups:
                         # Log group assignments as parameters for quick visibility
@@ -896,6 +1076,10 @@ class InterTaskAffinityCallback(Callback):
                                 indent=2,
                             )
                             mlflow.log_artifact(gf.name, "inter_task_affinity")
+
+                        # Log detailed group affinity analysis
+                        self._log_group_affinity_analysis(Z_final, groups, labels)
+
                 except Exception as e:
                     logger.warning("Failed to cluster tasks from affinity matrix: %s", e)
 
@@ -931,6 +1115,35 @@ class InterTaskAffinityCallback(Callback):
                             fig_cm.savefig(cf.name, dpi=self.config.plot_dpi, bbox_inches="tight")
                             mlflow.log_artifact(cf.name, "inter_task_affinity")
                             plt.close(fig_cm)
+
+                        # Additional visualization: asymmetry heatmap
+                        with tempfile.NamedTemporaryFile(
+                            mode="wb", suffix=f"_affinity_asymmetry.{fmt}", delete=False
+                        ) as asym_f:
+                            fig_asym = _plot_affinity_asymmetry(
+                                Z_final,
+                                self.target_cols,
+                                dpi=self.config.plot_dpi,
+                            )
+                            fig_asym.savefig(asym_f.name, dpi=self.config.plot_dpi, bbox_inches="tight")
+                            mlflow.log_artifact(asym_f.name, "inter_task_affinity")
+                            plt.close(fig_asym)
+
+                        # Network graph visualization of strong affinities
+                        with tempfile.NamedTemporaryFile(
+                            mode="wb", suffix=f"_affinity_network.{fmt}", delete=False
+                        ) as net_f:
+                            fig_net = _plot_affinity_network(
+                                Z_final,
+                                self.target_cols,
+                                groups,
+                                threshold=0.2,
+                                dpi=self.config.plot_dpi,
+                            )
+                            fig_net.savefig(net_f.name, dpi=self.config.plot_dpi, bbox_inches="tight")
+                            mlflow.log_artifact(net_f.name, "inter_task_affinity")
+                            plt.close(fig_net)
+
                 except Exception as e:
                     logger.debug("Failed to create/save plot artifacts: %s", e)
 
@@ -954,6 +1167,397 @@ class InterTaskAffinityCallback(Callback):
 
         except Exception as e:
             logger.warning("Failed to log final affinity matrix: %s", e)
+
+    def _log_affinity_summary_statistics(self, Z_final: np.ndarray) -> None:
+        """
+        Log comprehensive summary statistics for task affinity analysis.
+
+        This method computes and logs key metrics to help understand task relationships:
+        1. Positive/negative transfer percentages
+        2. Strong affinity pairs (both positive and negative)
+        3. Per-task incoming/outgoing affinity averages
+        4. Symmetry analysis
+        5. Group-level affinity summaries if clustering is enabled
+
+        Parameters
+        ----------
+        Z_final : np.ndarray
+            Final affinity matrix of shape (n_tasks, n_tasks).
+        """
+        try:
+            n_tasks = len(self.target_cols)
+
+            # 1. Positive vs Negative Transfer Statistics
+            mask = ~np.eye(n_tasks, dtype=bool)  # Exclude diagonal
+            off_diag_values = Z_final[mask]
+
+            positive_count = np.sum(off_diag_values > 0)
+            negative_count = np.sum(off_diag_values < 0)
+            near_zero_count = np.sum(np.abs(off_diag_values) < 0.05)
+
+            total_pairs = len(off_diag_values)
+            pct_positive = 100.0 * positive_count / total_pairs
+            pct_negative = 100.0 * negative_count / total_pairs
+            pct_neutral = 100.0 * near_zero_count / total_pairs
+
+            mlflow.log_metric("affinity/summary/pct_positive_transfer", float(pct_positive))
+            mlflow.log_metric("affinity/summary/pct_negative_transfer", float(pct_negative))
+            mlflow.log_metric("affinity/summary/pct_neutral_transfer", float(pct_neutral))
+            mlflow.log_metric("affinity/summary/mean_off_diagonal", float(np.mean(off_diag_values)))
+            mlflow.log_metric("affinity/summary/std_off_diagonal", float(np.std(off_diag_values)))
+            mlflow.log_metric("affinity/summary/max_affinity", float(np.max(off_diag_values)))
+            mlflow.log_metric("affinity/summary/min_affinity", float(np.min(off_diag_values)))
+
+            logger.info(
+                "Task Affinity Summary: %.1f%% positive, %.1f%% negative, %.1f%% neutral (|Z|<0.05)",
+                pct_positive,
+                pct_negative,
+                pct_neutral,
+            )
+
+            # 2. Identify Strong Affinity Pairs
+            # Find top-5 positive and top-5 negative task pairs
+            strong_pairs_dict = {}
+
+            # Get upper triangle indices (avoid duplicates since matrix may be asymmetric)
+            for threshold, pair_type in [(0.3, "strong_positive"), (-0.3, "strong_negative")]:
+                pairs = []
+                for i in range(n_tasks):
+                    for j in range(n_tasks):
+                        if i != j:
+                            val = Z_final[i, j]
+                            if (pair_type == "strong_positive" and val > threshold) or (
+                                pair_type == "strong_negative" and val < threshold
+                            ):
+                                pairs.append((self.target_cols[i], self.target_cols[j], val))
+
+                # Sort by absolute value
+                pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+                strong_pairs_dict[pair_type] = pairs[:5]
+
+            # Log strong pairs as JSON artifact
+            import json
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix="_strong_pairs.json", delete=False) as spf:
+                json.dump(strong_pairs_dict, spf, indent=2)
+                mlflow.log_artifact(spf.name, "inter_task_affinity")
+
+            # 3. Per-Task Affinity Summaries
+            # For each task, compute average incoming and outgoing affinity
+            task_summaries = {}
+            for i, task in enumerate(self.target_cols):
+                # Incoming: how much other tasks help this task (column j, average over i)
+                incoming_affinities = [Z_final[k, i] for k in range(n_tasks) if k != i]
+                avg_incoming = float(np.mean(incoming_affinities))
+
+                # Outgoing: how much this task helps others (row i, average over j)
+                outgoing_affinities = [Z_final[i, k] for k in range(n_tasks) if k != i]
+                avg_outgoing = float(np.mean(outgoing_affinities))
+
+                task_summaries[task] = {
+                    "avg_incoming_affinity": avg_incoming,
+                    "avg_outgoing_affinity": avg_outgoing,
+                    "net_contribution": avg_outgoing,  # Positive = helps others
+                    "receives_benefit": avg_incoming,  # Positive = helped by others
+                }
+
+                # Log per-task metrics
+                mlflow.log_metric(f"affinity/per_task/{_sanitize(task)}/avg_incoming", avg_incoming)
+                mlflow.log_metric(f"affinity/per_task/{_sanitize(task)}/avg_outgoing", avg_outgoing)
+                mlflow.log_metric(f"affinity/per_task/{_sanitize(task)}/net_contribution", avg_outgoing)
+
+            # Save task summaries as JSON
+            with tempfile.NamedTemporaryFile(mode="w", suffix="_task_summaries.json", delete=False) as tsf:
+                json.dump(task_summaries, tsf, indent=2)
+                mlflow.log_artifact(tsf.name, "inter_task_affinity")
+
+            # 4. Symmetry Analysis
+            # Check how symmetric the affinity matrix is (Z_ij vs Z_ji)
+            symmetry_diffs = []
+            for i in range(n_tasks):
+                for j in range(i + 1, n_tasks):
+                    diff = abs(Z_final[i, j] - Z_final[j, i])
+                    symmetry_diffs.append(diff)
+
+            avg_asymmetry = float(np.mean(symmetry_diffs))
+            max_asymmetry = float(np.max(symmetry_diffs))
+
+            mlflow.log_metric("affinity/summary/avg_asymmetry", avg_asymmetry)
+            mlflow.log_metric("affinity/summary/max_asymmetry", max_asymmetry)
+
+            logger.info(
+                "Affinity matrix asymmetry: mean=%.4f, max=%.4f (lower is more symmetric)", avg_asymmetry, max_asymmetry
+            )
+
+            # 5. Log readable summary report
+            summary_report = self._generate_affinity_report(
+                Z_final,
+                task_summaries,
+                strong_pairs_dict,
+                float(pct_positive),
+                float(pct_negative),
+                float(avg_asymmetry),
+            )
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix="_affinity_report.txt", delete=False) as rf:
+                rf.write(summary_report)
+                mlflow.log_artifact(rf.name, "inter_task_affinity")
+
+            logger.info("Affinity summary statistics logged to MLflow")
+
+        except Exception as e:
+            logger.warning("Failed to log affinity summary statistics: %s", e)
+
+    def _generate_affinity_report(
+        self,
+        Z_final: np.ndarray,
+        task_summaries: Dict[str, Dict[str, float]],
+        strong_pairs: Dict[str, List[Tuple[str, str, float]]],
+        pct_positive: float,
+        pct_negative: float,
+        avg_asymmetry: float,
+    ) -> str:
+        """Generate a human-readable affinity analysis report."""
+        lines = [
+            "=" * 80,
+            "TASK AFFINITY ANALYSIS REPORT",
+            "=" * 80,
+            "",
+            "Overall Statistics:",
+            f"  - Positive Transfer: {pct_positive:.1f}% of task pairs",
+            f"  - Negative Transfer: {pct_negative:.1f}% of task pairs",
+            f"  - Avg Asymmetry: {avg_asymmetry:.4f}",
+            "",
+            "=" * 80,
+            "TOP POSITIVE AFFINITY PAIRS (Strong Synergies):",
+            "=" * 80,
+        ]
+
+        for task_i, task_j, affinity in strong_pairs.get("strong_positive", []):
+            lines.append(f"  {task_i:40s} → {task_j:40s} : {affinity:+.4f}")
+
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                "TOP NEGATIVE AFFINITY PAIRS (Potential Interference):",
+                "=" * 80,
+            ]
+        )
+
+        for task_i, task_j, affinity in strong_pairs.get("strong_negative", []):
+            lines.append(f"  {task_i:40s} → {task_j:40s} : {affinity:+.4f}")
+
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                "PER-TASK SUMMARY (Incoming/Outgoing Affinity):",
+                "=" * 80,
+                f"{'Task':<45s} {'Incoming':>12s} {'Outgoing':>12s} {'Interpretation':<30s}",
+                "-" * 80,
+            ]
+        )
+
+        # Sort tasks by net contribution
+        sorted_tasks = sorted(task_summaries.items(), key=lambda x: x[1]["net_contribution"], reverse=True)
+
+        for task, stats in sorted_tasks:
+            incoming = stats["avg_incoming_affinity"]
+            outgoing = stats["avg_outgoing_affinity"]
+
+            # Interpretation
+            if outgoing > 0.2 and incoming > 0.2:
+                interp = "Synergistic (helps & helped)"
+            elif outgoing > 0.2:
+                interp = "Contributor (helps others)"
+            elif incoming > 0.2:
+                interp = "Beneficiary (helped by others)"
+            elif outgoing < -0.1:
+                interp = "Interfering (hurts others)"
+            else:
+                interp = "Independent"
+
+            lines.append(f"{task:<45s} {incoming:>12.4f} {outgoing:>12.4f} {interp:<30s}")
+
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                "RECOMMENDATIONS FOR TASK GROUPING:",
+                "=" * 80,
+            ]
+        )
+
+        # Provide recommendations based on affinity patterns
+        high_synergy_count = sum(
+            1
+            for _, stats in task_summaries.items()
+            if stats["avg_incoming_affinity"] > 0.2 and stats["avg_outgoing_affinity"] > 0.2
+        )
+
+        if pct_positive > 70:
+            lines.append("  ✓ High overall positive transfer (>70%) suggests tasks benefit from joint training")
+            lines.append("  ✓ Consider using 1-2 groups to maximize knowledge sharing")
+        elif pct_negative > 30:
+            lines.append("  ⚠ Significant negative transfer (>30%) detected")
+            lines.append("  ⚠ Consider using 3+ groups to isolate conflicting tasks")
+        else:
+            lines.append("  • Mixed transfer patterns - use affinity matrix to guide grouping")
+            lines.append(f"  • Detected {high_synergy_count}/{len(task_summaries)} synergistic tasks")
+
+        lines.append("")
+        lines.append("=" * 80)
+
+        return "\n".join(lines)
+
+    def _log_group_affinity_analysis(
+        self,
+        Z_final: np.ndarray,
+        groups: List[List[str]],
+        labels: Optional[np.ndarray],
+    ) -> None:
+        """
+        Compute and log inter-group and intra-group affinity statistics.
+
+        This helps answer: "Should I split my 9 tasks into separate model subgroups?"
+
+        Parameters
+        ----------
+        Z_final : np.ndarray
+            Final affinity matrix.
+        groups : List[List[str]]
+            Task groups from clustering.
+        labels : np.ndarray
+            Cluster labels for each task.
+        """
+        try:
+            n_groups = len(groups)
+            task_to_idx = {task: i for i, task in enumerate(self.target_cols)}
+
+            # Compute intra-group and inter-group affinities
+            intra_group_affinities = []
+            inter_group_affinities = []
+
+            group_stats = {}
+
+            for g_idx, group in enumerate(groups):
+                # Intra-group affinity (within this group)
+                group_indices = [task_to_idx[task] for task in group]
+                intra_values = []
+
+                for i in group_indices:
+                    for j in group_indices:
+                        if i != j:
+                            intra_values.append(Z_final[i, j])
+
+                if intra_values:
+                    avg_intra = float(np.mean(intra_values))
+                    intra_group_affinities.extend(intra_values)
+                else:
+                    avg_intra = 0.0
+
+                group_stats[g_idx] = {
+                    "group_id": g_idx,
+                    "tasks": group,
+                    "size": len(group),
+                    "avg_intra_affinity": avg_intra,
+                }
+
+            # Inter-group affinity (between different groups)
+            for g1_idx in range(n_groups):
+                for g2_idx in range(g1_idx + 1, n_groups):
+                    group1_indices = [task_to_idx[task] for task in groups[g1_idx]]
+                    group2_indices = [task_to_idx[task] for task in groups[g2_idx]]
+
+                    inter_values = []
+                    for i in group1_indices:
+                        for j in group2_indices:
+                            inter_values.append(Z_final[i, j])
+                            inter_values.append(Z_final[j, i])  # Both directions
+
+                    if inter_values:
+                        inter_group_affinities.extend(inter_values)
+
+            # Compute summary statistics
+            avg_intra_overall: float = float(np.mean(intra_group_affinities)) if intra_group_affinities else 0.0
+            avg_inter_overall: float = float(np.mean(inter_group_affinities)) if inter_group_affinities else 0.0
+
+            # Key metric: intra-group affinity should be higher than inter-group
+            separation_quality = avg_intra_overall - avg_inter_overall
+
+            mlflow.log_metric("affinity/groups/avg_intra_group_affinity", float(avg_intra_overall))
+            mlflow.log_metric("affinity/groups/avg_inter_group_affinity", float(avg_inter_overall))
+            mlflow.log_metric("affinity/groups/separation_quality", float(separation_quality))
+            mlflow.log_metric("affinity/groups/num_groups", float(n_groups))
+
+            # Log per-group statistics
+            for g_idx, stats in group_stats.items():
+                size_val = cast(float, stats.get("size", 0.0))
+                mlflow.log_metric(f"affinity/groups/group_{g_idx}/size", float(size_val))
+                intra_val = cast(float, stats.get("avg_intra_affinity", float("nan")))
+                mlflow.log_metric(
+                    f"affinity/groups/group_{g_idx}/avg_intra_affinity",
+                    float(intra_val),
+                )
+
+            # Save group analysis report
+            import json
+            import tempfile
+
+            group_analysis = {
+                "num_groups": n_groups,
+                "avg_intra_group_affinity": avg_intra_overall,
+                "avg_inter_group_affinity": avg_inter_overall,
+                "separation_quality": separation_quality,
+                "groups": group_stats,
+                "recommendation": (
+                    self._get_grouping_recommendation(avg_intra_overall, avg_inter_overall, separation_quality)
+                ),
+            }
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix="_group_analysis.json", delete=False) as gaf:
+                json.dump(group_analysis, gaf, indent=2)
+                mlflow.log_artifact(gaf.name, "inter_task_affinity")
+
+            logger.info(
+                "Group Affinity: Intra=%.4f, Inter=%.4f, Separation=%.4f (higher is better)",
+                avg_intra_overall,
+                avg_inter_overall,
+                separation_quality,
+            )
+
+        except Exception as e:
+            logger.warning("Failed to log group affinity analysis: %s", e)
+
+    def _get_grouping_recommendation(
+        self,
+        avg_intra: float,
+        avg_inter: float,
+        separation: float,
+    ) -> str:
+        """Generate recommendation for task grouping based on affinity analysis."""
+        if separation > 0.3:
+            return (
+                "STRONG SEPARATION: Groups are well-separated with high intra-group affinity. "
+                "This grouping is RECOMMENDED - train separate models for each group."
+            )
+        elif separation > 0.1:
+            return (
+                "MODERATE SEPARATION: Groups show some separation. "
+                "Consider training separate models, but also test joint training with task weighting."
+            )
+        elif separation > -0.1:
+            return (
+                "WEAK SEPARATION: Groups have similar intra/inter-group affinity. "
+                "Grouping may not provide significant benefit - consider joint training with 1-2 groups."
+            )
+        else:
+            return (
+                "POOR SEPARATION: Inter-group affinity is higher than intra-group affinity. "
+                "This suggests the clustering is not optimal - try different n_groups or joint training."
+            )
 
     def get_affinity_matrix(self) -> np.ndarray:
         """

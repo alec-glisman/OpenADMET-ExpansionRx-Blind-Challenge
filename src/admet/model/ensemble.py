@@ -260,18 +260,23 @@ class Ensemble(MLflowMixin):
             msg = f"Unknown aggregation method: {self.aggregation}"
             raise ValueError(msg)
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path, compress: bool = True) -> None:
         """Save ensemble to disk.
 
         Parameters
         ----------
         path : str | Path
             Directory path to save ensemble.
+        compress : bool, default=True
+            Whether to compress the saved models (reduces size 50-80%).
         """
         import joblib
 
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
+
+        # Use compression level 3 (good balance of speed vs size)
+        compress_level = 3 if compress else 0
 
         metadata = {
             "model_type": self.model_type,
@@ -279,13 +284,13 @@ class Ensemble(MLflowMixin):
             "aggregation": self.aggregation,
             "config": OmegaConf.to_container(self.config, resolve=True),
         }
-        joblib.dump(metadata, path / "metadata.pkl")
+        joblib.dump(metadata, path / "metadata.pkl", compress=compress_level)
 
         for i, model in enumerate(self.models):
             # Save entire model object to preserve state
-            joblib.dump(model, path / f"model_{i}.pkl")
+            joblib.dump(model, path / f"model_{i}.pkl", compress=compress_level)
 
-        logger.info(f"Ensemble saved to {path}")
+        logger.info("Ensemble saved to %s (compressed=%s)", path, compress)
 
     def load(self, path: str | Path) -> Ensemble:
         """Load ensemble from disk.

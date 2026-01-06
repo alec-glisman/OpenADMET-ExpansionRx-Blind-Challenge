@@ -17,13 +17,14 @@ if TYPE_CHECKING:
     pass
 
 
-def _build_parameter_space(param: ParameterSpace) -> Any:
+def _build_parameter_space(param: ParameterSpace | dict[str, Any]) -> Any:
     """Convert a ParameterSpace config to a Ray Tune search space object.
 
     Parameters
     ----------
-    param : ParameterSpace
+    param : ParameterSpace | dict[str, Any]
         ParameterSpace configuration specifying the distribution type and bounds.
+        Can be a ParameterSpace dataclass instance or a dict with the same fields.
 
     Returns
     -------
@@ -35,42 +36,57 @@ def _build_parameter_space(param: ParameterSpace) -> Any:
     ValueError
         If parameter type is unknown or required fields are missing.
     """
-    if param.type == "uniform":
-        if param.low is None or param.high is None:
+    # Handle both ParameterSpace objects and plain dicts
+    if isinstance(param, dict):
+        param_type = param.get("type")
+        param_low = param.get("low")
+        param_high = param.get("high")
+        param_values = param.get("values")
+        param_q = param.get("q")
+    else:
+        param_type = param.type
+        param_low = param.low
+        param_high = param.high
+        param_values = param.values
+        param_q = param.q
+
+    if param_type == "uniform":
+        if param_low is None or param_high is None:
             raise ValueError("uniform distribution requires 'low' and 'high'")
-        return tune.uniform(param.low, param.high)
+        return tune.uniform(param_low, param_high)
 
-    elif param.type == "loguniform":
-        if param.low is None or param.high is None:
+    elif param_type == "loguniform":
+        if param_low is None or param_high is None:
             raise ValueError("loguniform distribution requires 'low' and 'high'")
-        return tune.loguniform(param.low, param.high)
+        return tune.loguniform(param_low, param_high)
 
-    elif param.type == "quniform":
-        if param.low is None or param.high is None or param.q is None:
+    elif param_type == "quniform":
+        if param_low is None or param_high is None or param_q is None:
             raise ValueError("quniform distribution requires 'low', 'high', and 'q'")
-        return tune.quniform(param.low, param.high, param.q)
+        return tune.quniform(param_low, param_high, param_q)
 
-    elif param.type == "choice":
-        if param.values is None:
+    elif param_type == "choice":
+        if param_values is None:
             raise ValueError("choice distribution requires 'values'")
-        return tune.choice(param.values)
+        return tune.choice(param_values)
 
-    elif param.type == "randint":
-        if param.low is None or param.high is None:
+    elif param_type == "randint":
+        if param_low is None or param_high is None:
             raise ValueError("randint distribution requires 'low' and 'high'")
-        return tune.randint(int(param.low), int(param.high))
+        return tune.randint(int(param_low), int(param_high))
 
-    elif param.type == "qrandint":
-        if param.low is None or param.high is None or param.q is None:
+    elif param_type == "qrandint":
+        if param_low is None or param_high is None or param_q is None:
             raise ValueError("qrandint distribution requires 'low', 'high', and 'q'")
-        return tune.qrandint(int(param.low), int(param.high), int(param.q))
+        return tune.qrandint(int(param_low), int(param_high), int(param_q))
 
     else:
-        raise ValueError(f"Unknown parameter type: {param.type}")
+        raise ValueError(f"Unknown parameter type: {param_type}")
 
 
 def build_chemeleon_search_space(
     config: ChemeleonSearchSpaceConfig,
+    target_columns: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a Ray Tune search space dictionary from ChemeleonSearchSpaceConfig.
 
@@ -83,6 +99,9 @@ def build_chemeleon_search_space(
     ----------
     config : ChemeleonSearchSpaceConfig
         Search space configuration for CheMeleon HPO.
+    target_columns : list[str] | None
+        Optional list of target column names. If provided, per-target
+        weight parameters will be added to the search space.
 
     Returns
     -------
@@ -102,6 +121,9 @@ def build_chemeleon_search_space(
     >>> "learning_rate" in space
     True
     """
+    # target_columns reserved for future per-target weight search space support
+    _ = target_columns
+
     space: dict[str, Any] = {}
 
     # Simple parameters (no conditions)
@@ -112,11 +134,14 @@ def build_chemeleon_search_space(
         "warmup_epochs",
         "patience",
         "dropout",
+        "weight_decay",
         "ffn_type",
         "ffn_num_layers",
         "ffn_hidden_dim",
         "batch_size",
         "batch_norm",
+        "freeze_encoder",
+        "unfreeze_encoder_lr_multiplier",
     ]
 
     for param_name in simple_params:
@@ -141,25 +166,25 @@ def build_chemeleon_search_space(
         else:
             space["n_experts"] = _build_parameter_space(config.n_experts)
 
-    # Conditional parameters for Branched FFN (trunk_n_layers)
-    if config.trunk_n_layers is not None:
-        if config.trunk_n_layers.conditional_on == "ffn_type":
-            branched_conditional_values = config.trunk_n_layers.conditional_values or ["branched"]
-            trunk_n_layers_config = config.trunk_n_layers
+    # Conditional parameters for Branched FFN (trunk_depth)
+    if config.trunk_depth is not None:
+        if config.trunk_depth.conditional_on == "ffn_type":
+            branched_conditional_values = config.trunk_depth.conditional_values or ["branched"]
+            trunk_depth_config = config.trunk_depth
 
-            def sample_trunk_n_layers(config_dict: dict[str, Any]) -> int | None:
-                """Sample trunk_n_layers only for branched FFN types."""
+            def sample_trunk_depth(config_dict: dict[str, Any]) -> int | None:
+                """Sample trunk_depth only for branched FFN types."""
                 if config_dict.get("ffn_type") in branched_conditional_values:
-                    if trunk_n_layers_config.low is not None and trunk_n_layers_config.high is not None:
+                    if trunk_depth_config.low is not None and trunk_depth_config.high is not None:
                         return random.randint(
-                            int(trunk_n_layers_config.low),
-                            int(trunk_n_layers_config.high),
+                            int(trunk_depth_config.low),
+                            int(trunk_depth_config.high),
                         )
                 return None
 
-            space["trunk_n_layers"] = tune.sample_from(sample_trunk_n_layers)
+            space["trunk_depth"] = tune.sample_from(sample_trunk_depth)
         else:
-            space["trunk_n_layers"] = _build_parameter_space(config.trunk_n_layers)
+            space["trunk_depth"] = _build_parameter_space(config.trunk_depth)
 
     # Conditional parameters for Branched FFN (trunk_hidden_dim)
     if config.trunk_hidden_dim is not None:
@@ -182,5 +207,39 @@ def build_chemeleon_search_space(
             space["trunk_hidden_dim"] = tune.sample_from(sample_trunk_hidden_dim)
         else:
             space["trunk_hidden_dim"] = _build_parameter_space(config.trunk_hidden_dim)
+
+    # Conditional parameter for encoder unfreezing (only when freeze_encoder=True)
+    if config.unfreeze_encoder_epoch is not None:
+        if config.unfreeze_encoder_epoch.conditional_on == "freeze_encoder":
+            unfreeze_epoch_config = config.unfreeze_encoder_epoch
+            conditional_values = config.unfreeze_encoder_epoch.conditional_values or [True]
+
+            def sample_unfreeze_epoch(config_dict: dict[str, Any]) -> int | None:
+                """Sample unfreeze_encoder_epoch only when freeze_encoder=True."""
+                if config_dict.get("freeze_encoder") in conditional_values:
+                    if unfreeze_epoch_config.low is not None and unfreeze_epoch_config.high is not None:
+                        return random.randint(
+                            int(unfreeze_epoch_config.low),
+                            int(unfreeze_epoch_config.high),
+                        )
+                return None
+
+            space["unfreeze_encoder_epoch"] = tune.sample_from(sample_unfreeze_epoch)
+        else:
+            space["unfreeze_encoder_epoch"] = _build_parameter_space(config.unfreeze_encoder_epoch)
+
+    # Joint sampling parameters (if specified in search space)
+    if config.joint_sampling is not None and isinstance(config.joint_sampling, dict):
+        joint_config = config.joint_sampling
+
+        # joint_sampling.enabled
+        if "enabled" in joint_config and joint_config["enabled"] is not None:
+            space["joint_sampling_enabled"] = _build_parameter_space(joint_config["enabled"])
+
+        # joint_sampling.task_oversampling.alpha
+        if "task_oversampling" in joint_config and joint_config["task_oversampling"] is not None:
+            task_oversample_config = joint_config["task_oversampling"]
+            if "alpha" in task_oversample_config and task_oversample_config["alpha"] is not None:
+                space["joint_sampling_alpha"] = _build_parameter_space(task_oversample_config["alpha"])
 
     return space

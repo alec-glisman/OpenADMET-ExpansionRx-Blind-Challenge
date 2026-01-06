@@ -16,8 +16,10 @@ from omegaconf import DictConfig, OmegaConf
 
 from admet.features.fingerprints import FingerprintGenerator
 from admet.model.base import BaseModel
+from admet.model.chemprop.config import ProfilingConfig
 from admet.model.config import FingerprintConfig
 from admet.model.mlflow_mixin import MLflowMixin
+from admet.util.profiling import TrainingPhase, TrainingProfiler
 
 if TYPE_CHECKING:
     from sklearn.multioutput import MultiOutputRegressor
@@ -46,15 +48,19 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
 
     model_type: str = "classical"
 
-    def __init__(self, config: DictConfig) -> None:
+    def __init__(self, config: DictConfig, profiling_config: ProfilingConfig | None = None) -> None:
         """Initialize classical model base.
 
         Parameters
         ----------
         config : DictConfig
             Configuration dictionary with model, fingerprint, and MLflow settings.
+        profiling_config : ProfilingConfig | None
+            Optional profiling configuration to override defaults.
+            If None, profiling is enabled by default.
         """
         self.config = config
+        self._profiling_config = profiling_config
         self._is_fitted = False
         self._model: MultiOutputRegressor | None = None
         self._target_cols: list[str] = []
@@ -62,6 +68,19 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         self._model_params = self._get_model_params()
         self._fingerprint_config = self._get_fingerprint_config()
         self.fingerprint_generator = FingerprintGenerator(self._fingerprint_config)
+
+        # Initialize profiler for tracking phase-level performance
+        if self._profiling_config is not None:
+            self._profiler = TrainingProfiler(
+                name=self.model_type,
+                enabled=self._profiling_config.enabled,
+            )
+        else:
+            # Default: profiling enabled
+            self._profiler = TrainingProfiler(
+                name=self.model_type,
+                enabled=True,
+            )
 
         mlflow_config = config.get("mlflow", {})
         if mlflow_config.get("enabled", False):
@@ -187,9 +206,14 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         """
         from sklearn.multioutput import MultiOutputRegressor
 
+        # Start profiler for overall training timing
+        self._profiler.start()
+
         logger.info(f"Fitting {self.model_type} model on {len(smiles)} samples")
 
-        X = self._generate_features(smiles)
+        with self._profiler.phase(TrainingPhase.FEATURE_GENERATION):
+            X = self._generate_features(smiles)
+
         y = np.atleast_2d(targets)
         if y.shape[0] == 1:
             y = y.T
@@ -197,23 +221,48 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
         n_targets = y.shape[1]
         self._target_cols = [f"target_{i}" for i in range(n_targets)]
 
-        base_estimator = self._build_estimator(self._model_params)
-        self._model = MultiOutputRegressor(base_estimator)
+        with self._profiler.phase(TrainingPhase.MODEL_INIT):
+            base_estimator = self._build_estimator(self._model_params)
+            self._model = MultiOutputRegressor(base_estimator)
 
         fit_params = {}
         if sample_weight is not None:
             fit_params["sample_weight"] = sample_weight
 
-        self._model.fit(X, y, **fit_params)
-        self._is_fitted = True
+        try:
+            with self._profiler.phase(TrainingPhase.TRAINING_TOTAL):
+                self._model.fit(X, y, **fit_params)
+            self._is_fitted = True
 
-        if hasattr(self, "_mlflow_run") and self._mlflow_run:
-            self.log_params_from_config()
-            self.log_metric("n_samples", len(smiles))
-            self.log_metric("n_features", X.shape[1])
-            self.log_metric("n_targets", n_targets)
+            if hasattr(self, "_mlflow_run") and self._mlflow_run:
+                self.log_params_from_config()
+                self.log_metric("n_samples", len(smiles))
+                self.log_metric("n_features", X.shape[1])
+                self.log_metric("n_targets", n_targets)
 
-        logger.info(f"{self.model_type} model fitted successfully")
+            logger.info(f"{self.model_type} model fitted successfully")
+
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user. Saving profiling info...")
+        except Exception as e:
+            logger.error("Training failed with error: %s", e)
+            raise
+        finally:
+            # Stop profiler and print summary (always, even on interrupt)
+            self._profiler.stop()
+            if self._profiling_config is None or self._profiling_config.print_summary:
+                self._profiler.print_summary()
+
+            # Log profiling metrics to MLflow
+            log_to_mlflow = self._profiling_config is None or self._profiling_config.log_to_mlflow
+            if log_to_mlflow and hasattr(self, "_mlflow_client") and self._mlflow_client is not None:
+                if hasattr(self, "_mlflow_run_id") and self._mlflow_run_id is not None:
+                    self._profiler.log_to_mlflow(
+                        prefix="profiling",
+                        client=self._mlflow_client,
+                        run_id=self._mlflow_run_id,
+                    )
+
         return self
 
     def predict(self, smiles: list[str], **kwargs: Any) -> np.ndarray:
@@ -245,13 +294,15 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
 
         return predictions
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path, compress: bool = True) -> None:
         """Save model to disk.
 
         Parameters
         ----------
         path : str | Path
             Path to save the model.
+        compress : bool, default=True
+            Whether to compress the saved model (reduces size 50-80%).
         """
         import joblib
 
@@ -266,8 +317,10 @@ class ClassicalModelBase(BaseModel, MLflowMixin):
             "is_fitted": self._is_fitted,
         }
 
-        joblib.dump(model_data, path)
-        logger.info(f"Model saved to {path}")
+        # Use compression level 3 (good balance of speed vs size)
+        compress_level = 3 if compress else 0
+        joblib.dump(model_data, path, compress=compress_level)
+        logger.info("Model saved to %s (compressed=%s)", path, compress)
 
     def load(self, path: str | Path) -> ClassicalModelBase:
         """Load model from disk.

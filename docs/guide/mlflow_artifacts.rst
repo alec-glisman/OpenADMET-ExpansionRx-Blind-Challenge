@@ -24,7 +24,7 @@ The parent run contains aggregated predictions and metrics across all 25 models.
 
 .. code-block:: text
 
-   Parent Run: production_ensemble_chemprop_hpo_topk/rank_001
+   Parent Run: chemprop_hpo_ensemble_topk_production/rank_001
    │
    ├── predictions/
    │   ├── test_ensemble_predictions.csv         # Detailed test predictions
@@ -220,7 +220,7 @@ Via MLflow UI
    mlflow ui --backend-store-uri sqlite:///mlflow.db --port 8084
 
    # Navigate to http://localhost:8084
-   # Select experiment: production_ensemble_chemprop_hpo_topk
+   # Select experiment: chemprop_hpo_ensemble_topk_production
    # Select run: rank_001
    # Click "Artifacts" tab
 

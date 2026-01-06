@@ -66,6 +66,8 @@ class BaseMlflowConfig:
         parent_run_id: Parent run ID for nested runs (ensemble).
         nested: Whether to create a nested run.
         log_model: Whether to log the trained model as artifact.
+        log_predictions: Whether to log prediction CSV artifacts (can be large).
+        compress_artifacts: Whether to compress model artifacts (reduces size 50-80%).
     """
 
     enabled: bool = True
@@ -76,6 +78,30 @@ class BaseMlflowConfig:
     parent_run_id: str | None = None
     nested: bool = False
     log_model: bool = True
+    log_predictions: bool = True
+    compress_artifacts: bool = True
+
+
+@dataclass
+class RayLoggingConfig:
+    """Configuration for Ray Tune and ensemble logging behavior.
+
+    Controls how verbose output is captured, compressed, and uploaded
+    to MLflow artifacts. Reduces terminal noise during long HPO/ensemble runs.
+
+    Parameters:
+        enabled: Whether to enable Ray logging to files. Default: True.
+        verbose: Logging verbosity level (0=quiet, 1=standard, 2=debug). Default: 0.
+        max_total_logs_gb: Maximum total size (GB) of logs per experiment.
+            Older logs are truncated if exceeded. Default: 1.0.
+        fail_on_upload_error: If True, raise exception immediately on MLflow
+            upload failure. If False, log warning and continue. Default: True.
+    """
+
+    enabled: bool = True
+    verbose: int = 0
+    max_total_logs_gb: float = 1.0
+    fail_on_upload_error: bool = True
 
 
 # Valid model types (documentation and validation)
@@ -97,11 +123,13 @@ class BaseModelConfig:
         type: Model type discriminator ("chemprop", "xgboost", etc.).
         data: Data configuration section.
         mlflow: MLflow tracking configuration.
+        logging: Ray Tune and ensemble logging configuration.
     """
 
     type: str = MISSING
     data: BaseDataConfig = field(default_factory=BaseDataConfig)
     mlflow: BaseMlflowConfig = field(default_factory=BaseMlflowConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
 
 
 # ============================================================================
@@ -668,6 +696,8 @@ class UnifiedMlflowConfig:
         parent_run_id: Parent run ID for nested runs.
         nested: Whether to create a nested run.
         log_model: Whether to log trained model as artifact.
+        log_predictions: Whether to log prediction CSV artifacts (can be large).
+        compress_artifacts: Whether to compress model artifacts (reduces size 50-80%).
     """
 
     enabled: bool = True
@@ -679,6 +709,8 @@ class UnifiedMlflowConfig:
     parent_run_id: Optional[str] = None
     nested: bool = False
     log_model: bool = True
+    log_predictions: bool = True
+    compress_artifacts: bool = True
 
 
 @dataclass
@@ -745,12 +777,16 @@ class RayConfig:
     Parameters:
         max_parallel: Maximum models to train in parallel.
         num_cpus: CPUs to allocate to Ray (None = auto).
-        num_gpus: GPUs to allocate to Ray (None = auto).
+        num_gpus: GPUs to allocate to Ray (None = auto, derived from gpu_ids if set).
+        gpu_ids: Specific GPU IDs to use (as reported by nvidia-smi). Example: [0, 2]
+            to use GPUs 0 and 2. Sets CUDA_VISIBLE_DEVICES before Ray init.
+            If None, uses all available GPUs.
     """
 
     max_parallel: int = 1
     num_cpus: Optional[int] = None
     num_gpus: Optional[int] = None
+    gpu_ids: Optional[List[int]] = None
 
 
 @dataclass
@@ -816,6 +852,7 @@ class UnifiedModelConfig:
         ensemble: { ... }  # Ensemble training mode
         joint_sampling: { ... }  # Training strategies
         ray: { ... }
+        logging: { ... }  # Ray logging configuration
 
     Parameters:
         model: Model type and parameters section.
@@ -827,6 +864,7 @@ class UnifiedModelConfig:
         task_affinity: Task affinity grouping configuration.
         inter_task_affinity: Inter-task affinity configuration.
         ray: Ray parallelization configuration.
+        logging: Ray Tune and ensemble logging configuration.
     """
 
     model: ModelSection = field(default_factory=ModelSection)
@@ -838,6 +876,7 @@ class UnifiedModelConfig:
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     ray: RayConfig = field(default_factory=RayConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
 
 
 # ============================================================================

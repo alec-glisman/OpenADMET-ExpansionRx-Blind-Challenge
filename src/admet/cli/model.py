@@ -276,15 +276,37 @@ def train_chemprop(
 def ensemble(
     config: str = typer.Option(..., "--config", "-c", help="Ensemble config YAML"),
     max_parallel: Optional[int] = typer.Option(None, "--max-parallel", help="Max parallel models"),
+    logging_verbose: Optional[int] = typer.Option(
+        None, "--logging-verbose", help="Logging verbosity level (0=quiet, 1=standard, 2=debug)"
+    ),
+    no_logging: bool = typer.Option(False, "--no-logging", help="Disable Ray logging to artifacts"),
 ) -> None:
     """Train an ensemble using a Chemprop ensemble config.
 
     Example:
         admet model ensemble --config configs/0-experiment/ensemble_chemprop_production.yaml --max-parallel 2
     """
+    import os
+
+    # CRITICAL: Set CUDA_VISIBLE_DEVICES BEFORE importing the ensemble module
+    # PyTorch caches CUDA device list at import time, so we must set this first
+    from omegaconf import DictConfig, ListConfig, OmegaConf
+
+    raw_config: DictConfig | ListConfig = OmegaConf.load(config)
+    ray_cfg = raw_config.get("ray") if isinstance(raw_config, DictConfig) else None
+    gpu_ids = ray_cfg.get("gpu_ids") if ray_cfg is not None else None
+    if gpu_ids is not None and len(gpu_ids) > 0:
+        cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
+        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+        logger.info(f"Set CUDA_VISIBLE_DEVICES={cuda_visible_devices} before module import")
+
     args = ["--config", config]
     if max_parallel is not None:
         args += ["--max-parallel", str(max_parallel)]
+    if logging_verbose is not None:
+        args += ["--logging-verbose", str(logging_verbose)]
+    if no_logging:
+        args += ["--no-logging"]
     _run_module_main("admet.model.chemprop.ensemble", args)
 
 
@@ -292,16 +314,67 @@ def ensemble(
 def hpo(
     config: str = typer.Option(..., "--config", "-c", help="HPO config YAML"),
     num_samples: Optional[int] = typer.Option(None, "--num-samples", help="Number of HPO trials"),
+    model_type: Optional[str] = typer.Option(
+        None,
+        "--model-type",
+        "-m",
+        help="Model type (chemprop or chemeleon). Auto-detected from config if not specified.",
+    ),
+    logging_verbose: Optional[int] = typer.Option(
+        None, "--logging-verbose", help="Logging verbosity level (0=quiet, 1=standard, 2=debug)"
+    ),
+    no_logging: bool = typer.Option(False, "--no-logging", help="Disable Ray logging to artifacts"),
 ) -> None:
-    """Run hyperparameter optimization (HPO) using a Chemprop HPO config.
+    """Run hyperparameter optimization (HPO) using a Chemprop or CheMeleon HPO config.
 
-    Example:
+    The model type is auto-detected from the config file. CheMeleon configs contain
+    'checkpoint_path' while Chemprop configs do not. You can also explicitly specify
+    the model type with --model-type.
+
+    Examples:
         admet model hpo --config configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
+        admet model hpo --config configs/1-hpo-single/hpo_chemeleon.yaml
+        admet model hpo --config my_config.yaml --model-type chemeleon
     """
+    import os
+
+    # CRITICAL: Set CUDA_VISIBLE_DEVICES BEFORE importing the HPO module
+    # PyTorch caches CUDA device list at import time, so we must set this first
+    from omegaconf import DictConfig, ListConfig, OmegaConf
+
+    raw_config: DictConfig | ListConfig = OmegaConf.load(config)
+    resources_cfg = raw_config.get("resources") if isinstance(raw_config, DictConfig) else None
+    gpu_ids = resources_cfg.get("gpu_ids") if resources_cfg is not None else None
+    if gpu_ids is not None and len(gpu_ids) > 0:
+        cuda_visible_devices = ",".join(str(g) for g in gpu_ids)
+        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+        logger.info(f"Set CUDA_VISIBLE_DEVICES={cuda_visible_devices} before module import")
+
+    # Auto-detect model type from config if not specified
+    if model_type is None:
+        if "checkpoint_path" in raw_config:
+            model_type = "chemeleon"
+            logger.info("Auto-detected CheMeleon HPO config (checkpoint_path found)")
+        else:
+            model_type = "chemprop"
+            logger.info("Auto-detected Chemprop HPO config")
+
+    # Select appropriate HPO module
+    if model_type.lower() == "chemeleon":
+        module_name = "admet.model.chemeleon.hpo"
+    elif model_type.lower() == "chemprop":
+        module_name = "admet.model.chemprop.hpo"
+    else:
+        raise typer.BadParameter(f"Unknown model type: {model_type}. Use 'chemprop' or 'chemeleon'.")
+
     args = ["--config", config]
     if num_samples is not None:
         args += ["--num-samples", str(num_samples)]
-    _run_module_main("admet.model.chemprop.hpo", args)
+    if logging_verbose is not None:
+        args += ["--logging-verbose", str(logging_verbose)]
+    if no_logging:
+        args += ["--no-logging"]
+    _run_module_main(module_name, args)
 
 
 @model_app.command("list")

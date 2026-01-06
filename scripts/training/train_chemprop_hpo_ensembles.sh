@@ -9,6 +9,7 @@
 #   ./scripts/training/train_chemprop_hpo_ensembles.sh
 #   ./scripts/training/train_chemprop_hpo_ensembles.sh --start 1 --end 10
 #   ./scripts/training/train_chemprop_hpo_ensembles.sh --ranks 1,5,10
+#   ./scripts/training/train_chemprop_hpo_ensembles.sh --config-dir 3-production
 #
 # Environment:
 #   Assumes virtual environment is activated and all dependencies installed.
@@ -21,6 +22,8 @@ START_RANK=1
 END_RANK=100
 SPECIFIC_RANKS=""
 DRY_RUN=false
+CONFIG_DIR="2-hpo-ensemble"
+SKIP_CONFIRMATION=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -37,8 +40,16 @@ while [[ $# -gt 0 ]]; do
     SPECIFIC_RANKS="$2"
     shift 2
     ;;
+  --config-dir)
+    CONFIG_DIR="$2"
+    shift 2
+    ;;
   --dry-run)
     DRY_RUN=true
+    shift
+    ;;
+  -y | --yes)
+    SKIP_CONFIRMATION=true
     shift
     ;;
   -h | --help)
@@ -48,7 +59,10 @@ while [[ $# -gt 0 ]]; do
     echo "  --start N          Start from rank N (default: 1)"
     echo "  --end N            End at rank N (default: 100)"
     echo "  --ranks N,M,K      Train specific ranks only (comma-separated)"
+    echo "  --config-dir DIR   Config directory name (default: 2-hpo-ensemble)"
+    echo "                     Examples: 2-hpo-ensemble, 3-production"
     echo "  --dry-run          Print commands without executing"
+    echo "  -y, --yes          Skip confirmation prompt"
     echo "  -h, --help         Show this help message"
     exit 0
     ;;
@@ -59,15 +73,98 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Function to discover available config files and extract ranks
+discover_available_ranks() {
+  local config_pattern="configs/${CONFIG_DIR}/ensemble_chemprop_hpo_*.yaml"
+  local -a available_ranks=()
+
+  if ! compgen -G "$config_pattern" >/dev/null; then
+    echo "ERROR: No config files found matching: $config_pattern"
+    exit 1
+  fi
+
+  # Extract rank numbers from filenames
+  for config_file in configs/"${CONFIG_DIR}"/ensemble_chemprop_hpo_*.yaml; do
+    if [[ -f "$config_file" ]]; then
+      # Extract the number from ensemble_chemprop_hpo_NNN.yaml
+      local basename
+      basename=$(basename "$config_file")
+      if [[ $basename =~ ensemble_chemprop_hpo_([0-9]+)\.yaml ]]; then
+        local rank="${BASH_REMATCH[1]}"
+        # Remove leading zeros
+        rank=$((10#$rank))
+        available_ranks+=("$rank")
+      fi
+    fi
+  done
+
+  # Sort ranks numerically
+  IFS=$'\n' available_ranks=($(sort -n <<<"${available_ranks[*]}"))
+  unset IFS
+
+  echo "${available_ranks[@]}"
+}
+
+# Function to filter ranks based on user input
+filter_ranks() {
+  local -a all_ranks=("$@")
+  local -a filtered_ranks=()
+
+  if [[ -n "$SPECIFIC_RANKS" ]]; then
+    # Use specific ranks if provided
+    IFS=',' read -ra requested_ranks <<<"$SPECIFIC_RANKS"
+    for requested in "${requested_ranks[@]}"; do
+      for available in "${all_ranks[@]}"; do
+        if [[ "$available" -eq "$requested" ]]; then
+          filtered_ranks+=("$available")
+          break
+        fi
+      done
+    done
+  else
+    # Filter by range
+    for rank in "${all_ranks[@]}"; do
+      if [[ "$rank" -ge "$START_RANK" && "$rank" -le "$END_RANK" ]]; then
+        filtered_ranks+=("$rank")
+      fi
+    done
+  fi
+
+  echo "${filtered_ranks[@]}"
+}
+
+# Function to extract gpu_ids from config and set CUDA_VISIBLE_DEVICES
+extract_gpu_ids() {
+  local config_file=$1
+  # Extract gpu_ids from YAML config using grep and sed
+  # Looking for pattern like: gpu_ids: [1] or gpu_ids: [0, 1, 2]
+  local gpu_line
+  gpu_line=$(grep -E '^\s*gpu_ids:\s*\[' "$config_file" 2>/dev/null || true)
+
+  if [[ -n "$gpu_line" ]]; then
+    # Extract the array contents between [ and ]
+    local gpu_ids
+    gpu_ids=$(echo "$gpu_line" | sed -E 's/.*\[([^]]*)\].*/\1/' | tr -d ' ')
+    if [[ -n "$gpu_ids" && "$gpu_ids" != "null" ]]; then
+      echo "$gpu_ids"
+      return 0
+    fi
+  fi
+
+  # No gpu_ids in config - detect all available GPUs from nvidia-smi
+  if command -v nvidia-smi &>/dev/null; then
+    local all_gpus
+    all_gpus=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+    if [[ -n "$all_gpus" ]]; then
+      echo "$all_gpus"
+    fi
+  fi
+}
+
 # Function to train a single ensemble
 train_ensemble() {
   local rank=$1
-  local config_file="configs/2-hpo-ensemble/ensemble_chemprop_hpo_$(printf "%03d" "$rank").yaml"
-
-  if [[ ! -f "$config_file" ]]; then
-    echo "ERROR: Config file not found: $config_file"
-    return 1
-  fi
+  local config_file="configs/${CONFIG_DIR}/ensemble_chemprop_hpo_$(printf "%03d" "$rank").yaml"
 
   echo "=========================================="
   echo "Training HPO Ensemble Rank $rank"
@@ -75,9 +172,20 @@ train_ensemble() {
   echo "Started at: $(date '+%Y-%m-%d %H:%M:%S')"
   echo "=========================================="
 
+  # Extract gpu_ids and set CUDA_VISIBLE_DEVICES before Python import
+  local gpu_ids
+  gpu_ids=$(extract_gpu_ids "$config_file")
+
+  if [[ -n "$gpu_ids" ]]; then
+    echo "Setting CUDA_VISIBLE_DEVICES=$gpu_ids"
+    export CUDA_VISIBLE_DEVICES="$gpu_ids"
+  else
+    echo "Warning: Could not detect GPUs, CUDA_VISIBLE_DEVICES not set"
+  fi
+
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY RUN] Would execute:"
-    echo "python -m admet.model.chemprop.ensemble --config $config_file"
+    echo "CUDA_VISIBLE_DEVICES=$gpu_ids python -m admet.model.chemprop.ensemble --config $config_file"
     return 0
   fi
 
@@ -98,39 +206,72 @@ train_ensemble() {
 echo "============================================="
 echo "Chemprop HPO Ensemble Training Pipeline"
 echo "============================================="
-echo "Start rank: $START_RANK"
-echo "End rank: $END_RANK"
-echo "Dry run: $DRY_RUN"
+echo "Config directory: configs/$CONFIG_DIR"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================="
 echo ""
+
+# Discover available config files
+echo "Discovering available ensemble configs..."
+read -ra AVAILABLE_RANKS <<<"$(discover_available_ranks)"
+
+if [[ ${#AVAILABLE_RANKS[@]} -eq 0 ]]; then
+  echo "ERROR: No config files found in configs/$CONFIG_DIR/"
+  exit 1
+fi
+
+echo "Found ${#AVAILABLE_RANKS[@]} available configs: ${AVAILABLE_RANKS[*]}"
+echo ""
+
+# Filter ranks based on user input
+echo "Filtering ranks based on input..."
+if [[ -n "$SPECIFIC_RANKS" ]]; then
+  echo "  Requested ranks: $SPECIFIC_RANKS"
+else
+  echo "  Rank range: $START_RANK to $END_RANK"
+fi
+
+read -ra RANKS_TO_RUN <<<"$(filter_ranks "${AVAILABLE_RANKS[@]}")"
+
+if [[ ${#RANKS_TO_RUN[@]} -eq 0 ]]; then
+  echo ""
+  echo "ERROR: No matching config files found for the specified ranks."
+  echo "Available ranks: ${AVAILABLE_RANKS[*]}"
+  exit 1
+fi
+
+echo ""
+echo "============================================="
+echo "Will train ${#RANKS_TO_RUN[@]} ensemble(s):"
+echo "  Ranks: ${RANKS_TO_RUN[*]}"
+echo "  Dry run: $DRY_RUN"
+echo "============================================="
+echo ""
+
+# Ask for confirmation if not in dry-run mode and confirmation not skipped
+if [[ "$DRY_RUN" == "false" && "$SKIP_CONFIRMATION" == "false" ]]; then
+  read -p "Proceed with training? (y/N): " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Training cancelled."
+    exit 0
+  fi
+  echo ""
+fi
 
 # Track success/failure
 SUCCESSFUL=()
 FAILED=()
 
-# Train specific ranks if provided
-if [[ -n "$SPECIFIC_RANKS" ]]; then
-  IFS=',' read -ra RANKS <<<"$SPECIFIC_RANKS"
-  for rank in "${RANKS[@]}"; do
-    if train_ensemble "$rank"; then
-      SUCCESSFUL+=("$rank")
-    else
-      FAILED+=("$rank")
-    fi
-    echo ""
-  done
-else
-  # Train range of ranks
-  for rank in $(seq "$START_RANK" "$END_RANK"); do
-    if train_ensemble "$rank"; then
-      SUCCESSFUL+=("$rank")
-    else
-      FAILED+=("$rank")
-    fi
-    echo ""
-  done
-fi
+# Train each rank
+for rank in "${RANKS_TO_RUN[@]}"; do
+  if train_ensemble "$rank"; then
+    SUCCESSFUL+=("$rank")
+  else
+    FAILED+=("$rank")
+  fi
+  echo ""
+done
 
 # Summary
 echo "============================================="

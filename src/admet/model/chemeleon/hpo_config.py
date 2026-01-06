@@ -14,6 +14,9 @@ from typing import Any
 
 from omegaconf import MISSING
 
+from admet.model.chemprop.config import ProfilingConfig
+from admet.model.config import RayLoggingConfig
+
 
 @dataclass
 class ParameterSpace:
@@ -55,14 +58,19 @@ class ChemeleonSearchSpaceConfig:
         warmup_epochs: Number of warmup epochs search space
         patience: Early stopping patience search space
         dropout: Dropout rate search space
+        weight_decay: Weight decay regularization
         ffn_type: FFN architecture type ('regression', 'mixture_of_experts', 'branched')
         ffn_num_layers: FFN layers search space
         ffn_hidden_dim: FFN hidden dimension search space
         batch_size: Batch size search space
         n_experts: Number of experts (MoE only, conditional)
-        trunk_n_layers: Trunk depth (branched only, conditional)
+        trunk_depth: Trunk depth (branched only, conditional)
         trunk_hidden_dim: Trunk hidden dimension (branched only, conditional)
         batch_norm: Whether to use batch normalization
+        freeze_encoder: Whether to start with frozen encoder
+        unfreeze_encoder_epoch: Epoch at which to unfreeze encoder
+        unfreeze_encoder_lr_multiplier: LR multiplier for unfrozen encoder
+        joint_sampling: Joint sampling search space (nested config)
     """
 
     # Learning rate schedule
@@ -74,6 +82,7 @@ class ChemeleonSearchSpaceConfig:
 
     # Regularization
     dropout: ParameterSpace | None = None
+    weight_decay: ParameterSpace | None = None
 
     # FFN architecture
     ffn_type: ParameterSpace | None = None
@@ -86,8 +95,19 @@ class ChemeleonSearchSpaceConfig:
     n_experts: ParameterSpace | None = None
 
     # Branched-specific (conditional on ffn_type == 'branched')
-    trunk_n_layers: ParameterSpace | None = None
+    trunk_depth: ParameterSpace | None = None
     trunk_hidden_dim: ParameterSpace | None = None
+
+    # Encoder unfreezing schedule (for fine-tuning experiments)
+    # freeze_encoder: Whether to start with frozen encoder
+    # unfreeze_encoder_epoch: Epoch at which to unfreeze encoder (conditional on freeze_encoder=True)
+    # unfreeze_encoder_lr_multiplier: LR multiplier for unfrozen encoder params
+    freeze_encoder: ParameterSpace | None = None
+    unfreeze_encoder_epoch: ParameterSpace | None = None
+    unfreeze_encoder_lr_multiplier: ParameterSpace | None = None
+
+    # Joint sampling search (for search space exploration)
+    joint_sampling: Any | None = None
 
 
 @dataclass
@@ -120,12 +140,33 @@ class ResourceConfig:
         cpus_per_trial: CPU cores per trial
         gpus_per_trial: GPU fraction per trial
         max_concurrent_trials: Maximum concurrent trials
+        gpu_ids: List of GPU IDs to use (CUDA device ordering, not nvidia-smi)
     """
 
     num_samples: int = 50
     cpus_per_trial: int = 4
     gpus_per_trial: float = 0.25
     max_concurrent_trials: int | None = None
+    gpu_ids: list[int] | None = None
+
+
+@dataclass
+class SearchAlgorithmConfig:
+    """Configuration for Ray Tune search algorithm.
+
+    Enables Bayesian optimization (Optuna) or other adaptive search methods
+    instead of pure random sampling. This can significantly improve HPO
+    efficiency by learning which hyperparameter regions perform well.
+
+    Attributes:
+        type: Search algorithm type - "random" (default), "optuna", "bayesopt", "hyperopt"
+        seed: Random seed for reproducibility
+        n_initial_points: Number of random trials before using surrogate model (Optuna only)
+    """
+
+    type: str = "optuna"  # Use Optuna by default for adaptive search
+    seed: int = 42
+    n_initial_points: int = 20  # Random exploration phase
 
 
 @dataclass
@@ -144,6 +185,111 @@ class TransferLearningConfig:
 
 
 @dataclass
+class TaskOversamplingConfig:
+    """Configuration for task-aware oversampling.
+
+    Attributes:
+        alpha: Power law exponent controlling oversampling strength.
+            0=uniform, 0.5=moderate (default), 1=full inverse-proportional.
+    """
+
+    alpha: float = 0.5
+
+
+@dataclass
+class CurriculumConfig:
+    """Configuration for curriculum learning (OmegaConf-compatible).
+
+    Attributes:
+        enabled: Whether to enable curriculum learning.
+        quality_col: Column name containing quality labels.
+        qualities: Ordered list of quality levels (highest to lowest).
+        patience: Epochs without improvement before phase advance.
+        seed: Random seed for reproducible sampling.
+        strategy: Sampling strategy ("sampled" uses weighted random sampling).
+        reset_early_stopping_on_phase_change: Reset early stopping on phase change.
+        log_per_quality_metrics: Log metrics per quality level.
+    """
+
+    enabled: bool = False
+    quality_col: str = "Quality"
+    qualities: list[str] = field(default_factory=lambda: ["high", "medium", "low"])
+    patience: int = 5
+    seed: int = 42
+    strategy: str = "sampled"
+    reset_early_stopping_on_phase_change: bool = False
+    log_per_quality_metrics: bool = True
+
+
+@dataclass
+class JointSamplingConfig:
+    """Configuration for joint task-aware and curriculum-aware sampling (OmegaConf-compatible).
+
+    Attributes:
+        enabled: Master switch for joint sampling.
+        task_oversampling: Task-aware oversampling configuration.
+        curriculum: Curriculum learning configuration.
+        num_samples: Samples per epoch (None = dataset length).
+        seed: Base random seed.
+        increment_seed_per_epoch: If True, varies sampling each epoch.
+        log_to_mlflow: Log sampling statistics to MLflow.
+    """
+
+    enabled: bool = False
+    task_oversampling: TaskOversamplingConfig = field(default_factory=TaskOversamplingConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    num_samples: int | None = None
+    seed: int = 42
+    increment_seed_per_epoch: bool = True
+    log_to_mlflow: bool = True
+
+
+@dataclass
+class UnfreezeScheduleConfig:
+    """Configuration for gradual unfreezing of encoder (OmegaConf-compatible).
+
+    Supports scheduled unfreezing where the encoder (message passing)
+    starts frozen and is optionally unfrozen at a specified epoch.
+
+    Attributes:
+        freeze_encoder: Whether to freeze the encoder initially.
+        unfreeze_encoder_epoch: Epoch at which to unfreeze encoder (None = never).
+        unfreeze_encoder_lr_multiplier: LR multiplier for unfrozen encoder params.
+    """
+
+    freeze_encoder: bool = True
+    unfreeze_encoder_epoch: int | None = None
+    unfreeze_encoder_lr_multiplier: float = 0.1
+
+
+@dataclass
+class InterTaskAffinityConfig:
+    """Configuration for inter-task affinity computation (OmegaConf-compatible).
+
+    Attributes:
+        enabled: Whether to enable inter-task affinity computation.
+        compute_every_n_steps: Compute affinity every N steps.
+        log_every_n_steps: Log running average every N steps.
+        log_epoch_summary: Log epoch-level summary statistics.
+        log_step_matrices: Log step-level affinity matrices.
+        lookahead_lr: Learning rate for lookahead parameter update.
+        use_optimizer_lr: Use current optimizer LR for lookahead.
+        exclude_param_patterns: Patterns to exclude from affinity computation.
+        log_to_mlflow: Log affinity metrics to MLflow.
+    """
+
+    enabled: bool = False
+    compute_every_n_steps: int = 1
+    log_every_n_steps: int = 100
+    log_epoch_summary: bool = True
+    log_step_matrices: bool = False
+    lookahead_lr: float = 0.001
+    use_optimizer_lr: bool = True
+    exclude_param_patterns: list[str] = field(default_factory=lambda: ["predictor", "ffn", "output", "head", "readout"])
+    log_to_mlflow: bool = True
+
+
+@dataclass
 class ChemeleonHPOConfig:
     """Main HPO configuration for CheMeleon model.
 
@@ -153,13 +299,21 @@ class ChemeleonHPOConfig:
         val_data_path: Path to validation data CSV
         smiles_column: Column name for SMILES strings
         target_columns: List of target column names
+        target_weights: Fixed per-target loss weights (optional)
         output_dir: Directory for HPO outputs
         checkpoint_path: Path to CheMeleon checkpoint or "auto"
-        freeze_encoder: Whether to freeze encoder during training
+        freeze_encoder: Whether to freeze encoder during training (default)
+        unfreeze_schedule: Default unfreezing schedule configuration
+        patience: Early stopping patience (epochs)
+        warmup_epochs: Number of LR warmup epochs
+        report_every_n_epochs: Epoch cadence for Ray Tune reporting
         search_space: Hyperparameter search space configuration
         asha: ASHA scheduler configuration
         resources: Resource allocation configuration
         transfer_learning: Transfer learning configuration
+        inter_task_affinity: Inter-task affinity configuration
+        joint_sampling: Joint sampling configuration
+        logging: Ray Tune and ensemble logging configuration
         seed: Random seed for reproducibility
         ray_storage_path: Path for Ray Tune storage
         mlflow_tracking_uri: MLflow tracking URI
@@ -176,15 +330,29 @@ class ChemeleonHPOConfig:
     ray_storage_path: str | None = None
     mlflow_tracking_uri: str | None = None
 
+    # Fixed target weights (optional, for multi-task loss weighting)
+    target_weights: list[float] | None = None
+
     # CheMeleon-specific
     checkpoint_path: str = "auto"
     freeze_encoder: bool = True
+    unfreeze_schedule: UnfreezeScheduleConfig = field(default_factory=UnfreezeScheduleConfig)
+
+    # Training parameters
+    patience: int = 15  # Early stopping patience
+    warmup_epochs: int = 5  # LR warmup epochs
+    report_every_n_epochs: int = 1  # Ray Tune reporting cadence
 
     # Sub-configurations
     search_space: ChemeleonSearchSpaceConfig = field(default_factory=ChemeleonSearchSpaceConfig)
     asha: ASHAConfig = field(default_factory=ASHAConfig)
+    search_algorithm: SearchAlgorithmConfig = field(default_factory=SearchAlgorithmConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
+    inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
+    joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
+    logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
+    profiling: ProfilingConfig = field(default_factory=ProfilingConfig)
 
     # Reproducibility
     seed: int = 42
@@ -205,7 +373,7 @@ DEFAULT_CHEMELEON_SEARCH_SPACE = ChemeleonSearchSpaceConfig(
         conditional_on="ffn_type",
         conditional_values=["mixture_of_experts"],
     ),
-    trunk_n_layers=ParameterSpace(
+    trunk_depth=ParameterSpace(
         type="randint",
         low=1,
         high=3,

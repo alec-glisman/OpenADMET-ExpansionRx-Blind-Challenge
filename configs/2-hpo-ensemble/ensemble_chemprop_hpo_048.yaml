@@ -50,13 +50,22 @@ optimization:
   batch_size: 128
   num_workers: 0
   seed: 42
+  weight_decay: 0.0
   progress_bar: false
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: ensemble_chemprop_hpo_topk_3
+  experiment_name: chemprop_hpo_ensemble_topk
   run_name: rank_048
   nested: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+    - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 2
@@ -93,6 +102,12 @@ joint_sampling:
   increment_seed_per_epoch: true
   log_to_mlflow: true
 ray:
-  max_parallel: 3
-  num_cpus: null
-  num_gpus: null
+  max_parallel: 6
+  num_cpus: 24
+  num_gpus: 2
+  gpu_ids: [0, 1]
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

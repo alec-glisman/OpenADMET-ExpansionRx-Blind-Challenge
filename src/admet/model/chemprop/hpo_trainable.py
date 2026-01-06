@@ -19,6 +19,7 @@ from ray.air import session
 from ray.train import Checkpoint
 
 from admet.model.chemprop.model import ChempropHyperparams, ChempropModel
+from admet.model.config import JointSamplingConfig, TaskOversamplingConfig
 
 logger = logging.getLogger("admet.model.chemprop.hpo_trainable")
 
@@ -127,6 +128,14 @@ class RayTuneReportCallback(Callback):
             except (IndexError, KeyError):
                 pass
 
+        # Check if early stopping was triggered
+        early_stopped = False
+        for callback in getattr(trainer, "callbacks", []):
+            if hasattr(callback, "stopped_epoch") and callback.stopped_epoch > 0:
+                early_stopped = True
+                break
+        metrics["early_stopped"] = float(early_stopped)
+
         # Ensure primary metric is present (map val_loss to val_mae if needed)
         if self.metric not in metrics:
             # Fallback mapping for primary metric
@@ -204,21 +213,13 @@ class RayTuneReportCallback(Callback):
             return None
 
     def _submit_report(self, metrics: dict[str, float], checkpoint: Checkpoint | None) -> None:
-        """Send metrics to Ray using the most compatible API available."""
-
-        try:
-            if checkpoint is not None:
-                session.report(metrics, checkpoint=checkpoint)
-            else:
-                session.report(metrics)
-            return
-        except Exception as exc:
-            logger.debug("session.report failed, falling back to tune.report: %s", exc)
-
+        """Send metrics to Ray Tune using tune.report API."""
+        # Use ray.tune.report directly for Ray Tune HPO (not ray.train.report)
+        # This avoids deprecation warnings in Ray 2.x
         if checkpoint is not None:
-            ray.tune.report(checkpoint=checkpoint, **metrics)
+            ray.tune.report(metrics, checkpoint=checkpoint)
         else:
-            ray.tune.report(**metrics)
+            ray.tune.report(metrics)
 
 
 def train_chemprop_trial(config: dict[str, Any]) -> None:
@@ -242,10 +243,20 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
                 - seed: Random seed
                     - report_every_n_epochs: Epoch cadence for Ray reports (default: 5)
     """
+    import os
     import time
+
+    # Suppress tqdm progress bars FIRST (before any data loading)
+    os.environ["TQDM_DISABLE"] = "1"
 
     # Stagger trial starts to avoid race conditions when multiple trials load datasets simultaneously
     time.sleep(1)
+
+    # Suppress noisy loggers to reduce terminal spam
+    logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.ERROR)
+    logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.ERROR)
+    logging.getLogger("chemprop").setLevel(logging.WARNING)
+    logging.getLogger("mlflow").setLevel(logging.WARNING)
 
     # Extract fixed parameters
     data_path = config.get("data_path")
@@ -264,6 +275,16 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         )
         report_every_n_epochs = 5
     seed = config.get("seed", 42)
+
+    # Extract profiling configuration from HPO config
+    profiling_config_dict = config.get("profiling", {})
+    from admet.model.chemprop.config import ProfilingConfig
+
+    profiling_config = ProfilingConfig(
+        enabled=profiling_config_dict.get("enabled", False),
+        print_summary=profiling_config_dict.get("print_summary", False),
+        log_to_mlflow=profiling_config_dict.get("log_to_mlflow", False),
+    )
 
     # Seed everything for reproducibility before any other operations
     pl.seed_everything(seed, workers=True)
@@ -312,7 +333,11 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     output_dir = trial_dir / "checkpoints"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create model (disable MLflow tracking - HPO orchestrator handles logging)
+    # Build joint sampling config from sampled parameters
+    joint_sampling_config = _build_joint_sampling_config(config)
+
+    # Create model with MLflow tracking disabled (Ray Tune manages MLflow)
+    # Metrics are still computed by PyTorch Lightning and reported via RayTuneReportCallback
     model = ChempropModel(
         df_train=df_train,
         df_validation=df_val,
@@ -321,8 +346,12 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         target_weights=target_weights,
         output_dir=output_dir,
         progress_bar=False,
+        verbose=False,  # Disable epoch logging in HPO trials
         hyperparams=hyperparams,
-        mlflow_tracking=False,  # Disable MLflow in individual trials
+        mlflow_tracking=False,  # Disabled: Ray Tune manages MLflow via AsyncBatchedMLflowCallback
+        mlflow_tracking_uri=None,
+        joint_sampling_config=joint_sampling_config,
+        profiling_config=profiling_config,  # Use profiling config from HPO config
     )
 
     # Add Ray Tune callback with checkpoint directory for trial recovery
@@ -364,6 +393,29 @@ def _extract_target_weights(
     return weights
 
 
+def _build_joint_sampling_config(config: dict[str, Any]) -> JointSamplingConfig | None:
+    """Build JointSamplingConfig from sampled HPO config.
+
+    Looks for joint_sampling_enabled and joint_sampling_alpha parameters
+    that were flattened from the nested search space configuration.
+
+    Args:
+        config: Sampled hyperparameter configuration from Ray Tune.
+
+    Returns:
+        JointSamplingConfig if joint sampling is enabled, None otherwise.
+    """
+    enabled = config.get("joint_sampling_enabled", False)
+    if not enabled:
+        return None
+
+    alpha = config.get("joint_sampling_alpha", 0.0)
+    return JointSamplingConfig(
+        enabled=True,
+        task_oversampling=TaskOversamplingConfig(alpha=float(alpha)),
+    )
+
+
 def _build_hyperparams(
     config: dict[str, Any],
     max_epochs: int,
@@ -402,8 +454,19 @@ def _build_hyperparams(
         final_ratio = config.get("lr_final_ratio", 0.1)
         params["final_lr"] = lr * final_ratio
 
+    # Warmup epochs (separate from lr ratios)
+    if "warmup_epochs" in config and config["warmup_epochs"] is not None:
+        params["warmup_epochs"] = int(config["warmup_epochs"])
+
+    # Patience for early stopping
+    if "patience" in config and config["patience"] is not None:
+        params["patience"] = int(config["patience"])
+
     if "dropout" in config and config["dropout"] is not None:
         params["dropout"] = config["dropout"]
+
+    if "batch_norm" in config and config["batch_norm"] is not None:
+        params["batch_norm"] = bool(config["batch_norm"])
 
     # Message passing architecture
     if "depth" in config and config["depth"] is not None:

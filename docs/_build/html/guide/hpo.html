@@ -384,6 +384,16 @@ configurations to find optimal hyperparameters for your ADMET prediction tasks.<
 <span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
 <span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.4</span>
 
+<span class="w">  </span><span class="c1"># Weight decay (L2 regularization via AdamW)</span>
+<span class="w">  </span><span class="nt">weight_decay_enabled</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">choice</span>
+<span class="w">    </span><span class="nt">values</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">true</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">false</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="nt">weight_decay</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">loguniform</span>
+<span class="w">    </span><span class="nt">low</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-6</span>
+<span class="w">    </span><span class="nt">high</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-3</span>
+
 <span class="w">  </span><span class="c1"># Message passing architecture</span>
 <span class="w">  </span><span class="nt">depth</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">choice</span>
@@ -463,6 +473,46 @@ configurations to find optimal hyperparameters for your ADMET prediction tasks.<
 <li><p><code class="docutils literal notranslate"><span class="pre">grace_period</span></code>: Minimum epochs before a trial can be stopped (default: 15)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">reduction_factor</span></code>: Fraction of trials promoted at each rung (default: 3)</p></li>
 </ul>
+</section>
+<section id="search-algorithm-configuration">
+<h3>Search Algorithm Configuration<a class="headerlink" href="#search-algorithm-configuration" title="Link to this heading">¶</a></h3>
+<p>Configure advanced search algorithms for Bayesian optimization:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">search_algorithm</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">optuna</span><span class="w">        </span><span class="c1"># Options: random, optuna, bayesopt, hyperopt</span>
+<span class="w">  </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span><span class="w">            </span><span class="c1"># Random seed for reproducibility</span>
+<span class="w">  </span><span class="nt">n_initial_points</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w">  </span><span class="c1"># Random exploration before Bayesian phase</span>
+</pre></div>
+</div>
+<p>Supported search algorithms:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code> (default): Pure random sampling across search space</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">optuna</span></code>: Bayesian optimization with TPE (Tree-structured Parzen Estimator)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bayesopt</span></code>: Gaussian Process-based Bayesian optimization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hyperopt</span></code>: Tree-structured Parzen Estimator from HyperOpt library</p></li>
+</ul>
+<p><strong>Bayesian Optimization Benefits:</strong></p>
+<ul class="simple">
+<li><p><strong>Adaptive Sampling</strong>: Learns which hyperparameter regions perform well</p></li>
+<li><p><strong>Improved Efficiency</strong>: 3-5x fewer trials to find optimal configurations</p></li>
+<li><p><strong>Exploration vs. Exploitation</strong>: Balances trying new regions vs. refining known good areas</p></li>
+</ul>
+<p><strong>When to Use:</strong></p>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">optuna</span></code> for most cases (default recommendation)</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">random</span></code> for initial broad exploration or when search space is small</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">bayesopt</span></code> or <code class="docutils literal notranslate"><span class="pre">hyperopt</span></code> for specific algorithm preferences</p></li>
+</ul>
+<p><strong>Installation:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Optuna (recommended)</span>
+pip<span class="w"> </span>install<span class="w"> </span>optuna
+
+<span class="c1"># BayesOpt</span>
+pip<span class="w"> </span>install<span class="w"> </span>bayesian-optimization
+
+<span class="c1"># HyperOpt</span>
+pip<span class="w"> </span>install<span class="w"> </span>hyperopt
+</pre></div>
+</div>
 </section>
 <section id="resource-configuration">
 <h3>Resource Configuration<a class="headerlink" href="#resource-configuration" title="Link to this heading">¶</a></h3>
@@ -570,9 +620,22 @@ to balance learning across endpoints with different scales and difficulties.</p>
 <td><p>Dropout rate</p></td>
 <td><p>0.0 to 0.4</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">weight_decay</span></code></p></td>
+<td><p>L2 regularization via AdamW</p></td>
+<td><p>1e-6 to 1e-3 (loguniform)</p></td>
+</tr>
 </tbody>
 </table>
 </div>
+<p><strong>Weight Decay:</strong></p>
+<p>Weight decay provides L2 regularization through the AdamW optimizer, which
+implements decoupled weight decay (Loshchilov &amp; Hutter, 2019). This is more
+effective than traditional L2 penalty for neural networks.</p>
+<ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">weight_decay:</span> <span class="pre">0.0</span></code> to disable (default)</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">weight_decay_enabled:</span> <span class="pre">choice([true,</span> <span class="pre">false])</span></code> in HPO to explore on/off</p></li>
+<li><p>Typical effective range: 1e-6 to 1e-3 (use loguniform sampling)</p></li>
+</ul>
 </section>
 <section id="ffn-type-parameters">
 <h3>FFN Type Parameters<a class="headerlink" href="#ffn-type-parameters" title="Link to this heading">¶</a></h3>
@@ -831,7 +894,7 @@ with all available parameters.</p>
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             
@@ -865,6 +928,7 @@ with all available parameters.</p>
 <li><a class="reference internal" href="#search-space-configuration">Search Space Configuration</a></li>
 <li><a class="reference internal" href="#conditional-parameters">Conditional Parameters</a></li>
 <li><a class="reference internal" href="#asha-scheduler-configuration">ASHA Scheduler Configuration</a></li>
+<li><a class="reference internal" href="#search-algorithm-configuration">Search Algorithm Configuration</a></li>
 <li><a class="reference internal" href="#resource-configuration">Resource Configuration</a></li>
 <li><a class="reference internal" href="#per-target-weight-optimization">Per-Target Weight Optimization</a></li>
 </ul>

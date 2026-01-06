@@ -420,6 +420,58 @@
     <span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_log_ensemble_config_to_child_run</span><span class="p">(</span>
+    <span class="n">mlflow_client</span><span class="p">:</span> <span class="n">MlflowClient</span><span class="p">,</span>
+    <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">ensemble_config_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">model_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log the full ensemble configuration as an artifact to a child run.</span>
+
+<span class="sd">    This ensures each individual model run has a complete record of the</span>
+<span class="sd">    ensemble configuration it was trained with, enabling full reproducibility.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mlflow_client : MlflowClient</span>
+<span class="sd">        MLflow client instance.</span>
+<span class="sd">    run_id : str</span>
+<span class="sd">        Run ID to log the artifact to.</span>
+<span class="sd">    ensemble_config_dict : Dict[str, Any]</span>
+<span class="sd">        Full ensemble configuration dictionary.</span>
+<span class="sd">    model_key : str</span>
+<span class="sd">        Model identifier (e.g., &quot;split_0_fold_0&quot;).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+    <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Save ensemble config as YAML</span>
+        <span class="n">yaml_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;ensemble_config.yaml&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">OmegaConf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">ensemble_config_dict</span><span class="p">,</span> <span class="n">f</span><span class="o">=</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Save ensemble config as JSON for programmatic access</span>
+        <span class="n">json_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;ensemble_config.json&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">ensemble_config_dict</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">json_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Log model&#39;s position in the ensemble</span>
+        <span class="n">mlflow_client</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;ensemble_model_key&quot;</span><span class="p">,</span> <span class="n">model_key</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged ensemble config to child run </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log ensemble config to child run </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="c1"># Cleanup</span>
+        <span class="k">for</span> <span class="n">temp_file</span> <span class="ow">in</span> <span class="n">temp_dir</span><span class="o">.</span><span class="n">iterdir</span><span class="p">():</span>
+            <span class="n">temp_file</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">temp_dir</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span>
+
+
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SplitFoldInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Information about a single split/fold combination.&quot;&quot;&quot;</span>
@@ -484,8 +536,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BaseModel</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">predictions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
-        <span class="c1"># Determine model type from config</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">type</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;chemprop&quot;</span>
+        <span class="c1"># Determine model type from config (handle missing model section gracefully)</span>
+        <span class="n">model_type</span> <span class="o">=</span> <span class="s2">&quot;chemprop&quot;</span>  <span class="c1"># default</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;model&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">):</span>
+                <span class="n">model_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">type</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;type&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">:</span>
+                <span class="n">model_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_type</span> <span class="o">=</span> <span class="n">model_type</span>
 
         <span class="c1"># MLflow tracking</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -493,7 +551,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Initialize MLflow</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;mlflow&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_mlflow</span><span class="p">()</span>
 
 <div class="viewcode-block" id="ModelEnsemble.from_config">
@@ -542,16 +600,58 @@
         <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_flatten_dict</span><span class="p">(</span><span class="n">config_dict</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>  <span class="c1"># type: ignore[arg-type]</span>
 
         <span class="c1"># Parse and log data_dir parameters</span>
-
         <span class="n">data_params</span> <span class="o">=</span> <span class="n">parse_data_dir_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data_params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data.</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
+        <span class="c1"># Log comprehensive dataset metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_dataset_metadata</span><span class="p">()</span>
+
         <span class="c1"># Log full config as YAML artifact</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_log_config_artifact</span><span class="p">()</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started MLflow parent run: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_dataset_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log comprehensive dataset metadata to MLflow.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Log target columns information</span>
+        <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;data.n_targets&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_cols</span><span class="p">))</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;data.target_cols_list&quot;</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">target_cols</span><span class="p">[:</span><span class="mi">5</span><span class="p">])</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;...&quot;</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_cols</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+
+        <span class="c1"># Log data file paths</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;test_file&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">test_file</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;data.test_file&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">test_file</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;blind_file&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">blind_file</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;data.blind_file&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">blind_file</span><span class="p">))</span>
+
+        <span class="c1"># Log model type</span>
+        <span class="n">model_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;model.type&quot;</span><span class="p">,</span> <span class="n">model_type</span><span class="p">)</span>
+
+        <span class="c1"># Log optimization info</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;optimization.criterion&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">criterion</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;optimization.max_epochs&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">max_epochs</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;optimization.batch_size&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span>
+
+        <span class="c1"># Log joint sampling status</span>
+        <span class="n">js_cfg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;joint_sampling&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">js_enabled</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">js_cfg</span><span class="p">,</span> <span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="n">js_cfg</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;joint_sampling.enabled&quot;</span><span class="p">,</span> <span class="n">js_enabled</span><span class="p">)</span>
+
+        <span class="c1"># Log inter-task affinity status</span>
+        <span class="n">ita_cfg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;inter_task_affinity&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">ita_enabled</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ita_cfg</span><span class="p">,</span> <span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="n">ita_cfg</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;inter_task_affinity.enabled&quot;</span><span class="p">,</span> <span class="n">ita_enabled</span><span class="p">)</span>
+
+        <span class="c1"># Log Ray parallelization info</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;ray.max_parallel&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ray</span><span class="p">,</span> <span class="s2">&quot;max_parallel&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged dataset metadata to MLflow&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_config_artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log the full ensemble configuration as a YAML artifact.&quot;&quot;&quot;</span>
@@ -564,14 +664,23 @@
 
         <span class="c1"># Convert config to YAML-serializable dict and save</span>
         <span class="n">config_dict</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">OmegaConf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config_dict</span><span class="p">,</span> <span class="n">f</span><span class="o">=</span><span class="n">f</span><span class="p">)</span>
 
         <span class="c1"># Log as artifact</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
 
+        <span class="c1"># Also save as JSON for programmatic access</span>
+        <span class="n">json_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;config.json&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config_dict</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">json_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
+
         <span class="c1"># Cleanup</span>
         <span class="n">yaml_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">json_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">temp_dir</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged config artifact to MLflow&quot;</span><span class="p">)</span>
@@ -904,6 +1013,7 @@
         <span class="nd">@ray</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span><span class="n">num_gpus</span><span class="o">=</span><span class="n">gpu_fraction</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">train_single_model</span><span class="p">(</span>
             <span class="n">config_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+            <span class="n">ensemble_config_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
             <span class="n">split_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
             <span class="n">fold_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
             <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
@@ -915,6 +1025,23 @@
 
 <span class="sd">            The model creates its own nested MLflow run under the parent run,</span>
 <span class="sd">            so all artifacts (checkpoints, metrics, plots) are logged directly.</span>
+
+<span class="sd">            Parameters</span>
+<span class="sd">            ----------</span>
+<span class="sd">            config_dict : Dict[str, Any]</span>
+<span class="sd">                Single model configuration dictionary.</span>
+<span class="sd">            ensemble_config_dict : Dict[str, Any]</span>
+<span class="sd">                Full ensemble configuration dictionary (for logging as artifact).</span>
+<span class="sd">            split_idx : int</span>
+<span class="sd">                Split index for this model.</span>
+<span class="sd">            fold_idx : int</span>
+<span class="sd">                Fold index for this model.</span>
+<span class="sd">            parent_run_id : Optional[str]</span>
+<span class="sd">                Parent MLflow run ID for nested runs.</span>
+<span class="sd">            tracking_uri : Optional[str]</span>
+<span class="sd">                MLflow tracking URI.</span>
+<span class="sd">            experiment_name : str</span>
+<span class="sd">                MLflow experiment name.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
             <span class="c1"># Reconstruct config from dict - use deep merge to ensure nested values override defaults</span>
             <span class="n">base_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">ChempropConfig</span><span class="p">)</span>
@@ -929,9 +1056,7 @@
             <span class="c1"># Seed everything in worker process for reproducibility</span>
             <span class="n">pl</span><span class="o">.</span><span class="n">seed_everything</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-            <span class="c1"># Debug: Log key config values to verify they match YAML</span>
-            <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-
+            <span class="c1"># Log key config values to verify they match YAML</span>
             <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.ensemble&quot;</span><span class="p">)</span>
             <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Config values - depth=</span><span class="si">%s</span><span class="s2">, dropout=</span><span class="si">%s</span><span class="s2">, hidden_dim=</span><span class="si">%s</span><span class="s2">, &quot;</span>
@@ -956,14 +1081,29 @@
                 <span class="c1"># Use Chemprop-specific initialization with full config</span>
                 <span class="c1"># Chemprop loads data from config files directly</span>
                 <span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+
+                <span class="c1"># Log full ensemble config as artifact in child run for complete traceability</span>
+                <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">and</span> <span class="n">ensemble_config_dict</span> <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">_log_ensemble_config_to_child_run</span><span class="p">(</span>
+                        <span class="n">model</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">mlflow_run_id</span><span class="p">,</span> <span class="n">ensemble_config_dict</span><span class="p">,</span> <span class="n">model_key</span>
+                    <span class="p">)</span>
+
                 <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># Use ModelRegistry for other model types</span>
                 <span class="c1"># These models need explicit data loading</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create_model</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">DictConfig</span><span class="p">):</span>
+                    <span class="n">config_dc</span> <span class="o">=</span> <span class="n">config</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">config_dc</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># type: ignore[assignment]</span>
+                <span class="n">base_model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config_dc</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
 
-                <span class="c1"># Load training and validation data</span>
-                <span class="n">train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">split_fold_info</span><span class="o">.</span><span class="n">train_file</span><span class="p">)</span>
+                <span class="c1"># Load training and validation data from config.data.data_dir</span>
+                <span class="n">data_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
+                <span class="n">train_file</span> <span class="o">=</span> <span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;train.csv&quot;</span>
+                <span class="n">val_file</span> <span class="o">=</span> <span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;validation.csv&quot;</span>
+
+                <span class="n">train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">train_file</span><span class="p">)</span>
                 <span class="n">smiles_col</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span>
                 <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
 
@@ -971,16 +1111,18 @@
                 <span class="n">train_y</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="n">target_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 
                 <span class="n">val_smiles</span><span class="p">,</span> <span class="n">val_y</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
-                <span class="k">if</span> <span class="n">split_fold_info</span><span class="o">.</span><span class="n">validation_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                    <span class="n">val_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">split_fold_info</span><span class="o">.</span><span class="n">validation_file</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">val_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">val_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">val_file</span><span class="p">)</span>
                     <span class="n">val_smiles</span> <span class="o">=</span> <span class="n">val_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                     <span class="n">val_y</span> <span class="o">=</span> <span class="n">val_df</span><span class="p">[</span><span class="n">target_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 
                 <span class="c1"># Train model with explicit data</span>
-                <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_smiles</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">val_smiles</span><span class="o">=</span><span class="n">val_smiles</span><span class="p">,</span> <span class="n">val_y</span><span class="o">=</span><span class="n">val_y</span><span class="p">)</span>
+                <span class="n">base_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_smiles</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">val_smiles</span><span class="o">=</span><span class="n">val_smiles</span><span class="p">,</span> <span class="n">val_y</span><span class="o">=</span><span class="n">val_y</span><span class="p">)</span>
+                <span class="c1"># Non-Chemprop models don&#39;t have trainer/dataframes - return early</span>
+                <span class="k">return</span> <span class="n">model_key</span><span class="p">,</span> <span class="p">{},</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
 
-            <span class="c1"># Get metrics from trainer</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="c1"># Get metrics from trainer (ChempropModel only)</span>
+            <span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">trainer</span> <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">callback_metrics</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">callback_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">):</span>
@@ -989,18 +1131,19 @@
                         <span class="n">metrics</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
 
             <span class="c1"># Get predictions for test and blind</span>
-            <span class="n">test_preds</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">blind_preds</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">test_preds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">blind_preds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">smiles_col</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span>
             <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">test_df</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span>
+            <span class="c1"># ChempropModel has dataframes dict and extended predict() signature</span>
+            <span class="n">test_df</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">test_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">pred_df</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
                     <span class="n">test_df</span><span class="p">,</span>
-                    <span class="n">generate_plots</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Generate plots for each model</span>
+                    <span class="n">generate_plots</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="n">split_name</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
-                    <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Metrics already logged in _log_evaluation_metrics</span>
+                    <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="c1"># Prepend SMILES and Molecule Name columns to predictions if present</span>
                 <span class="k">if</span> <span class="s2">&quot;Molecule Name&quot;</span> <span class="ow">in</span> <span class="n">test_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
@@ -1021,13 +1164,13 @@
                     <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">test_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
                         <span class="n">test_preds</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">_actual&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 
-            <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="p">[</span><span class="s2">&quot;blind&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">blind_df</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="p">[</span><span class="s2">&quot;blind&quot;</span><span class="p">]</span>
+            <span class="n">blind_df</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;blind&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">blind_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">pred_df</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
                     <span class="n">blind_df</span><span class="p">,</span>
-                    <span class="n">generate_plots</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># No ground truth for blind</span>
+                    <span class="n">generate_plots</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                     <span class="n">split_name</span><span class="o">=</span><span class="s2">&quot;blind&quot;</span><span class="p">,</span>
-                    <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Blind has no ground truth anyway</span>
+                    <span class="n">log_metrics</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="c1"># Prepend SMILES and Molecule Name columns to predictions if present</span>
                 <span class="k">if</span> <span class="s2">&quot;Molecule Name&quot;</span> <span class="ow">in</span> <span class="n">blind_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
@@ -1063,8 +1206,15 @@
             <span class="c1"># (avoids accidentally using dataclass defaults via OmegaConf.structured).</span>
             <span class="n">config_dict</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
+            <span class="c1"># Convert ensemble config to dict for passing to child processes</span>
+            <span class="n">ensemble_config_dict</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Ensure we have a dict type for type checking</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ensemble_config_dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">ensemble_config_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
             <span class="n">task</span> <span class="o">=</span> <span class="n">train_single_model</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
                 <span class="n">config_dict</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                <span class="n">ensemble_config_dict</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
                 <span class="n">info</span><span class="o">.</span><span class="n">split_idx</span><span class="p">,</span>
                 <span class="n">info</span><span class="o">.</span><span class="n">fold_idx</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">,</span>
@@ -1111,6 +1261,11 @@
         <span class="c1"># Create temp directory for outputs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;ensemble_&quot;</span><span class="p">))</span>
 
+        <span class="c1"># Log ensemble metadata</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;ensemble.n_models&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_metrics</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_metrics</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;ensemble.n_splits_folds&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">split_fold_infos</span><span class="p">))</span>
+
         <span class="c1"># Aggregate test predictions</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_test_predictions</span><span class="p">:</span>
             <span class="n">test_ensemble</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_predictions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_test_predictions</span><span class="p">,</span> <span class="n">split_name</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
@@ -1118,11 +1273,19 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_generate_ensemble_plots</span><span class="p">(</span><span class="n">test_ensemble</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_generate_unlabeled_ensemble_plots</span><span class="p">(</span><span class="n">test_ensemble</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
 
+            <span class="c1"># Log test set size</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;data.test_size&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_ensemble</span><span class="p">))</span>
+
         <span class="c1"># Aggregate blind predictions</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_blind_predictions</span><span class="p">:</span>
             <span class="n">blind_ensemble</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_predictions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_blind_predictions</span><span class="p">,</span> <span class="n">split_name</span><span class="o">=</span><span class="s2">&quot;blind&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_ensemble_predictions</span><span class="p">(</span><span class="n">blind_ensemble</span><span class="p">,</span> <span class="s2">&quot;blind&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_generate_unlabeled_ensemble_plots</span><span class="p">(</span><span class="n">blind_ensemble</span><span class="p">,</span> <span class="s2">&quot;blind&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Log blind set size</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;data.blind_size&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">blind_ensemble</span><span class="p">))</span>
 
         <span class="c1"># Log ensemble metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_log_ensemble_metrics</span><span class="p">()</span>
@@ -1378,6 +1541,9 @@
 <span class="sd">        split_name : str</span>
 <span class="sd">            Name of the split for labeling.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">pearsonr</span><span class="p">,</span> <span class="n">spearmanr</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">r2_score</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;ensemble_&quot;</span><span class="p">))</span>
 
@@ -1385,6 +1551,9 @@
         <span class="n">plot_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
+
+        <span class="c1"># Collect parity plot metrics for logging</span>
+        <span class="n">parity_metrics</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="c1"># Generate parity plots with error bands for each target</span>
         <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">target_cols</span><span class="p">:</span>
@@ -1395,6 +1564,32 @@
             <span class="n">actual</span> <span class="o">=</span> <span class="n">predictions</span><span class="p">[</span><span class="n">actual_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
             <span class="n">mean_pred</span> <span class="o">=</span> <span class="n">predictions</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_mean&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
             <span class="n">stderr</span> <span class="o">=</span> <span class="n">predictions</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_stderr&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+            <span class="c1"># Calculate parity plot metrics (ensemble mean vs actual)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">actual</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mean_pred</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">actual_clean</span> <span class="o">=</span> <span class="n">actual</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                <span class="n">pred_clean</span> <span class="o">=</span> <span class="n">mean_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+                <span class="c1"># Compute metrics</span>
+                <span class="n">mae</span> <span class="o">=</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">actual_clean</span><span class="p">,</span> <span class="n">pred_clean</span><span class="p">)</span>
+                <span class="n">rmse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">actual_clean</span><span class="p">,</span> <span class="n">pred_clean</span><span class="p">))</span>
+                <span class="n">r2</span> <span class="o">=</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">actual_clean</span><span class="p">,</span> <span class="n">pred_clean</span><span class="p">)</span>
+                <span class="n">pearson_r</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pearsonr</span><span class="p">(</span><span class="n">actual_clean</span><span class="p">,</span> <span class="n">pred_clean</span><span class="p">)</span>
+                <span class="n">spearman_rho</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spearmanr</span><span class="p">(</span><span class="n">actual_clean</span><span class="p">,</span> <span class="n">pred_clean</span><span class="p">)</span>
+                <span class="n">mean_stderr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">stderr</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+
+                <span class="c1"># Sanitize target name for MLflow</span>
+                <span class="n">safe_target</span> <span class="o">=</span> <span class="n">_sanitize_metric_label</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+                <span class="c1"># Store metrics for batch logging</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/MAE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mae</span><span class="p">)</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/RMSE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">rmse</span><span class="p">)</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/R2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">r2</span><span class="p">)</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/pearson_r&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">pearson_r</span><span class="p">)</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/spearman_rho&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">spearman_rho</span><span class="p">)</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/mean_stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mean_stderr</span><span class="p">)</span>
+                <span class="n">parity_metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;parity/</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">safe_target</span><span class="si">}</span><span class="s2">/n_samples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
 
             <span class="c1"># Use the shared plot_parity function with yerr support</span>
             <span class="n">fig</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">plot_parity</span><span class="p">(</span>
@@ -1412,6 +1607,14 @@
             <span class="n">plot_path</span> <span class="o">=</span> <span class="n">plot_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;parity_</span><span class="si">{</span><span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.png&quot;</span>
             <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">plot_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+        <span class="c1"># Log parity plot metrics to MLflow</span>
+        <span class="k">if</span> <span class="n">parity_metrics</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">parity_metrics</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Logged </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">parity_metrics</span><span class="p">)</span><span class="si">}</span><span class="s2"> parity metrics for </span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to log parity metrics for </span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="c1"># Generate bar plot of metrics computed from predictions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_generate_metrics_bar_plot</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
@@ -1832,7 +2035,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, Alec Glisman, Ph.D.
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             
