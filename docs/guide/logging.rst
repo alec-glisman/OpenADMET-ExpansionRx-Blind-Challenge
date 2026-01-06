@@ -512,7 +512,7 @@ Run the comprehensive test suite:
    pytest tests/test_ray_logging.py::TestLoggingPerformance -v --benchmark-only
 
 Test Coverage
-~~~~~~~~~~~~~
+-------------
 
 The test suite includes:
 
@@ -524,10 +524,9 @@ The test suite includes:
 Related Documentation
 =====================
 
-- :ref:`configuration`: Complete configuration reference
-- :ref:`cli`: Command-line interface documentation
-- :ref:`hpo`: Hyperparameter optimization guide
-- :ref:`ensemble`: Ensemble training guide
+- :doc:`configuration`: Complete configuration reference
+- :doc:`cli`: Command-line interface documentation
+- :doc:`hpo`: Hyperparameter optimization guide
 
 See Also
 ========
@@ -573,8 +572,3 @@ License
 =======
 
 This logging infrastructure is part of the OpenADMET Challenge project and follows the same license terms.
-
-.. toctree::
-   :hidden:
-
-   ../index

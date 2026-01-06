@@ -23,6 +23,27 @@ Logging configuration and setup utilities.
    :undoc-members:
    :show-inheritance:
 
+profiling
+^^^^^^^^^
+
+Performance profiling for ensemble training workflows.
+
+.. automodule:: admet.util.profiling
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ray_logging
+^^^^^^^^^^^
+
+Ray Tune integration for distributed logging.
+
+.. automodule:: admet.util.ray_logging
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :noindex:
+
 utils
 ^^^^^
 

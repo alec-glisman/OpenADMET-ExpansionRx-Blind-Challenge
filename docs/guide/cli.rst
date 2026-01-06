@@ -43,16 +43,17 @@ Train a single Chemprop model using a configuration file:
 .. code-block:: python
 
    from omegaconf import OmegaConf
-   from admet.model.chemprop import ChempropModel, ChempropConfig
+   from admet.model.registry import ModelRegistry
+   from admet.model.config import UnifiedModelConfig
 
    # Load configuration
    config = OmegaConf.merge(
-       OmegaConf.structured(ChempropConfig),
+       OmegaConf.structured(UnifiedModelConfig),
        OmegaConf.load("configs/0-experiment/chemprop.yaml")
    )
 
    # Train model
-   model = ChempropModel.from_config(config)
+   model = ModelRegistry.create(config)
    model.fit()
 
 **Ensemble Training**
@@ -69,15 +70,17 @@ Or programmatically:
 .. code-block:: python
 
    from omegaconf import OmegaConf
-   from admet.model.chemprop import ModelEnsemble, EnsembleConfig
+   from admet.model.registry import ModelRegistry
+   from admet.model.config import UnifiedModelConfig
 
    config = OmegaConf.merge(
-       OmegaConf.structured(EnsembleConfig),
+       OmegaConf.structured(UnifiedModelConfig),
        OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
    )
 
-   ensemble = ModelEnsemble.from_config(config)
-   ensemble.train_all()
+   # Create model with ensemble config
+   model = ModelRegistry.create(config)
+   model.train_all()  # Trains across all splits/folds
 
 **Hyperparameter Optimization**
 
