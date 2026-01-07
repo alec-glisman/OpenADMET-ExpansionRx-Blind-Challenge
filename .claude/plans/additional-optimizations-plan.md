@@ -1,4 +1,5 @@
 # Performance Optimization Implementation Plan
+
 ## Additional Optimizations Phase
 
 **Created:** 2026-01-06
@@ -22,6 +23,7 @@ This plan implements four additional performance optimizations on top of the alr
 ## Task 1: torch.compile Integration for Chemprop & Chemeleon
 
 ### Objective
+
 Enable PyTorch 2.0+ model compilation for both Chemprop and Chemeleon models to achieve 20-40% training speedup through kernel fusion and reduced overhead.
 
 ### Implementation Details
@@ -32,6 +34,7 @@ Enable PyTorch 2.0+ model compilation for both Chemprop and Chemeleon models to 
 **Location:** Lines 291-336 (PerformanceOptimizationConfig dataclass)
 
 **Changes:**
+
 ```python
 @dataclass
 class PerformanceOptimizationConfig:
@@ -49,10 +52,12 @@ class PerformanceOptimizationConfig:
 ```
 
 **Validation:**
+
 - `torch_compile_mode` must be one of: `"default"`, `"reduce-overhead"`, `"max-autotune"`
 - Add `__post_init__` validator if needed
 
 **Notes:**
+
 - `reduce-overhead`: Recommended for training (1.5-2.0x speedup, minimal warmup)
 - `max-autotune`: Maximum speedup but longer compilation (1.8-2.5x)
 - `default`: Conservative baseline (1.3-1.8x)
@@ -103,6 +108,7 @@ def _prepare_model(self) -> None:
 ```
 
 **Error Handling:**
+
 - Wrap in try/except to handle compilation failures gracefully
 - Fall back to uncompiled model with warning if compilation fails
 - Log compilation time for performance tracking
@@ -162,12 +168,14 @@ def _init_model(self, n_tasks: int) -> None:
 #### 1.4 Update Configuration Files
 
 **Files to Update:**
+
 - `configs/2-hpo-ensemble/ensemble_chemprop_hpo_*.yaml` (all ensemble configs)
 - `configs/3-production/ensemble_chemprop_*.yaml`
 - `configs/0-experiment/chemprop.yaml`
 - `configs/0-experiment/chemeleon.yaml` (if exists)
 
 **Add Section:**
+
 ```yaml
 performance_optimization:
   use_mixed_precision: true          # Already enabled
@@ -178,6 +186,7 @@ performance_optimization:
 ```
 
 **Priority Configs to Update:**
+
 1. Production ensemble configs (highest impact)
 2. HPO ensemble configs (validate before mass HPO runs)
 3. Experimental configs (for testing)
@@ -185,6 +194,7 @@ performance_optimization:
 #### 1.5 Testing & Validation
 
 **Test Plan:**
+
 1. **Compilation Test:**
    - Train single model with `use_torch_compile: true`
    - Verify no errors during compilation
@@ -206,6 +216,7 @@ performance_optimization:
    - Check all plots and outputs generated
 
 **Validation Script:**
+
 ```bash
 # Test Chemprop compilation
 admet model train -c configs/0-experiment/chemprop_compile_test.yaml
@@ -218,6 +229,7 @@ admet model ensemble -c configs/validation/mini_ensemble_compile.yaml
 ```
 
 **Success Criteria:**
+
 - ✅ Models compile without errors
 - ✅ Training completes successfully
 - ✅ 20-40% speedup observed
@@ -229,6 +241,7 @@ admet model ensemble -c configs/validation/mini_ensemble_compile.yaml
 ## Task 2: Persistent Workers Verification
 
 ### Objective
+
 Verify that persistent_workers is already correctly implemented and document usage.
 
 ### Current Implementation Status
@@ -236,10 +249,12 @@ Verify that persistent_workers is already correctly implemented and document usa
 **Already Implemented:** ✅
 
 **Files:**
+
 - `src/admet/model/chemprop/model.py` (lines 308-312)
 - `src/admet/model/chemeleon/model.py` (lines 91-95)
 
 **Implementation:**
+
 ```python
 # Enable persistent_workers and prefetch_factor when using multiprocessing
 if num_workers > 0:
@@ -268,6 +283,7 @@ if num_workers > 0:
 ## Task 3: Ensemble Prediction Caching
 
 ### Objective
+
 Add in-memory prediction caching to reduce I/O overhead during ensemble aggregation while preserving all file outputs and plots.
 
 ### Implementation Details
@@ -275,9 +291,10 @@ Add in-memory prediction caching to reduce I/O overhead during ensemble aggregat
 #### 3.1 Add Cache Attributes
 
 **File:** `src/admet/model/chemprop/ensemble.py`
-**Location:** Lines 200-300 (__init__ method)
+**Location:** Lines 200-300 (**init** method)
 
 **Changes:**
+
 ```python
 class ModelEnsemble:
     def __init__(self, config: UnifiedModelConfig):
@@ -381,6 +398,7 @@ def _aggregate_predictions(
 **Location:** Add new methods after _aggregate_predictions
 
 **New Methods:**
+
 ```python
 def get_cached_predictions(
     self,
@@ -431,6 +449,7 @@ def clear_cache(self, split_name: Optional[str] = None) -> None:
 **Critical Requirement:** All existing file outputs MUST be preserved.
 
 **Files to Keep:**
+
 1. ✅ Individual model predictions: `{split_name}_predictions.csv` (25 files per ensemble)
 2. ✅ Individual model plots: Parity plots logged to MLflow (per model)
 3. ✅ Ensemble predictions: `{split_name}_ensemble_predictions.csv`
@@ -440,6 +459,7 @@ def clear_cache(self, split_name: Optional[str] = None) -> None:
    - Labeled: `parity_{target}.png`, `ensemble_{metric}.png`
 
 **Verification:**
+
 - No changes to `_save_ensemble_predictions()` method (lines 1434-1470)
 - No changes to `_generate_unlabeled_ensemble_plots()` (lines 1472-1537)
 - No changes to `_generate_ensemble_plots()` (lines 1612-1714)
@@ -448,6 +468,7 @@ def clear_cache(self, split_name: Optional[str] = None) -> None:
 #### 3.6 Testing
 
 **Test Cases:**
+
 1. **Cache Population:**
    - Run ensemble training
    - Verify cache contains 25 test predictions
@@ -469,6 +490,7 @@ def clear_cache(self, split_name: Optional[str] = None) -> None:
    - Re-run aggregation and verify cache repopulated
 
 **Success Criteria:**
+
 - ✅ Predictions cached in memory
 - ✅ All file outputs identical to pre-caching implementation
 - ✅ All plots generated correctly
@@ -480,6 +502,7 @@ def clear_cache(self, split_name: Optional[str] = None) -> None:
 ## Task 4: Bayesian HPO Warmstart with Persistent Studies
 
 ### Objective
+
 Enable Optuna study persistence to SQLite database, add warmstart capability to continue previous HPO runs, create CLI commands for study management, and document usage.
 
 ### Implementation Details
@@ -490,6 +513,7 @@ Enable Optuna study persistence to SQLite database, add warmstart capability to 
 **Location:** Lines 148-164 (SearchAlgorithmConfig dataclass)
 
 **Changes:**
+
 ```python
 @dataclass
 class SearchAlgorithmConfig:
@@ -699,6 +723,7 @@ def _log_results(self) -> None:
 **Location:** Add new command after hpo command (after line 378)
 
 **New Command:**
+
 ```python
 @model_app.command(name="hpo-list-studies")
 def hpo_list_studies(
@@ -803,6 +828,7 @@ Add the new command to `__all__` if needed.
 **Create new file**
 
 **Content:**
+
 ```rst
 Warmstarting Hyperparameter Optimization
 =========================================
@@ -1086,6 +1112,7 @@ Related Documentation
 **Location:** Add new section after line 476 (Best Practices)
 
 **Add:**
+
 ```rst
 Warmstarting Optimization
 -------------------------
@@ -1196,6 +1223,7 @@ transfer_learning:
 **Test Plan:**
 
 1. **Study Persistence Test:**
+
    ```bash
    # Run HPO with persistence
    admet model hpo -c configs/test_persistence.yaml --num-samples 10
@@ -1208,6 +1236,7 @@ transfer_learning:
    ```
 
 2. **Warmstart Test:**
+
    ```bash
    # Run initial study
    admet model hpo -c configs/test_initial.yaml --num-samples 20
@@ -1219,6 +1248,7 @@ transfer_learning:
    ```
 
 3. **CLI Test:**
+
    ```bash
    # List studies with verbose output
    admet model hpo-list-studies --storage-dir hpo_results/ --verbose
@@ -1232,6 +1262,7 @@ transfer_learning:
    - Verify compatible parameters used, incompatible ones ignored
 
 **Success Criteria:**
+
 - ✅ Studies persist to SQLite database
 - ✅ CLI lists studies correctly
 - ✅ Warmstart enqueues top trials
@@ -1244,17 +1275,20 @@ transfer_learning:
 ## Implementation Timeline
 
 ### Phase 1: torch.compile (Day 1-2)
+
 - **Day 1 Morning:** Add config schema, implement Chemprop integration
 - **Day 1 Afternoon:** Implement Chemeleon integration, update configs
 - **Day 2 Morning:** Testing and validation
 - **Day 2 Afternoon:** Performance benchmarking
 
 ### Phase 2: Prediction Caching (Day 2-3)
+
 - **Day 2 Afternoon:** Add cache attributes and methods
 - **Day 3 Morning:** Integrate caching in ensemble workflow
 - **Day 3 Afternoon:** Testing and validation
 
 ### Phase 3: HPO Warmstart (Day 3-5)
+
 - **Day 3 Afternoon:** Extend config schema
 - **Day 4 Morning:** Modify _build_search_algorithm
 - **Day 4 Afternoon:** Add CLI command and study management
@@ -1383,6 +1417,7 @@ class TestIntegration:
 ## Success Criteria
 
 ### torch.compile
+
 - ✅ Chemprop models compile successfully
 - ✅ Chemeleon models compile successfully
 - ✅ 20-40% speedup observed in benchmarks
@@ -1391,6 +1426,7 @@ class TestIntegration:
 - ✅ All ensemble outputs preserved
 
 ### Prediction Caching
+
 - ✅ Cache populated during ensemble training
 - ✅ Cache retrieval methods work correctly
 - ✅ All file outputs preserved (CSVs, plots)
@@ -1398,6 +1434,7 @@ class TestIntegration:
 - ✅ No performance degradation
 
 ### HPO Warmstart
+
 - ✅ Studies persist to SQLite database
 - ✅ Warmstart loads and enqueues top trials
 - ✅ CLI command lists studies correctly
@@ -1406,6 +1443,7 @@ class TestIntegration:
 - ✅ Metadata logged correctly
 
 ### Integration
+
 - ✅ All optimizations work together
 - ✅ No conflicts or errors
 - ✅ End-to-end ensemble workflow succeeds
@@ -1436,15 +1474,18 @@ class TestIntegration:
 ## Risk Mitigation
 
 ### torch.compile Risks
+
 - **Compilation Failures:** Wrap in try/except, fall back to uncompiled
 - **Incompatible Operations:** Use fullgraph=False to allow graph breaks
 - **Numerical Differences:** Validate predictions match within tolerance
 
 ### Caching Risks
+
 - **Memory Overhead:** Cache is in-memory only, cleared after ensemble completes
 - **Stale Cache:** Clear cache methods provided for debugging
 
 ### Warmstart Risks
+
 - **Database Corruption:** Use SQLite WAL mode for concurrent access
 - **Incompatible Search Spaces:** Gracefully skip incompatible trials
 - **Study Name Conflicts:** Require unique study names, error on duplicate
@@ -1454,23 +1495,27 @@ class TestIntegration:
 ## Notes
 
 ### persistent_workers
+
 - Already implemented correctly ✅
 - No code changes needed
 - Document in performance guide
 - Verify behavior in tests
 
 ### torch.compile + Mixed Precision
+
 - Synergistic effects: 1.8-2.5x combined speedup
 - Both already enabled in production configs
 - torch.compile adds minimal overhead on top of FP16
 
 ### Prediction Caching Philosophy
+
 - **In-memory only** - no persistent cache to disk
 - **Additive** - doesn't change existing behavior
 - **Optional** - can be disabled via `_cache_enabled` flag
 - **Read-only after population** - cache populated once during training
 
 ### HPO Warmstart Best Practices
+
 - Use descriptive study names
 - Keep one database per project
 - Start with 10-20 warmstart trials
@@ -1495,6 +1540,7 @@ class TestIntegration:
 ## Completion Checklist
 
 **Completed (2026-01-06):**
+
 - [x] torch.compile config schema added (Chemprop)
 - [x] torch.compile integrated in Chemprop (_prepare_model)
 - [x] torch.compile integrated in Chemeleon (_init_model)
@@ -1512,6 +1558,7 @@ class TestIntegration:
 - [x] Base HPO configs updated with persistence options (hpo_chemprop.yaml, hpo_chemeleon.yaml)
 
 **In Progress:**
+
 - [ ] Test suite created (tests/model/test_additional_optimizations.py)
 - [ ] All tests passing
 - [ ] Performance benchmarks run
