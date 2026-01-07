@@ -475,6 +475,214 @@ Monitoring
 2. **Check correlation metrics**: R², Pearson r, and Spearman ρ provide different insights
 3. **Use MLflow UI**: ``mlflow ui --port 5000`` for interactive analysis
 
+MLflow Artifact Logging
+------------------------
+
+All HPO runs automatically log comprehensive artifacts to the **master parent MLflow run**
+for complete reproducibility and analysis. This includes Optuna study information,
+search space details, and configuration files.
+
+Master Run Structure
+^^^^^^^^^^^^^^^^^^^^
+
+The master HPO run (named ``hpo_master_{timestamp}`` for Chemprop, ``hpo_{timestamp}`` for CheMeleon)
+contains all experiment metadata and artifacts:
+
+.. code-block:: text
+
+   Master HPO Run (Parent)
+   ├── Parameters
+   │   ├── experiment_name, timestamp
+   │   ├── data_path, smiles_column, target_columns
+   │   ├── search_algorithm.* (type, seed, n_initial_points, persist_study, etc.)
+   │   ├── asha.* (metric, mode, max_t, grace_period, reduction_factor)
+   │   ├── resources.* (num_samples, cpus_per_trial, gpus_per_trial)
+   │   └── transfer_learning.* (top_k, full_epochs, ensemble_size)
+   │
+   ├── Artifacts
+   │   ├── config/
+   │   │   └── hpo_config_{timestamp}.yaml  # Full HPO configuration
+   │   ├── optuna/  # Optuna study artifacts (when persist_study: true)
+   │   │   ├── optuna_trials.csv  # All trial results
+   │   │   ├── optuna_study_summary.json  # Best trials and study metadata
+   │   │   ├── optuna_param_importance.json  # Parameter importance (≥10 trials)
+   │   │   └── optuna_studies.db  # Complete SQLite database
+   │   ├── storage_dir/  # All files from search_algorithm.storage_dir
+   │   │   └── **/*.{json,csv,yaml,txt,md,db}  # Excludes model checkpoints
+   │   ├── hpo_results.csv  # Ray Tune results dataframe
+   │   ├── top_k_configs.json  # Top K configurations for ensemble
+   │   ├── study_metadata.json  # Study metadata
+   │   └── best_model/
+   │       └── best-*.ckpt  # Best trial checkpoint
+   │
+   └── Metrics
+       ├── best.* (best trial: val_mae, val_loss, val_rmse, R², etc.)
+       └── trials.*.{mean,std,min,max}  # Aggregate trial statistics
+
+   Child Trial Runs (one per HPO trial)
+   ├── Per-epoch metrics (val_mae, train_loss, lr, etc.)
+   ├── Final trial metrics
+   └── mlflow.parentRunId = {master_run_id}  # Linked to parent
+
+Optuna Study Artifacts
+^^^^^^^^^^^^^^^^^^^^^^^
+
+When using Optuna with persistent studies (``persist_study: true``), comprehensive
+study information is automatically logged:
+
+**optuna_trials.csv**
+   Complete trial history with all hyperparameters, metrics, and metadata.
+   Useful for post-hoc analysis and visualization.
+
+**optuna_study_summary.json**
+   Study metadata including:
+
+   - Best trial configuration and value
+   - Top 10 trials
+   - Study direction (minimize/maximize)
+   - User and system attributes
+   - Trial timing information
+
+**optuna_param_importance.json**
+   Parameter importance scores computed using fANOVA (when ≥10 trials).
+   Identifies which hyperparameters have the strongest impact on performance.
+
+**optuna_studies.db**
+   Complete SQLite database containing the full Optuna study.
+   Can be used to:
+
+   - Resume optimization with warmstart
+   - Perform custom analysis with Optuna API
+   - Query trial history programmatically
+   - Generate visualizations with Optuna's plotting functions
+
+Example usage:
+
+.. code-block:: python
+
+   import optuna
+
+   # Load study from logged database
+   study = optuna.load_study(
+       study_name="my_hpo_study",
+       storage="sqlite:///path/to/optuna_studies.db"
+   )
+
+   # Access best trial
+   print(f"Best trial: {study.best_trial.params}")
+   print(f"Best value: {study.best_value}")
+
+   # Generate visualization
+   from optuna.visualization import plot_optimization_history
+   fig = plot_optimization_history(study)
+   fig.show()
+
+Storage Directory Artifacts
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All relevant files from ``search_algorithm.storage_dir`` are automatically logged
+to MLflow, preserving directory structure:
+
+**Included file types:**
+   - Configuration files: ``*.yaml``, ``*.yml``, ``*.json``
+   - Data files: ``*.csv``
+   - Documentation: ``*.txt``, ``*.md``
+   - Databases: ``*.db``
+
+**Excluded file types:**
+   Model checkpoints and large binary files are excluded to save storage:
+
+   - ``*.ckpt``, ``*.pth``, ``*.pt``
+   - ``*.h5``, ``*.pkl``, ``*.pickle``
+
+This ensures all summary documents are preserved for reproducibility without
+bloating the MLflow artifact store with large model files.
+
+Configuration Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To enable comprehensive artifact logging, configure your HPO with:
+
+.. code-block:: yaml
+
+   search_algorithm:
+     type: optuna  # Required for Optuna-specific artifacts
+     persist_study: true  # Enable study persistence
+     study_name: "my_hpo_experiment"  # Optional, auto-generated if not provided
+     storage_dir: /path/to/hpo/storage  # Directory to log artifacts from
+
+Accessing Artifacts via MLflow UI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Start MLflow UI:
+
+   .. code-block:: bash
+
+      mlflow ui --port 5000
+
+2. Navigate to your experiment
+3. Find the master HPO run (sorted by start time, named ``hpo_master_*`` or ``hpo_*``)
+4. View logged parameters, metrics, and artifacts
+5. Download specific artifacts or the entire artifact directory
+
+Using Artifacts for Reproducibility
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The logged artifacts enable complete reproducibility:
+
+1. **Configuration files**: Exact HPO settings for rerunning experiments
+2. **Optuna database**: Resume optimization or analyze search trajectory
+3. **Top-K configs**: Configurations for downstream ensemble training
+4. **Study metadata**: Experiment context and provenance
+
+Example workflow:
+
+.. code-block:: python
+
+   import mlflow
+
+   # Access master HPO run
+   client = mlflow.tracking.MlflowClient()
+   run = client.get_run(run_id="master_run_id")
+
+   # Download specific artifact
+   artifact_path = client.download_artifacts(
+       run_id="master_run_id",
+       path="optuna/optuna_study_summary.json"
+   )
+
+   # Load top-K configs for ensemble training
+   top_k_path = client.download_artifacts(
+       run_id="master_run_id",
+       path="top_k_configs.json"
+   )
+
+   with open(top_k_path) as f:
+       top_configs = json.load(f)
+
+Benefits
+^^^^^^^^
+
+**Complete Audit Trail**
+   All experiment details captured in one place, making it easy to
+   understand what was tried and why.
+
+**Easy Collaboration**
+   Share MLflow experiment URL with team members for instant access
+   to all HPO results and artifacts.
+
+**Warmstart Capability**
+   Optuna database enables continuing optimization from previous runs
+   without starting from scratch.
+
+**Storage Efficiency**
+   Only summary documents are logged; model checkpoints are excluded
+   to prevent artifact store bloat.
+
+**Post-Hoc Analysis**
+   Download artifacts for custom analysis, visualization, or reporting
+   without re-running expensive HPO.
+
 Warmstarting Optimization
 --------------------------
 
