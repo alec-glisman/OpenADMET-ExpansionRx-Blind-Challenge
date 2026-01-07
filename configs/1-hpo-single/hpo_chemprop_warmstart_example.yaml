@@ -1,0 +1,160 @@
+# Example: Warmstart HPO from previous study
+# This config demonstrates how to continue optimization from a previous run
+# using persistent Optuna studies and warmstart capabilities.
+
+experiment_name: chemprop_hpo_warmstart_example
+output_dir: /media/aglisman/Data/models/chemprop-hpo-warmstart
+ray_storage_path: /media/aglisman/Data/ray/chemprop
+mlflow_tracking_uri: http://127.0.0.1:8084
+
+data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
+val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
+smiles_column: SMILES
+target_columns:
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
+target_weights:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+
+seed: 42
+patience: 15
+warmup_epochs: 5
+report_every_n_epochs: 1
+
+# Narrowed search space based on previous study insights
+search_space:
+  learning_rate:
+    type: loguniform
+    low: 0.001  # Narrowed from previous broad search
+    high: 0.01
+  lr_warmup_ratio:
+    type: loguniform
+    low: 0.5
+    high: 5.0
+  lr_final_ratio:
+    type: loguniform
+    low: 0.01
+    high: 0.5
+  dropout:
+    type: uniform
+    low: 0.1
+    high: 0.2
+  weight_decay_enabled:
+    type: choice
+    values: [true]  # Previous study showed this is always beneficial
+  weight_decay:
+    type: loguniform
+    low: 1.0e-05
+    high: 0.0001
+    conditional_on: weight_decay_enabled
+    conditional_values: [true]
+  batch_size:
+    type: choice
+    values: [64, 128]  # Previous study showed these work best
+  depth:
+    type: randint
+    low: 3
+    high: 6
+  message_hidden_dim:
+    type: quniform
+    low: 400
+    high: 800
+    q: 100
+  batch_norm:
+    type: choice
+    values: [true, false]
+  ffn_type:
+    type: choice
+    values:
+      - regression
+      - mixture_of_experts
+  ffn_num_layers:
+    type: randint
+    low: 1
+    high: 4
+  ffn_hidden_dim:
+    type: quniform
+    low: 400
+    high: 800
+    q: 100
+  n_experts:
+    type: qrandint
+    low: 3
+    high: 6
+    q: 1
+    conditional_on: ffn_type
+    conditional_values: [mixture_of_experts]
+  joint_sampling:
+    enabled:
+      type: choice
+      values: [true, false]
+    task_oversampling:
+      alpha:
+        type: uniform
+        low: 0.2
+        high: 0.8
+
+asha:
+  metric: val_mae
+  mode: min
+  max_t: 120
+  grace_period: 15
+  reduction_factor: 3
+  brackets: 1
+
+# NEW: Persistent study configuration with warmstart
+search_algorithm:
+  type: optuna
+  seed: 42
+  n_initial_points: 50  # Reduced since we have warmstart trials
+  # Enable persistent study storage
+  persist_study: true
+  study_name: chemprop_hpo_v2_warmstart  # Unique name for this study
+  storage_dir: hpo_results/optuna_studies  # SQLite database location
+  # Warmstart from previous study
+  warmstart_from: chemprop_hpo_v1  # Name of previous study to load from
+  warmstart_n_trials: 15  # Number of top trials to enqueue from previous study
+
+optimization:
+  num_workers: 4
+  use_mixed_precision: true
+  use_torch_compile: true  # NEW: Enable torch.compile for 20-40% additional speedup
+  torch_compile_mode: "reduce-overhead"  # Recommended for training
+  accumulate_grad_batches: 1
+
+resources:
+  num_samples: 500  # Fewer trials needed with warmstart (vs 1000 for cold start)
+  cpus_per_trial: 4
+  gpus_per_trial: 0.33
+  max_concurrent_trials: null
+
+transfer_learning:
+  top_k: 50
+  full_epochs: 60
+  ensemble_size: 5
+
+logging:
+  enabled: true
+  verbose: 1
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true
+
+profiling:
+  enabled: false
+  print_summary: false
+  log_to_mlflow: false

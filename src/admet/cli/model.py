@@ -396,3 +396,119 @@ def list_models() -> None:
         doc = model_cls.__doc__ or "No description"
         first_line = doc.split("\n")[0].strip()
         typer.echo(f"  {name}: {first_line}")
+
+
+@model_app.command("hpo-list-studies")
+def hpo_list_studies(
+    storage_dir: Path = typer.Option(
+        Path("hpo_results/optuna_studies"),
+        "--storage-dir",
+        "-s",
+        help="Directory containing Optuna studies database",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed trial information"),
+) -> None:
+    """List available Optuna studies in the database.
+
+    This command displays all persistent HPO studies, showing key metadata:
+    - Study name and creation time
+    - Number of trials completed
+    - Best metric value achieved
+    - Optimization direction
+
+    Examples:
+        # List all studies in default directory
+        admet model hpo-list-studies
+
+        # List studies in custom directory
+        admet model hpo-list-studies --storage-dir my_studies/
+
+        # Show detailed trial information
+        admet model hpo-list-studies --verbose
+
+    To use these studies for warmstart, add to your HPO config:
+
+        search_algorithm:
+          type: optuna
+          persist_study: true
+          warmstart_from: '<study_name>'
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    # Check if storage exists
+    db_path = storage_dir / "studies.db"
+    if not db_path.exists():
+        console.print(f"[yellow]No studies database found at: {db_path}[/yellow]")
+        console.print("\nTo create persistent studies, set in your HPO config:")
+        console.print("  search_algorithm:")
+        console.print("    persist_study: true")
+        console.print("    study_name: 'my_study_name'")
+        return
+
+    # Import optuna
+    try:
+        import optuna
+    except ImportError:
+        console.print("[red]Error: optuna not installed. Install with: pip install optuna[/red]")
+        raise typer.Exit(1)
+
+    storage_url = f"sqlite:///{db_path}"
+
+    try:
+        # Get all studies
+        study_summaries = optuna.get_all_study_summaries(storage=storage_url)
+
+        if not study_summaries:
+            console.print(f"[yellow]No studies found in database: {db_path}[/yellow]")
+            return
+
+        # Create summary table
+        table = Table(title=f"Optuna Studies ({len(study_summaries)} total)")
+        table.add_column("Study Name", style="cyan", no_wrap=True)
+        table.add_column("Direction", style="magenta")
+        table.add_column("Trials", justify="right", style="green")
+        table.add_column("Best Value", justify="right", style="yellow")
+        table.add_column("Created", style="dim")
+
+        for summary in study_summaries:
+            # Format best value
+            best_value_str = (
+                f"{summary.best_trial.value:.6f}" if summary.best_trial and summary.best_trial.value else "N/A"
+            )
+
+            # Format creation time
+            created = summary.datetime_start.strftime("%Y-%m-%d %H:%M") if summary.datetime_start else "Unknown"
+
+            table.add_row(
+                summary.study_name,
+                summary.direction.name,
+                str(summary.n_trials),
+                best_value_str,
+                created,
+            )
+
+        console.print(table)
+        console.print(f"\n[dim]Database: {db_path}[/dim]")
+
+        # Show detailed trial info if verbose
+        if verbose and study_summaries:
+            console.print("\n[bold]Study Details:[/bold]")
+            for summary in study_summaries:
+                console.print(f"\n[cyan]{summary.study_name}[/cyan]")
+                console.print(f"  Direction: {summary.direction.name}")
+                console.print(f"  Trials: {summary.n_trials}")
+
+                if summary.best_trial:
+                    console.print(f"  Best trial #{summary.best_trial.number}:")
+                    console.print(f"    Value: {summary.best_trial.value:.6f}")
+                    if summary.best_trial.params:
+                        console.print("    Params:")
+                        for key, value in summary.best_trial.params.items():
+                            console.print(f"      {key}: {value}")
+
+    except Exception as e:
+        console.print(f"[red]Error reading studies database: {e}[/red]")
+        raise typer.Exit(1)

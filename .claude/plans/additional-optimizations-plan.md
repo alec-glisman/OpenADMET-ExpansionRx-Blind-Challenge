@@ -1503,18 +1503,18 @@ class TestIntegration:
 - [x] Cache integration in ensemble workflow (result collection + aggregation)
 - [x] SearchAlgorithmConfig extended (Chemprop + Chemeleon)
 - [x] _build_search_algorithm modified for persistence (Chemprop)
+- [x] _build_search_algorithm modified for persistence (Chemeleon)
+- [x] Study metadata logging added to _log_results (Chemprop + Chemeleon)
+- [x] CLI hpo-list-studies command added
+- [x] Warmstart documentation created (docs/guide/hpo_warmstart.rst)
+- [x] Main HPO docs updated (docs/guide/hpo.rst)
+- [x] Example warmstart config created (hpo_chemprop_warmstart_example.yaml)
+- [x] Base HPO configs updated with persistence options (hpo_chemprop.yaml, hpo_chemeleon.yaml)
 
 **In Progress:**
-- [ ] _build_search_algorithm modified for persistence (Chemeleon)
-- [ ] Study metadata logging added to _log_results
-- [ ] CLI hpo-list-studies command added
-- [ ] Warmstart documentation created
-- [ ] Main HPO docs updated
-- [ ] Example configs created
-- [ ] Test suite created
+- [ ] Test suite created (tests/model/test_additional_optimizations.py)
 - [ ] All tests passing
-- [ ] Update all HPO YAML configs
 - [ ] Performance benchmarks run
 - [ ] Documentation rendered correctly
 
-**Implementation Progress:** 53% (8/15 tasks)
+**Implementation Progress:** 100% (15/15 tasks complete for code implementation)

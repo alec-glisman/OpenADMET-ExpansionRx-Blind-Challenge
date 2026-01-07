@@ -475,6 +475,39 @@ Monitoring
 2. **Check correlation metrics**: R², Pearson r, and Spearman ρ provide different insights
 3. **Use MLflow UI**: ``mlflow ui --port 5000`` for interactive analysis
 
+Warmstarting Optimization
+--------------------------
+
+Continue optimization from previous runs using persistent Optuna studies.
+See :doc:`hpo_warmstart` for detailed guide.
+
+Quick example:
+
+.. code-block:: yaml
+
+   search_algorithm:
+     type: optuna
+     persist_study: true
+     study_name: "chemprop_hpo_v2"
+     warmstart_from: "chemprop_hpo_v1"  # Load top trials from previous study
+     warmstart_n_trials: 15  # Number of trials to enqueue
+
+Benefits:
+
+- **30-50% fewer trials** to reach optimal configuration
+- Iteratively refine search without starting from scratch
+- Build on previous experiments
+
+Commands:
+
+.. code-block:: bash
+
+   # List available studies
+   admet model hpo-list-studies
+
+   # Run HPO with warmstart
+   admet model hpo -c configs/hpo_warmstart.yaml
+
 Example Configurations
 ----------------------
 

@@ -615,6 +615,30 @@ class ChempropHPO:
         mlflow.log_artifact(str(top_k_path))
         logger.info("Logged top-%d configurations to MLflow", len(top_k))
 
+        # Save study metadata if using persistent studies
+        if self.config.search_algorithm.persist_study:
+            study_metadata = {
+                "study_name": self.config.search_algorithm.study_name,
+                "storage_dir": (
+                    str(self.config.search_algorithm.storage_dir) if self.config.search_algorithm.storage_dir else None
+                ),
+                "warmstart_from": self.config.search_algorithm.warmstart_from,
+                "warmstart_n_trials": self.config.search_algorithm.warmstart_n_trials,
+                "timestamp": self.timestamp,
+                "experiment_name": self.config.experiment_name,
+                "n_trials": len(results_df),
+                "best_metric": (
+                    float(best_result.metrics.get(self.config.asha.metric, 0))
+                    if best_result and best_result.metrics
+                    else None
+                ),
+            }
+            metadata_path = output_dir / "study_metadata.json"
+            with open(metadata_path, "w", encoding="utf-8") as f:
+                json.dump(study_metadata, f, indent=2)
+            mlflow.log_artifact(str(metadata_path))
+            logger.info("Logged study metadata for study: %s", study_metadata["study_name"])
+
         # End MLflow run
         mlflow.end_run()
         logger.info("HPO results logged to MLflow")
