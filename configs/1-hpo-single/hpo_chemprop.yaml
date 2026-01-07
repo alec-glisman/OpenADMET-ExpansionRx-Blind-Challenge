@@ -145,12 +145,6 @@ search_algorithm:
   storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies # SQLite database location
   warmstart_from: null # Set to previous study name to load top trials
   warmstart_n_trials: 10 # Number of top trials to enqueue from previous study
-optimization:
-  num_workers: 4 # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
-  use_mixed_precision: true # OPTIMIZATION: FP16 training (1.8-2x speedup on RTX 3080, 1.3-1.5x on GTX 1080 Ti)
-  use_torch_compile: false # OPTIMIZATION: Enable torch.compile for 20-40% additional speedup
-  torch_compile_mode: "reduce-overhead" # Options: "default", "reduce-overhead", "max-autotune"
-  accumulate_grad_batches: 1 # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
 resources:
   num_samples: 2000
   cpus_per_trial: 4

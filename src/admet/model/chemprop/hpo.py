@@ -364,12 +364,14 @@ class ChempropHPO:
             from ray.tune.search.optuna import OptunaSearch
 
             # Determine storage location and study persistence
+            storage: optuna.storages.BaseStorage | None = None
             if self.config.search_algorithm.persist_study:
                 storage_dir = (
                     Path(self.config.search_algorithm.storage_dir or self.config.output_dir) / "optuna_studies"
                 )
                 storage_dir.mkdir(parents=True, exist_ok=True)
                 storage_url = f"sqlite:///{storage_dir / 'studies.db'}"
+                storage = optuna.storages.RDBStorage(url=storage_url)
 
                 # Generate or use provided study name
                 study_name = self.config.search_algorithm.study_name
@@ -382,7 +384,7 @@ class ChempropHPO:
                     storage_url,
                 )
             else:
-                storage_url = None
+                storage = None
                 study_name = None
                 logger.info("Using ephemeral Optuna study (no persistence)")
 
@@ -395,24 +397,16 @@ class ChempropHPO:
             # Determine direction
             direction = "minimize" if self.config.asha.mode == "min" else "maximize"
 
-            # Create or load study
-            if storage_url and study_name:
-                study = optuna.create_study(
-                    study_name=study_name,
-                    storage=storage_url,
-                    sampler=sampler,
-                    direction=direction,
-                    load_if_exists=False,  # Error if study exists (prevents accidental overwrite)
-                )
-
-                # Warmstart from previous study if specified
+            # Create or load study and handle warmstart
+            if storage and study_name:
+                # Check for warmstart first
                 warmstart_from = self.config.search_algorithm.warmstart_from
                 if warmstart_from:
                     logger.info("Warmstarting from study: %s", warmstart_from)
                     try:
                         old_study = optuna.load_study(
                             study_name=warmstart_from,
-                            storage=storage_url,
+                            storage=storage,
                         )
 
                         # Get top N trials from previous study
@@ -426,6 +420,15 @@ class ChempropHPO:
                             old_study.best_value,
                         )
 
+                        # Create new study and enqueue warmstart trials
+                        study = optuna.create_study(
+                            study_name=study_name,
+                            storage=storage,
+                            sampler=sampler,
+                            direction=direction,
+                            load_if_exists=False,
+                        )
+
                         # Enqueue trials as seeds
                         for trial in top_trials:
                             study.enqueue_trial(trial.params)
@@ -436,12 +439,32 @@ class ChempropHPO:
                             warmstart_from,
                             e,
                         )
+                        # Create study without warmstart
+                        study = optuna.create_study(
+                            study_name=study_name,
+                            storage=storage,
+                            sampler=sampler,
+                            direction=direction,
+                            load_if_exists=False,
+                        )
+                else:
+                    # Create study without warmstart
+                    study = optuna.create_study(
+                        study_name=study_name,
+                        storage=storage,
+                        sampler=sampler,
+                        direction=direction,
+                        load_if_exists=False,
+                    )
 
-                # Create OptunaSearch with persistent study
+                # Create OptunaSearch with storage object (must be BaseStorage instance)
                 search_alg = OptunaSearch(
-                    study=study,
+                    space=None,  # Let Ray Tune define the space
+                    sampler=sampler,
                     metric=self.config.asha.metric,
                     mode=self.config.asha.mode,
+                    storage=storage,
+                    study_name=study_name,
                 )
             else:
                 # Ephemeral study (original behavior)

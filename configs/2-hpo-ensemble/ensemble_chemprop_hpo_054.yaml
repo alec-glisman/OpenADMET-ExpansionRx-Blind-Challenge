@@ -48,11 +48,12 @@ optimization:
   patience: 15
   batch_size: 256
   num_workers: 4  # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
-  use_mixed_precision: true  # OPTIMIZATION: FP16 training (1.8-2x speedup on RTX 3080, 1.3-1.5x on GTX 1080 Ti)
   accumulate_grad_batches: 1  # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
   seed: 42
   weight_decay: 0.0
   progress_bar: false
+performance_optimization:
+  use_mixed_precision: true
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084

@@ -130,13 +130,6 @@ search_algorithm:
   warmstart_from: chemprop_hpo_v1 # Name of previous study to load from
   warmstart_n_trials: 15 # Number of top trials to enqueue from previous study
 
-optimization:
-  num_workers: 4
-  use_mixed_precision: true
-  use_torch_compile: true # NEW: Enable torch.compile for 20-40% additional speedup
-  torch_compile_mode: "reduce-overhead" # Recommended for training
-  accumulate_grad_batches: 1
-
 resources:
   num_samples: 500 # Fewer trials needed with warmstart (vs 1000 for cold start)
   cpus_per_trial: 4
