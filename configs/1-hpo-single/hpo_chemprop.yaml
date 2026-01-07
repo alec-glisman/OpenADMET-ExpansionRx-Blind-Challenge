@@ -138,7 +138,7 @@ asha:
 search_algorithm:
   type: optuna
   seed: 42
-  n_initial_points: 100
+  n_initial_points: 200
   # Persistent study storage enabled by default for warmstart capability
   persist_study: true
   study_name: null # Auto-generated from experiment_name and timestamp if not provided
@@ -152,7 +152,7 @@ optimization:
   torch_compile_mode: "reduce-overhead" # Options: "default", "reduce-overhead", "max-autotune"
   accumulate_grad_batches: 1 # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
 resources:
-  num_samples: 1000
+  num_samples: 2000
   cpus_per_trial: 4
   gpus_per_trial: 0.33
   max_concurrent_trials: null
