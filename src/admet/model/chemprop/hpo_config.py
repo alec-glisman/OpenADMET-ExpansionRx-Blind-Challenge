@@ -5,7 +5,7 @@ Ray Tune hyperparameter optimization of Chemprop models.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from omegaconf import MISSING
 
@@ -153,15 +153,30 @@ class SearchAlgorithmConfig:
     instead of pure random sampling. This can significantly improve HPO
     efficiency by learning which hyperparameter regions perform well.
 
+    NEW: Supports persistent Optuna studies for warmstarting optimization
+    from previous runs.
+
     Attributes:
-        type: Search algorithm type - "random" (default), "optuna", "bayesopt", "hyperopt"
+        type: Search algorithm type - "random", "optuna", "bayesopt", "hyperopt"
         seed: Random seed for reproducibility
         n_initial_points: Number of random trials before using surrogate model (Optuna only)
+        persist_study: Whether to save Optuna study to persistent storage (SQLite database)
+        study_name: Name for the Optuna study. If None, auto-generated with timestamp.
+        storage_dir: Directory for SQLite database. Defaults to {output_dir}/optuna_studies
+        warmstart_from: Name of previous study to warmstart from (loads top trials as seeds)
+        warmstart_n_trials: Number of top trials to enqueue from previous study for warmstart
     """
 
     type: str = "optuna"  # Use Optuna by default for adaptive search
     seed: int = 42
     n_initial_points: int = 20  # Random exploration phase
+
+    # Study persistence settings
+    persist_study: bool = False
+    study_name: Optional[str] = None
+    storage_dir: Optional[str] = None
+    warmstart_from: Optional[str] = None
+    warmstart_n_trials: int = 10
 
 
 @dataclass

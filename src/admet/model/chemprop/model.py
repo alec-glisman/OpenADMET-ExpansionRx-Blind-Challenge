@@ -36,6 +36,7 @@ from __future__ import annotations
 import logging
 import queue
 import tempfile
+import time
 from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
@@ -1381,6 +1382,37 @@ class ChempropModel:
         if self.task_group_indices is not None:
             self.mpnn.task_group_indices = self.task_group_indices
 
+        # Apply torch.compile if enabled for kernel fusion and optimization
+        if self._performance_optimization.use_torch_compile:
+            try:
+                logger.info(
+                    "Compiling MPNN with torch.compile (mode=%s, fullgraph=%s, dynamic=%s)",
+                    self._performance_optimization.torch_compile_mode,
+                    self._performance_optimization.torch_compile_fullgraph,
+                    self._performance_optimization.torch_compile_dynamic,
+                )
+
+                compile_start = time.time()
+                self.mpnn = torch.compile(
+                    self.mpnn,
+                    mode=self._performance_optimization.torch_compile_mode,
+                    fullgraph=self._performance_optimization.torch_compile_fullgraph,
+                    dynamic=self._performance_optimization.torch_compile_dynamic,
+                )
+                compile_time = time.time() - compile_start
+
+                logger.info(
+                    "MPNN compilation complete (%.2fs) - expect 20-40%% training speedup",
+                    compile_time,
+                )
+            except Exception as e:
+                logger.warning(
+                    "torch.compile failed: %s. Falling back to uncompiled model.",
+                    e,
+                    exc_info=True,
+                )
+                # Continue with uncompiled model - no need to re-create
+
     def _init_mlflow(self) -> None:
         """
         Initialize MLflow tracking with an active run context.
@@ -2561,8 +2593,6 @@ class ChempropModel:
         bool
             True if GPU should be used for metrics, False otherwise.
         """
-        import torch
-
         setting = self._post_training_config.use_gpu_metrics
         if setting == "auto":
             gpu_available = torch.cuda.is_available()
@@ -2688,8 +2718,6 @@ class ChempropModel:
             y_pred_batch = np.column_stack([preds_df[t].values for t in valid_targets])
 
             # Convert to tensors for GPU-native computation (auto-uses torchmetrics)
-            import torch
-
             compute_rank = self._post_training_config.compute_rank_correlations
             # Task 3.2: GPU metrics with auto-detection
             use_gpu = self._resolve_gpu_metrics_setting()

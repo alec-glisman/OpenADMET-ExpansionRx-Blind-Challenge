@@ -250,6 +250,17 @@ class ModelEnsemble:
         self._shared_test_df: Optional[pd.DataFrame] = None
         self._shared_blind_df: Optional[pd.DataFrame] = None
 
+        # Prediction cache for in-memory access (performance optimization)
+        self._prediction_cache: Dict[str, Dict[str, pd.DataFrame]] = {
+            "test": {},  # model_key -> predictions DataFrame
+            "blind": {},  # model_key -> predictions DataFrame
+        }
+        self._aggregated_cache: Dict[str, Optional[pd.DataFrame]] = {
+            "test": None,
+            "blind": None,
+        }
+        self._cache_enabled: bool = True  # Can be disabled for debugging
+
         # Determine model type from config (handle missing model section gracefully)
         model_type = "chemprop"  # default
         if hasattr(self.config, "model") and self.config.model is not None:
@@ -1259,6 +1270,14 @@ class ModelEnsemble:
                     self._all_test_predictions.append(test_preds)
                 if blind_preds is not None:
                     self._all_blind_predictions.append(blind_preds)
+
+                # Cache individual predictions for fast lookup (performance optimization)
+                if self._cache_enabled:
+                    if test_preds is not None:
+                        self._prediction_cache["test"][model_key] = test_preds
+                    if blind_preds is not None:
+                        self._prediction_cache["blind"][model_key] = blind_preds
+
                 # Aggregate profiling data from worker
                 if prof_data:
                     self._profiler.register_model_dict(prof_data)
@@ -1377,6 +1396,11 @@ class ModelEnsemble:
         pd.DataFrame
             Aggregated predictions with mean, std, and stderr columns.
         """
+        # Check cache first (performance optimization)
+        if self._cache_enabled and self._aggregated_cache[split_name] is not None:
+            logger.debug("Using cached aggregated predictions for %s", split_name)
+            return self._aggregated_cache[split_name]
+
         if not predictions_list:
             return pd.DataFrame()
 
@@ -1428,6 +1452,11 @@ class ModelEnsemble:
                 # For y = 10^x, dy = ln(10) * 10^x * dx
                 result[f"{target}_transformed_stderr"] = np.log(10) * np.power(10, mean_pred) * stderr_pred
 
+        # Cache aggregated result (performance optimization)
+        if self._cache_enabled:
+            self._aggregated_cache[split_name] = result
+            logger.debug("Cached aggregated predictions for %s", split_name)
+
         logger.info("Aggregated %d model predictions for %s split", n_models, split_name)
         return result
 
@@ -1468,6 +1497,49 @@ class ModelEnsemble:
             self._mlflow_client.log_artifact(self.parent_run_id, str(submissions_path), artifact_path="submissions")
 
         logger.info("Saved ensemble predictions for %s", split_name)
+
+    def get_cached_predictions(
+        self,
+        model_key: Optional[str] = None,
+        split_name: str = "test",
+    ) -> Optional[pd.DataFrame]:
+        """
+        Get cached predictions for a specific model or aggregated ensemble.
+
+        Parameters
+        ----------
+        model_key : str, optional
+            Model key (e.g., "split_0_fold_0"). If None, returns aggregated predictions.
+        split_name : str
+            Either "test" or "blind"
+
+        Returns
+        -------
+        pd.DataFrame or None
+            Cached predictions, or None if not in cache
+        """
+        if model_key is None:
+            return self._aggregated_cache.get(split_name)
+        else:
+            return self._prediction_cache[split_name].get(model_key)
+
+    def clear_cache(self, split_name: Optional[str] = None) -> None:
+        """
+        Clear prediction cache.
+
+        Parameters
+        ----------
+        split_name : str, optional
+            If specified, clear only this split. Otherwise clear all.
+        """
+        if split_name is None:
+            self._prediction_cache = {"test": {}, "blind": {}}
+            self._aggregated_cache = {"test": None, "blind": None}
+            logger.info("Cleared all prediction caches")
+        else:
+            self._prediction_cache[split_name] = {}
+            self._aggregated_cache[split_name] = None
+            logger.info("Cleared %s prediction cache", split_name)
 
     def _generate_unlabeled_ensemble_plots(self, predictions: pd.DataFrame, split_name: str, n_models: int = 0) -> None:
         """

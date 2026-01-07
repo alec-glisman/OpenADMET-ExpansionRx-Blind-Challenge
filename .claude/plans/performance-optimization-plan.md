@@ -944,6 +944,7 @@ All optimizations are aggressive (backward compatibility not guaranteed) and tai
 Comprehensive validation tests created in `tests/model/test_performance_optimizations.py`:
 
 **Test Coverage:**
+
 - ✅ Phase 1: Quick Wins (4 tests) - Batched predictions, MLflow batch logging, num_workers conditional, Ray buffer tuning
 - ✅ Phase 2: Caching (2 tests) - SMILES canonicalization cache, Precomputed test/blind datasets
 - ✅ Phase 3: Training Optimizations (3 tests) - Mixed precision, Gradient accumulation, Parallel ensemble GPU allocation
@@ -976,6 +977,7 @@ TestRegressionPrevention::test_smiles_cache_reduces_computations PASSED
 ### Quality Validation Results
 
 **Verified Optimizations:**
+
 1. ✅ Batched predictions use configured batch_size (not hardcoded 1)
 2. ✅ MLflow parameters logged in batch via `log_batch()` API
 3. ✅ num_workers respects curriculum setting
@@ -987,6 +989,7 @@ TestRegressionPrevention::test_smiles_cache_reduces_computations PASSED
 9. ✅ GPU allocation strategy verified (6 parallel for Chemprop, 4 for Chemeleon)
 
 **Regression Prevention Verified:**
+
 - ✅ Test file loaded only once per ensemble (not 25x)
 - ✅ SMILES cache reduces computations 100x for duplicate molecules (100 calls → 1 computation, 99 cache hits)
 - ✅ Predictions remain deterministic (same SMILES always produces same canonical form)
@@ -997,13 +1000,16 @@ TestRegressionPrevention::test_smiles_cache_reduces_computations PASSED
 All identified risks addressed and tested:
 
 **High-Risk Items:**
+
 - ✅ **2.4 Parallel Ensemble** - Implemented with user-validated GPU memory limits (3 models per GPU for Chemprop, 2 for Chemeleon)
 - ✅ **2.3 Precomputed Datasets** - Verified correctness via integration test; test/blind files loaded once
 
 **Medium-Risk Items:**
+
 - ✅ **3.1 Mixed Precision** - Configuration validated, ready for use with precision="16-mixed"
 - ✅ **2.2 SMILES Cache** - Cache hit rate verified at 99% for duplicates
 
 **Low-Risk Items:**
+
 - ✅ All Quick Wins (1.1-1.4) validated with unit tests
 - ✅ No backward compatibility issues detected in test suite

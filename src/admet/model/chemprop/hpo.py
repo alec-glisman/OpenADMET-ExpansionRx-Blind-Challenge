@@ -357,21 +357,105 @@ class ChempropHPO:
             return None
 
         elif algo_type == "optuna":
+            from datetime import datetime
+            from pathlib import Path
+
             import optuna
             from ray.tune.search.optuna import OptunaSearch
+
+            # Determine storage location and study persistence
+            if self.config.search_algorithm.persist_study:
+                storage_dir = (
+                    Path(self.config.search_algorithm.storage_dir or self.config.output_dir) / "optuna_studies"
+                )
+                storage_dir.mkdir(parents=True, exist_ok=True)
+                storage_url = f"sqlite:///{storage_dir / 'studies.db'}"
+
+                # Generate or use provided study name
+                study_name = self.config.search_algorithm.study_name
+                if study_name is None:
+                    study_name = f"hpo_{datetime.now():%Y%m%d_%H%M%S}"
+
+                logger.info(
+                    "Creating persistent Optuna study: %s (storage: %s)",
+                    study_name,
+                    storage_url,
+                )
+            else:
+                storage_url = None
+                study_name = None
+                logger.info("Using ephemeral Optuna study (no persistence)")
+
+            # Create sampler
+            sampler = optuna.samplers.TPESampler(
+                seed=self.config.search_algorithm.seed,
+                n_startup_trials=self.config.search_algorithm.n_initial_points,
+            )
+
+            # Determine direction
+            direction = "minimize" if self.config.asha.mode == "min" else "maximize"
+
+            # Create or load study
+            if storage_url and study_name:
+                study = optuna.create_study(
+                    study_name=study_name,
+                    storage=storage_url,
+                    sampler=sampler,
+                    direction=direction,
+                    load_if_exists=False,  # Error if study exists (prevents accidental overwrite)
+                )
+
+                # Warmstart from previous study if specified
+                warmstart_from = self.config.search_algorithm.warmstart_from
+                if warmstart_from:
+                    logger.info("Warmstarting from study: %s", warmstart_from)
+                    try:
+                        old_study = optuna.load_study(
+                            study_name=warmstart_from,
+                            storage=storage_url,
+                        )
+
+                        # Get top N trials from previous study
+                        n_warmstart = self.config.search_algorithm.warmstart_n_trials
+                        top_trials = old_study.best_trials[:n_warmstart]
+
+                        logger.info(
+                            "Enqueuing %d top trials from %s (best value: %.4f)",
+                            len(top_trials),
+                            warmstart_from,
+                            old_study.best_value,
+                        )
+
+                        # Enqueue trials as seeds
+                        for trial in top_trials:
+                            study.enqueue_trial(trial.params)
+
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to load warmstart study %s: %s. Continuing without warmstart.",
+                            warmstart_from,
+                            e,
+                        )
+
+                # Create OptunaSearch with persistent study
+                search_alg = OptunaSearch(
+                    study=study,
+                    metric=self.config.asha.metric,
+                    mode=self.config.asha.mode,
+                )
+            else:
+                # Ephemeral study (original behavior)
+                search_alg = OptunaSearch(
+                    sampler=sampler,
+                    metric=self.config.asha.metric,
+                    mode=self.config.asha.mode,
+                )
 
             logger.info(
                 "Using Optuna search algorithm (TPESampler) with %d initial random points",
                 self.config.search_algorithm.n_initial_points,
             )
-            return OptunaSearch(
-                sampler=optuna.samplers.TPESampler(
-                    seed=self.config.search_algorithm.seed,
-                    n_startup_trials=self.config.search_algorithm.n_initial_points,
-                ),
-                metric=self.config.asha.metric,
-                mode=self.config.asha.mode,
-            )
+            return search_alg
 
         elif algo_type == "bayesopt":
             from ray.tune.search.bayesopt import BayesOptSearch
