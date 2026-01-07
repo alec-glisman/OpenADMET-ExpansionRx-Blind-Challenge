@@ -755,6 +755,23 @@ def main() -> None:
         required=True,
         help="Path to HPO configuration YAML file",
     )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=None,
+        help="Number of HPO trials (overrides config value)",
+    )
+    parser.add_argument(
+        "--logging-verbose",
+        type=int,
+        default=None,
+        help="Logging verbosity level (0=quiet, 1=standard, 2=debug)",
+    )
+    parser.add_argument(
+        "--no-logging",
+        action="store_true",
+        help="Disable Ray logging to artifacts",
+    )
 
     args = parser.parse_args()
 
@@ -766,6 +783,10 @@ def main() -> None:
     raw_config = OmegaConf.load(config_path)
     merged_config = OmegaConf.merge(OmegaConf.structured(HPOConfig), raw_config)
     config = cast(HPOConfig, OmegaConf.to_object(merged_config))
+
+    # Override with CLI arguments if provided
+    if args.num_samples is not None:
+        config.num_samples = args.num_samples
 
     # Run HPO
     hpo = ChempropHPO(config)

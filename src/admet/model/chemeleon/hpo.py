@@ -1126,11 +1126,32 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Run CheMeleon HPO with Ray Tune")
     parser.add_argument("--config", type=str, required=True, help="Path to HPO config YAML")
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=None,
+        help="Number of HPO trials (overrides config value)",
+    )
+    parser.add_argument(
+        "--logging-verbose",
+        type=int,
+        default=None,
+        help="Logging verbosity level (0=quiet, 1=standard, 2=debug)",
+    )
+    parser.add_argument(
+        "--no-logging",
+        action="store_true",
+        help="Disable Ray logging to artifacts",
+    )
     args = parser.parse_args()
 
     raw_config = OmegaConf.load(args.config)
     merged_config = OmegaConf.merge(OmegaConf.structured(ChemeleonHPOConfig), raw_config)
     config = cast(ChemeleonHPOConfig, OmegaConf.to_object(merged_config))
+
+    # Override with CLI arguments if provided
+    if args.num_samples is not None:
+        config.num_samples = args.num_samples
 
     hpo = ChemeleonHPO(config)
     results = hpo.run()
