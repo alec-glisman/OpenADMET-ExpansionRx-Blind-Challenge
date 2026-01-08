@@ -2,7 +2,7 @@
 # This config demonstrates how to continue optimization from a previous run
 # using persistent Optuna studies and warmstart capabilities.
 
-experiment_name: chemprop_hpo_warmstart_example
+experiment_name: chemprop_hpo
 output_dir: /media/aglisman/Data/models/chemprop-hpo-warmstart
 ray_storage_path: /media/aglisman/Data/ray/chemprop
 mlflow_tracking_uri: http://127.0.0.1:8084

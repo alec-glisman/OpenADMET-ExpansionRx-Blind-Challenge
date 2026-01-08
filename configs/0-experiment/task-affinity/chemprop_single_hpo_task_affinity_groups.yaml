@@ -79,7 +79,7 @@ performance_optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: chemprop_task_affinity_grouping
+  experiment_name: Default
   run_name: null
   nested: true
 post_training:

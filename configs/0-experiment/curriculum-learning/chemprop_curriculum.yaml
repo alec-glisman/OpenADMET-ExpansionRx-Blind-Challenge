@@ -102,7 +102,7 @@ inter_task_affinity:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: chemprop_curriculum_test
+  experiment_name: Default
   run_name: null
   nested: false
 post_training:

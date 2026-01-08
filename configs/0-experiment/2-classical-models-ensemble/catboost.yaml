@@ -7,15 +7,15 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
 model:
   type: catboost
   fingerprint:
@@ -41,14 +41,14 @@ ray:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: ensemble_additional_models
+  experiment_name: Default
   run_name: null
   nested: true
 post_training:
   generate_plots: true
   plot_dpi: 150
   plot_formats:
-  - png
+    - png
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false

@@ -35,7 +35,7 @@ performance_optimization:
   use_mixed_precision: true
 mlflow:
   enabled: true
-  experiment_name: chemeleon
+  experiment_name: Default
   tracking_uri: null
 post_training:
   generate_plots: true

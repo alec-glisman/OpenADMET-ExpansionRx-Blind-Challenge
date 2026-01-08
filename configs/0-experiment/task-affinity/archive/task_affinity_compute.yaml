@@ -2,15 +2,15 @@ data:
   data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
 task_affinity:
   affinity_epochs: 2
   affinity_batch_size: 64
@@ -31,15 +31,15 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
   save_plots: true
   plot_formats:
-  - png
+    - png
   plot_dpi: 150
 model:
   type: chemprop
@@ -69,7 +69,7 @@ optimization:
   patience: 999
   min_delta: 0.0
 mlflow:
-  experiment_name: task_affinity_computation
+  experiment_name: Default
   run_name: null
   tracking_uri: mlruns
   log_models: false
@@ -78,7 +78,7 @@ post_training:
   generate_plots: true
   plot_dpi: 150
   plot_formats:
-  - png
+    - png
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false
@@ -92,8 +92,8 @@ output:
   heatmap_path: results/task_affinity_heatmap.png
   groups_json_path: results/task_groups.json
   heatmap_figsize:
-  - 10
-  - 8
+    - 10
+    - 8
   heatmap_cmap: RdBu_r
   heatmap_dpi: 150
 logging:

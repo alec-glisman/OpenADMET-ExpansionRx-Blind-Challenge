@@ -7,25 +7,25 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
-  - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
 model:
   type: chemprop
   chemprop:
@@ -46,21 +46,21 @@ optimization:
   max_epochs: 20
   patience: 2
   batch_size: 128
-  num_workers: 4  # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
+  num_workers: 4 # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
   seed: 42
   weight_decay: 0.0
   progress_bar: false
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: task_affinity
+  experiment_name: Default
   run_name: null
   nested: true
 post_training:
   generate_plots: true
   plot_dpi: 150
   plot_formats:
-  - png
+    - png
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false
@@ -77,13 +77,13 @@ inter_task_affinity:
   clustering_linkage: average
   shared_param_patterns: []
   exclude_param_patterns:
-  - predictor
-  - output
-  - head
+    - predictor
+    - output
+    - head
   log_to_mlflow: true
   save_plots: true
   plot_formats:
-  - png
+    - png
   plot_dpi: 150
 joint_sampling:
   enabled: true
@@ -93,9 +93,9 @@ joint_sampling:
     enabled: false
     quality_col: Quality
     qualities:
-    - high
-    - medium
-    - low
+      - high
+      - medium
+      - low
     patience: 5
     strategy: sampled
     reset_early_stopping_on_phase_change: false

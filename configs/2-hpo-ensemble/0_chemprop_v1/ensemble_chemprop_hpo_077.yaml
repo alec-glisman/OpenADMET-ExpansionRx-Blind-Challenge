@@ -46,8 +46,8 @@ optimization:
   max_epochs: 150
   patience: 15
   batch_size: 64
-  num_workers: 4  # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
-  accumulate_grad_batches: 1  # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
+  num_workers: 4 # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
+  accumulate_grad_batches: 1 # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
   seed: 42
   weight_decay: 0.0
   progress_bar: false
@@ -56,7 +56,7 @@ performance_optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: chemprop_hpo_ensemble_topk
+  experiment_name: chemprop_hpo_ensemble
   run_name: rank_077
   nested: true
 post_training:

@@ -58,7 +58,7 @@ performance_optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: chemprop_hpo_ensemble_topk_production
+  experiment_name: chemprop_hpo_ensemble_production
   run_name: rank_006
   nested: true
 post_training:

@@ -5,25 +5,25 @@ data:
   output_dir: null
   smiles_col: SMILES
   target_cols:
-  - LogD
-  - Log KSOL
-  - Log HLM CLint
-  - Log MLM CLint
-  - Log Caco-2 Permeability Papp A>B
-  - Log Caco-2 Permeability Efflux
-  - Log MPPB
-  - Log MBPB
-  - Log MGMB
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
   target_weights:
-  - 1.031
-  - 1.0
-  - 1.2252
-  - 1.1368
-  - 2.1227
-  - 2.1174
-  - 3.7877
-  - 5.2722
-  - 10.0
+    - 1.031
+    - 1.0
+    - 1.2252
+    - 1.1368
+    - 2.1227
+    - 2.1174
+    - 3.7877
+    - 5.2722
+    - 10.0
 task_affinity:
   enabled: true
   n_groups: 3
@@ -46,11 +46,11 @@ inter_task_affinity:
   lookahead_lr: 0.001
   use_optimizer_lr: true
   exclude_param_patterns:
-  - predictor
-  - ffn
-  - output
-  - head
-  - readout
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
   log_to_mlflow: true
 model:
   type: chemprop
@@ -77,7 +77,7 @@ optimization:
   patience: 10
   min_delta: 0.0001
 mlflow:
-  experiment_name: chemprop_task_affinity_explore
+  experiment_name: Default
   run_name: null
   tracking_uri: mlruns
   log_models: true
@@ -86,7 +86,7 @@ post_training:
   generate_plots: true
   plot_dpi: 150
   plot_formats:
-  - png
+    - png
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false

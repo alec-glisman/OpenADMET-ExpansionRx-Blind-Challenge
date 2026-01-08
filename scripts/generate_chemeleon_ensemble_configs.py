@@ -98,9 +98,7 @@ def extract_hyperparams(row: pd.Series) -> dict:
     # Encoder freezing
     freeze_encoder = bool(row["config/freeze_encoder"])
     unfreeze_encoder_epoch = (
-        int(row["config/unfreeze_encoder_epoch"])
-        if pd.notna(row.get("config/unfreeze_encoder_epoch"))
-        else None
+        int(row["config/unfreeze_encoder_epoch"]) if pd.notna(row.get("config/unfreeze_encoder_epoch")) else None
     )
     unfreeze_encoder_lr_multiplier = row.get("config/unfreeze_encoder_lr_multiplier", 0.1)
     if pd.isna(unfreeze_encoder_lr_multiplier):
@@ -520,8 +518,8 @@ class HPOVisualizer:
     def plot_parallel_coordinates(self) -> Path:
         """Plot parallel coordinates for top configs."""
         import matplotlib.pyplot as plt
-        from matplotlib.colors import Normalize
         from matplotlib.cm import ScalarMappable
+        from matplotlib.colors import Normalize
 
         # Select key parameters for parallel coordinates
         key_params = [
@@ -766,9 +764,7 @@ class HPOVisualizer:
             x_top = self.top_k[param]
             y_top = self.top_k["val_loss"]
             top_label = f"Top {len(self.top_k)}"
-            ax.scatter(
-                x_top, y_top, c=self.top_k["rank"], cmap="plasma_r", alpha=0.8, s=30, label=top_label
-            )
+            ax.scatter(x_top, y_top, c=self.top_k["rank"], cmap="plasma_r", alpha=0.8, s=30, label=top_label)
 
             if use_log:
                 ax.set_xscale("log")
@@ -788,8 +784,8 @@ class HPOVisualizer:
     def plot_config_similarity_pca(self) -> Path:
         """PCA visualization of config similarity."""
         import matplotlib.pyplot as plt
-        from sklearn.preprocessing import StandardScaler
         from sklearn.decomposition import PCA
+        from sklearn.preprocessing import StandardScaler
 
         # Select numeric parameters for PCA
         params = [c for c in self.NUMERIC_PARAMS if c in self.top_k.columns]
@@ -920,14 +916,16 @@ class HPOVisualizer:
         for param in params:
             data = self.top_k[param].dropna()
             if len(data) > 0:
-                stats_data.append([
-                    self._get_display_name(param),
-                    f"{data.min():.6g}",
-                    f"{data.max():.6g}",
-                    f"{data.mean():.6g}",
-                    f"{data.std():.6g}",
-                    f"{data.median():.6g}",
-                ])
+                stats_data.append(
+                    [
+                        self._get_display_name(param),
+                        f"{data.min():.6g}",
+                        f"{data.max():.6g}",
+                        f"{data.mean():.6g}",
+                        f"{data.std():.6g}",
+                        f"{data.median():.6g}",
+                    ]
+                )
 
         table = ax.table(
             cellText=stats_data,
@@ -948,16 +946,18 @@ class HPOVisualizer:
         top_10 = self.top_k.head(10)
         table_data = []
         for idx, row in top_10.iterrows():
-            table_data.append([
-                int(row["rank"]),
-                f"{row['val_loss']:.6f}",
-                row["config/ffn_type"],
-                int(row["config/ffn_num_layers"]),
-                int(row["config/ffn_hidden_dim"]),
-                int(row["config/batch_size"]),
-                f"{row['config/learning_rate']:.2e}",
-                f"{row['config/dropout']:.3f}",
-            ])
+            table_data.append(
+                [
+                    int(row["rank"]),
+                    f"{row['val_loss']:.6f}",
+                    row["config/ffn_type"],
+                    int(row["config/ffn_num_layers"]),
+                    int(row["config/ffn_hidden_dim"]),
+                    int(row["config/batch_size"]),
+                    f"{row['config/learning_rate']:.2e}",
+                    f"{row['config/dropout']:.3f}",
+                ]
+            )
 
         table = ax.table(
             cellText=table_data,
