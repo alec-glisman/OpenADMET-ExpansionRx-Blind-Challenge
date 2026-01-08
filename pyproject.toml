@@ -17,17 +17,26 @@ dependencies = [
     "statsmodels==0.14.5",
     "scikit-learn==1.7.2",
     "iterative-stratification==0.1.9",
+    "numba==0.60.0; sys_platform == 'darwin'",        # Has pre-built wheels for macOS Python 3.11
+    "numba>=0.59.0,<0.64.0; sys_platform == 'linux'", # Keep compatible with Linux CUDA builds
     "umap-learn==0.5.9.post2",
     "hdbscan==0.8.40",
     "lightgbm==4.6.0",
     "xgboost==3.1.2",
     "catboost==1.2.8",
-    # deep learning
-    "torch==2.7.1",
-    "torchaudio==2.7.1",
-    "torchvision==0.22.1",
+    # deep learning - CPU-only for macOS
+    "torch==2.2.2; sys_platform == 'darwin'",
+    "torchaudio==2.2.2; sys_platform == 'darwin'",
+    "torchvision==0.17.2; sys_platform == 'darwin'",
+    "ray[data,train,tune,serve]==2.49.0; sys_platform == 'darwin'",
+    "pytorch-lightning==2.5.4; sys_platform == 'darwin'",
+    # deep learning - CUDA-enabled for Linux
+    "torch==2.7.1; sys_platform == 'linux'",
+    "torchaudio==2.7.1; sys_platform == 'linux'",
+    "torchvision==0.22.1; sys_platform == 'linux'",
     "torchmetrics==1.0.3",
-    "ray[data,train,tune,serve]==2.52.0",
+    "ray[data,train,tune,serve]==2.52.0; sys_platform == 'linux'",
+    "pytorch-lightning==2.3.8; sys_platform == 'linux'",
     # ML infra
     "mlflow==3.6.0",
     "anyio==4.11.0",
@@ -134,18 +143,16 @@ version = { attr = "admet.__version__" }
 where = ["src"]
 exclude = ["tests*"]
 
-[tool.uv]
-extra-index-url = ["https://download.pytorch.org/whl/cu118"]
-
 [[tool.uv.index]]
 name = "pytorch-cuda"
 url = "https://download.pytorch.org/whl/cu118"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cuda" }
-torchvision = { index = "pytorch-cuda" }
-torchaudio = { index = "pytorch-cuda" }
+# Linux: Use CUDA-enabled PyTorch from pytorch-cuda index
+torch = [{ index = "pytorch-cuda", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cuda", marker = "sys_platform == 'linux'" }]
+torchaudio = [{ index = "pytorch-cuda", marker = "sys_platform == 'linux'" }]
 
 [tool.isort]
 profile = "black"
