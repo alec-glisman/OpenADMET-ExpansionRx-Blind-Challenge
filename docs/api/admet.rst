@@ -28,4 +28,4 @@ Package Version
 .. code-block:: python
 
    import admet
-   print(admet.__version__)  # "1.2.0"
+   print(admet.__version__)  # "1.2.1"
