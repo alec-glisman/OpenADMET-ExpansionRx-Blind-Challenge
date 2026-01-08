@@ -36,7 +36,7 @@ dependencies = [
     "torchvision==0.22.1; sys_platform == 'linux'",
     "torchmetrics==1.0.3",
     "ray[data,train,tune,serve]==2.52.0; sys_platform == 'linux'",
-    "pytorch-lightning==2.3.8; sys_platform == 'linux'",
+    "pytorch-lightning==2.5.4; sys_platform == 'linux'",           # Compatible with PyTorch 2.7.1
     # ML infra
     "mlflow==3.6.0",
     "anyio==4.11.0",

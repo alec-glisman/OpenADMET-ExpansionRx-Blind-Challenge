@@ -26,6 +26,7 @@ cache
 *.pkl
 *.tar.xz
 *.pkl.xz
+*.lock
 
 # images
 *.eps
