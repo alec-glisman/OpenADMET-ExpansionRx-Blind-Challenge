@@ -32,7 +32,6 @@ def fix_config_file(filepath: Path, dry_run: bool = False) -> bool:
     optimization_indent = 0
     found_use_mixed = False
     use_mixed_val = "true"
-    insert_after_optimization = False
 
     i = 0
     while i < len(lines):

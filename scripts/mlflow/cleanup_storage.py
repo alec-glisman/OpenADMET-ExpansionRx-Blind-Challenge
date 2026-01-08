@@ -8,10 +8,10 @@ This script helps reduce storage usage by:
 4. Archiving or deleting old experiments
 
 Usage:
-    python scripts/infra/cleanup_storage.py --analyze          # Show storage analysis
-    python scripts/infra/cleanup_storage.py --clean-predictions  # Remove training predictions
-    python scripts/infra/cleanup_storage.py --compress-models   # Compress existing models
-    python scripts/infra/cleanup_storage.py --clean-mlruns     # Clean old MLflow runs
+    python scripts/mlflow/cleanup_storage.py --analyze          # Show storage analysis
+    python scripts/mlflow/cleanup_storage.py --clean-predictions  # Remove training predictions
+    python scripts/mlflow/cleanup_storage.py --compress-models   # Compress existing models
+    python scripts/mlflow/cleanup_storage.py --clean-mlruns     # Clean old MLflow runs
 """
 
 from __future__ import annotations

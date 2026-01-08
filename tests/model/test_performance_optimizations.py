@@ -10,18 +10,15 @@ Ensures optimizations work correctly without degrading model quality.
 """
 
 import os
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import numpy as np
 import pandas as pd
 import pytest
 import ray
 from omegaconf import OmegaConf
 
 from admet.data.smiles import parallel_canonicalize_smiles
-from admet.model.chemprop.config import ChempropConfig, EnsembleConfig
+from admet.model.chemprop.config import ChempropConfig
 from admet.model.chemprop.ensemble import ModelEnsemble
 
 
@@ -68,11 +65,6 @@ class TestQuickWins:
         config_dict["curriculum"] = {"enabled": False}
         config_curriculum_disabled = OmegaConf.create(config_dict)
         assert config_curriculum_disabled.optimization.num_workers == 4
-
-        # Case 3: Curriculum enabled - model should force num_workers=0 internally
-        config_dict["curriculum"] = {"enabled": True}
-        config_curriculum_enabled = OmegaConf.create(config_dict)
-        # The model will handle this internally during training
 
     def test_ray_buffer_tuning(self):
         """Test 1.4: Ray buffer tuning environment variables."""
@@ -187,8 +179,6 @@ class TestTrainingOptimizations:
 
     def test_mixed_precision_config(self, minimal_chemprop_config):
         """Test 3.1: Mixed precision can be enabled."""
-        config = minimal_chemprop_config
-
         # Verify precision can be set
         # In actual model, this is passed to pl.Trainer
         precision_value = "16-mixed"
@@ -357,7 +347,7 @@ class TestRegressionPrevention:
             return original_read_csv(*args, **kwargs)
 
         with patch("pandas.read_csv", side_effect=mock_read_csv):
-            ensemble = ModelEnsemble(config)
+            ModelEnsemble(config)
 
         # Test file should be read exactly once
         test_file_reads = [call for call in read_csv_calls if str(test_file) in str(call)]

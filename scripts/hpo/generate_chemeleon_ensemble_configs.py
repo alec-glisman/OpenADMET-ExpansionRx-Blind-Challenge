@@ -613,7 +613,6 @@ class HPOVisualizer:
     def plot_learning_rate_analysis(self) -> Path:
         """Analyze learning rate schedule parameters."""
         import matplotlib.pyplot as plt
-        import seaborn as sns
 
         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 

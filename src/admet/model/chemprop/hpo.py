@@ -997,7 +997,7 @@ def main() -> None:
 
     # Override with CLI arguments if provided
     if args.num_samples is not None:
-        config.num_samples = args.num_samples
+        config.resources.num_samples = args.num_samples
 
     # Run HPO
     hpo = ChempropHPO(config)

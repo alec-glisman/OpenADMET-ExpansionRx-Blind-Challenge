@@ -7,9 +7,11 @@ This directory contains organized scripts for training, data processing, analysi
 ```text
 scripts/
 ├── training/          # Model training scripts
+├── hpo/               # Hyperparameter optimization and config generation
 ├── data/              # Data processing and splitting scripts
 ├── analysis/          # Analysis and visualization tools
-├── infra/             # Infrastructure (MLflow, docs, etc.)
+├── mlflow/            # MLflow server and cleanup utilities
+├── infra/             # Infrastructure (docs, etc.)
 └── lib/               # Shared library functions
 ```
 
@@ -118,16 +120,6 @@ Trains ensemble models using the top 100 HPO configurations in rank order.
 - `--max-parallel N` - Maximum parallel models (default: 4)
 - `--dry-run` - Print commands without executing
 
-### `generate_ensemble_configs.py`
-
-Python script to generate ensemble configuration files from HPO results.
-
-**Usage:**
-
-```bash
-python scripts/training/generate_ensemble_configs.py
-```
-
 ### `test_integration.py`
 
 Integration tests for task affinity with ChempropModel.
@@ -160,6 +152,58 @@ Train all production ensemble models from `configs/3-production/`. These are the
 # Dry run to see what would be executed
 ./scripts/training/train_production_ensembles.sh --dry-run
 ```
+
+## Hyperparameter Optimization Scripts (`hpo/`)
+
+### `generate_ensemble_configs.py`
+
+Python script to generate ensemble configuration files from HPO results.
+
+**Usage:**
+
+```bash
+python scripts/hpo/generate_ensemble_configs.py
+```
+
+**Features:**
+
+- Extracts top-performing configurations from HPO results
+- Generates production-ready ensemble config files
+- Outputs to `configs/3-hpo-ensemble-production/` directory
+
+### `generate_chemeleon_ensemble_configs.py`
+
+Python script to generate Chemeleon ensemble configuration files from HPO results.
+
+**Usage:**
+
+```bash
+python scripts/hpo/generate_chemeleon_ensemble_configs.py
+```
+
+**Features:**
+
+- Specialized for Chemeleon model ensemble generation
+- Extracts best configurations from Chemeleon HPO runs
+- Creates ensemble configs in standardized format
+
+### `select_diverse_configs.py`
+
+Analyzes HPO results and selects diverse high-performing configurations.
+
+**Usage:**
+
+```bash
+python scripts/hpo/select_diverse_configs.py
+```
+
+**Features:**
+
+- Performance distribution analysis
+- Hyperparameter correlation analysis
+- PCA and clustering for diversity selection
+- Generates comprehensive visualizations
+- Outputs top configurations to YAML
 
 ## Data Processing Scripts (`data/`)
 
@@ -287,25 +331,7 @@ python scripts/analysis/calculate_weights.py
 - Recommends clipped (10.0) weights for stability
 - Outputs weights in config-ready format
 
-### `select_diverse_configs.py`
-
-Analyzes HPO results and selects diverse high-performing configurations.
-
-**Usage:**
-
-```bash
-python scripts/analysis/select_diverse_configs.py
-```
-
-**Features:**
-
-- Performance distribution analysis
-- Hyperparameter correlation analysis
-- PCA and clustering for diversity selection
-- Generates comprehensive visualizations
-- Outputs top configurations to YAML
-
-## Infrastructure Scripts (`infra/`)
+## MLflow Scripts (`mlflow/`)
 
 ### `mlflow_server.sh`
 
@@ -314,7 +340,7 @@ Starts a local MLflow tracking server for experiment logging.
 **Usage:**
 
 ```bash
-./scripts/infra/mlflow_server.sh
+./scripts/mlflow/mlflow_server.sh
 ```
 
 **Details:**
@@ -330,7 +356,7 @@ Sets up MLflow with PostgreSQL backend using Docker.
 **Usage:**
 
 ```bash
-./scripts/infra/setup_mlflow_postgres.sh [start|stop|restart|status|logs]
+./scripts/mlflow/setup_mlflow_postgres.sh [start|stop|restart|status|logs]
 ```
 
 **Commands:**
@@ -343,7 +369,57 @@ Sets up MLflow with PostgreSQL backend using Docker.
 
 **Configuration:**
 
-See `scripts/infra/README_mlflow_postgres.md` for detailed configuration options.
+See `scripts/mlflow/README_mlflow_postgres.md` for detailed configuration options.
+
+### `mlflow_cleanup.py`
+
+Cleans up old MLflow experiments and runs.
+
+**Usage:**
+
+```bash
+python scripts/mlflow/mlflow_cleanup.py
+```
+
+**Features:**
+
+- Removes old or failed experiment runs
+- Optionally archives experiments before deletion
+- Helps manage MLflow storage usage
+
+### `cleanup_storage.py`
+
+Storage cleanup utility for MLflow artifacts and database.
+
+**Usage:**
+
+```bash
+python scripts/mlflow/cleanup_storage.py
+```
+
+**Features:**
+
+- Removes orphaned artifact files
+- Cleans up old checkpoints and logs
+- Frees up disk space
+
+### `mlflow_experiment_info.py`
+
+Displays information about MLflow experiments and runs.
+
+**Usage:**
+
+```bash
+python scripts/mlflow/mlflow_experiment_info.py
+```
+
+**Features:**
+
+- Lists all experiments and their run counts
+- Shows experiment metrics and parameters
+- Useful for monitoring training progress
+
+## Infrastructure Scripts (`infra/`)
 
 ### `rebuild-docs-precommit.sh`
 

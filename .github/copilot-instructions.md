@@ -2,6 +2,10 @@
 
 ML pipeline for predicting ADMET (Absorption, Distribution, Metabolism, Excretion, Toxicity) properties of small molecules. Uses Chemprop MPNN as the primary model with ensemble training across 5 splits × 5 folds.
 
+Before running any commands, ensure your environment is set up as per the instructions below.
+Use `source .venv/bin/activate` in the project root to activate the virtual environment.
+Use the `uv` tool for environment and package management.
+
 ## Tech Stack
 
 - **Runtime:** Python 3.11

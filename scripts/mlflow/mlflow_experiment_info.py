@@ -180,7 +180,7 @@ def main():
         print("=" * 100)
         print(f"\nFound {total_deleted} deleted runs taking up {format_bytes(total_size)} of disk space.")
         print("\nTo delete artifacts for deleted runs in a specific experiment, run:")
-        print("\n  python scripts/analysis/mlflow_cleanup.py --experiment-id <ID>")
+        print("\n  python scripts/mlflow/mlflow_cleanup.py --experiment-id <ID>")
         print("\nOr to delete an entire experiment's artifacts:")
         print("\n  rm -rf /media/aglisman/Data/models/mlflow-artifacts/<ID>")
         print("\nWarning: Make sure runs are marked as deleted in MLflow before removing artifacts!")

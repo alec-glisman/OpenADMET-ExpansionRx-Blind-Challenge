@@ -3,8 +3,6 @@
 import pandas as pd
 import pytest
 
-from admet.model.chemprop.config import PerformanceOptimizationConfig
-
 
 class TestPredictionCacheInitialization:
     """Test prediction cache initialization."""

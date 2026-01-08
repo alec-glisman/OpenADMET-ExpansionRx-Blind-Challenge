@@ -938,8 +938,8 @@ def plot_priority_matrix(
             )
 
         # Add quadrant lines
-        mid_effort = np.median(efforts)
-        mid_impact = np.median(impacts)
+        mid_effort = float(np.median(efforts))
+        mid_impact = float(np.median(impacts))
         ax.axvline(mid_effort, color="gray", linestyle="--", alpha=0.5)
         ax.axhline(mid_impact, color="gray", linestyle="--", alpha=0.5)
 
