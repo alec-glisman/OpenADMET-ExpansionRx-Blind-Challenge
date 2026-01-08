@@ -34,11 +34,13 @@ import logging
 import os
 import shutil
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
 import mlflow
+import torch
 from lightning import pytorch as pl
 from lightning.pytorch.callbacks import Callback
 from omegaconf import OmegaConf
@@ -121,6 +123,29 @@ class ChemeleonRayTuneCallback(Callback):
         self._last_reported_epoch: int | None = None
         self._final_checkpoint_reported = False
         self._start_time = time.time()
+
+    def __enter__(self):
+        """Context manager entry for safe cleanup."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit: ensure cleanup even on errors.
+
+        Prevents segfaults during Ray worker shutdown by explicitly
+        clearing cached data and CUDA memory before thread termination.
+        """
+        try:
+            # Clear cached parameter counts
+            self._params_total = None
+            self._params_trainable = None
+            self._params_frozen = None
+
+            # Clear CUDA cache if available
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass  # Suppress cleanup errors
+        return False  # Don't suppress original exception
 
     def _compute_param_counts(self, pl_module: pl.LightningModule) -> None:
         """Compute and cache parameter counts from the model.
@@ -223,37 +248,44 @@ class ChemeleonRayTuneCallback(Callback):
             self._last_reported_epoch = epoch_index
 
     def _build_final_checkpoint(self, trainer: pl.Trainer) -> Checkpoint | None:
-        """Package the latest checkpoint directory for Ray Tune reporting."""
+        """Package the latest checkpoint directory for Ray Tune reporting.
+
+        CRITICAL: Avoid device operations during checkpoint building to prevent
+        segfaults during Ray worker shutdown. Only copy files, don't load tensors.
+        """
         _ = trainer  # Future: could use trainer.callback_metrics for additional data
         if self.checkpoint_dir is None:
             return None
 
-        ckpt_dir = Path(self.checkpoint_dir)
-        if not ckpt_dir.exists():
-            return None
-
-        # Find preferred checkpoint file
-        best_checkpoints = sorted(ckpt_dir.glob("best*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
-        checkpoint_file: Path | None = best_checkpoints[0] if best_checkpoints else None
-
-        if checkpoint_file is None:
-            last_ckpt = ckpt_dir / "last.ckpt"
-            if last_ckpt.exists():
-                checkpoint_file = last_ckpt
-
-        if checkpoint_file is None:
-            return None
-
-        export_dir = ckpt_dir / "ray_checkpoint"
-        if export_dir.exists():
-            shutil.rmtree(export_dir)
-        export_dir.mkdir(parents=True, exist_ok=True)
-
-        shutil.copy2(checkpoint_file, export_dir / checkpoint_file.name)
-
         try:
+            ckpt_dir = Path(self.checkpoint_dir)
+            if not ckpt_dir.exists():
+                return None
+
+            # Find preferred checkpoint file
+            best_checkpoints = sorted(ckpt_dir.glob("best*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
+            checkpoint_file: Path | None = best_checkpoints[0] if best_checkpoints else None
+
+            if checkpoint_file is None:
+                last_ckpt = ckpt_dir / "last.ckpt"
+                if last_ckpt.exists():
+                    checkpoint_file = last_ckpt
+
+            if checkpoint_file is None:
+                return None
+
+            export_dir = ckpt_dir / "ray_checkpoint"
+            if export_dir.exists():
+                shutil.rmtree(export_dir)
+            export_dir.mkdir(parents=True, exist_ok=True)
+
+            # CRITICAL: Only copy files, never load checkpoint state
+            # Loading tensors can trigger device transfers during cleanup
+            shutil.copy2(checkpoint_file, export_dir / checkpoint_file.name)
+
             return Checkpoint.from_directory(str(export_dir))
         except Exception:
+            # Suppress checkpoint errors to avoid blocking Ray reporting
             return None
 
     def _submit_report(self, metrics: dict[str, float], checkpoint: Checkpoint | None) -> None:
@@ -399,7 +431,7 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     # Metrics are still computed by PyTorch Lightning and reported via ChemeleonRayTuneCallback
     model = ChemeleonModel(
         model_config,
-        profiling_config=profiling_config,  # Use profiling config from HPO config
+        profiling_config=profiling_config,  # type: ignore[call-arg]  # Use profiling config from HPO config
     )
 
     # Extract data
@@ -415,10 +447,40 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
         checkpoint_dir=checkpoint_dir,
         report_every_n_epochs=report_every_n_epochs,
     )
-    model.add_callback(ray_callback)
+    model.add_callback(ray_callback)  # type: ignore[attr-defined]  # Method exists in ChemeleonModel
 
-    # Train the model (this handles all setup internally)
-    model.fit(train_smiles, train_y, val_smiles, val_y)
+    # Use context manager for safe cleanup and explicit finally block
+    # to prevent segfaults during Ray worker shutdown
+    trainer = None
+    try:
+        with ray_callback:
+            # Train the model (this handles all setup internally)
+            model.fit(train_smiles, train_y, val_smiles, val_y)
+            trainer = model.trainer  # type: ignore[attr-defined]  # Attribute set during fit()
+    except Exception as e:
+        logger.error(f"Trial failed with error: {e}")
+        logger.debug(traceback.format_exc())
+        raise
+    finally:
+        # CRITICAL: Explicit cleanup to prevent segfaults during Ray worker shutdown
+        try:
+            # Move model to CPU before cleanup to avoid device transfer during shutdown
+            if trainer is not None and trainer.model is not None:
+                try:
+                    trainer.model.cpu()
+                except Exception:
+                    pass
+
+            # Clear CUDA cache
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            # Delete model and trainer references
+            del model
+            if trainer is not None:
+                del trainer
+        except Exception:
+            pass  # Suppress cleanup errors to allow graceful shutdown
 
 
 class ChemeleonHPO:
@@ -652,15 +714,117 @@ class ChemeleonHPO:
             import optuna
             from ray.tune.search.optuna import OptunaSearch
 
+            # Determine storage location and study persistence
+            storage: optuna.storages.BaseStorage | None = None
+            if self.config.search_algorithm.persist_study:
+                storage_dir = (
+                    Path(self.config.search_algorithm.storage_dir or self.config.output_dir) / "optuna_studies"
+                )
+                storage_dir.mkdir(parents=True, exist_ok=True)
+                storage_url = f"sqlite:///{storage_dir / 'studies.db'}"
+                storage = optuna.storages.RDBStorage(url=storage_url)
+
+                # Generate or use provided study name
+                study_name = self.config.search_algorithm.study_name
+                if study_name is None:
+                    study_name = f"hpo_{datetime.now():%Y%m%d_%H%M%S}"
+
+                logger.info(
+                    "Creating persistent Optuna study: %s (storage: %s)",
+                    study_name,
+                    storage_url,
+                )
+            else:
+                storage = None
+                study_name = None
+                logger.info("Using ephemeral Optuna study (no persistence)")
+
+            # Create sampler
             sampler = optuna.samplers.TPESampler(
                 seed=self.config.search_algorithm.seed,
                 n_startup_trials=self.config.search_algorithm.n_initial_points,
             )
-            search_alg = OptunaSearch(
-                metric=self.config.asha.metric,
-                mode=self.config.asha.mode,
-                sampler=sampler,
-            )
+
+            # Determine direction
+            direction = "minimize" if self.config.asha.mode == "min" else "maximize"
+
+            # Create or load study and handle warmstart
+            if storage and study_name:
+                # Check for warmstart first
+                warmstart_from = self.config.search_algorithm.warmstart_from
+                if warmstart_from:
+                    logger.info("Warmstarting from study: %s", warmstart_from)
+                    try:
+                        old_study = optuna.load_study(
+                            study_name=warmstart_from,
+                            storage=storage,
+                        )
+
+                        # Get top N trials from previous study
+                        n_warmstart = self.config.search_algorithm.warmstart_n_trials
+                        top_trials = old_study.best_trials[:n_warmstart]
+
+                        logger.info(
+                            "Enqueuing %d top trials from %s (best value: %.4f)",
+                            len(top_trials),
+                            warmstart_from,
+                            old_study.best_value,
+                        )
+
+                        # Create new study and enqueue warmstart trials
+                        study = optuna.create_study(
+                            study_name=study_name,
+                            storage=storage,
+                            sampler=sampler,
+                            direction=direction,
+                            load_if_exists=False,
+                        )
+
+                        # Enqueue trials as seeds
+                        for trial in top_trials:
+                            study.enqueue_trial(trial.params)
+
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to load warmstart study %s: %s. Continuing without warmstart.",
+                            warmstart_from,
+                            e,
+                        )
+                        # Create study without warmstart
+                        study = optuna.create_study(
+                            study_name=study_name,
+                            storage=storage,
+                            sampler=sampler,
+                            direction=direction,
+                            load_if_exists=False,
+                        )
+                else:
+                    # Create study without warmstart
+                    study = optuna.create_study(
+                        study_name=study_name,
+                        storage=storage,
+                        sampler=sampler,
+                        direction=direction,
+                        load_if_exists=False,
+                    )
+
+                # Create OptunaSearch with storage object (must be BaseStorage instance)
+                search_alg = OptunaSearch(
+                    space=None,  # Let Ray Tune define the space
+                    sampler=sampler,
+                    metric=self.config.asha.metric,
+                    mode=self.config.asha.mode,
+                    storage=storage,
+                    study_name=study_name,
+                )
+            else:
+                # Ephemeral study (original behavior)
+                search_alg = OptunaSearch(
+                    sampler=sampler,
+                    metric=self.config.asha.metric,
+                    mode=self.config.asha.mode,
+                )
+
             logger.info(
                 "Using Optuna search (Bayesian optimization) with %d initial random trials",
                 self.config.search_algorithm.n_initial_points,
@@ -742,6 +906,17 @@ class ChemeleonHPO:
                 "unfreeze_schedule.freeze_encoder": self.config.unfreeze_schedule.freeze_encoder,
                 "unfreeze_schedule.unfreeze_encoder_epoch": self.config.unfreeze_schedule.unfreeze_encoder_epoch,
                 "unfreeze_schedule.lr_multiplier": self.config.unfreeze_schedule.unfreeze_encoder_lr_multiplier,
+                # Search algorithm configuration
+                "search_algorithm.type": self.config.search_algorithm.type,
+                "search_algorithm.seed": self.config.search_algorithm.seed,
+                "search_algorithm.n_initial_points": self.config.search_algorithm.n_initial_points,
+                "search_algorithm.persist_study": self.config.search_algorithm.persist_study,
+                "search_algorithm.study_name": self.config.search_algorithm.study_name,
+                "search_algorithm.storage_dir": (
+                    str(self.config.search_algorithm.storage_dir) if self.config.search_algorithm.storage_dir else None
+                ),
+                "search_algorithm.warmstart_from": self.config.search_algorithm.warmstart_from,
+                "search_algorithm.warmstart_n_trials": self.config.search_algorithm.warmstart_n_trials,
                 # ASHA scheduler configuration
                 "asha.metric": self.config.asha.metric,
                 "asha.mode": self.config.asha.mode,
@@ -792,104 +967,291 @@ class ChemeleonHPO:
         - Best model checkpoint
         - Summary statistics across all trials
         - HPO results dataframe and top-k configurations
+
+        Important: This method reactivates the master HPO run to ensure all
+        artifacts are logged to the parent run, not child trial runs.
         """
         if self.results is None:
             return
 
-        output_dir = Path(self.config.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Reactivate the master HPO run to log results to parent run
+        if not self._mlflow_run_id:
+            logger.warning("No MLflow run ID available, skipping MLflow logging")
+            return
 
+        with mlflow.start_run(run_id=self._mlflow_run_id):
+            output_dir = Path(self.config.output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                best_result = self.results.get_best_result(
+                    metric=self.config.asha.metric,
+                    mode=self.config.asha.mode,
+                )
+
+                if best_result and best_result.config:
+                    # Filter out internal params and truncate values for MLflow limits
+                    best_params = {}
+                    for k, v in best_result.config.items():
+                        if not k.startswith("_"):
+                            str_v = str(v)
+                            best_params[f"best.{k}"] = str_v[:500] if len(str_v) > 500 else str_v
+                    mlflow.log_params(best_params)
+
+                if best_result and best_result.metrics:
+                    best_metrics = {
+                        f"best.{k}": float(v) for k, v in best_result.metrics.items() if isinstance(v, (int, float))
+                    }
+                    mlflow.log_metrics(best_metrics)
+
+                # Log best model checkpoint if available
+                if best_result and best_result.checkpoint:
+                    try:
+                        with best_result.checkpoint.as_directory() as checkpoint_dir:
+                            checkpoint_path = Path(checkpoint_dir)
+                            best_checkpoints = list(checkpoint_path.glob("best-*.ckpt"))
+                            best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+                            if best_checkpoints:
+                                ckpt_file = best_checkpoints[0]
+                                logger.info("Logging best HPO model artifact: %s", ckpt_file.name)
+                                mlflow.log_artifact(str(ckpt_file), artifact_path="best_model")
+                            else:
+                                logger.warning("No best-*.ckpt found in checkpoint: %s", checkpoint_path)
+                    except Exception as e:
+                        logger.warning("Failed to log best model artifact: %s", e)
+
+            except Exception as e:
+                logger.warning("Could not log best result: %s", e)
+
+            # Log detailed metrics from all trials
+            try:
+                results_df = self.results.get_dataframe()
+
+                # Extract and log summary statistics for each metric across all trials
+                metric_cols = [col for col in results_df.columns if col.startswith(("val_", "train_"))]
+
+                for metric_col in metric_cols:
+                    if metric_col in results_df.columns:
+                        values = results_df[metric_col].dropna()
+                        if len(values) > 0:
+                            try:
+                                mlflow.log_metrics(
+                                    {
+                                        f"trials.{metric_col}.mean": float(values.mean()),
+                                        f"trials.{metric_col}.std": float(values.std()),
+                                        f"trials.{metric_col}.min": float(values.min()),
+                                        f"trials.{metric_col}.max": float(values.max()),
+                                    }
+                                )
+                            except Exception as e:
+                                logger.debug("Could not compute stats for %s: %s", metric_col, e)
+
+                logger.info("Logged detailed metrics from %d trials to MLflow", len(results_df))
+            except Exception as e:
+                logger.warning("Could not log detailed trial metrics: %s", e)
+
+            # Save all results as CSV artifact
+            try:
+                results_df = self.results.get_dataframe()
+                results_path = output_dir / f"hpo_results_{self.timestamp}.csv"
+                results_df.to_csv(results_path, index=False)
+                mlflow.log_artifact(str(results_path))
+                logger.info("Logged HPO results artifact: %s", results_path)
+            except Exception as e:
+                logger.warning("Could not save results dataframe: %s", e)
+
+            # Save top-k configs as JSON artifact
+            try:
+                top_k = self._get_top_k_configs()
+                top_k_path = output_dir / f"top_k_configs_{self.timestamp}.json"
+                with open(top_k_path, "w", encoding="utf-8") as f:
+                    json.dump(top_k, f, indent=2, default=str)
+                mlflow.log_artifact(str(top_k_path))
+                logger.info("Logged top-k configs artifact: %s", top_k_path)
+            except Exception as e:
+                logger.warning("Could not save top-k configs: %s", e)
+
+            # Save study metadata if using persistent studies
+            if self.config.search_algorithm.persist_study:
+                try:
+                    results_df = self.results.get_dataframe()
+                    best_result = self.results.get_best_result(
+                        metric=self.config.asha.metric,
+                        mode=self.config.asha.mode,
+                    )
+                    study_metadata = {
+                        "study_name": self.config.search_algorithm.study_name,
+                        "storage_dir": (
+                            str(self.config.search_algorithm.storage_dir)
+                            if self.config.search_algorithm.storage_dir
+                            else None
+                        ),
+                        "warmstart_from": self.config.search_algorithm.warmstart_from,
+                        "warmstart_n_trials": self.config.search_algorithm.warmstart_n_trials,
+                        "timestamp": self.timestamp,
+                        "experiment_name": self.config.experiment_name,
+                        "n_trials": len(results_df),
+                        "best_metric": (
+                            float(best_result.metrics.get(self.config.asha.metric, 0))
+                            if best_result and best_result.metrics
+                            else None
+                        ),
+                    }
+                    metadata_path = output_dir / f"study_metadata_{self.timestamp}.json"
+                    with open(metadata_path, "w", encoding="utf-8") as f:
+                        json.dump(study_metadata, f, indent=2)
+                    mlflow.log_artifact(str(metadata_path))
+                    logger.info("Logged study metadata for study: %s", study_metadata["study_name"])
+                except Exception as e:
+                    logger.warning("Could not save study metadata: %s", e)
+
+            # Export Optuna study information if using persistent study
+            if self.config.search_algorithm.persist_study:
+                self._export_optuna_study_artifacts(output_dir)
+
+            # Log all files from storage_dir (excluding model checkpoints)
+            if self.config.search_algorithm.storage_dir:
+                self._log_storage_dir_artifacts()
+
+            logger.info("HPO results logged to MLflow")
+
+    def _export_optuna_study_artifacts(self, output_dir: Path) -> None:
+        """Export Optuna study information to artifacts for MLflow logging.
+
+        Exports:
+        - Study trials to CSV and JSON
+        - Study statistics and best trials
+        - SQLite database copy (if available)
+        - Study parameters and importance
+        """
         try:
-            best_result = self.results.get_best_result(
-                metric=self.config.asha.metric,
-                mode=self.config.asha.mode,
+            import optuna
+
+            if not self.config.search_algorithm.study_name:
+                logger.warning("No study name available for Optuna export")
+                return
+
+            # Determine storage location
+            storage_dir = Path(self.config.search_algorithm.storage_dir or self.config.output_dir) / "optuna_studies"
+            storage_url = f"sqlite:///{storage_dir / 'studies.db'}"
+
+            # Load the study
+            study = optuna.load_study(
+                study_name=self.config.search_algorithm.study_name,
+                storage=storage_url,
             )
 
-            if best_result and best_result.config:
-                # Filter out internal params and truncate values for MLflow limits
-                best_params = {}
-                for k, v in best_result.config.items():
-                    if not k.startswith("_"):
-                        str_v = str(v)
-                        best_params[f"best.{k}"] = str_v[:500] if len(str_v) > 500 else str_v
-                mlflow.log_params(best_params)
+            # Export trials to DataFrame
+            trials_df = study.trials_dataframe()
+            trials_csv_path = output_dir / f"optuna_trials_{self.timestamp}.csv"
+            trials_df.to_csv(trials_csv_path, index=False)
+            mlflow.log_artifact(str(trials_csv_path), artifact_path="optuna")
+            logger.info("Logged Optuna trials CSV: %d trials", len(trials_df))
 
-            if best_result and best_result.metrics:
-                best_metrics = {
-                    f"best.{k}": float(v) for k, v in best_result.metrics.items() if isinstance(v, (int, float))
-                }
-                mlflow.log_metrics(best_metrics)
+            # Export study summary
+            study_summary = {
+                "study_name": study.study_name,
+                "n_trials": len(study.trials),
+                "best_trial": {
+                    "number": study.best_trial.number,
+                    "value": study.best_value,
+                    "params": study.best_params,
+                    "datetime_start": str(study.best_trial.datetime_start),
+                    "datetime_complete": str(study.best_trial.datetime_complete),
+                    "duration": str(study.best_trial.duration) if study.best_trial.duration else None,
+                },
+                "best_trials": [
+                    {
+                        "number": t.number,
+                        "value": t.value,
+                        "params": t.params,
+                    }
+                    for t in study.best_trials[:10]
+                ],
+                "direction": study.direction.name,
+                "user_attrs": study.user_attrs,
+                "system_attrs": study.system_attrs,
+            }
 
-            # Log best model checkpoint if available
-            if best_result and best_result.checkpoint:
+            study_summary_path = output_dir / f"optuna_study_summary_{self.timestamp}.json"
+            with open(study_summary_path, "w", encoding="utf-8") as f:
+                json.dump(study_summary, f, indent=2, default=str)
+            mlflow.log_artifact(str(study_summary_path), artifact_path="optuna")
+            logger.info("Logged Optuna study summary")
+
+            # Try to compute parameter importance if enough trials
+            if len(study.trials) >= 10:
                 try:
-                    with best_result.checkpoint.as_directory() as checkpoint_dir:
-                        checkpoint_path = Path(checkpoint_dir)
-                        best_checkpoints = list(checkpoint_path.glob("best-*.ckpt"))
-                        best_checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-
-                        if best_checkpoints:
-                            ckpt_file = best_checkpoints[0]
-                            logger.info("Logging best HPO model artifact: %s", ckpt_file.name)
-                            mlflow.log_artifact(str(ckpt_file), artifact_path="best_model")
-                        else:
-                            logger.warning("No best-*.ckpt found in checkpoint: %s", checkpoint_path)
+                    importance = optuna.importance.get_param_importances(study)
+                    importance_path = output_dir / f"optuna_param_importance_{self.timestamp}.json"
+                    with open(importance_path, "w", encoding="utf-8") as f:
+                        json.dump(importance, f, indent=2)
+                    mlflow.log_artifact(str(importance_path), artifact_path="optuna")
+                    logger.info("Logged parameter importance")
                 except Exception as e:
-                    logger.warning("Failed to log best model artifact: %s", e)
+                    logger.debug("Could not compute parameter importance: %s", e)
+
+            # Copy SQLite database to MLflow (for complete reproducibility)
+            db_source = storage_dir / "studies.db"
+            if db_source.exists():
+                import shutil
+
+                db_dest = output_dir / f"optuna_studies_{self.timestamp}.db"
+                shutil.copy2(db_source, db_dest)
+                mlflow.log_artifact(str(db_dest), artifact_path="optuna")
+                logger.info("Logged Optuna SQLite database: %s", db_dest.name)
 
         except Exception as e:
-            logger.warning("Could not log best result: %s", e)
+            logger.warning("Failed to export Optuna study artifacts: %s", e)
 
-        # Log detailed metrics from all trials
+    def _log_storage_dir_artifacts(self) -> None:
+        """Log all relevant files from storage_dir to MLflow, excluding model checkpoints."""
         try:
-            results_df = self.results.get_dataframe()
+            import shutil
 
-            # Extract and log summary statistics for each metric across all trials
-            metric_cols = [col for col in results_df.columns if col.startswith(("val_", "train_"))]
+            if not self.config.search_algorithm.storage_dir:
+                logger.debug("No storage_dir configured")
+                return
 
-            for metric_col in metric_cols:
-                if metric_col in results_df.columns:
-                    values = results_df[metric_col].dropna()
-                    if len(values) > 0:
-                        try:
-                            mlflow.log_metrics(
-                                {
-                                    f"trials.{metric_col}.mean": float(values.mean()),
-                                    f"trials.{metric_col}.std": float(values.std()),
-                                    f"trials.{metric_col}.min": float(values.min()),
-                                    f"trials.{metric_col}.max": float(values.max()),
-                                }
-                            )
-                        except Exception as e:
-                            logger.debug("Could not compute stats for %s: %s", metric_col, e)
+            storage_dir = Path(self.config.search_algorithm.storage_dir)
+            if not storage_dir.exists():
+                logger.debug("Storage directory does not exist: %s", storage_dir)
+                return
 
-            logger.info("Logged detailed metrics from %d trials to MLflow", len(results_df))
+            # Patterns to include (JSON, CSV, YAML, text files, SQLite DBs)
+            include_patterns = ["*.json", "*.csv", "*.yaml", "*.yml", "*.txt", "*.md", "*.db"]
+            # Patterns to exclude (model checkpoints and large binary files)
+            exclude_patterns = ["*.ckpt", "*.pth", "*.pt", "*.h5", "*.pkl", "*.pickle"]
+
+            output_dir = Path(self.config.output_dir)
+            storage_artifacts_dir = output_dir / "storage_dir_artifacts"
+            storage_artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+            files_logged = 0
+            for pattern in include_patterns:
+                for file_path in storage_dir.rglob(pattern):
+                    # Check if file matches any exclude pattern
+                    if any(file_path.match(exclude_pat) for exclude_pat in exclude_patterns):
+                        continue
+
+                    # Preserve directory structure relative to storage_dir
+                    rel_path = file_path.relative_to(storage_dir)
+                    dest_path = storage_artifacts_dir / rel_path
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    shutil.copy2(file_path, dest_path)
+                    files_logged += 1
+
+            # Log the entire directory structure to MLflow
+            if files_logged > 0:
+                mlflow.log_artifacts(str(storage_artifacts_dir), artifact_path="storage_dir")
+                logger.info("Logged %d files from storage_dir to MLflow", files_logged)
+            else:
+                logger.debug("No matching files found in storage_dir")
+
         except Exception as e:
-            logger.warning("Could not log detailed trial metrics: %s", e)
-
-        # Save all results as CSV artifact
-        try:
-            results_df = self.results.get_dataframe()
-            results_path = output_dir / f"hpo_results_{self.timestamp}.csv"
-            results_df.to_csv(results_path, index=False)
-            mlflow.log_artifact(str(results_path))
-            logger.info("Logged HPO results artifact: %s", results_path)
-        except Exception as e:
-            logger.warning("Could not save results dataframe: %s", e)
-
-        # Save top-k configs as JSON artifact
-        try:
-            top_k = self._get_top_k_configs()
-            top_k_path = output_dir / f"top_k_configs_{self.timestamp}.json"
-            with open(top_k_path, "w", encoding="utf-8") as f:
-                json.dump(top_k, f, indent=2, default=str)
-            mlflow.log_artifact(str(top_k_path))
-            logger.info("Logged top-k configs artifact: %s", top_k_path)
-        except Exception as e:
-            logger.warning("Could not save top-k configs: %s", e)
-
-        mlflow.end_run()
-        logger.info("HPO results logged to MLflow")
+            logger.warning("Failed to log storage_dir artifacts: %s", e)
 
     def _get_top_k_configs(self) -> list[dict[str, Any]]:
         """Get the top-k configurations from HPO results.
@@ -992,11 +1354,32 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Run CheMeleon HPO with Ray Tune")
     parser.add_argument("--config", type=str, required=True, help="Path to HPO config YAML")
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=None,
+        help="Number of HPO trials (overrides config value)",
+    )
+    parser.add_argument(
+        "--logging-verbose",
+        type=int,
+        default=None,
+        help="Logging verbosity level (0=quiet, 1=standard, 2=debug)",
+    )
+    parser.add_argument(
+        "--no-logging",
+        action="store_true",
+        help="Disable Ray logging to artifacts",
+    )
     args = parser.parse_args()
 
     raw_config = OmegaConf.load(args.config)
     merged_config = OmegaConf.merge(OmegaConf.structured(ChemeleonHPOConfig), raw_config)
     config = cast(ChemeleonHPOConfig, OmegaConf.to_object(merged_config))
+
+    # Override with CLI arguments if provided
+    if args.num_samples is not None:
+        config.resources.num_samples = args.num_samples
 
     hpo = ChemeleonHPO(config)
     results = hpo.run()

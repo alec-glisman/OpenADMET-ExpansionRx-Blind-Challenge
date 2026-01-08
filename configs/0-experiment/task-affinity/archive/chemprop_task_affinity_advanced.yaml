@@ -1,0 +1,101 @@
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
+  output_dir: null
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+  target_weights:
+    - 1.031
+    - 1.0
+    - 1.2252
+    - 1.1368
+    - 2.1227
+    - 2.1174
+    - 3.7877
+    - 5.2722
+    - 10.0
+task_affinity:
+  enabled: true
+  n_groups: 4
+  affinity_epochs: 2
+  affinity_batch_size: 32
+  affinity_lr: 0.0005
+  affinity_type: cosine
+  normalize_gradients: true
+  clustering_method: agglomerative
+  encoder_param_patterns: []
+  device: cuda
+  seed: 42
+  log_affinity_matrix: true
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 1
+  log_every_n_steps: 25
+  log_epoch_summary: true
+  log_step_matrices: true
+  lookahead_lr: 0.0005
+  use_optimizer_lr: true
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+  log_to_mlflow: true
+model:
+  type: chemprop
+  chemprop:
+    depth: 6
+    message_hidden_dim: 800
+    num_layers: 3
+    hidden_dim: 800
+    dropout: 0.15
+    batch_norm: true
+    ffn_type: regression
+optimization:
+  criterion: MSE
+  epochs: 150
+  batch_size: 64
+  learning_rate: 0.001
+  scheduler: cosine
+  warmup_epochs: 10
+  max_lr: 0.001
+  final_lr: 1.0e-05
+  optimizer: Adam
+  weight_decay: 1.0e-05
+  gradient_clip: 1.0
+  patience: 30
+  min_delta: 5.0e-05
+mlflow:
+  experiment_name: Default
+  run_name: null
+  tracking_uri: mlruns
+  log_models: true
+  log_plots: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+    - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
+seed: 42
+device: auto
+log_level: INFO
+log_frequency: 10
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

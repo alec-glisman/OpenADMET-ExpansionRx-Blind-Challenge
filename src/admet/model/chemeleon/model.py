@@ -543,6 +543,48 @@ class ChemeleonModel(BaseModel, MLflowMixin):
             final_lr=final_lr,
         )
 
+        # Apply torch.compile if enabled for kernel fusion and optimization
+        perf_config = self.config.model.chemeleon.get("performance_optimization", {})
+        use_compile = perf_config.get("use_torch_compile", False)
+
+        if use_compile:
+            try:
+                import time
+
+                import torch
+
+                compile_mode = perf_config.get("torch_compile_mode", "reduce-overhead")
+                fullgraph = perf_config.get("torch_compile_fullgraph", False)
+                dynamic = perf_config.get("torch_compile_dynamic", False)
+
+                logger.info(
+                    "Compiling Chemeleon MPNN with torch.compile (mode=%s, fullgraph=%s, dynamic=%s)",
+                    compile_mode,
+                    fullgraph,
+                    dynamic,
+                )
+
+                compile_start = time.time()
+                self.mpnn = torch.compile(
+                    self.mpnn,
+                    mode=compile_mode,
+                    fullgraph=fullgraph,
+                    dynamic=dynamic,
+                )
+                compile_time = time.time() - compile_start
+
+                logger.info(
+                    "Chemeleon MPNN compilation complete (%.2fs) - expect 20-40%% training speedup",
+                    compile_time,
+                )
+            except Exception as e:
+                logger.warning(
+                    "torch.compile failed: %s. Falling back to uncompiled model.",
+                    e,
+                    exc_info=True,
+                )
+                # Continue with uncompiled model
+
     def _load_pretrained_mp(self, path: str) -> nn.BondMessagePassing:
         """Load pre-trained message passing from checkpoint.
 

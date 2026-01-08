@@ -246,6 +246,21 @@ class ModelEnsemble:
         self.models: Dict[str, BaseModel] = {}
         self.predictions: Dict[str, pd.DataFrame] = {}
 
+        # Shared test/blind datasets (precomputed once, used by all ensemble members)
+        self._shared_test_df: Optional[pd.DataFrame] = None
+        self._shared_blind_df: Optional[pd.DataFrame] = None
+
+        # Prediction cache for in-memory access (performance optimization)
+        self._prediction_cache: Dict[str, Dict[str, pd.DataFrame]] = {
+            "test": {},  # model_key -> predictions DataFrame
+            "blind": {},  # model_key -> predictions DataFrame
+        }
+        self._aggregated_cache: Dict[str, Optional[pd.DataFrame]] = {
+            "test": None,
+            "blind": None,
+        }
+        self._cache_enabled: bool = True  # Can be disabled for debugging
+
         # Determine model type from config (handle missing model section gracefully)
         model_type = "chemprop"  # default
         if hasattr(self.config, "model") and self.config.model is not None:
@@ -277,6 +292,9 @@ class ModelEnsemble:
         # Initialize MLflow
         if hasattr(self.config, "mlflow") and self.config.mlflow is not None and self.config.mlflow.tracking:
             self._init_mlflow()
+
+        # Precompute shared test/blind datasets for ensemble efficiency
+        self._precompute_shared_datasets()
 
     @classmethod
     def from_config(
@@ -405,6 +423,47 @@ class ModelEnsemble:
         temp_dir.rmdir()
 
         logger.debug("Logged config artifact to MLflow")
+
+    def _precompute_shared_datasets(self) -> None:
+        """
+        Precompute test and blind datasets to share across all ensemble members.
+
+        Loads test and blind CSV files once, canonicalizes SMILES, and stores as
+        instance attributes. This avoids redundant preprocessing for each of the
+        25 ensemble members (5 splits × 5 folds).
+
+        Notes
+        -----
+        - Test/blind datasets are identical across all ensemble members
+        - Only SMILES canonicalization is performed; MoleculeDataset creation
+          is deferred to individual models
+        - For ensembles without test/blind files, silently skips
+        """
+        from admet.data.smiles import parallel_canonicalize_smiles
+
+        smiles_col = self.config.data.smiles_col
+
+        # Load and canonicalize test dataset
+        if hasattr(self.config.data, "test_file") and self.config.data.test_file:
+            test_file = Path(self.config.data.test_file)
+            if test_file.exists():
+                logger.info("Precomputing shared test dataset from %s", test_file)
+                self._shared_test_df = pd.read_csv(test_file, low_memory=False)
+                self._shared_test_df[smiles_col] = parallel_canonicalize_smiles(
+                    self._shared_test_df[smiles_col].tolist()
+                )
+                logger.info("Precomputed test dataset: %d molecules", len(self._shared_test_df))
+
+        # Load and canonicalize blind dataset
+        if hasattr(self.config.data, "blind_file") and self.config.data.blind_file:
+            blind_file = Path(self.config.data.blind_file)
+            if blind_file.exists():
+                logger.info("Precomputing shared blind dataset from %s", blind_file)
+                self._shared_blind_df = pd.read_csv(blind_file, low_memory=False)
+                self._shared_blind_df[smiles_col] = parallel_canonicalize_smiles(
+                    self._shared_blind_df[smiles_col].tolist()
+                )
+                logger.info("Precomputed blind dataset: %d molecules", len(self._shared_blind_df))
 
     def _flatten_dict(
         self, d: Dict[str, Any], parent_key: str = "", sep: str = ".", max_depth: int = 3
@@ -812,6 +871,8 @@ class ModelEnsemble:
             available_gpu_ids: Optional[List[str]] = None,
             profiling_mode: str = "phase",
             profiling_top_n: int = 50,
+            shared_test_df: Optional[pd.DataFrame] = None,
+            shared_blind_df: Optional[pd.DataFrame] = None,
         ) -> Tuple[
             str, Dict[str, float], Optional[pd.DataFrame], Optional[pd.DataFrame], Dict[str, Any], Optional[str]
         ]:
@@ -843,6 +904,12 @@ class ModelEnsemble:
                 Profiling detail level: "disabled", "phase", "function", "full".
             profiling_top_n : int, default=50
                 Number of top functions to track in function-level profiling.
+            shared_test_df : Optional[pd.DataFrame], default=None
+                Precomputed test dataframe (SMILES already canonicalized). Avoids
+                redundant loading and preprocessing across ensemble members.
+            shared_blind_df : Optional[pd.DataFrame], default=None
+                Precomputed blind dataframe (SMILES already canonicalized). Avoids
+                redundant loading and preprocessing across ensemble members.
             """
             # Dynamically select GPU with most free memory
             # Note: CUDA_VISIBLE_DEVICES is already set in parent process, so we work with
@@ -954,8 +1021,12 @@ class ModelEnsemble:
             try:
                 if model_type == "chemprop":
                     # Use Chemprop-specific initialization with full config
-                    # Chemprop loads data from config files directly
-                    model = ChempropModel.from_config(config)  # type: ignore[arg-type]
+                    # Pass precomputed test/blind dataframes to avoid redundant loading
+                    model = ChempropModel.from_config(
+                        config,  # type: ignore[arg-type]
+                        df_test=shared_test_df,
+                        df_blind=shared_blind_df,
+                    )
 
                     # Log full ensemble config as artifact in child run for complete traceability
                     if model.mlflow_run_id and ensemble_config_dict and model._mlflow_client is not None:
@@ -1164,6 +1235,8 @@ class ModelEnsemble:
                         gpu_id_list if gpu_id_list else None,
                         profiling_mode,
                         profiling_top_n,
+                        self._shared_test_df,  # Pass precomputed test DataFrame
+                        self._shared_blind_df,  # Pass precomputed blind DataFrame
                     )
                     pending_tasks.append(task)
                     task_infos.append(info)
@@ -1197,6 +1270,14 @@ class ModelEnsemble:
                     self._all_test_predictions.append(test_preds)
                 if blind_preds is not None:
                     self._all_blind_predictions.append(blind_preds)
+
+                # Cache individual predictions for fast lookup (performance optimization)
+                if self._cache_enabled:
+                    if test_preds is not None:
+                        self._prediction_cache["test"][model_key] = test_preds
+                    if blind_preds is not None:
+                        self._prediction_cache["blind"][model_key] = blind_preds
+
                 # Aggregate profiling data from worker
                 if prof_data:
                     self._profiler.register_model_dict(prof_data)
@@ -1315,6 +1396,11 @@ class ModelEnsemble:
         pd.DataFrame
             Aggregated predictions with mean, std, and stderr columns.
         """
+        # Check cache first (performance optimization)
+        if self._cache_enabled and self._aggregated_cache[split_name] is not None:
+            logger.debug("Using cached aggregated predictions for %s", split_name)
+            return self._aggregated_cache[split_name]
+
         if not predictions_list:
             return pd.DataFrame()
 
@@ -1366,6 +1452,11 @@ class ModelEnsemble:
                 # For y = 10^x, dy = ln(10) * 10^x * dx
                 result[f"{target}_transformed_stderr"] = np.log(10) * np.power(10, mean_pred) * stderr_pred
 
+        # Cache aggregated result (performance optimization)
+        if self._cache_enabled:
+            self._aggregated_cache[split_name] = result
+            logger.debug("Cached aggregated predictions for %s", split_name)
+
         logger.info("Aggregated %d model predictions for %s split", n_models, split_name)
         return result
 
@@ -1406,6 +1497,49 @@ class ModelEnsemble:
             self._mlflow_client.log_artifact(self.parent_run_id, str(submissions_path), artifact_path="submissions")
 
         logger.info("Saved ensemble predictions for %s", split_name)
+
+    def get_cached_predictions(
+        self,
+        model_key: Optional[str] = None,
+        split_name: str = "test",
+    ) -> Optional[pd.DataFrame]:
+        """
+        Get cached predictions for a specific model or aggregated ensemble.
+
+        Parameters
+        ----------
+        model_key : str, optional
+            Model key (e.g., "split_0_fold_0"). If None, returns aggregated predictions.
+        split_name : str
+            Either "test" or "blind"
+
+        Returns
+        -------
+        pd.DataFrame or None
+            Cached predictions, or None if not in cache
+        """
+        if model_key is None:
+            return self._aggregated_cache.get(split_name)
+        else:
+            return self._prediction_cache[split_name].get(model_key)
+
+    def clear_cache(self, split_name: Optional[str] = None) -> None:
+        """
+        Clear prediction cache.
+
+        Parameters
+        ----------
+        split_name : str, optional
+            If specified, clear only this split. Otherwise clear all.
+        """
+        if split_name is None:
+            self._prediction_cache = {"test": {}, "blind": {}}
+            self._aggregated_cache = {"test": None, "blind": None}
+            logger.info("Cleared all prediction caches")
+        else:
+            self._prediction_cache[split_name] = {}
+            self._aggregated_cache[split_name] = None
+            logger.info("Cleared %s prediction cache", split_name)
 
     def _generate_unlabeled_ensemble_plots(self, predictions: pd.DataFrame, split_name: str, n_models: int = 0) -> None:
         """

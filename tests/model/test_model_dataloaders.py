@@ -3,6 +3,7 @@ Tests for ChempropModel dataloader creation and curriculum integration.
 """
 
 import pytest
+from torch.utils.data import DataLoader
 
 from admet.model.chemprop.config import CurriculumConfig
 from admet.model.chemprop.model import ChempropModel
@@ -67,8 +68,6 @@ def test_prepare_dataloaders_uses_sampler(monkeypatch, train_val_dataframes, ena
         # With curriculum enabled, quality labels should be set
         assert model._quality_labels.get("train") is not None
         # Curriculum creates a custom DataLoader with sampler, not using build_dataloader
-        from torch.utils.data import DataLoader
-
         assert isinstance(model.dataloaders["train"], DataLoader)
     else:
         # Without curriculum, quality labels not set and build_dataloader is used

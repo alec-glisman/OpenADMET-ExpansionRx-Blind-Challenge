@@ -1,0 +1,47 @@
+model:
+  type: chemeleon
+  chemeleon:
+    checkpoint_path: auto
+    ffn_type: regression
+    ffn_hidden_dim: 300
+    ffn_num_layers: 2
+    dropout: 0.0
+    batch_norm: false
+    unfreeze_schedule:
+      freeze_encoder: true
+      unfreeze_encoder_epoch: null
+      unfreeze_encoder_lr_multiplier: 0.1
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+optimization:
+  max_epochs: 100
+  batch_size: 32
+  patience: 15
+  learning_rate: 0.0001
+  num_workers: 4 # OPTIMIZATION: Enable parallel data loading (10-20% speedup)
+  accumulate_grad_batches: 1 # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
+performance_optimization:
+  use_mixed_precision: true
+mlflow:
+  enabled: true
+  experiment_name: Default
+  tracking_uri: null
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+    - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false

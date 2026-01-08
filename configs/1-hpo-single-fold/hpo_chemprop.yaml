@@ -1,0 +1,166 @@
+experiment_name: chemprop_hpo
+output_dir: /media/aglisman/Data/models/chemprop-hpo
+ray_storage_path: /media/aglisman/Data/ray/chemprop
+mlflow_tracking_uri: http://127.0.0.1:8084
+data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
+val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
+smiles_column: SMILES
+target_columns:
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
+target_weights:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+seed: 42
+patience: 15
+warmup_epochs: 5
+report_every_n_epochs: 1
+search_space:
+  learning_rate:
+    type: loguniform
+    low: 0.0001
+    high: 0.03
+  lr_warmup_ratio:
+    type: loguniform
+    low: 0.1
+    high: 10.0
+  lr_final_ratio:
+    type: loguniform
+    low: 0.001
+    high: 1.0
+  dropout:
+    type: uniform
+    low: 0.0
+    high: 0.3
+  weight_decay_enabled:
+    type: choice
+    values:
+      - true
+      - false
+  weight_decay:
+    type: loguniform
+    low: 1.0e-06
+    high: 0.001
+    conditional_on: weight_decay_enabled
+    conditional_values:
+      - true
+  batch_size:
+    type: choice
+    values:
+      - 32
+      - 64
+      - 128
+      - 256
+  depth:
+    type: randint
+    low: 2
+    high: 8
+  message_hidden_dim:
+    type: quniform
+    low: 200
+    high: 1200
+    q: 100
+  batch_norm:
+    type: choice
+    values:
+      - true
+      - false
+  ffn_type:
+    type: choice
+    values:
+      - regression
+      - mixture_of_experts
+      - branched
+  ffn_num_layers:
+    type: randint
+    low: 0
+    high: 5
+  ffn_hidden_dim:
+    type: quniform
+    low: 200
+    high: 1200
+    q: 100
+  n_experts:
+    type: qrandint
+    low: 2
+    high: 8
+    q: 2
+    conditional_on: ffn_type
+    conditional_values:
+      - mixture_of_experts
+  trunk_depth:
+    type: randint
+    low: 0
+    high: 5
+    conditional_on: ffn_type
+    conditional_values:
+      - branched
+  trunk_hidden_dim:
+    type: quniform
+    low: 100
+    high: 1200
+    q: 100
+    conditional_on: ffn_type
+    conditional_values:
+      - branched
+  joint_sampling:
+    enabled:
+      type: choice
+      values:
+        - true
+        - false
+    task_oversampling:
+      alpha:
+        type: uniform
+        low: 0.0
+        high: 1.0
+asha:
+  metric: val_mae
+  mode: min
+  max_t: 120
+  grace_period: 15
+  reduction_factor: 3
+  brackets: 1
+search_algorithm:
+  type: optuna
+  seed: 42
+  n_initial_points: 200
+  # Persistent study storage enabled by default for warmstart capability
+  persist_study: true
+  study_name: null # Auto-generated from experiment_name and timestamp if not provided
+  storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies # SQLite database location
+  warmstart_from: null # Set to previous study name to load top trials
+  warmstart_n_trials: 10 # Number of top trials to enqueue from previous study
+resources:
+  num_samples: 2000
+  cpus_per_trial: 4
+  gpus_per_trial: 0.33
+  max_concurrent_trials: null
+  # gpu_ids: [0] # CUDA device ordering (RTX 3080)
+transfer_learning:
+  top_k: 100
+  full_epochs: 60
+  ensemble_size: 5
+logging:
+  enabled: true
+  verbose: 1
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true
+profiling:
+  enabled: false
+  print_summary: false
+  log_to_mlflow: false

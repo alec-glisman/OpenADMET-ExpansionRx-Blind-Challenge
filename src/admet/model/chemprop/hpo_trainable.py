@@ -175,41 +175,54 @@ class RayTuneReportCallback(Callback):
             Ray AIR Checkpoint instance or None if no checkpoint could be created.
         """
 
-        if self.checkpoint_dir is None:
-            return None
-
-        ckpt_dir = Path(self.checkpoint_dir)
-        if not ckpt_dir.exists():
-            return None
-
-        # Find preferred checkpoint file
-        best_checkpoints = sorted(ckpt_dir.glob("best-*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
-        checkpoint_file: Path | None = best_checkpoints[0] if best_checkpoints else None
-
-        if checkpoint_file is None:
-            last_ckpt = ckpt_dir / "last.ckpt"
-            if last_ckpt.exists():
-                checkpoint_file = last_ckpt
-
-        if checkpoint_file is None:
-            # Create a final checkpoint manually as a last resort
-            try:
-                final_ckpt = ckpt_dir / "ray-final.ckpt"
-                trainer.save_checkpoint(str(final_ckpt))
-                checkpoint_file = final_ckpt
-            except Exception:
+        try:
+            if self.checkpoint_dir is None:
                 return None
 
-        export_dir = ckpt_dir / "ray_checkpoint"
-        if export_dir.exists():
-            shutil.rmtree(export_dir)
-        export_dir.mkdir(parents=True, exist_ok=True)
+            ckpt_dir = Path(self.checkpoint_dir)
+            if not ckpt_dir.exists():
+                return None
 
-        shutil.copy2(checkpoint_file, export_dir / checkpoint_file.name)
+            # Find preferred checkpoint file
+            best_checkpoints = sorted(ckpt_dir.glob("best-*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
+            checkpoint_file: Path | None = best_checkpoints[0] if best_checkpoints else None
 
-        try:
+            if checkpoint_file is None:
+                last_ckpt = ckpt_dir / "last.ckpt"
+                if last_ckpt.exists():
+                    checkpoint_file = last_ckpt
+
+            if checkpoint_file is None:
+                # Create a final checkpoint manually as a last resort
+                try:
+                    # Move model to CPU before saving to avoid device transfer race conditions
+                    import torch
+
+                    if hasattr(trainer, "model") and trainer.model is not None:
+                        try:
+                            # Detach from CUDA before checkpoint save (prevents segfault during Ray worker shutdown)
+                            with torch.no_grad():
+                                trainer.model.cpu()
+                        except Exception:
+                            pass  # If CPU migration fails, continue anyway
+
+                    final_ckpt = ckpt_dir / "ray-final.ckpt"
+                    trainer.save_checkpoint(str(final_ckpt))
+                    checkpoint_file = final_ckpt
+                except Exception:
+                    return None
+
+            export_dir = ckpt_dir / "ray_checkpoint"
+            if export_dir.exists():
+                shutil.rmtree(export_dir)
+            export_dir.mkdir(parents=True, exist_ok=True)
+
+            shutil.copy2(checkpoint_file, export_dir / checkpoint_file.name)
+
             return Checkpoint.from_directory(str(export_dir))
-        except Exception:
+        except Exception as e:
+            # Catch all exceptions during checkpoint building to prevent worker crashes
+            logger.debug("Failed to build checkpoint during Ray worker shutdown: %s", e)
             return None
 
     def _submit_report(self, metrics: dict[str, float], checkpoint: Checkpoint | None) -> None:
@@ -363,7 +376,25 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     model.trainer.callbacks.append(ray_callback)  # type: ignore[attr-defined]
 
     # Train the model
-    model.fit()
+    try:
+        model.fit()
+    finally:
+        # Graceful cleanup to prevent device transfer race conditions during Ray worker shutdown
+        import torch
+
+        try:
+            # Move model to CPU and clear CUDA cache before Ray terminates worker
+            if hasattr(model.trainer, "model") and model.trainer.model is not None:
+                with torch.no_grad():
+                    model.trainer.model.cpu()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # Wait for all CUDA operations to complete
+        except Exception:
+            pass  # Ignore cleanup errors (worker may already be shutting down)
+
+        # Small delay to allow graceful shutdown before Ray terminates the worker
+        time.sleep(0.5)
 
 
 def _extract_target_weights(

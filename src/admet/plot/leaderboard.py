@@ -535,6 +535,461 @@ def plot_rank_vs_metric_scatter(
     return fig, ax
 
 
+def plot_radar_task_profile(
+    task_data: pd.DataFrame,
+    *,
+    figsize: Tuple[float, float] = (10, 10),
+) -> Tuple[Figure, Axes]:
+    """Plot radar chart showing balanced performance across metrics per task.
+
+    Parameters
+    ----------
+    task_data : pd.DataFrame
+        Task data with metrics columns
+    figsize : Tuple[float, float], default=(10, 10)
+        Figure size
+
+    Returns
+    -------
+    Tuple[Figure, Axes]
+        Figure and axes
+    """
+    metrics = ["r2", "spearman r", "kendall's tau"]
+    available_metrics = [m for m in metrics if m in task_data.columns]
+
+    if not available_metrics:
+        fig, ax = plt.subplots(figsize=figsize, subplot_kw=dict(projection="polar"))
+        ax.text(0.5, 0.5, "No metrics available", ha="center", va="center", transform=ax.transAxes)
+        return fig, ax
+
+    # Extract metric values
+    tasks = task_data["task"].tolist()
+    num_tasks = len(tasks)
+    angles = np.linspace(0, 2 * np.pi, num_tasks, endpoint=False).tolist()
+    angles += angles[:1]  # Complete the circle
+
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw=dict(projection="polar"))
+
+    for metric in available_metrics:
+        values = []
+        for _, row in task_data.iterrows():
+            val_str = str(row.get(metric, "0"))
+            val, _ = extract_value_uncertainty(val_str)
+            values.append(val if val is not None else 0)
+
+        values += values[:1]  # Complete the circle
+        ax.plot(angles, values, "o-", linewidth=2, label=metric)
+        ax.fill(angles, values, alpha=0.15)
+
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(tasks, size=9)
+    ax.set_ylim(0, 1)
+    ax.set_title("Multi-Metric Task Profile", fontsize=14, fontweight="bold", pad=20)
+    ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
+    ax.grid(True)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_percentile_ranking(
+    task_data: pd.DataFrame,
+    tables: Dict[str, pd.DataFrame],
+    *,
+    figsize: Tuple[float, float] = (12, 8),
+) -> Tuple[Figure, Axes]:
+    """Plot percentile rankings showing where user stands relative to all submissions.
+
+    Parameters
+    ----------
+    task_data : pd.DataFrame
+        Task data with 'task', 'rank', and 'n_rows' columns
+    tables : Dict[str, pd.DataFrame]
+        Raw leaderboard tables
+    figsize : Tuple[float, float], default=(12, 8)
+        Figure size
+
+    Returns
+    -------
+    Tuple[Figure, Axes]
+        Figure and axes
+    """
+    tasks = []
+    percentiles = []
+    colors = []
+
+    for _, row in task_data.iterrows():
+        task = row["task"]
+        rank = row.get("rank")
+        n_rows = row.get("n_rows")
+
+        if pd.notna(rank) and pd.notna(n_rows) and n_rows > 0:
+            percentile = (rank / n_rows) * 100
+            tasks.append(task)
+            percentiles.append(percentile)
+            colors.append(_get_rank_color(int(rank)))
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if tasks:
+        y_pos = np.arange(len(tasks))
+        bars = ax.barh(y_pos, percentiles, color=colors, edgecolor="black", linewidth=1)
+
+        # Add percentile labels
+        for i, (bar, pct) in enumerate(zip(bars, percentiles)):
+            ax.text(
+                bar.get_width() + 1,
+                bar.get_y() + bar.get_height() / 2,
+                f"{pct:.1f}%",
+                va="center",
+                fontsize=10,
+            )
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(tasks)
+        ax.set_xlabel("Percentile Ranking (%)", fontsize=12)
+        ax.set_title("Percentile Rankings by Task", fontsize=14, fontweight="bold")
+        ax.set_xlim(0, 105)
+        ax.axvline(50, color="gray", linestyle="--", alpha=0.5, label="Median")
+        ax.legend()
+        ax.grid(True, alpha=0.3, axis="x")
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_gap_to_leader_waterfall(
+    task_data: pd.DataFrame,
+    task_mins: Dict[str, float],
+    *,
+    figsize: Tuple[float, float] = (12, 8),
+) -> Tuple[Figure, Axes]:
+    """Plot waterfall chart showing absolute MAE improvement needed per task to match top performer.
+
+    Parameters
+    ----------
+    task_data : pd.DataFrame
+        Task data with 'task' and 'mae' columns
+    task_mins : Dict[str, float]
+        Minimum MAE per task from rank #1
+    figsize : Tuple[float, float], default=(12, 8)
+        Figure size
+
+    Returns
+    -------
+    Tuple[Figure, Axes]
+        Figure and axes
+    """
+    tasks = []
+    gaps = []
+    colors = []
+
+    for _, row in task_data.iterrows():
+        task = row["task"]
+        mae_str = str(row.get("mae", "N/A"))
+
+        if mae_str != "N/A" and task in task_mins:
+            mae_val, _ = extract_value_uncertainty(mae_str)
+            if mae_val is not None:
+                gap = mae_val - task_mins[task]
+                tasks.append(task)
+                gaps.append(gap)
+                rank = row.get("rank", 999)
+                colors.append(_get_rank_color(int(rank)))
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if tasks:
+        y_pos = np.arange(len(tasks))
+        bars = ax.barh(y_pos, gaps, color=colors, edgecolor="black", linewidth=1)
+
+        # Add gap labels
+        for i, (bar, gap) in enumerate(zip(bars, gaps)):
+            ax.text(
+                bar.get_width() + 0.005,
+                bar.get_y() + bar.get_height() / 2,
+                f"{gap:.3f}",
+                va="center",
+                fontsize=9,
+            )
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(tasks)
+        ax.set_xlabel("MAE Gap to Leader", fontsize=12)
+        ax.set_title("Gap to Leader (MAE Improvement Needed)", fontsize=14, fontweight="bold")
+        ax.grid(True, alpha=0.3, axis="x")
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_rank_improvement_potential(
+    task_data: pd.DataFrame,
+    tables: Dict[str, pd.DataFrame],
+    *,
+    figsize: Tuple[float, float] = (12, 8),
+) -> Tuple[Figure, Axes]:
+    """Plot visualization of potential rank improvement if MAE matched leader.
+
+    Parameters
+    ----------
+    task_data : pd.DataFrame
+        Task data with 'task' and 'rank' columns
+    tables : Dict[str, pd.DataFrame]
+        Raw leaderboard tables
+    figsize : Tuple[float, float], default=(12, 8)
+        Figure size
+
+    Returns
+    -------
+    Tuple[Figure, Axes]
+        Figure and axes
+    """
+    tasks = []
+    current_ranks = []
+    potential_ranks = []
+
+    for _, row in task_data.iterrows():
+        task = row["task"]
+        current_rank = row.get("rank")
+
+        if pd.notna(current_rank):
+            tasks.append(task)
+            current_ranks.append(int(current_rank))
+            potential_ranks.append(1)  # Best possible rank
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if tasks:
+        y_pos = np.arange(len(tasks))
+        width = 0.35
+
+        bars1 = ax.barh(
+            y_pos - width / 2, current_ranks, width, label="Current Rank", color="#EF476F", edgecolor="black"
+        )
+        bars2 = ax.barh(
+            y_pos + width / 2, potential_ranks, width, label="Potential Rank", color="#06D6A0", edgecolor="black"
+        )
+
+        # Add rank labels
+        for bars in [bars1, bars2]:
+            for bar in bars:
+                width_val = bar.get_width()
+                ax.text(
+                    width_val + 1,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{int(width_val)}",
+                    va="center",
+                    fontsize=9,
+                )
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(tasks)
+        ax.set_xlabel("Rank Position", fontsize=12)
+        ax.set_title("Rank Improvement Potential (If Matching Leader)", fontsize=14, fontweight="bold")
+        ax.legend()
+        ax.invert_xaxis()
+        ax.grid(True, alpha=0.3, axis="x")
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_task_difficulty_vs_performance(
+    task_data: pd.DataFrame,
+    tables: Dict[str, pd.DataFrame],
+    *,
+    figsize: Tuple[float, float] = (10, 8),
+) -> Tuple[Figure, Axes]:
+    """Plot task difficulty (measured by leader MAE) vs user performance.
+
+    Parameters
+    ----------
+    task_data : pd.DataFrame
+        Task data with metrics
+    tables : Dict[str, pd.DataFrame]
+        Raw leaderboard tables
+    figsize : Tuple[float, float], default=(10, 8)
+        Figure size
+
+    Returns
+    -------
+    Tuple[Figure, Axes]
+        Figure and axes
+    """
+    leader_maes = []
+    user_maes = []
+    tasks = []
+    colors = []
+
+    for _, row in task_data.iterrows():
+        task = row["task"]
+        rank = row.get("rank")
+
+        # Get user MAE
+        user_mae_str = str(row.get("mae", "N/A"))
+        if user_mae_str != "N/A":
+            user_mae, _ = extract_value_uncertainty(user_mae_str)
+
+            # Get leader MAE from table
+            if task in tables:
+                df = tables[task]
+                if len(df) > 0:
+                    top_row = df.iloc[0]
+                    for col in df.columns:
+                        if "mae" in str(col).lower():
+                            leader_mae, _ = extract_value_uncertainty(top_row[col])
+                            if leader_mae is not None and user_mae is not None:
+                                leader_maes.append(leader_mae)
+                                user_maes.append(user_mae)
+                                tasks.append(task)
+                                colors.append(_get_rank_color(int(rank)))
+                            break
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if leader_maes:
+        ax.scatter(leader_maes, user_maes, c=colors, s=150, alpha=0.7, edgecolors="black", linewidth=1.5)
+
+        # Add task labels
+        for i, task in enumerate(tasks):
+            ax.annotate(
+                task,
+                (leader_maes[i], user_maes[i]),
+                xytext=(5, 5),
+                textcoords="offset points",
+                fontsize=8,
+                alpha=0.8,
+            )
+
+        # Add diagonal line (perfect match)
+        min_val = min(min(leader_maes), min(user_maes))
+        max_val = max(max(leader_maes), max(user_maes))
+        ax.plot([min_val, max_val], [min_val, max_val], "k--", alpha=0.3, label="Perfect Performance")
+
+        ax.set_xlabel("Leader MAE (Task Difficulty)", fontsize=12)
+        ax.set_ylabel("Your MAE", fontsize=12)
+        ax.set_title("Task Difficulty vs Your Performance", fontsize=14, fontweight="bold")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_priority_matrix(
+    task_data: pd.DataFrame,
+    task_mins: Dict[str, float],
+    *,
+    figsize: Tuple[float, float] = (12, 10),
+) -> Tuple[Figure, Axes]:
+    """Plot priority matrix identifying quick wins vs major projects.
+
+    Impact = Gap to leader (higher is more important)
+    Effort = Current rank (higher rank = more effort needed)
+
+    Parameters
+    ----------
+    task_data : pd.DataFrame
+        Task data with metrics
+    task_mins : Dict[str, float]
+        Minimum MAE per task
+    figsize : Tuple[float, float], default=(12, 10)
+        Figure size
+
+    Returns
+    -------
+    Tuple[Figure, Axes]
+        Figure and axes
+    """
+    impacts = []
+    efforts = []
+    tasks = []
+    colors = []
+
+    for _, row in task_data.iterrows():
+        task = row["task"]
+        rank = row.get("rank")
+        mae_str = str(row.get("mae", "N/A"))
+
+        if mae_str != "N/A" and task in task_mins and pd.notna(rank):
+            mae_val, _ = extract_value_uncertainty(mae_str)
+            if mae_val is not None:
+                gap = mae_val - task_mins[task]
+                impacts.append(gap)
+                efforts.append(int(rank))
+                tasks.append(task)
+                colors.append(_get_rank_color(int(rank)))
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if impacts:
+        ax.scatter(efforts, impacts, c=colors, s=200, alpha=0.7, edgecolors="black", linewidth=1.5)
+
+        # Add task labels
+        for i, task in enumerate(tasks):
+            ax.annotate(
+                task,
+                (efforts[i], impacts[i]),
+                xytext=(5, 5),
+                textcoords="offset points",
+                fontsize=9,
+                fontweight="bold",
+            )
+
+        # Add quadrant lines
+        mid_effort = np.median(efforts)
+        mid_impact = np.median(impacts)
+        ax.axvline(mid_effort, color="gray", linestyle="--", alpha=0.5)
+        ax.axhline(mid_impact, color="gray", linestyle="--", alpha=0.5)
+
+        # Add quadrant labels
+        ax.text(
+            ax.get_xlim()[0] + (mid_effort - ax.get_xlim()[0]) / 2,
+            ax.get_ylim()[1] - (ax.get_ylim()[1] - mid_impact) / 4,
+            "Quick Wins\n(Low Effort, High Impact)",
+            ha="center",
+            va="center",
+            fontsize=11,
+            bbox=dict(boxstyle="round", facecolor="lightgreen", alpha=0.3),
+        )
+        ax.text(
+            mid_effort + (ax.get_xlim()[1] - mid_effort) / 2,
+            ax.get_ylim()[1] - (ax.get_ylim()[1] - mid_impact) / 4,
+            "Major Projects\n(High Effort, High Impact)",
+            ha="center",
+            va="center",
+            fontsize=11,
+            bbox=dict(boxstyle="round", facecolor="lightyellow", alpha=0.3),
+        )
+        ax.text(
+            ax.get_xlim()[0] + (mid_effort - ax.get_xlim()[0]) / 2,
+            ax.get_ylim()[0] + (mid_impact - ax.get_ylim()[0]) / 4,
+            "Low Priority\n(Low Effort, Low Impact)",
+            ha="center",
+            va="center",
+            fontsize=11,
+            bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.3),
+        )
+        ax.text(
+            mid_effort + (ax.get_xlim()[1] - mid_effort) / 2,
+            ax.get_ylim()[0] + (mid_impact - ax.get_ylim()[0]) / 4,
+            "Thankless Tasks\n(High Effort, Low Impact)",
+            ha="center",
+            va="center",
+            fontsize=11,
+            bbox=dict(boxstyle="round", facecolor="lightcoral", alpha=0.3),
+        )
+
+        ax.set_xlabel("Effort (Current Rank)", fontsize=12)
+        ax.set_ylabel("Impact (MAE Gap to Leader)", fontsize=12)
+        ax.set_title("Task Priority Matrix", fontsize=14, fontweight="bold")
+        ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    return fig, ax
+
+
 def generate_all_plots(
     results_df: pd.DataFrame,
     tables: Dict[str, pd.DataFrame],
@@ -603,5 +1058,48 @@ def generate_all_plots(
         fig, _ = plot_rank_vs_metric_scatter(task_data, metric, label)
         metric_filename = metric.replace(" ", "_").replace("'", "")
         save_figure_formats(fig, output_dir / f"{idx:02d}_rank_vs_{metric_filename}")
+
+    # 11-20. Advanced diagnostic plots
+    try:
+        # 14. Multi-metric radar chart
+        fig, _ = plot_radar_task_profile(task_data)
+        save_figure_formats(fig, output_dir / "14_radar_task_profile")
+    except Exception as e:
+        logger.warning("Failed to generate radar task profile: %s", e)
+
+    try:
+        # 15. Percentile ranking
+        fig, _ = plot_percentile_ranking(task_data, tables)
+        save_figure_formats(fig, output_dir / "15_percentile_ranking")
+    except Exception as e:
+        logger.warning("Failed to generate percentile ranking: %s", e)
+
+    try:
+        # 16. Gap to leader waterfall
+        fig, _ = plot_gap_to_leader_waterfall(task_data, task_mins)
+        save_figure_formats(fig, output_dir / "16_gap_to_leader_waterfall")
+    except Exception as e:
+        logger.warning("Failed to generate gap to leader waterfall: %s", e)
+
+    try:
+        # 18. Rank improvement potential
+        fig, _ = plot_rank_improvement_potential(task_data, tables)
+        save_figure_formats(fig, output_dir / "18_rank_improvement_potential")
+    except Exception as e:
+        logger.warning("Failed to generate rank improvement potential: %s", e)
+
+    try:
+        # 19. Task difficulty vs performance
+        fig, _ = plot_task_difficulty_vs_performance(task_data, tables)
+        save_figure_formats(fig, output_dir / "19_task_difficulty_vs_performance")
+    except Exception as e:
+        logger.warning("Failed to generate task difficulty vs performance: %s", e)
+
+    try:
+        # 20. Priority matrix
+        fig, _ = plot_priority_matrix(task_data, task_mins)
+        save_figure_formats(fig, output_dir / "20_priority_matrix")
+    except Exception as e:
+        logger.warning("Failed to generate priority matrix: %s", e)
 
     logger.info("Generated all plots in: %s", output_dir)
