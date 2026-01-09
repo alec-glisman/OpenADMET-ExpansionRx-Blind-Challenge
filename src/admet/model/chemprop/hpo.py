@@ -307,6 +307,9 @@ class ChempropHPO:
         # Convert paths to absolute to ensure Ray workers can find them
         space["data_path"] = str(Path(self.config.data_path).resolve())
         space["val_data_path"] = str(Path(self.config.val_data_path).resolve()) if self.config.val_data_path else None
+        space["test_data_path"] = (
+            str(Path(self.config.test_data_path).resolve()) if self.config.test_data_path else None
+        )
         space["smiles_column"] = self.config.smiles_column
         space["target_columns"] = self.config.target_columns
         space["max_epochs"] = self.config.asha.max_t

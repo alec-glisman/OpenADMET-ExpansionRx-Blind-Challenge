@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -299,9 +297,7 @@ def plot_pareto_frontier(
 
         # Also try to get from intermediate values (reported metrics)
         if obj2 is None and trial.intermediate_values:
-            # Get the last reported value
-            last_step = max(trial.intermediate_values.keys())
-            # This won't work for model_params as it's not in intermediate_values
+            # Get the last reported value - model_params not in intermediate_values
             # Need to extract from trial params or attributes
             pass
 
@@ -316,25 +312,25 @@ def plot_pareto_frontier(
         logger.info("Hint: Ensure model_params_millions is logged as a metric in Ray Tune trials")
         return None, None
 
-    obj1_values = np.array(obj1_values)
-    obj2_values = np.array(obj2_values)
+    obj1_arr = np.array(obj1_values)
+    obj2_arr = np.array(obj2_values)
 
     # Identify Pareto frontier (minimize both objectives)
-    pareto_mask = np.ones(len(obj1_values), dtype=bool)
-    for i in range(len(obj1_values)):
-        for j in range(len(obj1_values)):
+    pareto_mask = np.ones(len(obj1_arr), dtype=bool)
+    for i in range(len(obj1_arr)):
+        for j in range(len(obj1_arr)):
             if i != j:
                 # Check if j dominates i (better on both objectives)
                 if (
-                    obj1_values[j] <= obj1_values[i]
-                    and obj2_values[j] <= obj2_values[i]
-                    and (obj1_values[j] < obj1_values[i] or obj2_values[j] < obj2_values[i])
+                    obj1_arr[j] <= obj1_arr[i]
+                    and obj2_arr[j] <= obj2_arr[i]
+                    and (obj1_arr[j] < obj1_arr[i] or obj2_arr[j] < obj2_arr[i])
                 ):
                     pareto_mask[i] = False
                     break
 
-    pareto_obj1 = obj1_values[pareto_mask]
-    pareto_obj2 = obj2_values[pareto_mask]
+    pareto_obj1 = obj1_arr[pareto_mask]
+    pareto_obj2 = obj2_arr[pareto_mask]
 
     # Sort Pareto points by second objective for line plot
     pareto_sort_idx = np.argsort(pareto_obj2)
@@ -346,8 +342,8 @@ def plot_pareto_frontier(
 
     # Plot all trials
     ax.scatter(
-        obj2_values,
-        obj1_values,
+        obj2_arr,
+        obj1_arr,
         alpha=0.5,
         s=50,
         color=GLASBEY_PALETTE[2],
@@ -431,15 +427,20 @@ def plot_optimization_history(
     try:
         from optuna.visualization.matplotlib import plot_optimization_history as optuna_plot
 
-        fig = optuna_plot(study)
-        ax = fig.gca()
+        # Optuna returns Axes, but we need Figure for our API
+        _ = optuna_plot(study)  # Call to generate plot, result unused
+        # Get the current figure and axes
+        import matplotlib.pyplot as plt
+
+        fig = plt.gcf()
+        ax = plt.gca()
 
         # Customize plot
         ax.set_title("Optimization History", fontsize=14, fontweight="bold")
         ax.grid(alpha=0.3, linestyle="--", linewidth=0.5)
 
         output_path = output_dir / f"optuna_optimization_history.{format}"
-        fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+        plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
         logger.info(f"Saved optimization history plot: {output_path}")
 
         return fig, ax

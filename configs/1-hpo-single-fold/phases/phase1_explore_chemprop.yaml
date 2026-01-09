@@ -9,6 +9,7 @@ mlflow_tracking_uri: http://127.0.0.1:8084
 
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
+test_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/test.csv
 smiles_column: SMILES
 
 target_columns:
@@ -134,7 +135,7 @@ search_space:
         type: uniform
         low: 0.0
         high: 1.0
-        conditional_on: joint_sampling.enabled  # Only sample when enabled=true
+        conditional_on: joint_sampling.enabled # Only sample when enabled=true
         conditional_values:
           - true
 
@@ -143,17 +144,17 @@ asha:
   mode: min
   max_t: 120
   grace_period: 15
-  reduction_factor: 4  # Aggressive pruning for exploration
+  reduction_factor: 4 # Aggressive pruning for exploration
   brackets: 1
 
 search_algorithm:
   type: optuna
   seed: 42
-  n_initial_points: 100  # 33% of 300 trials = random exploration
+  n_initial_points: 100 # 33% of 300 trials = random exploration
   persist_study: true
-  study_name: "chemprop_phase1_explore"  # Explicitly set for warmstart reference
+  study_name: "chemprop_phase1_explore" # Explicitly set for warmstart reference
   storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies
-  warmstart_from: null  # No warmstart for Phase 1
+  warmstart_from: null # No warmstart for Phase 1
   warmstart_n_trials: 0
   sampler_type: "tpe"
   sampler_kwargs:
@@ -162,7 +163,7 @@ search_algorithm:
     group: true
 
 resources:
-  num_samples: 300  # 30% of 1000 trial budget
+  num_samples: 300 # 30% of 1000 trial budget
   cpus_per_trial: 2
   gpus_per_trial: 0.25
   max_concurrent_trials: 8

@@ -278,7 +278,7 @@ class ProfilingConfig:
     >>> profiling = ProfilingConfig(enabled=False)
     """
 
-    enabled: bool = True
+    enabled: bool = False
     mode: str = "phase"  # "disabled", "phase", "function", "full"
     function_top_n: int = 50
     function_filter_module: str = "admet"

@@ -226,6 +226,7 @@ class HPOConfig:
 
     # Optional paths
     val_data_path: str | None = None
+    test_data_path: str | None = None  # For final comprehensive metrics at trial end
     base_config_path: str | None = None
     ray_storage_path: str | None = None
     mlflow_tracking_uri: str | None = None

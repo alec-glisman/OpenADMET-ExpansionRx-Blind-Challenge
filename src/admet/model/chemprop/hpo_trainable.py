@@ -138,9 +138,9 @@ class RayTuneReportCallback(Callback):
 
         # Add model complexity metrics for multi-objective optimization
         if hasattr(pl_module, "_params_millions"):
-            metrics["model_params_millions"] = float(pl_module._params_millions)
-        elif hasattr(trainer.model, "_params_millions"):
-            metrics["model_params_millions"] = float(trainer.model._params_millions)
+            metrics["model_params_millions"] = float(getattr(pl_module, "_params_millions"))
+        elif trainer.model is not None and hasattr(trainer.model, "_params_millions"):
+            metrics["model_params_millions"] = float(getattr(trainer.model, "_params_millions"))
         else:
             metrics["model_params_millions"] = 0.0
 
@@ -282,6 +282,7 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     # Extract fixed parameters
     data_path = config.get("data_path")
     val_data_path = config.get("val_data_path")
+    test_data_path = config.get("test_data_path")
     smiles_column = config.get("smiles_column", "smiles")
     target_columns = config.get("target_columns", [])
     max_epochs = config.get("max_epochs", 150)
@@ -296,6 +297,8 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         )
         report_every_n_epochs = 5
     seed = config.get("seed", 42)
+    patience = config.get("patience")
+    warmup_epochs = config.get("warmup_epochs")
 
     # Extract profiling configuration from HPO config
     profiling_config_dict = config.get("profiling", {})
@@ -314,6 +317,7 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     # Load data
     df_train = pd.read_csv(data_path)
     df_val = pd.read_csv(val_data_path) if val_data_path else None
+    df_test = pd.read_csv(test_data_path) if test_data_path else None
 
     # Build hyperparameters from sampled config
     hyperparams = _build_hyperparams(config, max_epochs, seed)
@@ -383,10 +387,10 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         trainable_params = sum(p.numel() for p in model.mpnn.parameters() if p.requires_grad)
         params_millions = total_params / 1_000_000
 
-        # Store for callback access
-        model._params_millions = params_millions
-        model._total_params = total_params
-        model._trainable_params = trainable_params
+        # Store for callback access (use setattr to avoid mypy attr-defined errors)
+        setattr(model, "_params_millions", params_millions)
+        setattr(model, "_total_params", total_params)
+        setattr(model, "_trainable_params", trainable_params)
 
         logger.debug(
             "Model parameters: total=%d (%.2fM), trainable=%d",
@@ -443,9 +447,7 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
             "hp.trunk_hidden_dim": hyperparams.trunk_hidden_dim if hyperparams.trunk_hidden_dim else "None",
             # Joint sampling config
             "joint_sampling.enabled": joint_sampling_config.enabled if joint_sampling_config else False,
-            "joint_sampling.alpha": (
-                joint_sampling_config.task_oversampling.alpha if joint_sampling_config else 0.0
-            ),
+            "joint_sampling.alpha": (joint_sampling_config.task_oversampling.alpha if joint_sampling_config else 0.0),
             # Target weights
             "target_weights": ",".join([f"{w:.4f}" for w in target_weights]) if target_weights else "1.0",
             # Model complexity metrics
@@ -461,10 +463,42 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     # Train the model
     try:
         model.fit()
+
+        # Compute comprehensive final metrics on train, val, and test sets
+        try:
+            from ray import train
+
+            from admet.model.hpo_metrics import compute_final_trial_metrics_from_dataframes
+
+            logger.info("Computing final comprehensive metrics on all splits...")
+            final_metrics = compute_final_trial_metrics_from_dataframes(
+                model=model,
+                train_df=df_train,
+                val_df=df_val,
+                test_df=df_test,
+                smiles_column=smiles_column,
+                target_columns=target_columns,
+                batch_size=hyperparams.batch_size,
+            )
+
+            # Add a flag to indicate these are final metrics
+            final_metrics["is_final_metrics"] = 1.0
+
+            # Report final metrics to Ray Tune (and hence MLflow via callback)
+            if final_metrics:
+                logger.info(
+                    "Reporting %d final metrics to Ray Tune (train: %d, val: %d, test: %d)",
+                    len(final_metrics),
+                    sum(1 for k in final_metrics if k.startswith("train/")),
+                    sum(1 for k in final_metrics if k.startswith("val/")),
+                    sum(1 for k in final_metrics if k.startswith("test/")),
+                )
+                train.report(final_metrics)
+        except Exception as e:
+            logger.warning("Failed to compute/report final metrics: %s", e)
+
     finally:
         # Graceful cleanup to prevent device transfer race conditions during Ray worker shutdown
-        import torch
-
         try:
             # Move model to CPU and clear CUDA cache before Ray terminates worker
             if hasattr(model.trainer, "model") and model.trainer.model is not None:

@@ -333,6 +333,7 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     # Extract fixed parameters
     data_path = config.pop("data_path")
     val_data_path = config.pop("val_data_path", None)
+    test_data_path = config.pop("test_data_path", None)
     smiles_column = config.pop("smiles_column")
     target_columns = config.pop("target_columns")
     max_epochs = config.pop("max_epochs")
@@ -365,6 +366,7 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     # Load data
     df_train = pd.read_csv(data_path)
     df_val = pd.read_csv(val_data_path) if val_data_path else None
+    df_test = pd.read_csv(test_data_path) if test_data_path else None
 
     # Build unfreeze schedule config
     unfreeze_schedule = {
@@ -538,6 +540,40 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
             # Train the model (this handles all setup internally)
             model.fit(train_smiles, train_y, val_smiles, val_y)
             trainer = model.trainer  # type: ignore[attr-defined]  # Attribute set during fit()
+
+            # Compute comprehensive final metrics on train, val, and test sets
+            try:
+                from ray import train
+
+                from admet.model.hpo_metrics import compute_final_trial_metrics_from_dataframes
+
+                logger.info("Computing final comprehensive metrics on all splits...")
+                final_metrics = compute_final_trial_metrics_from_dataframes(
+                    model=model,
+                    train_df=df_train,
+                    val_df=df_val,
+                    test_df=df_test,
+                    smiles_column=smiles_column,
+                    target_columns=target_columns,
+                    batch_size=config.get("batch_size", 64),
+                )
+
+                # Add a flag to indicate these are final metrics
+                final_metrics["is_final_metrics"] = 1.0
+
+                # Report final metrics to Ray Tune (and hence MLflow via callback)
+                if final_metrics:
+                    logger.info(
+                        "Reporting %d final metrics to Ray Tune (train: %d, val: %d, test: %d)",
+                        len(final_metrics),
+                        sum(1 for k in final_metrics if k.startswith("train/")),
+                        sum(1 for k in final_metrics if k.startswith("val/")),
+                        sum(1 for k in final_metrics if k.startswith("test/")),
+                    )
+                    train.report(final_metrics)
+            except Exception as e:
+                logger.warning("Failed to compute/report final metrics: %s", e)
+
     except Exception as e:
         logger.error(f"Trial failed with error: {e}")
         logger.debug(traceback.format_exc())
@@ -745,6 +781,9 @@ class ChemeleonHPO:
         # Add fixed parameters
         space["data_path"] = str(Path(self.config.data_path).resolve())
         space["val_data_path"] = str(Path(self.config.val_data_path).resolve()) if self.config.val_data_path else None
+        space["test_data_path"] = (
+            str(Path(self.config.test_data_path).resolve()) if self.config.test_data_path else None
+        )
         space["smiles_column"] = self.config.smiles_column
         space["target_columns"] = self.config.target_columns
         space["max_epochs"] = self.config.asha.max_t

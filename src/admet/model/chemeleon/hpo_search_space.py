@@ -159,11 +159,14 @@ def build_chemeleon_search_space(
                 if config_dict.get("freeze_encoder") in conditional_values:
                     if lr_mult_config.type == "loguniform":
                         import math
-                        log_low = math.log(lr_mult_config.low)
-                        log_high = math.log(lr_mult_config.high)
+
+                        assert lr_mult_config.low is not None and lr_mult_config.high is not None
+                        log_low = math.log(float(lr_mult_config.low))
+                        log_high = math.log(float(lr_mult_config.high))
                         return math.exp(random.uniform(log_low, log_high))
                     elif lr_mult_config.type == "uniform":
-                        return random.uniform(lr_mult_config.low, lr_mult_config.high)
+                        assert lr_mult_config.low is not None and lr_mult_config.high is not None
+                        return random.uniform(float(lr_mult_config.low), float(lr_mult_config.high))
                 return None
 
             space["unfreeze_encoder_lr_multiplier"] = tune.sample_from(sample_unfreeze_lr_multiplier)
@@ -273,6 +276,7 @@ def build_chemeleon_search_space(
                             return random.uniform(alpha_param.low, alpha_param.high)
                         elif alpha_param.type == "loguniform":
                             import math
+
                             log_low = math.log(alpha_param.low)
                             log_high = math.log(alpha_param.high)
                             return math.exp(random.uniform(log_low, log_high))

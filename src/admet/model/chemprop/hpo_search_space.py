@@ -148,6 +148,7 @@ def build_search_space(
                     if param is not None and param.low is not None and param.high is not None:
                         # loguniform sampling
                         import math
+
                         log_low = math.log(param.low)
                         log_high = math.log(param.high)
                         return math.exp(random.uniform(log_low, log_high))
@@ -245,13 +246,17 @@ def build_search_space(
                     if config_dict.get("joint_sampling_enabled", False):
                         # Sample using the parameter space definition
                         if alpha_param.type == "uniform":
-                            return random.uniform(alpha_param.low, alpha_param.high)
+                            assert alpha_param.low is not None and alpha_param.high is not None
+                            return random.uniform(float(alpha_param.low), float(alpha_param.high))
                         elif alpha_param.type == "loguniform":
                             import math
-                            log_low = math.log(alpha_param.low)
-                            log_high = math.log(alpha_param.high)
+
+                            assert alpha_param.low is not None and alpha_param.high is not None
+                            log_low = math.log(float(alpha_param.low))
+                            log_high = math.log(float(alpha_param.high))
                             return math.exp(random.uniform(log_low, log_high))
                         elif alpha_param.type == "choice":
+                            assert alpha_param.values is not None
                             return random.choice(list(alpha_param.values))
                     return None
 
