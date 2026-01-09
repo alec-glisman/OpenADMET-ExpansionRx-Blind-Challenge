@@ -170,6 +170,8 @@ class SearchAlgorithmConfig:
         storage_dir: Directory for SQLite database. Defaults to {output_dir}/optuna_studies
         warmstart_from: Name of previous study to warmstart from (loads top trials as seeds)
         warmstart_n_trials: Number of top trials to enqueue from previous study for warmstart
+        sampler_type: Optuna sampler type - "tpe", "cmaes", "random", "grid"
+        sampler_kwargs: Additional kwargs passed to the Optuna sampler constructor
     """
 
     type: str = "optuna"  # Use Optuna by default for adaptive search
@@ -182,6 +184,10 @@ class SearchAlgorithmConfig:
     storage_dir: Optional[str] = None
     warmstart_from: Optional[str] = None
     warmstart_n_trials: int = 10
+
+    # Optuna sampler settings
+    sampler_type: str = "tpe"
+    sampler_kwargs: dict = field(default_factory=lambda: {"multivariate": True, "group": True})
 
 
 @dataclass

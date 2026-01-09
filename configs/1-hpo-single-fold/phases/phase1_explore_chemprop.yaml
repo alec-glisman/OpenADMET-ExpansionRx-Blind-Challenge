@@ -4,12 +4,12 @@
 
 experiment_name: chemprop_hpo_phase1_explore
 output_dir: /media/aglisman/Data/models/chemprop-hpo/phase1
-ray_storage_path: /media/aglisman/Data/ray/chemprop/phase1
+ray_storage_path: /media/aglisman/Data/ray/p1
 mlflow_tracking_uri: http://127.0.0.1:8084
 
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
-test_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/test.csv
+test_data_path: assets/dataset/set/train_val_local_test.csv
 smiles_column: SMILES
 
 target_columns:
@@ -156,7 +156,7 @@ search_algorithm:
   storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies
   warmstart_from: null # No warmstart for Phase 1
   warmstart_n_trials: 0
-  sampler_type: "tpe"
+  sampler_type: tpe
   sampler_kwargs:
     n_startup_trials: 100
     multivariate: true
@@ -164,9 +164,9 @@ search_algorithm:
 
 resources:
   num_samples: 300 # 30% of 1000 trial budget
-  cpus_per_trial: 2
-  gpus_per_trial: 0.25
-  max_concurrent_trials: 8
+  cpus_per_trial: 4
+  gpus_per_trial: 0.33
+  max_concurrent_trials: 6
 
 transfer_learning:
   top_k: 100

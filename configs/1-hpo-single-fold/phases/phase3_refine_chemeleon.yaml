@@ -4,12 +4,12 @@
 
 experiment_name: chemeleon_hpo_phase3_refine
 output_dir: /media/aglisman/Data/models/chemeleon-hpo/phase3
-ray_storage_path: /media/aglisman/Data/ray/chemeleon/phase3
+ray_storage_path: /media/aglisman/Data/ray/p3
 mlflow_tracking_uri: http://127.0.0.1:8084
 
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
-test_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/test.csv
+test_data_path: assets/dataset/set/train_val_local_test.csv
 smiles_column: SMILES
 
 target_columns:
@@ -197,7 +197,7 @@ search_algorithm:
   storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies
   warmstart_from: "chemeleon_phase2_exploit" # Load from Phase 2
   warmstart_n_trials: 10 # Top 10 from Phase 2 (narrower than Phase 2)
-  sampler_type: "tpe"
+  sampler_type: tpe
   sampler_kwargs:
     n_startup_trials: 0
     multivariate: true

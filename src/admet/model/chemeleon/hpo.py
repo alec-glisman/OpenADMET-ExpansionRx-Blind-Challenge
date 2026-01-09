@@ -844,16 +844,36 @@ class ChemeleonHPO:
                 storage_url = f"sqlite:///{storage_dir / 'studies.db'}"
                 storage = optuna.storages.RDBStorage(url=storage_url)
 
-                # Generate or use provided study name
-                study_name = self.config.search_algorithm.study_name
-                if study_name is None:
+                # Check if previous phase's study name exists (for warmstart chaining)
+                warmstart_from = self.config.search_algorithm.warmstart_from
+                if warmstart_from and not warmstart_from.startswith("/"):
+                    # Try to load from metadata file if it's a phase reference
+                    study_name_file = Path(self.config.output_dir).parent / f"{warmstart_from}_phase" / "study_name.txt"
+                    if study_name_file.exists():
+                        warmstart_from = study_name_file.read_text().strip()
+                        logger.info("Loaded warmstart study name from file: %s", warmstart_from)
+                        self.config.search_algorithm.warmstart_from = warmstart_from
+
+                # Generate study name with timestamp (always, to avoid conflicts)
+                base_study_name = self.config.search_algorithm.study_name
+                if base_study_name is None:
                     study_name = f"hpo_{datetime.now():%Y%m%d_%H%M%S}"
+                else:
+                    # Always append timestamp for uniqueness
+                    study_name = f"{base_study_name}_{datetime.now():%Y%m%d_%H%M%S}"
 
                 logger.info(
                     "Creating persistent Optuna study: %s (storage: %s)",
                     study_name,
                     storage_url,
                 )
+
+                # Save study name to file for downstream phases
+                output_dir = Path(self.config.output_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                study_name_file = output_dir / "study_name.txt"
+                study_name_file.write_text(study_name)
+                logger.info("Saved study name to: %s", study_name_file)
             else:
                 storage = None
                 study_name = None

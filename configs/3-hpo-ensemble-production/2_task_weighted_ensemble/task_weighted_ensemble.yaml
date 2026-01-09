@@ -1,0 +1,216 @@
+# Task-Weighted Ensemble Configuration
+# =====================================
+# This config defines a task-specific model selection strategy based on
+# historical submission performance analysis (see SUBMISSIONS.md).
+#
+# Strategy: Select the best-performing model's predictions for each task
+# based on leaderboard rankings from Jan 5-8, 2026.
+#
+# NOTE: Dec 16, 2025 model weights were lost and cannot be used for ensembling.
+#
+# Expected improvement: Combine best-in-class predictions per task category.
+
+# Task-to-Model Mapping
+# ---------------------
+# Each task is assigned to the model that achieved the best rank for that task
+# (excluding Dec-16 baseline whose weights are unavailable).
+#
+# LogD            → Jan-05 MoE         (rank 15, MAE 0.31)
+# KSOL            → Jan-07 Large       (rank 15, MAE 0.34)
+# MLM CLint       → Jan-05 MoE         (rank 12, MAE 0.34)
+# HLM CLint       → Jan-06 Baseline    (rank 35, MAE 0.30)
+# Caco-2 Efflux   → Jan-07 Large       (rank 53, MAE 0.33)
+# Caco-2 Papp A>B → Jan-07 Large       (rank 16, MAE 0.22)
+# MPPB            → Jan-08 Chemeleon   (rank 24, MAE 0.17)
+# MBPB            → Jan-05 MoE         (rank 51, MAE 0.15)
+# MGMB            → Jan-08 Chemeleon   (rank 5,  MAE 0.15)
+
+task_model_assignment:
+  LogD:
+    model: chemprop_moe
+    source_submission: "2026-01-05"
+    mlflow_run_id: "c781fb7efe4a4b70a6fb6263dd3dd8e9"
+    expected_rank: 15
+    expected_mae: 0.31
+
+  Log KSOL:
+    model: chemprop_large
+    source_submission: "2026-01-07"
+    mlflow_run_id: "5ef1d4104f42489184188968ede410d6"
+    expected_rank: 15
+    expected_mae: 0.34
+
+  Log MLM CLint:
+    model: chemprop_moe
+    source_submission: "2026-01-05"
+    mlflow_run_id: "c781fb7efe4a4b70a6fb6263dd3dd8e9"
+    expected_rank: 12
+    expected_mae: 0.34
+
+  Log HLM CLint:
+    model: chemprop_baseline_jan06
+    source_submission: "2026-01-06"
+    mlflow_run_id: "ca2760b28f5945ee9b387915db9da875"
+    expected_rank: 35
+    expected_mae: 0.30
+
+  Log Caco-2 Permeability Efflux:
+    model: chemprop_large
+    source_submission: "2026-01-07"
+    mlflow_run_id: "5ef1d4104f42489184188968ede410d6"
+    expected_rank: 53
+    expected_mae: 0.33
+
+  Log Caco-2 Permeability Papp A>B:
+    model: chemprop_large
+    source_submission: "2026-01-07"
+    mlflow_run_id: "5ef1d4104f42489184188968ede410d6"
+    expected_rank: 16
+    expected_mae: 0.22
+
+  Log MPPB:
+    model: chemeleon_moe
+    source_submission: "2026-01-08"
+    mlflow_run_id: "d7d51490fea9458e99e8e6677f425c37"
+    expected_rank: 24
+    expected_mae: 0.17
+
+  Log MBPB:
+    model: chemprop_moe
+    source_submission: "2026-01-05"
+    mlflow_run_id: "c781fb7efe4a4b70a6fb6263dd3dd8e9"
+    expected_rank: 51
+    expected_mae: 0.15
+
+  Log MGMB:
+    model: chemeleon_moe
+    source_submission: "2026-01-08"
+    mlflow_run_id: "d7d51490fea9458e99e8e6677f425c37"
+    expected_rank: 5
+    expected_mae: 0.15
+
+# Model Configurations
+# --------------------
+# Reference configs for each model type used in the ensemble.
+# NOTE: Dec-16 baseline excluded - weights no longer available.
+
+model_configs:
+  chemprop_moe:
+    description: "Jan 05 MoE - Strong on LogD, MLM CLint, MBPB"
+    config_path: "configs/3-hpo-ensemble-production/0_chemprop_v1/ensemble_chemprop_hpo_011.yaml"
+    hyperparameters:
+      depth: 6
+      message_hidden_dim: 400
+      ffn_type: mixture_of_experts
+      num_layers: 1
+      hidden_dim: 500
+      n_experts: 2
+      dropout: 0.2
+      task_oversampling_alpha: 0.0
+      seed: 42
+
+  chemprop_large:
+    description: "Jan 07 Large - Strong on Caco-2 tasks, KSOL"
+    config_path: "configs/3-hpo-ensemble-production/0_chemprop_v1/ensemble_chemprop_hpo_033.yaml"
+    hyperparameters:
+      depth: 5
+      message_hidden_dim: 1100
+      ffn_type: regression
+      num_layers: 2
+      hidden_dim: 900
+      dropout: 0.05
+      task_oversampling_alpha: 0.0
+      seed: 42
+
+  chemprop_baseline_jan06:
+    description: "Jan 06 Baseline (retrained) - Strong on HLM CLint"
+    config_path: "configs/3-hpo-ensemble-production/0_chemprop_v1/ensemble_chemprop_hpo_001.yaml"
+    hyperparameters:
+      depth: 3
+      message_hidden_dim: 700
+      ffn_type: regression
+      num_layers: 4
+      hidden_dim: 200
+      dropout: 0.15
+      task_oversampling_alpha: 0.02
+      seed: 42
+
+  chemeleon_moe:
+    description: "Jan 08 Chemeleon - Strong on plasma binding (MPPB, MGMB)"
+    config_path: "configs/3-hpo-ensemble-production/1_chemeleon_v1/ensemble_chemeleon_hpo_003.yaml"
+    hyperparameters:
+      checkpoint_path: auto
+      freeze_encoder: false
+      ffn_type: mixture_of_experts
+      ffn_hidden_dim: 400
+      ffn_num_layers: 2
+      n_experts: 7
+      dropout: 0.248
+      task_oversampling_alpha: 0.651
+      seed: 42
+
+# Ensemble Strategy
+# -----------------
+ensemble:
+  strategy: task_weighted_selection
+  aggregation_method: select_best_per_task
+
+  # Alternative strategies to explore:
+  # - weighted_average: Weight predictions by inverse rank
+  # - stacking: Train meta-learner on model predictions
+  # - voting: Majority vote for classification tasks
+
+# Prediction Paths
+# ----------------
+# Paths to cached predictions from each submission.
+# NOTE: Dec-16 excluded - model weights lost.
+prediction_sources:
+  "2026-01-05":
+    blind_predictions: "assets/submissions/2026-01-05/mlflow-artifacts/6/c781fb7efe4a4b70a6fb6263dd3dd8e9/artifacts/predictions/blind_predictions.csv"
+    experiment_id: 6
+
+  "2026-01-06":
+    blind_predictions: "assets/submissions/2026-01-06/mlflow-artifacts/6/ca2760b28f5945ee9b387915db9da875/artifacts/predictions/blind_predictions.csv"
+    experiment_id: 6
+
+  "2026-01-07":
+    blind_predictions: "assets/submissions/2026-01-07/mlflow-artifacts/6/5ef1d4104f42489184188968ede410d6/artifacts/predictions/blind_predictions.csv"
+    experiment_id: 6
+
+  "2026-01-08":
+    blind_predictions: "assets/submissions/2026-01-08/mlflow-artifacts/12/d7d51490fea9458e99e8e6677f425c37/artifacts/predictions/blind_predictions.csv"
+    experiment_id: 12
+
+# Output Configuration
+# --------------------
+output:
+  predictions_dir: "assets/submissions/task_weighted_ensemble/predictions"
+  submission_file: "assets/submissions/task_weighted_ensemble/submission.csv"
+
+# MLflow Configuration
+# --------------------
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: task_weighted_ensemble
+  run_name: "best_per_task_v2_no_dec16"
+  tags:
+    ensemble_type: task_weighted_selection
+    num_models: 4
+    strategy: select_best_per_task
+    note: "Dec-16 weights unavailable"
+# Notes
+# -----
+# This ensemble strategy leverages the observation that different model
+# architectures excel at different task categories:
+#
+# - Chemprop+MoE (Jan-05): Best for physicochemical (LogD) and metabolism (MLM CLint), MBPB
+# - Chemprop Large (Jan-07): Best for permeability (Caco-2 tasks) and solubility (KSOL)
+# - Chemprop Baseline (Jan-06): Best available for HLM CLint
+# - Chemeleon+MoE (Jan-08): Best for protein binding (MPPB, MGMB)
+#
+# NOTE: Dec-16 baseline achieved best ranks for KSOL (#10), MBPB (#23), and MGMB (#2),
+# but model weights are no longer available. Using next-best models instead.
+#
+# By selecting the best available model for each task, we aim to achieve optimal
+# per-task performance and improve overall MA-RAE ranking.
