@@ -16,13 +16,23 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import TypedDict
 
 import pandas as pd
-import yaml
+import yaml  # type: ignore[import-untyped]
+
+
+class TaskModelMapping(TypedDict):
+    """Type definition for task-to-model mapping."""
+
+    submission: str
+    model: str
+    expected_rank: int
+
 
 # Task-to-model mapping based on SUBMISSIONS.md analysis
 # NOTE: Dec-16 weights lost - using next-best models for KSOL, HLM CLint, MBPB, MGMB
-TASK_MODEL_MAPPING = {
+TASK_MODEL_MAPPING: dict[str, TaskModelMapping] = {
     "LogD": {
         "submission": "2026-01-05",
         "model": "chemprop_moe",
@@ -72,16 +82,42 @@ TASK_MODEL_MAPPING = {
 
 # Prediction file paths for each submission (Dec-16 excluded - weights unavailable)
 PREDICTION_PATHS = {
-    "2026-01-05": "assets/submissions/2026-01-05/mlflow-artifacts/6/c781fb7efe4a4b70a6fb6263dd3dd8e9/artifacts/predictions/blind_predictions.csv",
-    "2026-01-06": "assets/submissions/2026-01-06/mlflow-artifacts/6/ca2760b28f5945ee9b387915db9da875/artifacts/predictions/blind_predictions.csv",
-    "2026-01-07": "assets/submissions/2026-01-07/mlflow-artifacts/6/5ef1d4104f42489184188968ede410d6/artifacts/predictions/blind_predictions.csv",
-    "2026-01-08": "assets/submissions/2026-01-08/mlflow-artifacts/12/d7d51490fea9458e99e8e6677f425c37/artifacts/predictions/blind_predictions.csv",
+    "2026-01-05": (
+        "assets/submissions/2026-01-05/mlflow-artifacts/6/"
+        "c781fb7efe4a4b70a6fb6263dd3dd8e9/artifacts/predictions/blind_predictions.csv"
+    ),
+    "2026-01-06": (
+        "assets/submissions/2026-01-06/mlflow-artifacts/6/"
+        "ca2760b28f5945ee9b387915db9da875/artifacts/predictions/blind_predictions.csv"
+    ),
+    "2026-01-07": (
+        "assets/submissions/2026-01-07/mlflow-artifacts/6/"
+        "5ef1d4104f42489184188968ede410d6/artifacts/predictions/blind_predictions.csv"
+    ),
+    "2026-01-08": (
+        "assets/submissions/2026-01-08/mlflow-artifacts/12/"
+        "d7d51490fea9458e99e8e6677f425c37/artifacts/predictions/blind_predictions.csv"
+    ),
 }
 
 
-def load_predictions(submission_date: str, base_path: Path) -> pd.DataFrame:
-    """Load predictions from a submission's cached predictions file."""
-    pred_path = base_path / PREDICTION_PATHS[submission_date]
+def load_predictions(submission_date: str | Path, base_path: Path) -> pd.DataFrame:
+    """Load predictions from a submission's cached predictions file.
+
+    Parameters
+    ----------
+    submission_date : str | Path
+        Submission date key or path to predictions file.
+    base_path : Path
+        Base path for submission directory.
+
+    Returns
+    -------
+    pd.DataFrame
+        Loaded predictions DataFrame.
+    """
+    submission_date_str = str(submission_date)
+    pred_path = base_path / PREDICTION_PATHS[submission_date_str]
     if not pred_path.exists():
         raise FileNotFoundError(f"Predictions not found: {pred_path}")
     return pd.read_csv(pred_path)
@@ -98,7 +134,8 @@ def merge_task_weighted_predictions(
     """
     # Load all prediction files
     predictions = {}
-    for date in set(m["submission"] for m in TASK_MODEL_MAPPING.values()):
+    submission_dates: set[str] = set(m["submission"] for m in TASK_MODEL_MAPPING.values())
+    for date in submission_dates:
         try:
             predictions[date] = load_predictions(date, base_path)
             print(f"✓ Loaded predictions from {date}: {len(predictions[date])} samples")
@@ -162,7 +199,7 @@ def main():
     # Load config if provided
     if args.config and args.config.exists():
         with open(args.config) as f:
-            config = yaml.safe_load(f)
+            yaml.safe_load(f)  # Config not currently used, but available for future
         print(f"Loaded config from: {args.config}")
 
     # Merge predictions

@@ -1,0 +1,137 @@
+# Task-Weighted Version of ensemble_chemprop_hpo_001.yaml
+# =========================================================
+# Based on January 6, 2026 submission analysis (Rank 31/289, MA-RAE 0.61)
+#
+# Weight Justification (see SUBMISSIONS.md for full analysis):
+# - LogD:           1.5  (Rank 63, 28.6% gap to leader - high improvement potential)
+# - KSOL:           0.7  (Rank 17, 8.8% gap - already excellent, reduce overfitting)
+# - HLM CLint:      1.0  (Rank 35, 10.0% gap - decent, maintain baseline)
+# - MLM CLint:      1.1  (Rank 39, 11.1% gap - slight boost needed)
+# - Caco-2 Papp:    1.4  (Rank 70, 24.0% gap - significant improvement needed)
+# - Caco-2 Efflux:  1.8  (Rank 98, 25.7% gap - CRITICAL, worst task)
+# - MPPB:           1.3  (Rank 47, 26.3% gap - notable gap despite mid-rank)
+# - MBPB:           1.4  (Rank 65, 31.2% gap - large gap to leader)
+# - MGMB:           0.7  (Rank 18, 11.8% gap - second best, reduce weight)
+
+data:
+  data_dir: assets/dataset/split_train_val_local_test/v3/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data
+  splits: null
+  folds: null
+  test_file: null
+  blind_file: assets/dataset/set/blind_test.csv
+  output_dir: null
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+  target_weights:
+    - 1.5   # LogD: Rank 63, 28.6% gap - high improvement potential
+    - 0.7   # KSOL: Rank 17, already excellent - prevent overfitting
+    - 1.0   # HLM CLint: Rank 35, decent - maintain baseline
+    - 1.1   # MLM CLint: Rank 39, slight boost needed
+    - 1.4   # Caco-2 Papp A>B: Rank 70, 24% gap - significant improvement needed
+    - 1.8   # Caco-2 Efflux: Rank 98, CRITICAL - worst task, highest priority
+    - 1.3   # MPPB: Rank 47, 26% gap - moderate boost
+    - 1.4   # MBPB: Rank 65, 31% gap - large gap to leader
+    - 0.7   # MGMB: Rank 18, second best - reduce weight
+model:
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
+optimization:
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
+  warmup_epochs: 5
+  max_epochs: 150
+  patience: 15
+  batch_size: 128
+  num_workers: 4 # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
+  accumulate_grad_batches: 1 # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
+  seed: 42
+  weight_decay: 0.0
+  progress_bar: false
+performance_optimization:
+  use_mixed_precision: true
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: chemprop_hpo_ensemble_production
+  run_name: rank_001_task_weighted
+  nested: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+    - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
+profiling:
+  enabled: true
+  mode: full # "disabled", "phase", "function", "full"
+  function_top_n: 50
+  function_filter_module: admet
+  log_to_mlflow: true
+  print_summary: true
+  ensemble_aggregation: true
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  exclude_param_patterns:
+    - predictor
+    - ffn
+    - output
+    - head
+    - readout
+  log_to_mlflow: true
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.02
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+ray:
+  max_parallel: 6 # OPTIMIZATION: 3 models per GPU (validated VRAM limit for Chemprop)
+  num_cpus: 24
+  num_gpus: 2
+  gpu_ids: [0, 1]
+logging:
+  enabled: true
+  verbose: 2
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true

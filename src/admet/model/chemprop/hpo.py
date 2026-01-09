@@ -40,6 +40,7 @@ from admet.model.chemprop.hpo_config import HPOConfig
 from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
 from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
+from admet.model.hpo_range_refinement import RefinementConfig, refine_search_space
 from admet.util.logging import configure_logging
 from admet.util.profiling import TrainingPhase, TrainingProfiler
 from admet.util.ray_logging import QuietProgressReporter, RayLogManager
@@ -292,14 +293,37 @@ class ChempropHPO:
         """Build the Ray Tune search space.
 
         Combines the configurable search space with fixed parameters
-        needed by the trainable function.
+        needed by the trainable function. If refinement is enabled,
+        automatically narrows search ranges based on previous phase results.
 
         Returns:
             Complete parameter space dictionary for Ray Tune
         """
+        # Apply refinement from previous phase if enabled
+        search_space_config = self.config.search_space
+        if self.config.refinement.enabled:
+            logger.info("Applying search space refinement from previous phase")
+            refinement_config = RefinementConfig(
+                enabled=self.config.refinement.enabled,
+                previous_phase_dir=self.config.refinement.previous_phase_dir,
+                top_k=self.config.refinement.top_k,
+                margin_factor=self.config.refinement.margin_factor,
+                min_samples=self.config.refinement.min_samples,
+                use_percentiles=self.config.refinement.use_percentiles,
+                percentile_low=self.config.refinement.percentile_low,
+                percentile_high=self.config.refinement.percentile_high,
+                params_to_refine=self.config.refinement.params_to_refine,
+                params_to_fix=self.config.refinement.params_to_fix,
+            )
+            search_space_config = refine_search_space(
+                base_config=self.config.search_space,
+                refinement=refinement_config,
+            )
+            logger.info("Search space refinement applied successfully")
+
         # Get configurable search space (pass target_columns for per-target weights)
         space = build_search_space(
-            self.config.search_space,
+            search_space_config,
             target_columns=list(self.config.target_columns),
         )
 

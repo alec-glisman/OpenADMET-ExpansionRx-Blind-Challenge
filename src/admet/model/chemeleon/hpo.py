@@ -51,6 +51,7 @@ from ray.tune.schedulers import ASHAScheduler
 from admet.model.chemeleon.hpo_config import ChemeleonHPOConfig
 from admet.model.chemeleon.hpo_search_space import build_chemeleon_search_space
 from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
+from admet.model.hpo_range_refinement import RefinementConfig as BaseRefinementConfig, refine_chemeleon_search_space
 from admet.util.logging import configure_logging
 from admet.util.ray_logging import QuietProgressReporter, RayLogManager
 
@@ -772,9 +773,35 @@ class ChemeleonHPO:
             return self.results
 
     def _build_search_space(self) -> dict[str, Any]:
-        """Build the Ray Tune search space."""
+        """Build the Ray Tune search space.
+
+        If refinement is enabled, automatically narrows search ranges
+        based on previous phase results.
+        """
+        # Apply refinement from previous phase if enabled
+        search_space_config = self.config.search_space
+        if self.config.refinement.enabled:
+            logger.info("Applying search space refinement from previous phase")
+            refinement_config = BaseRefinementConfig(
+                enabled=self.config.refinement.enabled,
+                previous_phase_dir=self.config.refinement.previous_phase_dir,
+                top_k=self.config.refinement.top_k,
+                margin_factor=self.config.refinement.margin_factor,
+                min_samples=self.config.refinement.min_samples,
+                use_percentiles=self.config.refinement.use_percentiles,
+                percentile_low=self.config.refinement.percentile_low,
+                percentile_high=self.config.refinement.percentile_high,
+                params_to_refine=self.config.refinement.params_to_refine,
+                params_to_fix=self.config.refinement.params_to_fix,
+            )
+            search_space_config = refine_chemeleon_search_space(
+                base_config=self.config.search_space,
+                refinement=refinement_config,
+            )
+            logger.info("Search space refinement applied successfully")
+
         space = build_chemeleon_search_space(
-            self.config.search_space,
+            search_space_config,
             target_columns=list(self.config.target_columns),
         )
 

@@ -136,11 +136,61 @@ CheMeleon and Chemprop share a unified FFN factory ([`src/admet/model/ffn_factor
 ### Multi-Task Learning
 
 - **Output:** 9 endpoints predicted simultaneously
-- **Loss:** MSE with NaN masking (missing endpoints ignored in gradient)
-- **Task Weights:** Uniform (1.0 for all endpoints)
+- **Loss:** Weighted MSE with NaN masking (missing endpoints ignored in gradient)
+- **Task Weights:** Configurable per-endpoint weights (default: uniform 1.0)
 - **Joint Sampling:** Unified `JointSampler` with two-stage algorithm:
   1. **Stage 1 (Task Selection):** Sample task `t` with probability `p_t ∝ count_t^(-α)` to balance sparse endpoints
   2. **Stage 2 (Within-Task):** Sample molecule from task's valid indices, weighted by curriculum phase
+
+#### Weighted Multi-Task Loss Function
+
+The total loss for a batch is computed as the weighted sum of per-task losses with NaN masking:
+
+$$\mathcal{L}_{\text{total}} = \sum_{t=1}^{T} w_t \cdot \mathcal{L}_t$$
+
+where:
+
+- $T = 9$ (number of ADMET endpoints)
+- $w_t$ = weight for task $t$ (configurable via `target_weights`)
+- $\mathcal{L}_t$ = masked MSE loss for task $t$
+
+**Per-Task Masked MSE Loss:**
+
+$$\mathcal{L}_t = \frac{1}{|M_t|} \sum_{i \in M_t} (y_i^{(t)} - \hat{y}_i^{(t)})^2$$
+
+where:
+
+- $M_t$ = set of samples with valid (non-NaN) labels for task $t$
+- $y_i^{(t)}$ = true label for sample $i$, task $t$
+- $\hat{y}_i^{(t)}$ = predicted value for sample $i$, task $t$
+
+**NaN Masking:** Samples with missing labels for a given task are excluded from that task's loss computation, allowing the model to learn from partial labels without requiring complete annotations.
+
+#### Task Weight Strategy
+
+| Strategy | Configuration | Use Case |
+|----------|---------------|----------|
+| **Uniform** | `target_weights: [1.0, ...]` | Default; equal importance for all endpoints |
+| **Inverse Frequency** | $w_t \propto 1/count_t$ | Upweight rare endpoints |
+| **Performance-Based** | $w_t \propto 1/MAE_t$ | Focus on underperforming tasks |
+| **HPO-Optimized** | Search over weight space | Find optimal balance (future work) |
+
+**Current Production Configuration:**
+
+```yaml
+target_weights:
+  - 1.0  # LogD
+  - 1.0  # Log KSOL
+  - 1.0  # Log HLM CLint
+  - 1.0  # Log MLM CLint
+  - 1.0  # Log Caco-2 Permeability Papp A>B
+  - 1.0  # Log Caco-2 Permeability Efflux
+  - 1.0  # Log MPPB
+  - 1.0  # Log MBPB
+  - 1.0  # Log MGMB
+```
+
+**Note:** While the loss function supports non-uniform weights, the final production models use uniform weighting. Task-specific loss weighting is complementary to (not a replacement for) task oversampling—the former adjusts gradient magnitudes while the latter controls sampling frequency
 
 ---
 

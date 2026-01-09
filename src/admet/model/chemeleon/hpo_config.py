@@ -206,6 +206,47 @@ class TransferLearningConfig:
 
 
 @dataclass
+class RefinementConfig:
+    """Configuration for automatic search space refinement from previous HPO phase.
+
+    This enables automatic Phase 3 refinement by loading top configurations from
+    a previous phase (e.g., Phase 2) and narrowing search ranges around the
+    best-performing hyperparameter values.
+
+    Example usage in YAML:
+        refinement:
+          enabled: true
+          previous_phase_dir: /path/to/phase2/output
+          top_k: 20
+          margin_factor: 0.3
+
+    Attributes:
+        enabled: Whether to enable automatic refinement from previous phase
+        previous_phase_dir: Directory containing previous phase HPO outputs
+            (must contain top_k_configs.json or hpo_results.csv)
+        top_k: Number of top configs to use for range estimation (default: 20)
+        margin_factor: Factor to expand ranges beyond observed min/max (0.0-1.0)
+        min_samples: Minimum samples required before applying refinement
+        use_percentiles: Use percentile-based ranges (10th-90th) instead of min/max
+        percentile_low: Lower percentile when use_percentiles=True
+        percentile_high: Upper percentile when use_percentiles=True
+        params_to_refine: List of parameter names to refine (None = all)
+        params_to_fix: Dict mapping param names to fixed values
+    """
+
+    enabled: bool = False
+    previous_phase_dir: Optional[str] = None
+    top_k: int = 20
+    margin_factor: float = 0.3
+    min_samples: int = 3
+    use_percentiles: bool = True
+    percentile_low: float = 10.0
+    percentile_high: float = 90.0
+    params_to_refine: Optional[list[str]] = None
+    params_to_fix: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class TaskOversamplingConfig:
     """Configuration for task-aware oversampling.
 
@@ -371,6 +412,7 @@ class ChemeleonHPOConfig:
     search_algorithm: SearchAlgorithmConfig = field(default_factory=SearchAlgorithmConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
+    refinement: RefinementConfig = field(default_factory=RefinementConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
     joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)

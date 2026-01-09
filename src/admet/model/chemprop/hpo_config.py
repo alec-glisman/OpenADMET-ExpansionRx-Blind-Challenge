@@ -204,6 +204,50 @@ class TransferLearningConfig:
 
 
 @dataclass
+class RefinementConfig:
+    """Configuration for automatic search space refinement from previous HPO phase.
+
+    This enables automatic Phase 3 refinement by loading top configurations from
+    a previous phase (e.g., Phase 2) and narrowing search ranges around the
+    best-performing hyperparameter values.
+
+    Example usage in YAML:
+        refinement:
+          enabled: true
+          previous_phase_dir: /path/to/phase2/output
+          top_k: 20
+          margin_factor: 0.3
+
+    Attributes:
+        enabled: Whether to enable automatic refinement from previous phase
+        previous_phase_dir: Directory containing previous phase HPO outputs
+            (must contain top_k_configs.json or hpo_results.csv)
+        top_k: Number of top configs to use for range estimation (default: 20)
+        margin_factor: Factor to expand ranges beyond observed min/max (0.0-1.0)
+            - 0.0: Use exact observed min/max
+            - 0.3: Add 30% margin on each side (log-scale for loguniform)
+            - 1.0: Double the range on each side
+        min_samples: Minimum samples required before applying refinement
+        use_percentiles: Use percentile-based ranges (10th-90th) instead of min/max
+        percentile_low: Lower percentile when use_percentiles=True (default: 10)
+        percentile_high: Upper percentile when use_percentiles=True (default: 90)
+        params_to_refine: List of parameter names to refine (None = all continuous params)
+        params_to_fix: Dict mapping param names to fixed values (removes from search)
+    """
+
+    enabled: bool = False
+    previous_phase_dir: Optional[str] = None
+    top_k: int = 20
+    margin_factor: float = 0.3
+    min_samples: int = 3
+    use_percentiles: bool = True
+    percentile_low: float = 10.0
+    percentile_high: float = 90.0
+    params_to_refine: Optional[list[str]] = None
+    params_to_fix: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class HPOConfig:
     """Main HPO configuration combining all sub-configurations.
 
@@ -218,6 +262,7 @@ class HPOConfig:
         asha: ASHA scheduler configuration
         resources: Resource allocation configuration
         transfer_learning: Transfer learning configuration
+        refinement: Search space refinement from previous phase (Phase 3 automation)
         curriculum: Curriculum learning configuration
         base_config_path: Path to base Chemprop config YAML (optional)
         seed: Random seed for reproducibility
@@ -246,6 +291,7 @@ class HPOConfig:
     search_algorithm: SearchAlgorithmConfig = field(default_factory=SearchAlgorithmConfig)
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     transfer_learning: TransferLearningConfig = field(default_factory=TransferLearningConfig)
+    refinement: RefinementConfig = field(default_factory=RefinementConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
     profiling: ProfilingConfig = field(default_factory=ProfilingConfig)

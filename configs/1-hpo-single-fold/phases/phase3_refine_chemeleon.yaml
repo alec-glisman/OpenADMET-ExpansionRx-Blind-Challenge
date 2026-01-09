@@ -1,6 +1,6 @@
 # Phase 3: Refinement - Chemeleon HPO
 # 30% of total budget with warmstart from Phase 2 top 10 trials
-# NARROWED SEARCH SPACE - Update ranges after Phase 2 analysis!
+# AUTOMATIC SEARCH SPACE REFINEMENT from Phase 2 results
 
 experiment_name: chemeleon_hpo_phase3_refine
 output_dir: /media/aglisman/Data/models/chemeleon-hpo/phase3
@@ -47,16 +47,31 @@ unfreeze_schedule:
   unfreeze_encoder_lr_multiplier: 0.1
 
 # ============================================================
-# IMPORTANT: Update these ranges after Phase 2 completes!
-# Instructions:
-# 1. Review Phase 2 parameter importance plot
-# 2. Check Phase 2 top 10 trial configs
-# 3. Narrow ranges around best-performing values
-# 4. Focus on top 3-5 most important parameters
+# AUTOMATIC REFINEMENT: Search ranges are automatically narrowed
+# based on the top-k configs from Phase 2. The base ranges below
+# serve as fallbacks if refinement fails or is disabled.
 # ============================================================
 
+refinement:
+  enabled: true
+  previous_phase_dir: /media/aglisman/Data/models/chemeleon-hpo/phase2
+  top_k: 20                  # Analyze top 20 configs from Phase 2
+  margin_factor: 0.3         # Add 30% margin around observed ranges
+  use_percentiles: true      # Use 10th-90th percentile (robust to outliers)
+  percentile_low: 10.0
+  percentile_high: 90.0
+  # Optional: Fix specific params or limit which params to refine
+  # params_to_fix:
+  #   ffn_type: "regression"  # Fix if Phase 2 shows clear winner
+  #   freeze_encoder: true    # Fix if Phase 2 shows clear preference
+  # params_to_refine:
+  #   - learning_rate
+  #   - ffn_hidden_dim
+  #   - dropout
+
+# Base search space (used as fallback if refinement disabled/fails)
 search_space:
-  # TODO: If freeze_encoder shows clear preference, can fix to that value
+  # Ranges will be auto-narrowed from Phase 2 results
   freeze_encoder:
     type: choice
     values:
@@ -79,11 +94,10 @@ search_space:
     conditional_values:
       - true
 
-  # TODO: Narrow around Phase 2 best (e.g., if best ~0.003, use [0.001, 0.005])
   learning_rate:
     type: loguniform
-    low: 0.001 # PLACEHOLDER - adjust after Phase 2
-    high: 0.01 # PLACEHOLDER - adjust after Phase 2
+    low: 0.0001
+    high: 0.03
 
   lr_warmup_ratio:
     type: loguniform
@@ -105,7 +119,6 @@ search_space:
     low: 0.0
     high: 0.3
 
-  # TODO: If Phase 2 shows clear preference, narrow to 1-2 best sizes
   batch_size:
     type: choice
     values:
@@ -119,7 +132,6 @@ search_space:
       - true
       - false
 
-  # TODO: If one FFN type dominates, can fix and remove this param
   ffn_type:
     type: choice
     values:
@@ -132,7 +144,6 @@ search_space:
     low: 0
     high: 5
 
-  # TODO: Narrow FFN width based on Phase 2 results
   ffn_hidden_dim:
     type: quniform
     low: 200

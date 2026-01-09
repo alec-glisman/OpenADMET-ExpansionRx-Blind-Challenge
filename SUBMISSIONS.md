@@ -4,6 +4,147 @@
 
 ---
 
+## January 9, 2026 (Submission 0)
+
+### Model
+
+#### MLflow
+
+* **Experiment ID**: `TODO`
+* **Run ID**: `TODO`
+* **Run Name**: `rank_001_task_weighted`
+
+#### Architecture
+
+**Model Type:** Chemprop MPNN with Task-Weighted Loss
+
+**Key Change:** Task-specific loss weights derived from January 6 submission analysis to focus training on underperforming endpoints.
+
+#### Hyperparameters
+
+```yaml
+# MPNN (unchanged from Jan-06 best model)
+depth: 3
+message_hidden_dim: 700
+aggregation: norm
+# FFN
+ffn_type: regression
+num_layers: 4
+hidden_dim: 200
+# Regularization
+dropout: 0.15
+batch_norm: true
+# Training
+batch_size: 128
+criterion: MAE
+# Learning Rate Schedule
+init_lr: 0.00113
+max_lr: 0.000227
+final_lr: 0.000113
+# Early Stopping
+patience: 15
+max_epochs: 150
+# Sampling
+task_oversampling_alpha: 0.02
+# Reproducibility
+seed: 42
+```
+
+#### Task Weights (NEW)
+
+| Task | Weight | Formula | Justification |
+|------|--------|---------|---------------|
+| LogD | **1.5** | `1.0 × (1 + 0.286 × 1.75)` | Rank 63/289 (21.8%), 28.6% gap to leader. High improvement potential. |
+| KSOL | **0.7** | `1.0 × 0.7` | Rank 17/289 (5.9%), 8.8% gap. Already excellent - prevent overfitting. |
+| HLM CLint | **1.0** | `1.0` (baseline) | Rank 35/289 (12.1%), 10.0% gap. Decent performance - maintain. |
+| MLM CLint | **1.1** | `1.0 × 1.1` | Rank 39/289 (13.5%), 11.1% gap. Slightly worse than HLM - small boost. |
+| Caco-2 Papp A>B | **1.4** | `1.0 × (1 + 0.240 × 1.67)` | Rank 70/289 (24.2%), 24.0% gap. Significant improvement needed. |
+| Caco-2 Efflux | **1.8** | `1.0 × (1 + 0.257 × 3.11)` | Rank 98/289 (33.9%), 25.7% gap. **WORST TASK** - highest priority. |
+| MPPB | **1.3** | `1.0 × (1 + 0.263 × 1.14)` | Rank 47/289 (16.3%), 26.3% gap. Notable gap despite mid-rank. |
+| MBPB | **1.4** | `1.0 × (1 + 0.312 × 1.28)` | Rank 65/289 (22.5%), 31.2% gap. Large gap to leader. |
+| MGMB | **0.7** | `1.0 × 0.7` | Rank 18/289 (6.2%), 11.8% gap. Second best - reduce weight. |
+
+**Weight Formula:**
+
+```
+weight = base_weight × rank_penalty × gap_multiplier
+
+Where:
+- base_weight = 1.0
+- rank_penalty = 1.0 + (percentile_rank × scaling_factor) for tasks > 15th percentile
+- gap_multiplier = 1.0 + (Δ_to_leader / 100) for tasks with gap > 20%
+- scaling_factor adjusted per task to achieve target range [0.7, 1.8]
+```
+
+**Rationale:** MA-RAE is the mean across all 9 task RAEs. By up-weighting poorly-ranked tasks (Caco-2 Efflux, LogD, MBPB) and down-weighting already-excellent tasks (KSOL, MGMB), the model should allocate more learning capacity to closing the gap on weak endpoints.
+
+### Statistics
+
+#### Overall
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| TODO | aglisman | TODO | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+
+#### By Task
+
+| Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| TODO | LogD | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | KSOL | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | MLM CLint | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | HLM CLint | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | Caco-2 Permeability Efflux | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | Caco-2 Permeability Papp A>B | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | MPPB | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | MBPB | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| TODO | MGMB | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+
+### Expected Outcomes
+
+Based on the task weighting strategy:
+
+| Task | Jan-06 Rank | Expected Change | Target Rank |
+|------|-------------|-----------------|-------------|
+| LogD | 63 | ↑ 15-25 ranks | 38-48 |
+| KSOL | 17 | ↔ maintain | 15-20 |
+| MLM CLint | 39 | ↑ 5-10 ranks | 29-34 |
+| HLM CLint | 35 | ↔ maintain | 30-40 |
+| Caco-2 Efflux | 98 | ↑ 25-40 ranks | 58-73 |
+| Caco-2 Papp A>B | 70 | ↑ 15-25 ranks | 45-55 |
+| MPPB | 47 | ↑ 5-15 ranks | 32-42 |
+| MBPB | 65 | ↑ 10-20 ranks | 45-55 |
+| MGMB | 18 | ↔ or slight ↓ | 18-25 |
+
+**Expected MA-RAE:** 0.58-0.60 (improved from 0.61)
+**Expected Rank:** Top 8-10% (improved from 10.7%)
+
+### Conclusions
+
+**Hypothesis:**
+
+Task-weighted loss will improve MA-RAE by directing model capacity toward the worst-performing tasks (Caco-2 Efflux, LogD, MBPB) while accepting minor regression on already-strong tasks (KSOL, MGMB).
+
+**What to watch:**
+
+* Did Caco-2 Efflux improve significantly (target: rank < 70)?
+* Did KSOL/MGMB regress unacceptably (threshold: rank > 30)?
+* Did overall MA-RAE decrease?
+
+**Next steps if successful:**
+
+* Apply similar weighting to Chemeleon model
+* Combine task-weighted Chemprop + Chemeleon in ensemble
+* Explore more aggressive weights for worst tasks (2.0-2.5)
+
+**Next steps if unsuccessful:**
+
+* Weights may be too aggressive - try narrower range [0.8, 1.5]
+* Consider task_oversampling_alpha increase (0.02 → 0.10) instead of loss weights
+* Investigate if task correlations make some weight combinations counterproductive
+
+---
+
 ## January 8, 2026
 
 ### Model
@@ -756,138 +897,6 @@ MGMB            → Jan-08 Chemeleon   (rank 5,  MAE 0.15)
 | FFN Hidden | 500 (MoE) | 200 (Baseline) | 900 (Large) | 400 (Chemeleon) |
 | Dropout | 0.2 | 0.15 | 0.05 | 0.25 |
 | Task α | 0.0 | 0.02 | 0.0 | 0.65 |
-
-### Optimal Per-Task MAE Weights for Training
-
-Based on analysis of all submissions, the following weights are recommended for task-weighted loss or oversampling to improve MA-RAE. Weights are calculated as inverse performance rank normalized to sum to ~1.0 per model.
-
-#### Universal Weight Recommendations (Architecture-Agnostic)
-
-| Task | Competition Difficulty[^3] | Optimal Weight Range | Rationale |
-|------|---------------------------|---------------------|-----------|
-| **LogD** | Medium (leaders at 0.25) | 1.0 - 1.4 | Consistent gap to leaders across models |
-| **KSOL** | Low (leaders at 0.31) | 0.6 - 0.8 | Already strong; maintain, don't overfit |
-| **MLM CLint** | Medium (leaders at 0.32-0.33) | 0.7 - 1.0 | MoE excels; baseline needs boost |
-| **HLM CLint** | Medium (leaders at 0.26-0.28) | 0.9 - 1.2 | Moderate improvement needed |
-| **Caco-2 Efflux** | High (leaders at 0.25) | **1.5 - 2.0** | Consistently worst task; needs major focus |
-| **Caco-2 Papp A>B** | High (leaders at 0.19) | **1.4 - 1.8** | Large gap to leaders |
-| **MPPB** | Medium (leaders at 0.14) | 1.0 - 2.0 | Architecture-dependent; Chemeleon excels |
-| **MBPB** | Low (leaders at 0.11-0.13) | 0.8 - 1.2 | Already decent; small boost |
-| **MGMB** | Low (leaders at 0.15) | 0.5 - 0.8 | Best task; avoid overfitting |
-
-[^3]: Based on gap between our best model and competition leader for each task.
-
-#### Model-Specific Weight Configurations
-
-**For Chemprop Baseline (Jan-06 style):**
-
-```yaml
-task_weights:
-  LogD: 1.6
-  KSOL: 0.8
-  MLM_CLint: 1.0
-  HLM_CLint: 1.0
-  Caco2_Efflux: 1.8       # Priority
-  Caco2_Papp_AB: 1.5      # Priority
-  MPPB: 1.2
-  MBPB: 1.4
-  MGMB: 0.8
-# Recommended task_oversampling_alpha: 0.15
-```
-
-**For Chemprop + MoE (Jan-05 style):**
-
-```yaml
-task_weights:
-  LogD: 0.8               # Already strong
-  KSOL: 0.8               # Already strong
-  MLM_CLint: 0.6          # Already strong
-  HLM_CLint: 1.2
-  Caco2_Efflux: 1.8       # Priority
-  Caco2_Papp_AB: 1.5      # Priority
-  MPPB: 2.0               # Critical weakness
-  MBPB: 1.2
-  MGMB: 1.0
-# Recommended task_oversampling_alpha: 0.25
-```
-
-**For Chemprop Large (Jan-07 style):**
-
-```yaml
-task_weights:
-  LogD: 1.0
-  KSOL: 0.8               # Already strong
-  MLM_CLint: 0.8          # Already strong
-  HLM_CLint: 1.2
-  Caco2_Efflux: 1.2       # Already decent
-  Caco2_Papp_AB: 0.8      # Already strong
-  MPPB: 2.0               # Critical weakness
-  MBPB: 2.0               # Critical weakness
-  MGMB: 1.8               # High priority
-# Recommended task_oversampling_alpha: 0.35
-```
-
-**For Chemeleon + MoE (Jan-08 style):**
-
-```yaml
-task_weights:
-  LogD: 1.8               # Critical weakness
-  KSOL: 1.5               # High priority
-  MLM_CLint: 2.0          # Critical weakness
-  HLM_CLint: 1.5          # High priority
-  Caco2_Efflux: 1.8       # High priority
-  Caco2_Papp_AB: 1.8      # High priority
-  MPPB: 0.8               # Already strong
-  MBPB: 1.0
-  MGMB: 0.5               # Already excellent
-# Recommended task_oversampling_alpha: 0.40
-```
-
-### Cross-Model Improvement Strategy
-
-#### Quick Wins (High Impact, Low Effort)
-
-1. **Enable task_oversampling_alpha on MoE/Large models** - Currently 0.0; setting to 0.2-0.4 should immediately improve weak tasks
-2. **Fix Jan-07 learning rate schedule** - Proper warmup/decay instead of flat schedule
-3. **Increase Jan-08 FFN depth** - Add 1-2 layers for metabolism/physicochemical tasks
-
-#### Medium-Term Improvements
-
-| Improvement | Affected Tasks | Expected Rank Δ | Implementation |
-|-------------|----------------|-----------------|----------------|
-| Task-weighted loss function | All weak tasks | +5-15 ranks | Modify training loop |
-| Permeability-specific features | Caco-2 tasks | +20-40 ranks | Add TPSA, HBD, HBA |
-| Multi-seed ensemble (5 seeds) | All tasks | +3-8 ranks | Train 5 models, average |
-| Curriculum learning | Caco-2, MPPB | +10-20 ranks | Start with easy tasks |
-| Graph attention mechanism | LogD, KSOL | +5-10 ranks | Replace mean aggregation |
-
-#### Architecture-Specific Focus Areas
-
-| Model | Focus Tasks | Recommended Changes |
-|-------|-------------|---------------------|
-| **Chemprop Baseline** | Caco-2 Efflux, Caco-2 Papp, LogD | ↑ depth to 4-5, ↑ α to 0.15, add permeability features |
-| **Chemprop + MoE** | MPPB, Caco-2 tasks | ↑ experts to 4-6, ↑ α to 0.25, add load balancing |
-| **Chemprop Large** | MPPB, MBPB, MGMB | ↑ α to 0.35, ↑ dropout to 0.15, fix LR schedule |
-| **Chemeleon + MoE** | MLM CLint, LogD, KSOL | ↓ α to 0.40, ↑ FFN depth, hybrid with Chemprop |
-
-### Ensemble Weighting Strategy
-
-For the task-weighted ensemble, use inverse-rank weighting when averaging predictions from multiple models:
-
-```python
-# Task-specific model weights based on rank performance
-ENSEMBLE_WEIGHTS = {
-    "LogD": {"jan05_moe": 0.6, "jan07_large": 0.3, "jan06_base": 0.1},
-    "KSOL": {"jan07_large": 0.5, "jan05_moe": 0.3, "jan06_base": 0.2},
-    "MLM_CLint": {"jan05_moe": 0.7, "jan07_large": 0.2, "jan06_base": 0.1},
-    "HLM_CLint": {"jan06_base": 0.5, "jan05_moe": 0.3, "jan07_large": 0.2},
-    "Caco2_Efflux": {"jan07_large": 0.7, "jan05_moe": 0.2, "jan06_base": 0.1},
-    "Caco2_Papp_AB": {"jan07_large": 0.7, "jan05_moe": 0.2, "jan06_base": 0.1},
-    "MPPB": {"jan08_chem": 0.6, "jan06_base": 0.3, "jan05_moe": 0.1},
-    "MBPB": {"jan05_moe": 0.5, "jan08_chem": 0.3, "jan06_base": 0.2},
-    "MGMB": {"jan08_chem": 0.7, "jan06_base": 0.2, "jan05_moe": 0.1},
-}
-```
 
 ---
 

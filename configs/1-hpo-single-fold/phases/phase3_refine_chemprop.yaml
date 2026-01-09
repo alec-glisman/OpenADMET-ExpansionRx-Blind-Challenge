@@ -1,6 +1,6 @@
 # Phase 3: Refinement - Chemprop HPO
 # 30% of total budget with warmstart from Phase 2 top 10 trials
-# NARROWED SEARCH SPACE - Update ranges after Phase 2 analysis!
+# AUTOMATIC SEARCH SPACE REFINEMENT from Phase 2 results
 
 experiment_name: chemprop_hpo_phase3_refine
 output_dir: /media/aglisman/Data/models/chemprop-hpo/phase3
@@ -40,20 +40,34 @@ warmup_epochs: 5
 report_every_n_epochs: 1
 
 # ============================================================
-# IMPORTANT: Update these ranges after Phase 2 completes!
-# Instructions:
-# 1. Review Phase 2 parameter importance plot
-# 2. Check Phase 2 top 10 trial configs
-# 3. Narrow ranges around best-performing values
-# 4. Focus on top 3-5 most important parameters
+# AUTOMATIC REFINEMENT: Search ranges are automatically narrowed
+# based on the top-k configs from Phase 2. The base ranges below
+# serve as fallbacks if refinement fails or is disabled.
 # ============================================================
 
+refinement:
+  enabled: true
+  previous_phase_dir: /media/aglisman/Data/models/chemprop-hpo/phase2
+  top_k: 20                  # Analyze top 20 configs from Phase 2
+  margin_factor: 0.3         # Add 30% margin around observed ranges
+  use_percentiles: true      # Use 10th-90th percentile (robust to outliers)
+  percentile_low: 10.0
+  percentile_high: 90.0
+  # Optional: Fix specific params or limit which params to refine
+  # params_to_fix:
+  #   ffn_type: "regression"  # Fix if Phase 2 shows clear winner
+  # params_to_refine:
+  #   - learning_rate
+  #   - depth
+  #   - ffn_hidden_dim
+
+# Base search space (used as fallback if refinement disabled/fails)
 search_space:
-  # TODO: Narrow around Phase 2 best (e.g., if best ~0.003, use [0.001, 0.005])
+  # Ranges will be auto-narrowed from Phase 2 results
   learning_rate:
     type: loguniform
-    low: 0.001 # PLACEHOLDER - adjust after Phase 2
-    high: 0.01 # PLACEHOLDER - adjust after Phase 2
+    low: 0.0001
+    high: 0.03
 
   lr_warmup_ratio:
     type: loguniform
@@ -84,7 +98,6 @@ search_space:
     conditional_values:
       - true
 
-  # TODO: If Phase 2 shows clear preference, narrow to 1-2 best sizes
   batch_size:
     type: choice
     values:
@@ -92,13 +105,11 @@ search_space:
       - 128
       - 256
 
-  # TODO: Narrow depth range if pattern emerges (e.g., best around 4-5)
   depth:
     type: randint
     low: 2
     high: 8
 
-  # TODO: Narrow to top 2 performing dimensions
   message_hidden_dim:
     type: choice
     values: [300, 400, 600, 800]
@@ -109,7 +120,6 @@ search_space:
       - true
       - false
 
-  # TODO: If one FFN type dominates, can fix and remove this param
   ffn_type:
     type: choice
     values:
@@ -122,7 +132,6 @@ search_space:
     low: 0
     high: 5
 
-  # TODO: Narrow FFN width based on Phase 2 results
   ffn_hidden_dim:
     type: quniform
     low: 200
