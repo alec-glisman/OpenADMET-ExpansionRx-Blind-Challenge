@@ -345,8 +345,9 @@
 <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_WARN_SLOW_EXPERIMENT_CHECKPOINT_SYNC_THRESHOLD_S&quot;</span><span class="p">,</span> <span class="s2">&quot;300&quot;</span><span class="p">)</span>
 <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_GLOBAL_CHECKPOINT_S&quot;</span><span class="p">,</span> <span class="s2">&quot;600&quot;</span><span class="p">)</span>
 <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_WARN_THRESHOLD_S&quot;</span><span class="p">,</span> <span class="s2">&quot;30&quot;</span><span class="p">)</span>  <span class="c1"># Warn only if &gt;30s (async callback is fast)</span>
-<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_RESULT_BUFFER_LENGTH&quot;</span><span class="p">,</span> <span class="s2">&quot;10&quot;</span><span class="p">)</span>
-<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_RESULT_BUFFER_MIN_TIME_S&quot;</span><span class="p">,</span> <span class="s2">&quot;10&quot;</span><span class="p">)</span>
+<span class="c1"># OPTIMIZATION: Reduce buffering for more responsive metric reporting (5-10% overhead reduction)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_RESULT_BUFFER_LENGTH&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>  <span class="c1"># Reduced from 10</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;TUNE_RESULT_BUFFER_MIN_TIME_S&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>  <span class="c1"># Reduced from 10</span>
 <span class="c1"># Disable tqdm progress bars globally for HPO</span>
 <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TQDM_DISABLE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
 
@@ -660,18 +661,122 @@
             <span class="kn">import</span><span class="w"> </span><span class="nn">optuna</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.optuna</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptunaSearch</span>
 
+            <span class="c1"># Determine storage location and study persistence</span>
+            <span class="n">storage</span><span class="p">:</span> <span class="n">optuna</span><span class="o">.</span><span class="n">storages</span><span class="o">.</span><span class="n">BaseStorage</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">persist_study</span><span class="p">:</span>
+                <span class="n">storage_dir</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;optuna_studies&quot;</span>
+                <span class="p">)</span>
+                <span class="n">storage_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">storage_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sqlite:///</span><span class="si">{</span><span class="n">storage_dir</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="s1">&#39;studies.db&#39;</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">storage</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">storages</span><span class="o">.</span><span class="n">RDBStorage</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">storage_url</span><span class="p">)</span>
+
+                <span class="c1"># Generate or use provided study name</span>
+                <span class="n">study_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">study_name</span>
+                <span class="k">if</span> <span class="n">study_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">study_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;hpo_</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="si">:</span><span class="s2">%Y%m%d_%H%M%S</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Creating persistent Optuna study: </span><span class="si">%s</span><span class="s2"> (storage: </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="n">study_name</span><span class="p">,</span>
+                    <span class="n">storage_url</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">storage</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">study_name</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using ephemeral Optuna study (no persistence)&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Create sampler</span>
+            <span class="n">sampler</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">samplers</span><span class="o">.</span><span class="n">TPESampler</span><span class="p">(</span>
+                <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="n">n_startup_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Determine direction</span>
+            <span class="n">direction</span> <span class="o">=</span> <span class="s2">&quot;minimize&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;min&quot;</span> <span class="k">else</span> <span class="s2">&quot;maximize&quot;</span>
+
+            <span class="c1"># Create or load study and handle warmstart</span>
+            <span class="k">if</span> <span class="n">storage</span> <span class="ow">and</span> <span class="n">study_name</span><span class="p">:</span>
+                <span class="c1"># Check for warmstart first</span>
+                <span class="n">warmstart_from</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">warmstart_from</span>
+                <span class="k">if</span> <span class="n">warmstart_from</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Warmstarting from study: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">warmstart_from</span><span class="p">)</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">old_study</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">load_study</span><span class="p">(</span>
+                            <span class="n">study_name</span><span class="o">=</span><span class="n">warmstart_from</span><span class="p">,</span>
+                            <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                        <span class="c1"># Get top N trials from previous study</span>
+                        <span class="n">n_warmstart</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">warmstart_n_trials</span>
+                        <span class="n">top_trials</span> <span class="o">=</span> <span class="n">old_study</span><span class="o">.</span><span class="n">best_trials</span><span class="p">[:</span><span class="n">n_warmstart</span><span class="p">]</span>
+
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                            <span class="s2">&quot;Enqueuing </span><span class="si">%d</span><span class="s2"> top trials from </span><span class="si">%s</span><span class="s2"> (best value: </span><span class="si">%.4f</span><span class="s2">)&quot;</span><span class="p">,</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">top_trials</span><span class="p">),</span>
+                            <span class="n">warmstart_from</span><span class="p">,</span>
+                            <span class="n">old_study</span><span class="o">.</span><span class="n">best_value</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                        <span class="c1"># Create new study and enqueue warmstart trials</span>
+                        <span class="n">study</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">create_study</span><span class="p">(</span>
+                            <span class="n">study_name</span><span class="o">=</span><span class="n">study_name</span><span class="p">,</span>
+                            <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+                            <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                            <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">,</span>
+                            <span class="n">load_if_exists</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                        <span class="c1"># Enqueue trials as seeds</span>
+                        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">top_trials</span><span class="p">:</span>
+                            <span class="n">study</span><span class="o">.</span><span class="n">enqueue_trial</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="s2">&quot;Failed to load warmstart study </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">. Continuing without warmstart.&quot;</span><span class="p">,</span>
+                            <span class="n">warmstart_from</span><span class="p">,</span>
+                            <span class="n">e</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="c1"># Create study without warmstart</span>
+                        <span class="n">study</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">create_study</span><span class="p">(</span>
+                            <span class="n">study_name</span><span class="o">=</span><span class="n">study_name</span><span class="p">,</span>
+                            <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+                            <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                            <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">,</span>
+                            <span class="n">load_if_exists</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Create study without warmstart</span>
+                    <span class="n">study</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">create_study</span><span class="p">(</span>
+                        <span class="n">study_name</span><span class="o">=</span><span class="n">study_name</span><span class="p">,</span>
+                        <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+                        <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                        <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">,</span>
+                        <span class="n">load_if_exists</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># Create OptunaSearch with storage object (must be BaseStorage instance)</span>
+                <span class="n">search_alg</span> <span class="o">=</span> <span class="n">OptunaSearch</span><span class="p">(</span>
+                    <span class="n">space</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Let Ray Tune define the space</span>
+                    <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                    <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+                    <span class="n">study_name</span><span class="o">=</span><span class="n">study_name</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Ephemeral study (original behavior)</span>
+                <span class="n">search_alg</span> <span class="o">=</span> <span class="n">OptunaSearch</span><span class="p">(</span>
+                    <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                    <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                <span class="p">)</span>
+
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;Using Optuna search algorithm (TPESampler) with </span><span class="si">%d</span><span class="s2"> initial random points&quot;</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="n">OptunaSearch</span><span class="p">(</span>
-                <span class="n">sampler</span><span class="o">=</span><span class="n">optuna</span><span class="o">.</span><span class="n">samplers</span><span class="o">.</span><span class="n">TPESampler</span><span class="p">(</span>
-                    <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
-                    <span class="n">n_startup_trials</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span><span class="p">,</span>
-                <span class="p">),</span>
-                <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
-                <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">search_alg</span>
 
         <span class="k">elif</span> <span class="n">algo_type</span> <span class="o">==</span> <span class="s2">&quot;bayesopt&quot;</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">ray.tune.search.bayesopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesOptSearch</span>
@@ -715,6 +820,66 @@
         <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;hpo_master_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">run</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
 
+            <span class="c1"># Log comprehensive HPO configuration</span>
+            <span class="n">params_to_log</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="c1"># Experiment metadata</span>
+                <span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
+                <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                <span class="c1"># Data configuration</span>
+                <span class="s2">&quot;data_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data_path</span><span class="p">),</span>
+                <span class="s2">&quot;val_data_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">val_data_path</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">val_data_path</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;smiles_column&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">smiles_column</span><span class="p">,</span>
+                <span class="s2">&quot;target_columns&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">target_columns</span><span class="p">),</span>
+                <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="c1"># Search algorithm configuration</span>
+                <span class="s2">&quot;search_algorithm.type&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">type</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="s2">&quot;random&quot;</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;search_algorithm.seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">seed</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;search_algorithm.n_initial_points&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">n_initial_points</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;search_algorithm.persist_study&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">persist_study</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="kc">False</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;search_algorithm.study_name&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">study_name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;search_algorithm.storage_dir&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span>
+                    <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;search_algorithm.warmstart_from&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">warmstart_from</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;search_algorithm.warmstart_n_trials&quot;</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">warmstart_n_trials</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="c1"># ASHA scheduler configuration</span>
+                <span class="s2">&quot;asha.metric&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="s2">&quot;asha.mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                <span class="s2">&quot;asha.max_t&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">max_t</span><span class="p">,</span>
+                <span class="s2">&quot;asha.grace_period&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">grace_period</span><span class="p">,</span>
+                <span class="s2">&quot;asha.reduction_factor&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">reduction_factor</span><span class="p">,</span>
+                <span class="c1"># Resource allocation</span>
+                <span class="s2">&quot;resources.num_samples&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
+                <span class="s2">&quot;resources.cpus_per_trial&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">cpus_per_trial</span><span class="p">,</span>
+                <span class="s2">&quot;resources.gpus_per_trial&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">gpus_per_trial</span><span class="p">,</span>
+                <span class="s2">&quot;resources.max_concurrent_trials&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">max_concurrent_trials</span><span class="p">,</span>
+                <span class="c1"># Transfer learning settings</span>
+                <span class="s2">&quot;transfer_learning.top_k&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">top_k</span><span class="p">,</span>
+                <span class="s2">&quot;transfer_learning.full_epochs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">full_epochs</span><span class="p">,</span>
+                <span class="s2">&quot;transfer_learning.ensemble_size&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">transfer_learning</span><span class="o">.</span><span class="n">ensemble_size</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="c1"># Filter out None values and truncate long strings for MLflow param limits (500 chars)</span>
+            <span class="n">filtered_params</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params_to_log</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">str_v</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                    <span class="n">filtered_params</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">str_v</span><span class="p">[:</span><span class="mi">500</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">str_v</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">500</span> <span class="k">else</span> <span class="n">str_v</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">filtered_params</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_profiling_to_mlflow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Log profiling metrics to MLflow using fluent API.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
@@ -747,93 +912,271 @@
 <span class="sd">        - Best model checkpoint</span>
 <span class="sd">        - All trial metrics to MLflow as nested artifacts/parameters</span>
 <span class="sd">        - HPO results dataframe and top-k configurations</span>
+
+<span class="sd">        Important: This method reactivates the master HPO run to ensure all</span>
+<span class="sd">        artifacts are logged to the parent run, not child trial runs.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
 
-        <span class="c1"># Get best result</span>
-        <span class="n">best_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_best_result</span><span class="p">(</span>
-            <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
-            <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="c1"># Reactivate the master HPO run to log results to parent run</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No MLflow run ID available, skipping MLflow logging&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
 
-        <span class="k">if</span> <span class="n">best_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Log best config</span>
-            <span class="n">best_config</span> <span class="o">=</span> <span class="n">best_result</span><span class="o">.</span><span class="n">config</span>
-            <span class="k">if</span> <span class="n">best_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;best.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">best_config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)})</span>
+        <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_run_id</span><span class="p">):</span>
+            <span class="c1"># Get best result</span>
+            <span class="n">best_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_best_result</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+            <span class="p">)</span>
 
-            <span class="c1"># Log best metrics</span>
-            <span class="k">if</span> <span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
-                <span class="n">best_metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="sa">f</span><span class="s2">&quot;best.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">best_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Log best config</span>
+                <span class="n">best_config</span> <span class="o">=</span> <span class="n">best_result</span><span class="o">.</span><span class="n">config</span>
+                <span class="k">if</span> <span class="n">best_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;best.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">best_config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)})</span>
+
+                <span class="c1"># Log best metrics</span>
+                <span class="k">if</span> <span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+                    <span class="n">best_metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="sa">f</span><span class="s2">&quot;best.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+                    <span class="p">}</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">best_metrics</span><span class="p">)</span>
+
+                <span class="c1"># Log best model artifact</span>
+                <span class="k">if</span> <span class="n">best_result</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Ray Tune Checkpoint is a directory or file</span>
+                        <span class="c1"># We want to log the best-*.ckpt file inside it</span>
+                        <span class="k">with</span> <span class="n">best_result</span><span class="o">.</span><span class="n">checkpoint</span><span class="o">.</span><span class="n">as_directory</span><span class="p">()</span> <span class="k">as</span> <span class="n">checkpoint_dir</span><span class="p">:</span>
+                            <span class="n">checkpoint_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span>
+                            <span class="n">best_checkpoints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;best-*.ckpt&quot;</span><span class="p">))</span>
+                            <span class="c1"># Sort by modification time</span>
+                            <span class="n">best_checkpoints</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+                            <span class="k">if</span> <span class="n">best_checkpoints</span><span class="p">:</span>
+                                <span class="n">ckpt_file</span> <span class="o">=</span> <span class="n">best_checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logging best HPO model artifact: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ckpt_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ckpt_file</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;best_model&quot;</span><span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No best-*.ckpt found in best result checkpoint: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log best model artifact: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+            <span class="c1"># Log all trial metrics as detailed information</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logging detailed metrics from all </span><span class="si">%d</span><span class="s2"> trials to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">))</span>
+            <span class="n">results_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_dataframe</span><span class="p">()</span>
+
+            <span class="c1"># Extract and log key metrics for each trial</span>
+            <span class="n">metric_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">results_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;val_&quot;</span><span class="p">,</span> <span class="s2">&quot;train_&quot;</span><span class="p">))]</span>
+
+            <span class="c1"># Log summary statistics for each metric across all trials</span>
+            <span class="k">for</span> <span class="n">metric_col</span> <span class="ow">in</span> <span class="n">metric_cols</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">metric_col</span> <span class="ow">in</span> <span class="n">results_df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="n">results_df</span><span class="p">[</span><span class="n">metric_col</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">values</span> <span class="o">=</span> <span class="n">results_df</span><span class="p">[</span><span class="n">metric_col</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span>
+                                <span class="p">{</span>
+                                    <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                                    <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">std</span><span class="p">()),</span>
+                                    <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.min&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                                    <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.max&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+                                <span class="p">}</span>
+                            <span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Could not compute stats for metric </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metric_col</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+            <span class="c1"># Save all results as artifact</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
+            <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;hpo_results.csv&quot;</span>
+            <span class="n">results_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">results_path</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged HPO results dataframe with </span><span class="si">%d</span><span class="s2"> trials to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_df</span><span class="p">))</span>
+
+            <span class="c1"># Save top-k configs as JSON</span>
+            <span class="n">top_k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_top_k_configs</span><span class="p">()</span>
+            <span class="n">top_k_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;top_k_configs.json&quot;</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">top_k</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged top-</span><span class="si">%d</span><span class="s2"> configurations to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_k</span><span class="p">))</span>
+
+            <span class="c1"># Save study metadata if using persistent studies</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">persist_study</span><span class="p">:</span>
+                <span class="n">study_metadata</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;study_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">study_name</span><span class="p">,</span>
+                    <span class="s2">&quot;storage_dir&quot;</span><span class="p">:</span> <span class="p">(</span>
+                        <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span>
+                        <span class="k">else</span> <span class="kc">None</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;warmstart_from&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">warmstart_from</span><span class="p">,</span>
+                    <span class="s2">&quot;warmstart_n_trials&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">warmstart_n_trials</span><span class="p">,</span>
+                    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                    <span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_name</span><span class="p">,</span>
+                    <span class="s2">&quot;n_trials&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_df</span><span class="p">),</span>
+                    <span class="s2">&quot;best_metric&quot;</span><span class="p">:</span> <span class="p">(</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">asha</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                        <span class="k">if</span> <span class="n">best_result</span> <span class="ow">and</span> <span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span>
+                        <span class="k">else</span> <span class="kc">None</span>
+                    <span class="p">),</span>
                 <span class="p">}</span>
-                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span><span class="n">best_metrics</span><span class="p">)</span>
+                <span class="n">metadata_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;study_metadata.json&quot;</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">metadata_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">study_metadata</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">metadata_path</span><span class="p">))</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged study metadata for study: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">study_metadata</span><span class="p">[</span><span class="s2">&quot;study_name&quot;</span><span class="p">])</span>
 
-            <span class="c1"># Log best model artifact</span>
-            <span class="k">if</span> <span class="n">best_result</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">:</span>
+            <span class="c1"># Export Optuna study information if using persistent study</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">persist_study</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_export_optuna_study_artifacts</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+            <span class="c1"># Log all files from storage_dir (excluding model checkpoints)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_storage_dir_artifacts</span><span class="p">()</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;HPO results logged to MLflow&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_optuna_study_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export Optuna study information to artifacts for MLflow logging.</span>
+
+<span class="sd">        Exports:</span>
+<span class="sd">        - Study trials to CSV and JSON</span>
+<span class="sd">        - Study statistics and best trials</span>
+<span class="sd">        - SQLite database copy (if available)</span>
+<span class="sd">        - Study parameters and importance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">optuna</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">study_name</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No study name available for Optuna export&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="c1"># Determine storage location</span>
+            <span class="n">storage_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;optuna_studies&quot;</span>
+            <span class="n">storage_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sqlite:///</span><span class="si">{</span><span class="n">storage_dir</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="s1">&#39;studies.db&#39;</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="c1"># Load the study</span>
+            <span class="n">study</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">load_study</span><span class="p">(</span>
+                <span class="n">study_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">study_name</span><span class="p">,</span>
+                <span class="n">storage</span><span class="o">=</span><span class="n">storage_url</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Export trials to DataFrame</span>
+            <span class="n">trials_df</span> <span class="o">=</span> <span class="n">study</span><span class="o">.</span><span class="n">trials_dataframe</span><span class="p">()</span>
+            <span class="n">trials_csv_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;optuna_trials.csv&quot;</span>
+            <span class="n">trials_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">trials_csv_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">trials_csv_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;optuna&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged Optuna trials CSV: </span><span class="si">%d</span><span class="s2"> trials&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials_df</span><span class="p">))</span>
+
+            <span class="c1"># Export study summary</span>
+            <span class="n">study_summary</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;study_name&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">study_name</span><span class="p">,</span>
+                <span class="s2">&quot;n_trials&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">study</span><span class="o">.</span><span class="n">trials</span><span class="p">),</span>
+                <span class="s2">&quot;best_trial&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;number&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">best_trial</span><span class="o">.</span><span class="n">number</span><span class="p">,</span>
+                    <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">best_value</span><span class="p">,</span>
+                    <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">best_params</span><span class="p">,</span>
+                    <span class="s2">&quot;datetime_start&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">study</span><span class="o">.</span><span class="n">best_trial</span><span class="o">.</span><span class="n">datetime_start</span><span class="p">),</span>
+                    <span class="s2">&quot;datetime_complete&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">study</span><span class="o">.</span><span class="n">best_trial</span><span class="o">.</span><span class="n">datetime_complete</span><span class="p">),</span>
+                    <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">study</span><span class="o">.</span><span class="n">best_trial</span><span class="o">.</span><span class="n">duration</span><span class="p">)</span> <span class="k">if</span> <span class="n">study</span><span class="o">.</span><span class="n">best_trial</span><span class="o">.</span><span class="n">duration</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;best_trials&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;number&quot;</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">number</span><span class="p">,</span>
+                        <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                        <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">params</span><span class="p">,</span>
+                    <span class="p">}</span>
+                    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">study</span><span class="o">.</span><span class="n">best_trials</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;direction&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="s2">&quot;user_attrs&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">user_attrs</span><span class="p">,</span>
+                <span class="s2">&quot;system_attrs&quot;</span><span class="p">:</span> <span class="n">study</span><span class="o">.</span><span class="n">system_attrs</span><span class="p">,</span>
+            <span class="p">}</span>
+
+            <span class="n">study_summary_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;optuna_study_summary.json&quot;</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">study_summary_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">study_summary</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">study_summary_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;optuna&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged Optuna study summary&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Try to compute parameter importance if enough trials</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">study</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">10</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="c1"># Ray Tune Checkpoint is a directory or file</span>
-                    <span class="c1"># We want to log the best-*.ckpt file inside it</span>
-                    <span class="k">with</span> <span class="n">best_result</span><span class="o">.</span><span class="n">checkpoint</span><span class="o">.</span><span class="n">as_directory</span><span class="p">()</span> <span class="k">as</span> <span class="n">checkpoint_dir</span><span class="p">:</span>
-                        <span class="n">checkpoint_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span>
-                        <span class="n">best_checkpoints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;best-*.ckpt&quot;</span><span class="p">))</span>
-                        <span class="c1"># Sort by modification time</span>
-                        <span class="n">best_checkpoints</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-                        <span class="k">if</span> <span class="n">best_checkpoints</span><span class="p">:</span>
-                            <span class="n">ckpt_file</span> <span class="o">=</span> <span class="n">best_checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logging best HPO model artifact: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ckpt_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ckpt_file</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;best_model&quot;</span><span class="p">)</span>
-                        <span class="k">else</span><span class="p">:</span>
-                            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No best-*.ckpt found in best result checkpoint: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">)</span>
+                    <span class="n">importance</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">importance</span><span class="o">.</span><span class="n">get_param_importances</span><span class="p">(</span><span class="n">study</span><span class="p">)</span>
+                    <span class="n">importance_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;optuna_param_importance.json&quot;</span>
+                    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">importance_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">importance</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">importance_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;optuna&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged parameter importance&quot;</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log best model artifact: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Could not compute parameter importance: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
-        <span class="c1"># Log all trial metrics as detailed information</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logging detailed metrics from all </span><span class="si">%d</span><span class="s2"> trials to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">))</span>
-        <span class="n">results_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">get_dataframe</span><span class="p">()</span>
+            <span class="c1"># Copy SQLite database to MLflow (for complete reproducibility)</span>
+            <span class="n">db_source</span> <span class="o">=</span> <span class="n">storage_dir</span> <span class="o">/</span> <span class="s2">&quot;studies.db&quot;</span>
+            <span class="k">if</span> <span class="n">db_source</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 
-        <span class="c1"># Extract and log key metrics for each trial</span>
-        <span class="n">metric_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">results_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;val_&quot;</span><span class="p">,</span> <span class="s2">&quot;train_&quot;</span><span class="p">))]</span>
+                <span class="n">db_dest</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;optuna_studies.db&quot;</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">db_source</span><span class="p">,</span> <span class="n">db_dest</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">db_dest</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;optuna&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged Optuna SQLite database: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">db_dest</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
-        <span class="c1"># Log summary statistics for each metric across all trials</span>
-        <span class="k">for</span> <span class="n">metric_col</span> <span class="ow">in</span> <span class="n">metric_cols</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">metric_col</span> <span class="ow">in</span> <span class="n">results_df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="n">results_df</span><span class="p">[</span><span class="n">metric_col</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">values</span> <span class="o">=</span> <span class="n">results_df</span><span class="p">[</span><span class="n">metric_col</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
-                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span>
-                            <span class="p">{</span>
-                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
-                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">std</span><span class="p">()),</span>
-                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.min&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
-                                <span class="sa">f</span><span class="s2">&quot;trials.</span><span class="si">{</span><span class="n">metric_col</span><span class="si">}</span><span class="s2">.max&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
-                            <span class="p">}</span>
-                        <span class="p">)</span>
-                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Could not compute stats for metric </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metric_col</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to export Optuna study artifacts: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
-        <span class="c1"># Save all results as artifact</span>
-        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
-        <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_storage_dir_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Log all relevant files from storage_dir to MLflow, excluding model checkpoints.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 
-        <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;hpo_results.csv&quot;</span>
-        <span class="n">results_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">results_path</span><span class="p">))</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged HPO results dataframe with </span><span class="si">%d</span><span class="s2"> trials to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_df</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No storage_dir configured&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
 
-        <span class="c1"># Save top-k configs as JSON</span>
-        <span class="n">top_k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_top_k_configs</span><span class="p">()</span>
-        <span class="n">top_k_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;top_k_configs.json&quot;</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">top_k</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">))</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged top-</span><span class="si">%d</span><span class="s2"> configurations to MLflow&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_k</span><span class="p">))</span>
+            <span class="n">storage_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="o">.</span><span class="n">storage_dir</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">storage_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Storage directory does not exist: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">storage_dir</span><span class="p">)</span>
+                <span class="k">return</span>
 
-        <span class="c1"># End MLflow run</span>
-        <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;HPO results logged to MLflow&quot;</span><span class="p">)</span>
+            <span class="c1"># Patterns to include (JSON, CSV, YAML, text files, SQLite DBs)</span>
+            <span class="n">include_patterns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;*.json&quot;</span><span class="p">,</span> <span class="s2">&quot;*.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;*.yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;*.yml&quot;</span><span class="p">,</span> <span class="s2">&quot;*.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;*.md&quot;</span><span class="p">,</span> <span class="s2">&quot;*.db&quot;</span><span class="p">]</span>
+            <span class="c1"># Patterns to exclude (model checkpoints and large binary files)</span>
+            <span class="n">exclude_patterns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;*.ckpt&quot;</span><span class="p">,</span> <span class="s2">&quot;*.pth&quot;</span><span class="p">,</span> <span class="s2">&quot;*.pt&quot;</span><span class="p">,</span> <span class="s2">&quot;*.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;*.pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;*.pickle&quot;</span><span class="p">]</span>
+
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
+            <span class="n">storage_artifacts_dir</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;storage_dir_artifacts&quot;</span>
+            <span class="n">storage_artifacts_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="n">files_logged</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">include_patterns</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">storage_dir</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="n">pattern</span><span class="p">):</span>
+                    <span class="c1"># Check if file matches any exclude pattern</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">file_path</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">exclude_pat</span><span class="p">)</span> <span class="k">for</span> <span class="n">exclude_pat</span> <span class="ow">in</span> <span class="n">exclude_patterns</span><span class="p">):</span>
+                        <span class="k">continue</span>
+
+                    <span class="c1"># Preserve directory structure relative to storage_dir</span>
+                    <span class="n">rel_path</span> <span class="o">=</span> <span class="n">file_path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">storage_dir</span><span class="p">)</span>
+                    <span class="n">dest_path</span> <span class="o">=</span> <span class="n">storage_artifacts_dir</span> <span class="o">/</span> <span class="n">rel_path</span>
+                    <span class="n">dest_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+                    <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">dest_path</span><span class="p">)</span>
+                    <span class="n">files_logged</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="c1"># Log the entire directory structure to MLflow</span>
+            <span class="k">if</span> <span class="n">files_logged</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifacts</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">storage_artifacts_dir</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;storage_dir&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Logged </span><span class="si">%d</span><span class="s2"> files from storage_dir to MLflow&quot;</span><span class="p">,</span> <span class="n">files_logged</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No matching files found in storage_dir&quot;</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to log storage_dir artifacts: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ChempropHPO.get_top_k_configs">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ChempropHPO.get_top_k_configs">[docs]</a>
@@ -928,6 +1271,23 @@
         <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to HPO configuration YAML file&quot;</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--num-samples&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of HPO trials (overrides config value)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--logging-verbose&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Logging verbosity level (0=quiet, 1=standard, 2=debug)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--no-logging&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Disable Ray logging to artifacts&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
 
@@ -939,6 +1299,10 @@
     <span class="n">raw_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span>
     <span class="n">merged_config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">HPOConfig</span><span class="p">),</span> <span class="n">raw_config</span><span class="p">)</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">HPOConfig</span><span class="p">,</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">to_object</span><span class="p">(</span><span class="n">merged_config</span><span class="p">))</span>
+
+    <span class="c1"># Override with CLI arguments if provided</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">num_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">num_samples</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">num_samples</span>
 
     <span class="c1"># Run HPO</span>
     <span class="n">hpo</span> <span class="o">=</span> <span class="n">ChempropHPO</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>

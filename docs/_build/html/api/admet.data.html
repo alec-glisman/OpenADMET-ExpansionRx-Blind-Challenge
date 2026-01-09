@@ -583,6 +583,8 @@ easier during certain types of testing.</p>
 <p>The function performs parsing, removes salts, checks for an empty
 molecule, and converts back to a canonical SMILES string. Failures are
 logged at DEBUG level and returned as <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p>OPTIMIZATION: Now uses LRU cache internally for 5-10x speedup on repeated
+SMILES. Provides massive benefit during HPO and ensemble training.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

@@ -94,6 +94,50 @@ Each of the 25 models (5 splits × 5 folds) has its own nested run.
    └── metrics/
        └── (per-model metrics logged as MLflow metrics)
 
+HPO Run Artifacts
+-----------------
+
+Hyperparameter optimization runs generate a master parent run with comprehensive
+experiment tracking artifacts.
+
+.. code-block:: text
+
+   Master HPO Run: hpo_master_{timestamp}
+   │
+   ├── Parameters
+   │   ├── experiment_name, timestamp             # Experiment metadata
+   │   ├── data_path, smiles_column, targets     # Data configuration
+   │   ├── search_algorithm.*                     # Optuna/search settings
+   │   ├── asha.*                                 # Scheduler configuration
+   │   ├── resources.*                            # Resource allocation
+   │   └── transfer_learning.*                    # Ensemble settings
+   │
+   ├── config/
+   │   └── hpo_config_{timestamp}.yaml           # Full HPO configuration
+   │
+   ├── optuna/                                    # Optuna study artifacts
+   │   ├── optuna_trials.csv                     # All trial results
+   │   ├── optuna_study_summary.json             # Best trials + metadata
+   │   ├── optuna_param_importance.json          # Parameter importance
+   │   └── optuna_studies.db                     # Complete SQLite database
+   │
+   ├── storage_dir/                               # Storage directory contents
+   │   └── **/*.{json,csv,yaml,txt,md,db}        # All summary documents
+   │
+   ├── hpo_results.csv                           # Ray Tune results
+   ├── top_k_configs.json                        # Top K for ensemble
+   ├── study_metadata.json                       # Study metadata
+   │
+   └── best_model/
+       └── best-*.ckpt                           # Best trial checkpoint
+
+   Child Trial Runs: trial_{trial_id}
+   ├── Per-epoch metrics (val_mae, train_loss, lr, etc.)
+   ├── Final trial metrics
+   └── mlflow.parentRunId = {master_run_id}
+
+See :doc:`hpo` for detailed HPO artifact documentation.
+
 File Formats
 ============
 

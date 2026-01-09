@@ -844,6 +844,48 @@
             <span class="n">final_lr</span><span class="o">=</span><span class="n">final_lr</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="c1"># Apply torch.compile if enabled for kernel fusion and optimization</span>
+        <span class="n">perf_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">chemeleon</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;performance_optimization&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">use_compile</span> <span class="o">=</span> <span class="n">perf_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_torch_compile&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">use_compile</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+                <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+                <span class="n">compile_mode</span> <span class="o">=</span> <span class="n">perf_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;torch_compile_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;reduce-overhead&quot;</span><span class="p">)</span>
+                <span class="n">fullgraph</span> <span class="o">=</span> <span class="n">perf_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;torch_compile_fullgraph&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="n">dynamic</span> <span class="o">=</span> <span class="n">perf_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;torch_compile_dynamic&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Compiling Chemeleon MPNN with torch.compile (mode=</span><span class="si">%s</span><span class="s2">, fullgraph=</span><span class="si">%s</span><span class="s2">, dynamic=</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="n">compile_mode</span><span class="p">,</span>
+                    <span class="n">fullgraph</span><span class="p">,</span>
+                    <span class="n">dynamic</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">compile_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mpnn</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="n">compile_mode</span><span class="p">,</span>
+                    <span class="n">fullgraph</span><span class="o">=</span><span class="n">fullgraph</span><span class="p">,</span>
+                    <span class="n">dynamic</span><span class="o">=</span><span class="n">dynamic</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">compile_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">compile_start</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Chemeleon MPNN compilation complete (</span><span class="si">%.2f</span><span class="s2">s) - expect 20-40</span><span class="si">%%</span><span class="s2"> training speedup&quot;</span><span class="p">,</span>
+                    <span class="n">compile_time</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;torch.compile failed: </span><span class="si">%s</span><span class="s2">. Falling back to uncompiled model.&quot;</span><span class="p">,</span>
+                    <span class="n">e</span><span class="p">,</span>
+                    <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="c1"># Continue with uncompiled model</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_pretrained_mp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">BondMessagePassing</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load pre-trained message passing from checkpoint.</span>
 

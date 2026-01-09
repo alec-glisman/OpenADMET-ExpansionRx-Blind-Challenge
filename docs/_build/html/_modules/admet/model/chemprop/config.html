@@ -622,6 +622,25 @@
 <span class="sd">        Set to 60.0 to save at most once per minute.</span>
 <span class="sd">        Useful for reducing I/O overhead when model improves frequently.</span>
 <span class="sd">        Recommended: 0.0 for most cases, 30-60 for very frequent improvements.</span>
+<span class="sd">    use_torch_compile : bool, default=False</span>
+<span class="sd">        Enable PyTorch 2.0+ model compilation for kernel fusion and optimization.</span>
+<span class="sd">        Provides 20-40% speedup through reduced kernel launches and optimized memory access.</span>
+<span class="sd">        Synergistic with mixed precision (1.8-2.5x combined speedup).</span>
+<span class="sd">        First epoch may be slower due to compilation overhead.</span>
+<span class="sd">        Recommended: Enable for production training after validating correctness.</span>
+<span class="sd">    torch_compile_mode : str, default=&quot;reduce-overhead&quot;</span>
+<span class="sd">        Compilation mode for torch.compile. Options:</span>
+<span class="sd">        - &quot;default&quot;: Conservative baseline (1.3-1.8x speedup)</span>
+<span class="sd">        - &quot;reduce-overhead&quot;: Recommended for training (1.5-2.0x speedup, minimal warmup)</span>
+<span class="sd">        - &quot;max-autotune&quot;: Maximum speedup but longer compilation (1.8-2.5x)</span>
+<span class="sd">    torch_compile_fullgraph : bool, default=False</span>
+<span class="sd">        Whether to compile the entire model as a single graph.</span>
+<span class="sd">        False (default): Allows graph breaks for dynamic operations (safer).</span>
+<span class="sd">        True: Single monolithic graph (faster but may fail for dynamic control flow).</span>
+<span class="sd">    torch_compile_dynamic : bool, default=False</span>
+<span class="sd">        Enable dynamic shapes in compiled graphs.</span>
+<span class="sd">        False (default): Assumes fixed input sizes (faster compilation).</span>
+<span class="sd">        True: Handles variable batch sizes (slower compilation, more flexible).</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -631,9 +650,18 @@
 <span class="sd">    &gt;&gt;&gt; # Enable mixed precision for maximum speed</span>
 <span class="sd">    &gt;&gt;&gt; perf = PerformanceOptimizationConfig(use_mixed_precision=True)</span>
 <span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Enable torch.compile with mixed precision (recommended for production)</span>
+<span class="sd">    &gt;&gt;&gt; perf = PerformanceOptimizationConfig(</span>
+<span class="sd">    ...     use_mixed_precision=True,</span>
+<span class="sd">    ...     use_torch_compile=True,</span>
+<span class="sd">    ...     torch_compile_mode=&quot;reduce-overhead&quot;</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
 <span class="sd">    &gt;&gt;&gt; # Enable all optimizations</span>
 <span class="sd">    &gt;&gt;&gt; perf = PerformanceOptimizationConfig(</span>
 <span class="sd">    ...     use_mixed_precision=True,</span>
+<span class="sd">    ...     use_torch_compile=True,</span>
+<span class="sd">    ...     torch_compile_mode=&quot;max-autotune&quot;,</span>
 <span class="sd">    ...     async_checkpoint_upload=True,</span>
 <span class="sd">    ...     checkpoint_save_interval_seconds=30.0</span>
 <span class="sd">    ... )</span>
@@ -642,6 +670,10 @@
     <span class="n">use_mixed_precision</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">async_checkpoint_upload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">checkpoint_save_interval_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">use_torch_compile</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">torch_compile_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;reduce-overhead&quot;</span>
+    <span class="n">torch_compile_fullgraph</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">torch_compile_dynamic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
 
 <span class="nd">@dataclass</span>

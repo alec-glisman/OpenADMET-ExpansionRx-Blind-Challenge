@@ -544,6 +544,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BaseModel</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">predictions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
+        <span class="c1"># Shared test/blind datasets (precomputed once, used by all ensemble members)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Prediction cache for in-memory access (performance optimization)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="p">{},</span>  <span class="c1"># model_key -&gt; predictions DataFrame</span>
+            <span class="s2">&quot;blind&quot;</span><span class="p">:</span> <span class="p">{},</span>  <span class="c1"># model_key -&gt; predictions DataFrame</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;blind&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Can be disabled for debugging</span>
+
         <span class="c1"># Determine model type from config (handle missing model section gracefully)</span>
         <span class="n">model_type</span> <span class="o">=</span> <span class="s2">&quot;chemprop&quot;</span>  <span class="c1"># default</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;model&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -575,6 +590,9 @@
         <span class="c1"># Initialize MLflow</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;mlflow&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_mlflow</span><span class="p">()</span>
+
+        <span class="c1"># Precompute shared test/blind datasets for ensemble efficiency</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_precompute_shared_datasets</span><span class="p">()</span>
 
 <div class="viewcode-block" id="ModelEnsemble.from_config">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ModelEnsemble.from_config">[docs]</a>
@@ -706,6 +724,47 @@
         <span class="n">temp_dir</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logged config artifact to MLflow&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_precompute_shared_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Precompute test and blind datasets to share across all ensemble members.</span>
+
+<span class="sd">        Loads test and blind CSV files once, canonicalizes SMILES, and stores as</span>
+<span class="sd">        instance attributes. This avoids redundant preprocessing for each of the</span>
+<span class="sd">        25 ensemble members (5 splits × 5 folds).</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Test/blind datasets are identical across all ensemble members</span>
+<span class="sd">        - Only SMILES canonicalization is performed; MoleculeDataset creation</span>
+<span class="sd">          is deferred to individual models</span>
+<span class="sd">        - For ensembles without test/blind files, silently skips</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.smiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">parallel_canonicalize_smiles</span>
+
+        <span class="n">smiles_col</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span>
+
+        <span class="c1"># Load and canonicalize test dataset</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;test_file&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">test_file</span><span class="p">:</span>
+            <span class="n">test_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">test_file</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">test_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Precomputing shared test dataset from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">test_file</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">test_file</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">parallel_canonicalize_smiles</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Precomputed test dataset: </span><span class="si">%d</span><span class="s2"> molecules&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">))</span>
+
+        <span class="c1"># Load and canonicalize blind dataset</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;blind_file&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">blind_file</span><span class="p">:</span>
+            <span class="n">blind_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">blind_file</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">blind_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Precomputing shared blind dataset from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">blind_file</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">blind_file</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">parallel_canonicalize_smiles</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Precomputed blind dataset: </span><span class="si">%d</span><span class="s2"> molecules&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_flatten_dict</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">parent_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
@@ -1118,6 +1177,8 @@
             <span class="n">available_gpu_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">profiling_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;phase&quot;</span><span class="p">,</span>
             <span class="n">profiling_top_n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+            <span class="n">shared_test_df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">shared_blind_df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span>
             <span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="p">]:</span>
@@ -1149,6 +1210,12 @@
 <span class="sd">                Profiling detail level: &quot;disabled&quot;, &quot;phase&quot;, &quot;function&quot;, &quot;full&quot;.</span>
 <span class="sd">            profiling_top_n : int, default=50</span>
 <span class="sd">                Number of top functions to track in function-level profiling.</span>
+<span class="sd">            shared_test_df : Optional[pd.DataFrame], default=None</span>
+<span class="sd">                Precomputed test dataframe (SMILES already canonicalized). Avoids</span>
+<span class="sd">                redundant loading and preprocessing across ensemble members.</span>
+<span class="sd">            shared_blind_df : Optional[pd.DataFrame], default=None</span>
+<span class="sd">                Precomputed blind dataframe (SMILES already canonicalized). Avoids</span>
+<span class="sd">                redundant loading and preprocessing across ensemble members.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
             <span class="c1"># Dynamically select GPU with most free memory</span>
             <span class="c1"># Note: CUDA_VISIBLE_DEVICES is already set in parent process, so we work with</span>
@@ -1260,8 +1327,12 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="s2">&quot;chemprop&quot;</span><span class="p">:</span>
                     <span class="c1"># Use Chemprop-specific initialization with full config</span>
-                    <span class="c1"># Chemprop loads data from config files directly</span>
-                    <span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+                    <span class="c1"># Pass precomputed test/blind dataframes to avoid redundant loading</span>
+                    <span class="n">model</span> <span class="o">=</span> <span class="n">ChempropModel</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
+                        <span class="n">config</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                        <span class="n">df_test</span><span class="o">=</span><span class="n">shared_test_df</span><span class="p">,</span>
+                        <span class="n">df_blind</span><span class="o">=</span><span class="n">shared_blind_df</span><span class="p">,</span>
+                    <span class="p">)</span>
 
                     <span class="c1"># Log full ensemble config as artifact in child run for complete traceability</span>
                     <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">mlflow_run_id</span> <span class="ow">and</span> <span class="n">ensemble_config_dict</span> <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1470,6 +1541,8 @@
                         <span class="n">gpu_id_list</span> <span class="k">if</span> <span class="n">gpu_id_list</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
                         <span class="n">profiling_mode</span><span class="p">,</span>
                         <span class="n">profiling_top_n</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">,</span>  <span class="c1"># Pass precomputed test DataFrame</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">,</span>  <span class="c1"># Pass precomputed blind DataFrame</span>
                     <span class="p">)</span>
                     <span class="n">pending_tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
                     <span class="n">task_infos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
@@ -1503,6 +1576,14 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_all_test_predictions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">test_preds</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">blind_preds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_all_blind_predictions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">blind_preds</span><span class="p">)</span>
+
+                <span class="c1"># Cache individual predictions for fast lookup (performance optimization)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_enabled</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">test_preds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">][</span><span class="n">model_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_preds</span>
+                    <span class="k">if</span> <span class="n">blind_preds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="s2">&quot;blind&quot;</span><span class="p">][</span><span class="n">model_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">blind_preds</span>
+
                 <span class="c1"># Aggregate profiling data from worker</span>
                 <span class="k">if</span> <span class="n">prof_data</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">register_model_dict</span><span class="p">(</span><span class="n">prof_data</span><span class="p">)</span>
@@ -1622,6 +1703,11 @@
 <span class="sd">        pd.DataFrame</span>
 <span class="sd">            Aggregated predictions with mean, std, and stderr columns.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Check cache first (performance optimization)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_enabled</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using cached aggregated predictions for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="n">predictions_list</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
 
@@ -1673,6 +1759,11 @@
                 <span class="c1"># For y = 10^x, dy = ln(10) * 10^x * dx</span>
                 <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_transformed_stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">mean_pred</span><span class="p">)</span> <span class="o">*</span> <span class="n">stderr_pred</span>
 
+        <span class="c1"># Cache aggregated result (performance optimization)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_enabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cached aggregated predictions for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Aggregated </span><span class="si">%d</span><span class="s2"> model predictions for </span><span class="si">%s</span><span class="s2"> split&quot;</span><span class="p">,</span> <span class="n">n_models</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span>
 
@@ -1713,6 +1804,55 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">submissions_path</span><span class="p">),</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;submissions&quot;</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved ensemble predictions for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ModelEnsemble.get_cached_predictions">
+<a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ModelEnsemble.get_cached_predictions">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cached_predictions</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get cached predictions for a specific model or aggregated ensemble.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        model_key : str, optional</span>
+<span class="sd">            Model key (e.g., &quot;split_0_fold_0&quot;). If None, returns aggregated predictions.</span>
+<span class="sd">        split_name : str</span>
+<span class="sd">            Either &quot;test&quot; or &quot;blind&quot;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame or None</span>
+<span class="sd">            Cached predictions, or None if not in cache</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">model_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModelEnsemble.clear_cache">
+<a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ModelEnsemble.clear_cache">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Clear prediction cache.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split_name : str, optional</span>
+<span class="sd">            If specified, clear only this split. Otherwise clear all.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">split_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;blind&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;blind&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cleared all prediction caches&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prediction_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_aggregated_cache</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cleared </span><span class="si">%s</span><span class="s2"> prediction cache&quot;</span><span class="p">,</span> <span class="n">split_name</span><span class="p">)</span></div>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_generate_unlabeled_ensemble_plots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predictions</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_models</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>

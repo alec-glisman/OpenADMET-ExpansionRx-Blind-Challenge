@@ -815,6 +815,230 @@ effective than traditional L2 penalty for neural networks.</p>
 </ol>
 </section>
 </section>
+<section id="mlflow-artifact-logging">
+<h2>MLflow Artifact Logging<a class="headerlink" href="#mlflow-artifact-logging" title="Link to this heading">¶</a></h2>
+<p>All HPO runs automatically log comprehensive artifacts to the <strong>master parent MLflow run</strong>
+for complete reproducibility and analysis. This includes Optuna study information,
+search space details, and configuration files.</p>
+<section id="master-run-structure">
+<h3>Master Run Structure<a class="headerlink" href="#master-run-structure" title="Link to this heading">¶</a></h3>
+<p>The master HPO run (named <code class="docutils literal notranslate"><span class="pre">hpo_master_{timestamp}</span></code> for Chemprop, <code class="docutils literal notranslate"><span class="pre">hpo_{timestamp}</span></code> for CheMeleon)
+contains all experiment metadata and artifacts:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Master HPO Run (Parent)
+├── Parameters
+│   ├── experiment_name, timestamp
+│   ├── data_path, smiles_column, target_columns
+│   ├── search_algorithm.* (type, seed, n_initial_points, persist_study, etc.)
+│   ├── asha.* (metric, mode, max_t, grace_period, reduction_factor)
+│   ├── resources.* (num_samples, cpus_per_trial, gpus_per_trial)
+│   └── transfer_learning.* (top_k, full_epochs, ensemble_size)
+│
+├── Artifacts
+│   ├── config/
+│   │   └── hpo_config_{timestamp}.yaml  # Full HPO configuration
+│   ├── optuna/  # Optuna study artifacts (when persist_study: true)
+│   │   ├── optuna_trials.csv  # All trial results
+│   │   ├── optuna_study_summary.json  # Best trials and study metadata
+│   │   ├── optuna_param_importance.json  # Parameter importance (≥10 trials)
+│   │   └── optuna_studies.db  # Complete SQLite database
+│   ├── storage_dir/  # All files from search_algorithm.storage_dir
+│   │   └── **/*.{json,csv,yaml,txt,md,db}  # Excludes model checkpoints
+│   ├── hpo_results.csv  # Ray Tune results dataframe
+│   ├── top_k_configs.json  # Top K configurations for ensemble
+│   ├── study_metadata.json  # Study metadata
+│   └── best_model/
+│       └── best-*.ckpt  # Best trial checkpoint
+│
+└── Metrics
+    ├── best.* (best trial: val_mae, val_loss, val_rmse, R², etc.)
+    └── trials.*.{mean,std,min,max}  # Aggregate trial statistics
+
+Child Trial Runs (one per HPO trial)
+├── Per-epoch metrics (val_mae, train_loss, lr, etc.)
+├── Final trial metrics
+└── mlflow.parentRunId = {master_run_id}  # Linked to parent
+</pre></div>
+</div>
+</section>
+<section id="optuna-study-artifacts">
+<h3>Optuna Study Artifacts<a class="headerlink" href="#optuna-study-artifacts" title="Link to this heading">¶</a></h3>
+<p>When using Optuna with persistent studies (<code class="docutils literal notranslate"><span class="pre">persist_study:</span> <span class="pre">true</span></code>), comprehensive
+study information is automatically logged:</p>
+<dl class="simple">
+<dt><strong>optuna_trials.csv</strong></dt><dd><p>Complete trial history with all hyperparameters, metrics, and metadata.
+Useful for post-hoc analysis and visualization.</p>
+</dd>
+<dt><strong>optuna_study_summary.json</strong></dt><dd><p>Study metadata including:</p>
+<ul class="simple">
+<li><p>Best trial configuration and value</p></li>
+<li><p>Top 10 trials</p></li>
+<li><p>Study direction (minimize/maximize)</p></li>
+<li><p>User and system attributes</p></li>
+<li><p>Trial timing information</p></li>
+</ul>
+</dd>
+<dt><strong>optuna_param_importance.json</strong></dt><dd><p>Parameter importance scores computed using fANOVA (when ≥10 trials).
+Identifies which hyperparameters have the strongest impact on performance.</p>
+</dd>
+<dt><strong>optuna_studies.db</strong></dt><dd><p>Complete SQLite database containing the full Optuna study.
+Can be used to:</p>
+<ul class="simple">
+<li><p>Resume optimization with warmstart</p></li>
+<li><p>Perform custom analysis with Optuna API</p></li>
+<li><p>Query trial history programmatically</p></li>
+<li><p>Generate visualizations with Optuna’s plotting functions</p></li>
+</ul>
+</dd>
+</dl>
+<p>Example usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">optuna</span>
+
+<span class="c1"># Load study from logged database</span>
+<span class="n">study</span> <span class="o">=</span> <span class="n">optuna</span><span class="o">.</span><span class="n">load_study</span><span class="p">(</span>
+    <span class="n">study_name</span><span class="o">=</span><span class="s2">&quot;my_hpo_study&quot;</span><span class="p">,</span>
+    <span class="n">storage</span><span class="o">=</span><span class="s2">&quot;sqlite:///path/to/optuna_studies.db&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Access best trial</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best trial: </span><span class="si">{</span><span class="n">study</span><span class="o">.</span><span class="n">best_trial</span><span class="o">.</span><span class="n">params</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best value: </span><span class="si">{</span><span class="n">study</span><span class="o">.</span><span class="n">best_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Generate visualization</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">optuna.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_optimization_history</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plot_optimization_history</span><span class="p">(</span><span class="n">study</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="storage-directory-artifacts">
+<h3>Storage Directory Artifacts<a class="headerlink" href="#storage-directory-artifacts" title="Link to this heading">¶</a></h3>
+<p>All relevant files from <code class="docutils literal notranslate"><span class="pre">search_algorithm.storage_dir</span></code> are automatically logged
+to MLflow, preserving directory structure:</p>
+<dl class="simple">
+<dt><strong>Included file types:</strong></dt><dd><ul class="simple">
+<li><p>Configuration files: <code class="docutils literal notranslate"><span class="pre">*.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">*.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">*.json</span></code></p></li>
+<li><p>Data files: <code class="docutils literal notranslate"><span class="pre">*.csv</span></code></p></li>
+<li><p>Documentation: <code class="docutils literal notranslate"><span class="pre">*.txt</span></code>, <code class="docutils literal notranslate"><span class="pre">*.md</span></code></p></li>
+<li><p>Databases: <code class="docutils literal notranslate"><span class="pre">*.db</span></code></p></li>
+</ul>
+</dd>
+<dt><strong>Excluded file types:</strong></dt><dd><p>Model checkpoints and large binary files are excluded to save storage:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">*.ckpt</span></code>, <code class="docutils literal notranslate"><span class="pre">*.pth</span></code>, <code class="docutils literal notranslate"><span class="pre">*.pt</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">*.h5</span></code>, <code class="docutils literal notranslate"><span class="pre">*.pkl</span></code>, <code class="docutils literal notranslate"><span class="pre">*.pickle</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<p>This ensures all summary documents are preserved for reproducibility without
+bloating the MLflow artifact store with large model files.</p>
+</section>
+<section id="configuration-requirements">
+<h3>Configuration Requirements<a class="headerlink" href="#configuration-requirements" title="Link to this heading">¶</a></h3>
+<p>To enable comprehensive artifact logging, configure your HPO with:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">search_algorithm</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">optuna</span><span class="w">  </span><span class="c1"># Required for Optuna-specific artifacts</span>
+<span class="w">  </span><span class="nt">persist_study</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Enable study persistence</span>
+<span class="w">  </span><span class="nt">study_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;my_hpo_experiment&quot;</span><span class="w">  </span><span class="c1"># Optional, auto-generated if not provided</span>
+<span class="w">  </span><span class="nt">storage_dir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/hpo/storage</span><span class="w">  </span><span class="c1"># Directory to log artifacts from</span>
+</pre></div>
+</div>
+</section>
+<section id="accessing-artifacts-via-mlflow-ui">
+<h3>Accessing Artifacts via MLflow UI<a class="headerlink" href="#accessing-artifacts-via-mlflow-ui" title="Link to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p>Start MLflow UI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlflow<span class="w"> </span>ui<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span>
+</pre></div>
+</div>
+</li>
+<li><p>Navigate to your experiment</p></li>
+<li><p>Find the master HPO run (sorted by start time, named <code class="docutils literal notranslate"><span class="pre">hpo_master_*</span></code> or <code class="docutils literal notranslate"><span class="pre">hpo_*</span></code>)</p></li>
+<li><p>View logged parameters, metrics, and artifacts</p></li>
+<li><p>Download specific artifacts or the entire artifact directory</p></li>
+</ol>
+</section>
+<section id="using-artifacts-for-reproducibility">
+<h3>Using Artifacts for Reproducibility<a class="headerlink" href="#using-artifacts-for-reproducibility" title="Link to this heading">¶</a></h3>
+<p>The logged artifacts enable complete reproducibility:</p>
+<ol class="arabic simple">
+<li><p><strong>Configuration files</strong>: Exact HPO settings for rerunning experiments</p></li>
+<li><p><strong>Optuna database</strong>: Resume optimization or analyze search trajectory</p></li>
+<li><p><strong>Top-K configs</strong>: Configurations for downstream ensemble training</p></li>
+<li><p><strong>Study metadata</strong>: Experiment context and provenance</p></li>
+</ol>
+<p>Example workflow:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+
+<span class="c1"># Access master HPO run</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span>
+<span class="n">run</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_run</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;master_run_id&quot;</span><span class="p">)</span>
+
+<span class="c1"># Download specific artifact</span>
+<span class="n">artifact_path</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span>
+    <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;master_run_id&quot;</span><span class="p">,</span>
+    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;optuna/optuna_study_summary.json&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Load top-K configs for ensemble training</span>
+<span class="n">top_k_path</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span>
+    <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;master_run_id&quot;</span><span class="p">,</span>
+    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;top_k_configs.json&quot;</span>
+<span class="p">)</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">top_k_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">top_configs</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="benefits">
+<h3>Benefits<a class="headerlink" href="#benefits" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt><strong>Complete Audit Trail</strong></dt><dd><p>All experiment details captured in one place, making it easy to
+understand what was tried and why.</p>
+</dd>
+<dt><strong>Easy Collaboration</strong></dt><dd><p>Share MLflow experiment URL with team members for instant access
+to all HPO results and artifacts.</p>
+</dd>
+<dt><strong>Warmstart Capability</strong></dt><dd><p>Optuna database enables continuing optimization from previous runs
+without starting from scratch.</p>
+</dd>
+<dt><strong>Storage Efficiency</strong></dt><dd><p>Only summary documents are logged; model checkpoints are excluded
+to prevent artifact store bloat.</p>
+</dd>
+<dt><strong>Post-Hoc Analysis</strong></dt><dd><p>Download artifacts for custom analysis, visualization, or reporting
+without re-running expensive HPO.</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="warmstarting-optimization">
+<h2>Warmstarting Optimization<a class="headerlink" href="#warmstarting-optimization" title="Link to this heading">¶</a></h2>
+<p>Continue optimization from previous runs using persistent Optuna studies.
+See <a class="reference internal" href="hpo_warmstart.html"><span class="doc">Warmstarting Hyperparameter Optimization</span></a> for detailed guide.</p>
+<p>Quick example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">search_algorithm</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">optuna</span>
+<span class="w">  </span><span class="nt">persist_study</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">study_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_hpo_v2&quot;</span>
+<span class="w">  </span><span class="nt">warmstart_from</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_hpo_v1&quot;</span><span class="w">  </span><span class="c1"># Load top trials from previous study</span>
+<span class="w">  </span><span class="nt">warmstart_n_trials</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span><span class="w">  </span><span class="c1"># Number of trials to enqueue</span>
+</pre></div>
+</div>
+<p>Benefits:</p>
+<ul class="simple">
+<li><p><strong>30-50% fewer trials</strong> to reach optimal configuration</p></li>
+<li><p>Iteratively refine search without starting from scratch</p></li>
+<li><p>Build on previous experiments</p></li>
+</ul>
+<p>Commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># List available studies</span>
+admet<span class="w"> </span>model<span class="w"> </span>hpo-list-studies
+
+<span class="c1"># Run HPO with warmstart</span>
+admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>-c<span class="w"> </span>configs/hpo_warmstart.yaml
+</pre></div>
+</div>
+</section>
 <section id="example-configurations">
 <h2>Example Configurations<a class="headerlink" href="#example-configurations" title="Link to this heading">¶</a></h2>
 <section id="minimal-hpo-configuration">
@@ -952,6 +1176,17 @@ with all available parameters.</p>
 <li><a class="reference internal" href="#monitoring">Monitoring</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#mlflow-artifact-logging">MLflow Artifact Logging</a><ul>
+<li><a class="reference internal" href="#master-run-structure">Master Run Structure</a></li>
+<li><a class="reference internal" href="#optuna-study-artifacts">Optuna Study Artifacts</a></li>
+<li><a class="reference internal" href="#storage-directory-artifacts">Storage Directory Artifacts</a></li>
+<li><a class="reference internal" href="#configuration-requirements">Configuration Requirements</a></li>
+<li><a class="reference internal" href="#accessing-artifacts-via-mlflow-ui">Accessing Artifacts via MLflow UI</a></li>
+<li><a class="reference internal" href="#using-artifacts-for-reproducibility">Using Artifacts for Reproducibility</a></li>
+<li><a class="reference internal" href="#benefits">Benefits</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#warmstarting-optimization">Warmstarting Optimization</a></li>
 <li><a class="reference internal" href="#example-configurations">Example Configurations</a><ul>
 <li><a class="reference internal" href="#minimal-hpo-configuration">Minimal HPO Configuration</a></li>
 <li><a class="reference internal" href="#production-hpo-configuration">Production HPO Configuration</a></li>

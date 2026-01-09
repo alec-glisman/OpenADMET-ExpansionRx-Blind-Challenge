@@ -2269,6 +2269,20 @@ determined by config.model.type.</p>
 </pre></div>
 </div>
 <dl class="py method">
+<dt class="sig sig-object py" id="admet.model.chemprop.ModelEnsemble.clear_cache">
+<span class="sig-name descname"><span class="pre">clear_cache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/ensemble.html#ModelEnsemble.clear_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ModelEnsemble.clear_cache" title="Link to this definition">¶</a></dt>
+<dd><p>Clear prediction cache.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>split_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – If specified, clear only this split. Otherwise clear all.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="admet.model.chemprop.ModelEnsemble.close">
 <span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/ensemble.html#ModelEnsemble.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ModelEnsemble.close" title="Link to this definition">¶</a></dt>
 <dd><p>Close MLflow run and clean up resources.</p>
@@ -2314,6 +2328,26 @@ split_*/fold_*/ containing train.csv and validation.csv files.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble" title="admet.model.chemprop.ModelEnsemble">ModelEnsemble</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.chemprop.ModelEnsemble.get_cached_predictions">
+<span class="sig-name descname"><span class="pre">get_cached_predictions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/ensemble.html#ModelEnsemble.get_cached_predictions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.ModelEnsemble.get_cached_predictions" title="Link to this definition">¶</a></dt>
+<dd><p>Get cached predictions for a specific model or aggregated ensemble.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Model key (e.g., “split_0_fold_0”). If None, returns aggregated predictions.</p></li>
+<li><p><strong>split_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Either “test” or “blind”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Cached predictions, or None if not in cache</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame or None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -4772,9 +4806,11 @@ Required if joint_sampling.curriculum.enabled is True.</p></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.split_fold_infos"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.split_fold_infos</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.models"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.models</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.parent_run_id"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.parent_run_id</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.clear_cache"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.clear_cache()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.close"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.close()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.discover_splits_folds"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.discover_splits_folds()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.from_config"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.from_config()</span></code></a></li>
+<li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.get_cached_predictions"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.get_cached_predictions()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.predict_ensemble"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.predict_ensemble()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.ModelEnsemble.train_all"><code class="docutils literal notranslate"><span class="pre">ModelEnsemble.train_all()</span></code></a></li>
 </ul>
