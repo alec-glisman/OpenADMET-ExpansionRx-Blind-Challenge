@@ -141,13 +141,35 @@ def build_chemeleon_search_space(
         "batch_size",
         "batch_norm",
         "freeze_encoder",
-        "unfreeze_encoder_lr_multiplier",
     ]
 
     for param_name in simple_params:
         param = getattr(config, param_name, None)
         if param is not None:
             space[param_name] = _build_parameter_space(param)
+
+    # Conditional parameter: unfreeze_encoder_lr_multiplier (only when freeze_encoder=True)
+    if config.unfreeze_encoder_lr_multiplier is not None:
+        if config.unfreeze_encoder_lr_multiplier.conditional_on == "freeze_encoder":
+            lr_mult_config = config.unfreeze_encoder_lr_multiplier
+            conditional_values = config.unfreeze_encoder_lr_multiplier.conditional_values or [True]
+
+            def sample_unfreeze_lr_multiplier(config_dict: dict[str, Any]) -> float | None:
+                """Sample unfreeze_encoder_lr_multiplier only when freeze_encoder=True."""
+                if config_dict.get("freeze_encoder") in conditional_values:
+                    if lr_mult_config.type == "loguniform":
+                        import math
+                        log_low = math.log(lr_mult_config.low)
+                        log_high = math.log(lr_mult_config.high)
+                        return math.exp(random.uniform(log_low, log_high))
+                    elif lr_mult_config.type == "uniform":
+                        return random.uniform(lr_mult_config.low, lr_mult_config.high)
+                return None
+
+            space["unfreeze_encoder_lr_multiplier"] = tune.sample_from(sample_unfreeze_lr_multiplier)
+        else:
+            # Non-conditional
+            space["unfreeze_encoder_lr_multiplier"] = _build_parameter_space(config.unfreeze_encoder_lr_multiplier)
 
     # Conditional parameters for MoE FFN (n_experts)
     if config.n_experts is not None:
@@ -236,10 +258,28 @@ def build_chemeleon_search_space(
         if "enabled" in joint_config and joint_config["enabled"] is not None:
             space["joint_sampling_enabled"] = _build_parameter_space(joint_config["enabled"])
 
-        # joint_sampling.task_oversampling.alpha
+        # joint_sampling.task_oversampling.alpha (conditional on joint_sampling_enabled)
         if "task_oversampling" in joint_config and joint_config["task_oversampling"] is not None:
             task_oversample_config = joint_config["task_oversampling"]
             if "alpha" in task_oversample_config and task_oversample_config["alpha"] is not None:
-                space["joint_sampling_alpha"] = _build_parameter_space(task_oversample_config["alpha"])
+                # Make alpha conditional on joint_sampling_enabled
+                alpha_param = task_oversample_config["alpha"]
+
+                def sample_joint_sampling_alpha(config_dict: dict[str, Any]) -> float | None:
+                    """Sample joint_sampling_alpha only when joint_sampling_enabled is True."""
+                    if config_dict.get("joint_sampling_enabled", False):
+                        # Sample using the parameter space definition
+                        if alpha_param.type == "uniform":
+                            return random.uniform(alpha_param.low, alpha_param.high)
+                        elif alpha_param.type == "loguniform":
+                            import math
+                            log_low = math.log(alpha_param.low)
+                            log_high = math.log(alpha_param.high)
+                            return math.exp(random.uniform(log_low, log_high))
+                        elif alpha_param.type == "choice":
+                            return random.choice(list(alpha_param.values))
+                    return None
+
+                space["joint_sampling_alpha"] = tune.sample_from(sample_joint_sampling_alpha)
 
     return space

@@ -221,6 +221,8 @@ class ChemeleonRayTuneCallback(Callback):
         metrics["params_total"] = float(self._params_total or 0)
         metrics["params_trainable"] = float(self._params_trainable or 0)
         metrics["params_frozen"] = float(self._params_frozen or 0)
+        # Add params_millions for multi-objective optimization (consistent with Chemprop)
+        metrics["model_params_millions"] = float((self._params_total or 0) / 1_000_000)
 
         # Check if early stopping was triggered
         early_stopped = False
@@ -386,6 +388,24 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
     checkpoint_dir = trial_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
+    # Build joint sampling config from sampled parameters (if present)
+    joint_sampling_config = {}
+    if "joint_sampling_enabled" in config or "joint_sampling_alpha" in config:
+        js_enabled = config.get("joint_sampling_enabled", False)
+        joint_sampling_config = {
+            "enabled": js_enabled,
+            "task_oversampling": {
+                "alpha": config.get("joint_sampling_alpha", 0.0) if js_enabled else 0.0,
+            },
+            "curriculum": {
+                "enabled": False,  # Curriculum not included in HPO search space
+            },
+            "num_samples": None,
+            "seed": seed,
+            "increment_seed_per_epoch": True,
+            "log_to_mlflow": False,
+        }
+
     # Build model config
     # All hyperparameters should be sampled from the search space
     # Use config.get() without defaults to ensure Ray Tune provides all values
@@ -423,6 +443,7 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
                 "warmup_epochs": config.get("warmup_epochs", 2),  # Optional with default
                 "checkpoint_dir": str(checkpoint_dir),
             },
+            "joint_sampling": joint_sampling_config if joint_sampling_config else {},
             "mlflow": {"enabled": False},
         }
     )
@@ -433,6 +454,13 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
         model_config,
         profiling_config=profiling_config,  # type: ignore[call-arg]  # Use profiling config from HPO config
     )
+
+    # Count model parameters for multi-objective optimization
+    # Note: Actual parameter count will be computed after model initialization in fit()
+    # We'll store a placeholder here and update in the callback
+    params_millions = 0.0
+    total_params = 0
+    trainable_params = 0
 
     # Extract data
     train_smiles = df_train[smiles_column].tolist()
@@ -448,6 +476,59 @@ def train_chemeleon_trial(config: dict[str, Any]) -> None:
         report_every_n_epochs=report_every_n_epochs,
     )
     model.add_callback(ray_callback)  # type: ignore[attr-defined]  # Method exists in ChemeleonModel
+
+    # Log complete configuration for reproducibility
+    # This includes both sampled hyperparameters and fixed parameters
+    try:
+        from ray import tune
+
+        complete_config = {
+            # Fixed parameters
+            "fixed.data_path": data_path,
+            "fixed.val_data_path": val_data_path or "None",
+            "fixed.smiles_column": smiles_column,
+            "fixed.target_columns": ",".join(target_columns),
+            "fixed.max_epochs": max_epochs,
+            "fixed.metric": metric,
+            "fixed.seed": seed,
+            "fixed.checkpoint_path": checkpoint_path,
+            "fixed.report_every_n_epochs": report_every_n_epochs,
+            # Hyperparameters
+            "hp.learning_rate": config["learning_rate"],
+            "hp.lr_warmup_ratio": config["lr_warmup_ratio"],
+            "hp.lr_final_ratio": config["lr_final_ratio"],
+            "hp.dropout": config["dropout"],
+            "hp.batch_norm": config["batch_norm"],
+            "hp.weight_decay": config["weight_decay"],
+            "hp.batch_size": config["batch_size"],
+            "hp.patience": config.get("patience", 15),
+            "hp.warmup_epochs": config.get("warmup_epochs", 2),
+            "hp.ffn_num_layers": config["ffn_num_layers"],
+            "hp.ffn_hidden_dim": config["ffn_hidden_dim"],
+            "hp.ffn_type": config["ffn_type"],
+            "hp.n_experts": config.get("n_experts") or "None",
+            "hp.trunk_n_layers": config.get("trunk_n_layers") or "None",
+            "hp.trunk_hidden_dim": config.get("trunk_hidden_dim") or "None",
+            # Encoder freezing config
+            "encoder.freeze_encoder": freeze_encoder,
+            "encoder.unfreeze_encoder_epoch": unfreeze_encoder_epoch or "None",
+            "encoder.unfreeze_encoder_lr_multiplier": unfreeze_encoder_lr_multiplier,
+            # Joint sampling config
+            "joint_sampling.enabled": joint_sampling_config.get("enabled", False) if joint_sampling_config else False,
+            "joint_sampling.alpha": (
+                joint_sampling_config.get("task_oversampling", {}).get("alpha", 0.0) if joint_sampling_config else 0.0
+            ),
+            # Target weights
+            "target_weights": ",".join([f"{w:.4f}" for w in target_weights]) if target_weights else "1.0",
+            # Model complexity metrics (will be updated in callback after model init)
+            "model.total_params": total_params,
+            "model.trainable_params": trainable_params,
+            "model.params_millions": params_millions,
+        }
+        # Report config as part of first iteration
+        tune.report(**{f"config_{k}": v for k, v in complete_config.items()})
+    except Exception as e:
+        logger.debug("Failed to log complete config: %s", e)
 
     # Use context manager for safe cleanup and explicit finally block
     # to prevent segfaults during Ray worker shutdown

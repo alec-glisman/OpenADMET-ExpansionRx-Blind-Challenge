@@ -110,7 +110,6 @@ def build_search_space(
     space: dict[str, Any] = {}
 
     # Simple parameters (no conditions)
-    # Note: weight_decay is not included as it's not currently applied in ChempropHyperparams
     # Note: aggregation/aggregation_norm removed - hardcoded to NormAggregation in model
     simple_params = [
         "learning_rate",
@@ -132,6 +131,32 @@ def build_search_space(
         param = getattr(config, param_name, None)
         if param is not None:
             space[param_name] = _build_parameter_space(param)
+
+    # Conditional weight_decay parameter (similar to MoE conditional handling)
+    if config.weight_decay_enabled is not None:
+        space["weight_decay_enabled"] = _build_parameter_space(config.weight_decay_enabled)
+
+    if config.weight_decay is not None:
+        if config.weight_decay.conditional_on == "weight_decay_enabled":
+            # Sample only when weight_decay_enabled is True
+            wd_conditional_values = config.weight_decay.conditional_values or [True]
+
+            def sample_weight_decay(config_dict: dict[str, Any]) -> float | None:
+                """Sample weight_decay only when weight_decay_enabled is True."""
+                if config_dict.get("weight_decay_enabled") in wd_conditional_values:
+                    param = config.weight_decay
+                    if param is not None and param.low is not None and param.high is not None:
+                        # loguniform sampling
+                        import math
+                        log_low = math.log(param.low)
+                        log_high = math.log(param.high)
+                        return math.exp(random.uniform(log_low, log_high))
+                return None
+
+            space["weight_decay"] = tune.sample_from(sample_weight_decay)
+        else:
+            # Non-conditional weight_decay
+            space["weight_decay"] = _build_parameter_space(config.weight_decay)
 
     # Conditional parameters for MoE FFN
     if config.n_experts is not None:
@@ -208,13 +233,29 @@ def build_search_space(
             space["joint_sampling_enabled"] = _build_parameter_space(
                 ParameterSpace(**js.enabled) if isinstance(js.enabled, dict) else js.enabled
             )
-        # Handle task_oversampling.alpha
+        # Handle task_oversampling.alpha (conditional on joint_sampling_enabled)
         if hasattr(js, "task_oversampling") and js.task_oversampling is not None:
             to = js.task_oversampling
             if hasattr(to, "alpha") and to.alpha is not None:
-                space["joint_sampling_alpha"] = _build_parameter_space(
-                    ParameterSpace(**to.alpha) if isinstance(to.alpha, dict) else to.alpha
-                )
+                # Make alpha conditional on joint_sampling_enabled
+                alpha_param = ParameterSpace(**to.alpha) if isinstance(to.alpha, dict) else to.alpha
+
+                def sample_joint_sampling_alpha(config_dict: dict[str, Any]) -> float | None:
+                    """Sample joint_sampling_alpha only when joint_sampling_enabled is True."""
+                    if config_dict.get("joint_sampling_enabled", False):
+                        # Sample using the parameter space definition
+                        if alpha_param.type == "uniform":
+                            return random.uniform(alpha_param.low, alpha_param.high)
+                        elif alpha_param.type == "loguniform":
+                            import math
+                            log_low = math.log(alpha_param.low)
+                            log_high = math.log(alpha_param.high)
+                            return math.exp(random.uniform(log_low, log_high))
+                        elif alpha_param.type == "choice":
+                            return random.choice(list(alpha_param.values))
+                    return None
+
+                space["joint_sampling_alpha"] = tune.sample_from(sample_joint_sampling_alpha)
 
     return space
 
@@ -224,9 +265,6 @@ def get_default_search_space() -> SearchSpaceConfig:
 
     This provides reasonable default ranges for common hyperparameters
     based on empirical observations and Chemprop documentation.
-
-    Note: weight_decay is not included as it requires extending
-    ChempropHyperparams to support AdamW weight decay configuration.
 
     Returns:
         SearchSpaceConfig with default parameter ranges.

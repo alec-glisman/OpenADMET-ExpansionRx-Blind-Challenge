@@ -38,6 +38,12 @@ sns.set_palette(GLASBEY_PALETTE)
 
 # Public API exports
 from admet.plot.density import plot_endpoint_distributions, plot_property_distributions  # noqa: E402
+from admet.plot.hpo import (  # noqa: E402
+    plot_learning_curves,
+    plot_optimization_history,
+    plot_param_importance,
+    plot_pareto_frontier,
+)
 from admet.plot.latex import latex_sanitize, text_correlation, text_distribution  # noqa: E402
 from admet.plot.leaderboard import (  # noqa: E402
     generate_all_plots,
@@ -67,6 +73,11 @@ __all__ = [
     # Density plots
     "plot_endpoint_distributions",
     "plot_property_distributions",
+    # HPO analysis plots
+    "plot_param_importance",
+    "plot_learning_curves",
+    "plot_pareto_frontier",
+    "plot_optimization_history",
     # LaTeX helpers
     "latex_sanitize",
     "text_correlation",

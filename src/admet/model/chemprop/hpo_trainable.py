@@ -136,6 +136,14 @@ class RayTuneReportCallback(Callback):
                 break
         metrics["early_stopped"] = float(early_stopped)
 
+        # Add model complexity metrics for multi-objective optimization
+        if hasattr(pl_module, "_params_millions"):
+            metrics["model_params_millions"] = float(pl_module._params_millions)
+        elif hasattr(trainer.model, "_params_millions"):
+            metrics["model_params_millions"] = float(trainer.model._params_millions)
+        else:
+            metrics["model_params_millions"] = 0.0
+
         # Ensure primary metric is present (map val_loss to val_mae if needed)
         if self.metric not in metrics:
             # Fallback mapping for primary metric
@@ -367,6 +375,31 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         profiling_config=profiling_config,  # Use profiling config from HPO config
     )
 
+    # Count model parameters for multi-objective optimization
+    try:
+        import torch
+
+        total_params = sum(p.numel() for p in model.mpnn.parameters())
+        trainable_params = sum(p.numel() for p in model.mpnn.parameters() if p.requires_grad)
+        params_millions = total_params / 1_000_000
+
+        # Store for callback access
+        model._params_millions = params_millions
+        model._total_params = total_params
+        model._trainable_params = trainable_params
+
+        logger.debug(
+            "Model parameters: total=%d (%.2fM), trainable=%d",
+            total_params,
+            params_millions,
+            trainable_params,
+        )
+    except Exception as e:
+        logger.debug("Failed to count model parameters: %s", e)
+        params_millions = 0.0
+        total_params = 0
+        trainable_params = 0
+
     # Add Ray Tune callback with checkpoint directory for trial recovery
     ray_callback = RayTuneReportCallback(
         metric=metric,
@@ -374,6 +407,56 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
         report_every_n_epochs=report_every_n_epochs,
     )
     model.trainer.callbacks.append(ray_callback)  # type: ignore[attr-defined]
+
+    # Log complete configuration for reproducibility
+    # This includes both sampled hyperparameters and fixed parameters
+    try:
+        from ray import tune
+
+        complete_config = {
+            # Fixed parameters
+            "fixed.data_path": data_path,
+            "fixed.val_data_path": val_data_path or "None",
+            "fixed.smiles_column": smiles_column,
+            "fixed.target_columns": ",".join(target_columns),
+            "fixed.max_epochs": max_epochs,
+            "fixed.metric": metric,
+            "fixed.seed": seed,
+            "fixed.patience": patience,
+            "fixed.warmup_epochs": warmup_epochs,
+            "fixed.report_every_n_epochs": report_every_n_epochs,
+            # Hyperparameters (already in config but adding prefix for clarity)
+            "hp.learning_rate": hyperparams.max_lr,
+            "hp.init_lr": hyperparams.init_lr,
+            "hp.final_lr": hyperparams.final_lr,
+            "hp.dropout": hyperparams.dropout,
+            "hp.batch_norm": hyperparams.batch_norm,
+            "hp.weight_decay": hyperparams.weight_decay,
+            "hp.batch_size": hyperparams.batch_size,
+            "hp.depth": hyperparams.depth,
+            "hp.message_hidden_dim": hyperparams.message_hidden_dim,
+            "hp.ffn_num_layers": hyperparams.num_layers,
+            "hp.ffn_hidden_dim": hyperparams.hidden_dim,
+            "hp.ffn_type": hyperparams.ffn_type,
+            "hp.n_experts": hyperparams.n_experts if hyperparams.n_experts else "None",
+            "hp.trunk_n_layers": hyperparams.trunk_n_layers if hyperparams.trunk_n_layers else "None",
+            "hp.trunk_hidden_dim": hyperparams.trunk_hidden_dim if hyperparams.trunk_hidden_dim else "None",
+            # Joint sampling config
+            "joint_sampling.enabled": joint_sampling_config.enabled if joint_sampling_config else False,
+            "joint_sampling.alpha": (
+                joint_sampling_config.task_oversampling.alpha if joint_sampling_config else 0.0
+            ),
+            # Target weights
+            "target_weights": ",".join([f"{w:.4f}" for w in target_weights]) if target_weights else "1.0",
+            # Model complexity metrics
+            "model.total_params": total_params,
+            "model.trainable_params": trainable_params,
+            "model.params_millions": params_millions,
+        }
+        # Report config as part of first iteration
+        tune.report(**{f"config_{k}": v for k, v in complete_config.items()})
+    except Exception as e:
+        logger.debug("Failed to log complete config: %s", e)
 
     # Train the model
     try:
@@ -522,6 +605,13 @@ def _build_hyperparams(
 
     if "batch_size" in config and config["batch_size"] is not None:
         params["batch_size"] = int(config["batch_size"])
+
+    # Weight decay (conditional on weight_decay_enabled)
+    if "weight_decay" in config and config["weight_decay"] is not None:
+        params["weight_decay"] = float(config["weight_decay"])
+    elif "weight_decay_enabled" in config and not config["weight_decay_enabled"]:
+        # Explicitly set to 0.0 when disabled
+        params["weight_decay"] = 0.0
 
     # FFN type (map HPO names to Chemprop names)
     ffn_type_mapping = {

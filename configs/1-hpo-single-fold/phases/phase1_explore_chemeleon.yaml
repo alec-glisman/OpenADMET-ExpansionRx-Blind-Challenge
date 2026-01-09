@@ -1,10 +1,16 @@
-experiment_name: chemeleon_hpo
-output_dir: /media/aglisman/Data/models/chemeleon-hpo
-ray_storage_path: /media/aglisman/Data/ray/chemeleon
+# Phase 1: Exploration - Chemeleon HPO
+# 30% of total budget with 33% random exploration
+# Inherits from base hpo_chemeleon.yaml, overrides key parameters
+
+experiment_name: chemeleon_hpo_phase1_explore
+output_dir: /media/aglisman/Data/models/chemeleon-hpo/phase1
+ray_storage_path: /media/aglisman/Data/ray/chemeleon/phase1
 mlflow_tracking_uri: http://127.0.0.1:8084
+
 data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/train.csv
 val_data_path: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0/validation.csv
 smiles_column: SMILES
+
 target_columns:
   - LogD
   - Log KSOL
@@ -15,6 +21,7 @@ target_columns:
   - Log MPPB
   - Log MBPB
   - Log MGMB
+
 target_weights:
   - 1.0
   - 1.0
@@ -25,16 +32,19 @@ target_weights:
   - 1.0
   - 1.0
   - 1.0
+
 seed: 42
 patience: 15
 warmup_epochs: 5
 report_every_n_epochs: 1
 checkpoint_path: auto
 freeze_encoder: true
+
 unfreeze_schedule:
   freeze_encoder: true
   unfreeze_encoder_epoch: null
   unfreeze_encoder_lr_multiplier: 0.1
+
 search_space:
   freeze_encoder:
     type: choice
@@ -61,12 +71,12 @@ search_space:
     high: 0.03
   lr_warmup_ratio:
     type: loguniform
-    low: 0.01 # Start at 1% of max_lr
-    high: 0.3 # Up to 30% of max_lr
+    low: 0.01
+    high: 0.3
   lr_final_ratio:
     type: loguniform
-    low: 0.001 # End at 0.1% of max_lr
-    high: 0.3 # Up to 30% for gentler cooldown
+    low: 0.001
+    high: 0.3
   weight_decay:
     type: loguniform
     low: 1.0e-06
@@ -78,7 +88,7 @@ search_space:
   batch_size:
     type: choice
     values:
-      - 64 # Removed 32 (too slow)
+      - 64
       - 128
       - 256
   batch_norm:
@@ -138,43 +148,41 @@ search_space:
         conditional_on: joint_sampling.enabled
         conditional_values:
           - true
+
 asha:
   metric: val_mae
   mode: min
   max_t: 120
-  # Grace period: Minimum epochs before pruning (adjust based on dataset size):
-  #   - Small datasets (<5k samples): 10 epochs
-  #   - Medium datasets (5k-20k): 15 epochs (current)
-  #   - Large datasets (>20k): 20 epochs
   grace_period: 15
-  reduction_factor: 4 # More aggressive pruning (up from 3) for faster exploration
+  reduction_factor: 4 # Aggressive pruning for exploration
   brackets: 1
+
 search_algorithm:
   type: optuna
   seed: 42
-  n_initial_points: 50 # Reduced from 100 (5% of 1000 trials)
-  # Persistent study storage enabled by default for warmstart capability
+  n_initial_points: 100 # 33% of 300 trials = random exploration
   persist_study: true
-  study_name: null # Auto-generated from experiment_name and timestamp if not provided
-  storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies # SQLite database location
-  warmstart_from: null # Set to previous study name to load top trials
-  warmstart_n_trials: 20 # Increased from 10 for better warmstart coverage
-  # Multi-objective configuration (for Pareto frontier analysis)
-  sampler_type: "tpe" # Use "motpe" for true multi-objective optimization
+  study_name: "chemeleon_phase1_explore" # Explicitly set for warmstart reference
+  storage_dir: /media/aglisman/Data/models/hpo_results/optuna_studies
+  warmstart_from: null # No warmstart for Phase 1
+  warmstart_n_trials: 0
+  sampler_type: "tpe"
   sampler_kwargs:
-    n_startup_trials: 50 # Match n_initial_points
-    multivariate: true # Consider parameter correlations
-    group: true # Group related params (lr_*, ffn_*, encoder_*)
+    n_startup_trials: 100
+    multivariate: true
+    group: true
+
 resources:
-  num_samples: 1000 # Keeping at 1000 (already optimized)
-  cpus_per_trial: 2 # Reduced from 4 for more parallelism (24 threads / 2 = 12 max)
-  gpus_per_trial: 0.33 # Reduced from 0.5 (2 GPUs / 0.33 = 6 concurrent trials)
-  max_concurrent_trials: 10 # Prevent oversubscription (GPU-bound at 6, CPU-bound at 12)
-  # gpu_ids: [0] # CUDA device ordering (RTX 3080)
+  num_samples: 300 # 30% of 1000 trial budget
+  cpus_per_trial: 2
+  gpus_per_trial: 0.33
+  max_concurrent_trials: 6
+
 transfer_learning:
   top_k: 100
   full_epochs: 60
   ensemble_size: 5
+
 joint_sampling:
   enabled: false
   task_oversampling:
@@ -195,6 +203,7 @@ joint_sampling:
   seed: 42
   increment_seed_per_epoch: true
   log_to_mlflow: false
+
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 1
@@ -210,11 +219,13 @@ inter_task_affinity:
     - head
     - readout
   log_to_mlflow: false
+
 logging:
   enabled: true
   verbose: 1
   max_total_logs_gb: 1.0
   fail_on_upload_error: true
+
 profiling:
   enabled: false
   print_summary: false

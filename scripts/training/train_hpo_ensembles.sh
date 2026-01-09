@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Train Chemprop HPO Ensemble Models
+# Train HPO Ensemble Models (Chemprop or Chemeleon)
 # =============================================================================
-# This script trains ensemble models using the top 100 HPO configurations
-# in order from best (rank 1) to worst (rank 100).
+# This script trains ensemble models using the top HPO configurations
+# in order from best (rank 1) to worst (rank N).
 #
 # Usage:
-#   ./scripts/training/train_chemprop_hpo_ensembles.sh
-#   ./scripts/training/train_chemprop_hpo_ensembles.sh --start 1 --end 10
-#   ./scripts/training/train_chemprop_hpo_ensembles.sh --ranks 1,5,10
-#   ./scripts/training/train_chemprop_hpo_ensembles.sh --config-dir 3-production
+#   ./scripts/training/train_hpo_ensembles.sh
+#   ./scripts/training/train_hpo_ensembles.sh --start 1 --end 10
+#   ./scripts/training/train_hpo_ensembles.sh --ranks 1,5,10
+#   ./scripts/training/train_hpo_ensembles.sh --config-dir 3-production
+#   ./scripts/training/train_hpo_ensembles.sh --model-type chemeleon --config-dir 2-hpo-ensemble/1_chemeleon_v1
 #
 # Environment:
 #   Assumes virtual environment is activated and all dependencies installed.
@@ -23,6 +24,7 @@ END_RANK=100
 SPECIFIC_RANKS=""
 DRY_RUN=false
 CONFIG_DIR="2-hpo-ensemble"
+MODEL_TYPE="chemprop"
 SKIP_CONFIRMATION=false
 
 # Parse command line arguments
@@ -44,6 +46,10 @@ while [[ $# -gt 0 ]]; do
     CONFIG_DIR="$2"
     shift 2
     ;;
+  --model-type)
+    MODEL_TYPE="$2"
+    shift 2
+    ;;
   --dry-run)
     DRY_RUN=true
     shift
@@ -60,7 +66,8 @@ while [[ $# -gt 0 ]]; do
     echo "  --end N            End at rank N (default: 100)"
     echo "  --ranks N,M,K      Train specific ranks only (comma-separated)"
     echo "  --config-dir DIR   Config directory name (default: 2-hpo-ensemble)"
-    echo "                     Examples: 2-hpo-ensemble, 3-production"
+    echo "                     Examples: 2-hpo-ensemble, 3-production, 2-hpo-ensemble/1_chemeleon_v1"
+    echo "  --model-type TYPE  Model type: chemprop or chemeleon (default: chemprop)"
     echo "  --dry-run          Print commands without executing"
     echo "  -y, --yes          Skip confirmation prompt"
     echo "  -h, --help         Show this help message"
@@ -75,7 +82,7 @@ done
 
 # Function to discover available config files and extract ranks
 discover_available_ranks() {
-  local config_pattern="configs/${CONFIG_DIR}/ensemble_chemprop_hpo_*.yaml"
+  local config_pattern="configs/${CONFIG_DIR}/ensemble_${MODEL_TYPE}_hpo_*.yaml"
   local -a available_ranks=()
 
   if ! compgen -G "$config_pattern" >/dev/null; then
@@ -84,12 +91,12 @@ discover_available_ranks() {
   fi
 
   # Extract rank numbers from filenames
-  for config_file in configs/"${CONFIG_DIR}"/ensemble_chemprop_hpo_*.yaml; do
+  for config_file in configs/"${CONFIG_DIR}"/ensemble_"${MODEL_TYPE}"_hpo_*.yaml; do
     if [[ -f "$config_file" ]]; then
-      # Extract the number from ensemble_chemprop_hpo_NNN.yaml
+      # Extract the number from ensemble_{model_type}_hpo_NNN.yaml
       local basename
       basename=$(basename "$config_file")
-      if [[ $basename =~ ensemble_chemprop_hpo_([0-9]+)\.yaml ]]; then
+      if [[ $basename =~ ensemble_${MODEL_TYPE}_hpo_([0-9]+)\.yaml ]]; then
         local rank="${BASH_REMATCH[1]}"
         # Remove leading zeros
         rank=$((10#$rank))
@@ -164,10 +171,10 @@ extract_gpu_ids() {
 # Function to train a single ensemble
 train_ensemble() {
   local rank=$1
-  local config_file="configs/${CONFIG_DIR}/ensemble_chemprop_hpo_$(printf "%03d" "$rank").yaml"
+  local config_file="configs/${CONFIG_DIR}/ensemble_${MODEL_TYPE}_hpo_$(printf "%03d" "$rank").yaml"
 
   echo "=========================================="
-  echo "Training HPO Ensemble Rank $rank"
+  echo "Training ${MODEL_TYPE} HPO Ensemble Rank $rank"
   echo "Config: $config_file"
   echo "Started at: $(date '+%Y-%m-%d %H:%M:%S')"
   echo "=========================================="
@@ -185,12 +192,12 @@ train_ensemble() {
 
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY RUN] Would execute:"
-    echo "CUDA_VISIBLE_DEVICES=$gpu_ids python -m admet.model.chemprop.ensemble --config $config_file"
+    echo "CUDA_VISIBLE_DEVICES=$gpu_ids python -m admet.model.${MODEL_TYPE}.ensemble --config $config_file"
     return 0
   fi
 
   # Run ensemble training
-  if python -m admet.model.chemprop.ensemble \
+  if python -m "admet.model.${MODEL_TYPE}.ensemble" \
     --config "$config_file"; then
     echo "✓ Successfully completed ensemble rank $rank"
     echo "Finished at: $(date '+%Y-%m-%d %H:%M:%S')"
@@ -204,8 +211,9 @@ train_ensemble() {
 
 # Main execution
 echo "============================================="
-echo "Chemprop HPO Ensemble Training Pipeline"
+echo "HPO Ensemble Training Pipeline"
 echo "============================================="
+echo "Model type: $MODEL_TYPE"
 echo "Config directory: configs/$CONFIG_DIR"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================="
