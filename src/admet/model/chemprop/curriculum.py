@@ -689,7 +689,7 @@ class PerQualityMetricsCallback(pl.Callback):
             # Compute and log metrics
             logger.debug("Computing per-quality metrics...")
             self._compute_and_log_metrics(pl_module, all_preds_np, all_targets_np, self._val_quality_indices, "val")
-            logger.info("Per-quality validation metrics computed for epoch %d", current_epoch)
+            logger.debug("Per-quality validation metrics computed for epoch %d", current_epoch)
 
         except RuntimeError:
             # Re-raise RuntimeError from our validation above
