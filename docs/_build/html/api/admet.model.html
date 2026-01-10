@@ -3173,16 +3173,25 @@ where individual models are nested under a parent ensemble run.</p></li>
 <h3>Curriculum Learning<a class="headerlink" href="#curriculum-learning" title="Link to this heading">¶</a></h3>
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.curriculum.CurriculumState">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.curriculum.</span></span><span class="sig-name descname"><span class="pre">CurriculumState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qualities</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/curriculum.html#CurriculumState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.curriculum.CurriculumState" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.curriculum.</span></span><span class="sig-name descname"><span class="pre">CurriculumState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qualities</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_epochs_per_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finetune_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/curriculum.html#CurriculumState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.curriculum.CurriculumState" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Simple quality-aware curriculum state.</p>
 <dl class="simple">
 <dt>Phases:</dt><dd><ul class="simple">
-<li><p>warmup: focus on high-quality data</p></li>
-<li><p>expand: include more medium-quality</p></li>
-<li><p>robust: include some low-quality</p></li>
-<li><p>polish: re-focus on high-quality</p></li>
+<li><p>warmup: focus on high-quality data (establish strong baseline)</p></li>
+<li><p>expand: include more medium-quality (add diversity)</p></li>
+<li><p>robust: include some low-quality (max diversity for generalization)</p></li>
+<li><p>polish: re-focus on high-quality (refine final performance)</p></li>
+<li><p>finetune: (optional) train exclusively on high-quality data (100%)</p></li>
 </ul>
+</dd>
+<dt>Key design principles:</dt><dd><ol class="arabic simple">
+<li><p>High-quality data is always the ultimate goal</p></li>
+<li><p>Lower-quality data aids generalization but should not dominate</p></li>
+<li><p>Each phase gets minimum training time before transitioning</p></li>
+<li><p>Regression protection prevents catastrophic forgetting of high-quality patterns</p></li>
+<li><p>Optional finetune phase for final refinement on high-quality only</p></li>
+</ol>
 </dd>
 </dl>
 <dl class="field-list simple">
@@ -3191,9 +3200,30 @@ where individual models are nested under a parent ensemble run.</p></li>
 <li><p><strong>qualities</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
 <li><p><strong>patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
 <li><p><strong>config</strong> (<em>CurriculumPhaseConfig</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>min_epochs_per_phase</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>finetune_enabled</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="admet.model.chemprop.curriculum.CurriculumState.boost_high_quality_weight">
+<span class="sig-name descname"><span class="pre">boost_high_quality_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">boost_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/curriculum.html#CurriculumState.boost_high_quality_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.curriculum.CurriculumState.boost_high_quality_weight" title="Link to this definition">¶</a></dt>
+<dd><p>Boost high-quality sampling weight when performance regression is detected.</p>
+<p>This is a safety mechanism to prevent catastrophic forgetting of high-quality
+patterns when lower-quality data degrades model performance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>boost_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>default=0.1</em>) – Amount to increase high-quality weight (10% by default).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if weights were adjusted, False if already at maximum.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="admet.model.chemprop.curriculum.CurriculumState.maybe_advance_phase">
 <span class="sig-name descname"><span class="pre">maybe_advance_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/curriculum.html#CurriculumState.maybe_advance_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.curriculum.CurriculumState.maybe_advance_phase" title="Link to this definition">¶</a></dt>
@@ -3202,6 +3232,9 @@ where individual models are nested under a parent ensemble run.</p></li>
 datasets this will simply do warmup -&gt; polish (return focus to top quality).
 For 2-quality datasets: warmup -&gt; expand -&gt; polish.
 For &gt;=3: warmup -&gt; expand -&gt; robust -&gt; polish.</p>
+<p>Phase advancement requires BOTH:
+1. Patience epochs with no improvement
+2. Minimum epochs in current phase (prevents premature transitions)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>epoch</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p>
@@ -3258,18 +3291,23 @@ monitor_metric parameter in CurriculumCallback.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.model.chemprop.curriculum.CurriculumCallback">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.curriculum.</span></span><span class="sig-name descname"><span class="pre">CurriculumCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">curr_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monitor_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reset_early_stopping_on_phase_change</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_per_quality_metrics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/curriculum.html#CurriculumCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.curriculum.CurriculumCallback" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.model.chemprop.curriculum.</span></span><span class="sig-name descname"><span class="pre">CurriculumCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">curr_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monitor_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">high_quality_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regression_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reset_early_stopping_on_phase_change</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_per_quality_metrics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/model/chemprop/curriculum.html#CurriculumCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.model.chemprop.curriculum.CurriculumCallback" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Callback</span></code></p>
 <p>Update curriculum state based on validation loss metric.</p>
 <p>The metric key monitored defaults to ‘val_loss’ (overall validation loss)
 but can be overridden via the monitor_metric parameter.</p>
 <p>Phase transitions are logged with epoch number and step for tracking
 curriculum progression during training.</p>
+<p>Includes regression protection: if high-quality metric degrades significantly
+after adding lower-quality data, the high-quality sampling weight is boosted.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>curr_state</strong> (<a class="reference internal" href="#admet.model.chemprop.curriculum.CurriculumState" title="admet.model.chemprop.curriculum.CurriculumState"><em>CurriculumState</em></a>) – The curriculum state object to update.</p></li>
 <li><p><strong>monitor_metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Metric key to monitor for phase transitions. Defaults to ‘val_loss’.</p></li>
+<li><p><strong>high_quality_metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>optional</em>) – Metric key for high-quality data performance (e.g., ‘val/mae/high’).
+Used for regression protection. If None, no regression protection.</p></li>
+<li><p><strong>regression_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>default=0.15</em>) – Relative performance degradation (15%) that triggers regression protection.</p></li>
 <li><p><strong>reset_early_stopping_on_phase_change</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – Whether to reset early stopping patience when advancing phases.</p></li>
 <li><p><strong>log_per_quality_metrics</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to log per-quality validation metrics.</p></li>
 <li><p><strong>quality_labels</strong> (<em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – Quality labels for validation samples. Required for per-quality metrics.</p></li>
@@ -4975,6 +5013,7 @@ Required if joint_sampling.curriculum.enabled is True.</p></li>
 </li>
 <li><a class="reference internal" href="#curriculum-learning">Curriculum Learning</a><ul>
 <li><a class="reference internal" href="#admet.model.chemprop.curriculum.CurriculumState"><code class="docutils literal notranslate"><span class="pre">CurriculumState</span></code></a><ul>
+<li><a class="reference internal" href="#admet.model.chemprop.curriculum.CurriculumState.boost_high_quality_weight"><code class="docutils literal notranslate"><span class="pre">CurriculumState.boost_high_quality_weight()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.curriculum.CurriculumState.maybe_advance_phase"><code class="docutils literal notranslate"><span class="pre">CurriculumState.maybe_advance_phase()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.curriculum.CurriculumState.sampling_probs"><code class="docutils literal notranslate"><span class="pre">CurriculumState.sampling_probs()</span></code></a></li>
 <li><a class="reference internal" href="#admet.model.chemprop.curriculum.CurriculumState.target_metric_key"><code class="docutils literal notranslate"><span class="pre">CurriculumState.target_metric_key()</span></code></a></li>

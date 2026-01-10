@@ -4,6 +4,126 @@
 
 ---
 
+## January 10, 2026
+
+### Model
+
+#### MLflow
+
+* **Experiment ID**: `6`
+* **Run ID**: `ca2760b28f5945ee9b387915db9da875`
+* **Run Name**: `rank_001`
+
+#### Architecture
+
+**Model Type:** Chemprop MPNN (Same as January 6 baseline)
+
+**Key Change:** Continued using the January 6 baseline configuration, which proved more robust than task-weighted loss approach.
+
+#### Hyperparameters
+
+```yaml
+# MPNN
+depth: 3
+message_hidden_dim: 700
+aggregation: norm
+# FFN
+ffn_type: regression
+num_layers: 4
+hidden_dim: 200
+# Regularization
+dropout: 0.15
+batch_norm: true
+# Training
+batch_size: 128
+criterion: MAE
+# Learning Rate Schedule
+init_lr: 0.00113
+max_lr: 0.000227
+final_lr: 0.000113
+# Early Stopping
+patience: 15
+max_epochs: 150
+# Sampling
+task_oversampling_alpha: 0.02
+# Reproducibility
+seed: 42
+```
+
+### Statistics
+
+#### Overall
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| **11/309** | aglisman | **0.57 ± 0.02** | 0.52 | 8.8% | 0.57 ± 0.04 | 0.78 ± 0.02 | 0.60 ± 0.02 | 2026-01-10 11:22:56+00:00 | 🏆 **Top 3.6%** — Within MA-RAE error of 2nd place |
+
+#### By Task
+
+| Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 20 | LogD | 0.31 ± 0.01 | 0.25 | 19.4% | 0.79 ± 0.02 | 0.91 ± 0.01 | 0.76 ± 0.01 | Good - Top 6.5% |
+| 19 | KSOL | 0.34 ± 0.01 | 0.30 | 11.8% | 0.62 ± 0.02 | 0.73 ± 0.02 | 0.54 ± 0.01 | Good - Top 6.1% |
+| 13 | MLM CLint | 0.34 ± 0.01 | 0.33 | 2.9% | 0.44 ± 0.04 | 0.62 ± 0.02 | 0.45 ± 0.02 | Excellent - Top 4.2% |
+| 33 | HLM CLint | 0.30 ± 0.01 | 0.27 | 10.0% | 0.38 ± 0.05 | 0.62 ± 0.03 | 0.45 ± 0.03 | Okay - Top 10.7% |
+| 50 | Caco-2 Permeability Efflux | 0.33 ± 0.01 | 0.26 | 21.2% | 0.28 ± 0.04 | 0.81 ± 0.01 | 0.60 ± 0.01 | Top 16.2% |
+| 14 | Caco-2 Permeability Papp A>B | 0.22 ± 0.01 | 0.19 | 13.6% | 0.52 ± 0.03 | 0.78 ± 0.02 | 0.59 ± 0.01 | Good - Top 4.5% |
+| 23 | MPPB | 0.17 ± 0.01 | 0.14 | 17.6% | 0.69 ± 0.04 | 0.83 ± 0.02 | 0.64 ± 0.02 | Okay - Top 7.4% |
+| 57 | MBPB | 0.15 ± 0.01 | 0.12 | 20.0% | 0.75 ± 0.03 | 0.88 ± 0.02 | 0.72 ± 0.02 | Top 18.4% |
+| 6 | MGMB | 0.15 ± 0.01 | 0.14 | 6.7% | 0.70 ± 0.06 | 0.82 ± 0.03 | 0.66 ± 0.03 | 🏆 Excellent - Top 1.9% |
+
+### Comparison with January 9 (Task-Weighted Loss)
+
+| Task | Jan-09 Rank | Jan-10 Rank | Change | Jan-09 MAE | Jan-10 MAE | MAE Change | Notes |
+|------|-------------|-------------|--------|------------|------------|------------|-------|
+| LogD | 61 | 20 | ✅ +41 | 0.35 | 0.31 | ✅ -0.04 | Major improvement |
+| KSOL | 30 | 19 | ✅ +11 | 0.35 | 0.34 | ✅ -0.01 | Recovered from regression |
+| MLM CLint | 27 | 13 | ✅ +14 | 0.35 | 0.34 | ✅ -0.01 | Strong improvement |
+| HLM CLint | 33 | 33 | ↔ 0 | 0.30 | 0.30 | ↔ 0.00 | Maintained |
+| Caco-2 Efflux | 50 | 50 | ↔ 0 | 0.33 | 0.33 | ↔ 0.00 | Maintained |
+| Caco-2 Papp A>B | 42 | 14 | ✅ +28 | 0.24 | 0.22 | ✅ -0.02 | Major improvement |
+| MPPB | 24 | 23 | ✅ +1 | 0.17 | 0.17 | ↔ 0.00 | Maintained |
+| MBPB | 55 | 57 | ❌ -2 | 0.15 | 0.15 | ↔ 0.00 | Slight regression |
+| MGMB | 12 | 6 | ✅ +6 | 0.16 | 0.15 | ✅ -0.01 | Continued improvement |
+
+**Overall:** MA-RAE improved from 0.59 to 0.57, and rank improved from 18/307 to 11/309.
+
+### Key Achievement
+
+**Climbed from 18th to 11th place**, now in **top 3.6%** of 309 participants. The MA-RAE of 0.57 ± 0.02 overlaps with 3rd place performance (within error bars), indicating **statistical proximity to the podium**.
+
+### What Worked
+
+* **Reverting to baseline configuration** was the right decision - the January 6 model proved more robust
+* **LogD showed major improvement** (rank 61 → 20, +41 ranks) without task weighting
+* **KSOL recovered** from task-weighted loss regression (rank 30 → 19)
+* **MLM CLint** continues to improve (rank 27 → 13)
+* **Caco-2 Papp A>B** major improvement (rank 42 → 14, +28 ranks)
+* **MGMB** maintains excellent performance (rank 6, Top 1.9%)
+
+### What Didn't Work
+
+* Task-weighted loss from January 9 submission actually hurt overall performance
+* Simple baseline configuration outperformed the more complex weighted approach
+
+### Conclusions
+
+This submission validates that **simpler is often better**. The baseline Chemprop MPNN configuration from January 6, with minimal task oversampling (alpha=0.02), proved more robust than the task-weighted loss approach. The natural variation in training or slight differences in leaderboard submissions led to better rankings across most tasks.
+
+**Key Insight:** Task-weighted loss may have introduced optimization instabilities or overfitted to specific tasks. The uniform baseline approach with light task oversampling provides better overall generalization.
+
+### Next Steps
+
+1. **Maintain current approach** - This baseline is working well
+2. **Focus on remaining weak tasks:**
+   * Caco-2 Efflux (rank 50) - needs attention
+   * MBPB (rank 57) - slight regression
+3. **Consider ensemble approaches** - Combine multiple seeds or architectures
+4. **Investigate MGMB success** - Understand why this task performs so well (rank 6)
+5. **Data augmentation** - SMILES enumeration may help generalization
+
+---
+
 ## January 9, 2026 (Submission 0)
 
 ### Model

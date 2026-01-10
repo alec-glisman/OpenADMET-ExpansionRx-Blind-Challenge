@@ -66,8 +66,9 @@
    .. grid-item-card:: 🏆 Competition Results
       :class-card: sd-border-0 sd-shadow-sm
 
-      Ranked 18th out of 307 participants (Top 5.9%) in the OpenADMET ExpansionRx 
-      Blind Challenge with MA-RAE of 0.59 ± 0.02 across 9 ADMET endpoints.
+      Ranked **11th out of 309** participants (Top 3.6%) in the OpenADMET ExpansionRx
+      Blind Challenge with MA-RAE of 0.57 ± 0.02 — within error bar of 2nd place
+      (as of 2026-01-10).
 
    .. grid-item-card:: 🔬 Robust Methodology
       :class-card: sd-border-0 sd-shadow-sm

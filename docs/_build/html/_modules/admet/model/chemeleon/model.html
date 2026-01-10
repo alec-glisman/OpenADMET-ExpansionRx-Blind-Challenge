@@ -1267,10 +1267,12 @@
         <span class="k">if</span> <span class="n">curriculum_enabled</span> <span class="ow">and</span> <span class="n">quality_labels</span><span class="p">:</span>
             <span class="n">patience</span> <span class="o">=</span> <span class="n">curriculum_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;patience&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
             <span class="n">qualities</span> <span class="o">=</span> <span class="n">curriculum_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;qualities&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">])</span>
+            <span class="n">finetune_enabled</span> <span class="o">=</span> <span class="n">curriculum_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;finetune_enabled&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_curriculum_state</span> <span class="o">=</span> <span class="n">CurriculumState</span><span class="p">(</span>
                 <span class="n">qualities</span><span class="o">=</span><span class="n">qualities</span><span class="p">,</span>
                 <span class="n">patience</span><span class="o">=</span><span class="n">patience</span><span class="p">,</span>
+                <span class="n">finetune_enabled</span><span class="o">=</span><span class="n">finetune_enabled</span><span class="p">,</span>
             <span class="p">)</span>
 
         <span class="c1"># Create JointSampler</span>

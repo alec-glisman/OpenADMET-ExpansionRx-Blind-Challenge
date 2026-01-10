@@ -846,7 +846,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for quality-aware curriculum learning.</span>
 
 <span class="sd">    Curriculum learning progressively adjusts sampling based on quality labels.</span>
-<span class="sd">    Phases: warmup -&gt; expand -&gt; robust -&gt; polish.</span>
+<span class="sd">    Phases: warmup -&gt; expand -&gt; robust -&gt; polish -&gt; (optional) finetune.</span>
 
 <span class="sd">    Note: Only supported for PyTorch-based models (chemprop, chemeleon).</span>
 
@@ -855,17 +855,26 @@
 <span class="sd">        quality_col: Column name containing quality labels.</span>
 <span class="sd">        qualities: Ordered list of quality levels (highest to lowest).</span>
 <span class="sd">        patience: Epochs without improvement before phase advance.</span>
+<span class="sd">        min_epochs_per_phase: Minimum epochs to stay in each phase.</span>
 <span class="sd">        seed: Random seed for reproducible sampling.</span>
 <span class="sd">        strategy: &quot;sampled&quot; uses weighted random sampling.</span>
 <span class="sd">        count_normalize: If True, interpret weights as target proportions.</span>
 <span class="sd">        min_high_quality_proportion: Minimum proportion of high-quality data.</span>
 <span class="sd">        monitor_metric: Metric to monitor for phase advancement.</span>
+<span class="sd">        high_quality_metric: Metric for high-quality regression detection.</span>
+<span class="sd">        regression_threshold: Threshold for detecting high-quality regression.</span>
+<span class="sd">        finetune_enabled: If True, adds a &quot;finetune&quot; phase after polish</span>
+<span class="sd">            that trains exclusively on high-quality data (100%).</span>
+<span class="sd">        finetune_proportions: Custom proportions for finetune phase</span>
+<span class="sd">            (default: [1.0, 0.0, ...] for 100% high-quality).</span>
+<span class="sd">        finetune_min_epochs: Minimum epochs in finetune phase.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">quality_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Quality&quot;</span>
     <span class="n">qualities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">])</span>
     <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">min_epochs_per_phase</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
     <span class="n">save_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">plot_dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">150</span>
@@ -880,8 +889,13 @@
     <span class="n">expand_proportions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">robust_proportions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">polish_proportions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">finetune_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">finetune_proportions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">finetune_min_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span>
     <span class="n">monitor_metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;val_loss&quot;</span>
     <span class="n">early_stopping_metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">high_quality_metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">regression_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span>
     <span class="n">adaptive_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">adaptive_improvement_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.02</span>
     <span class="n">adaptive_max_adjustment</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>

@@ -365,32 +365,36 @@
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    Three quality levels [&quot;high&quot;, &quot;medium&quot;, &quot;low&quot;] with count_normalize=True:</span>
-<span class="sd">    - warmup: [0.80, 0.15, 0.05] -&gt; 80% high, 15% medium, 5% low in actual batches</span>
-<span class="sd">    - expand: [0.60, 0.30, 0.10] -&gt; 60% high, 30% medium, 10% low</span>
-<span class="sd">    - robust: [0.50, 0.35, 0.15] -&gt; 50% high, 35% medium, 15% low</span>
-<span class="sd">    - polish: [0.70, 0.20, 0.10] -&gt; 70% high, 20% medium, 10% low (maintains diversity)</span>
+<span class="sd">    - warmup: [0.85, 0.10, 0.05] -&gt; 85% high, 10% medium, 5% low (establish baseline)</span>
+<span class="sd">    - expand: [0.65, 0.25, 0.10] -&gt; 65% high, 25% medium, 10% low (add diversity)</span>
+<span class="sd">    - robust: [0.55, 0.30, 0.15] -&gt; 55% high, 30% medium, 15% low (max diversity)</span>
+<span class="sd">    - polish: [0.85, 0.10, 0.05] -&gt; 85% high, 10% medium, 5% low (refine on high-quality)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">available_phases</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;warmup&quot;</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">])</span>
+    <span class="n">available_phases</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;warmup&quot;</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">,</span> <span class="s2">&quot;finetune&quot;</span><span class="p">])</span>
 
     <span class="n">count_normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="n">min_high_quality_proportion</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
+    <span class="n">min_high_quality_proportion</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.50</span>
+
+    <span class="n">min_epochs_per_phase</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
 
     <span class="n">two_quality</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">],</span>
-            <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.65</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">],</span>
-            <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>
+            <span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.90</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
+            <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.70</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">],</span>
+            <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.90</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
+            <span class="s2">&quot;finetune&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>  <span class="c1"># 100% high-quality for fine-tuning</span>
         <span class="p">}</span>
     <span class="p">)</span>
 
     <span class="n">three_quality</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.80</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">],</span>
-            <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.60</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
-            <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">],</span>
-            <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.70</span><span class="p">,</span> <span class="mf">0.20</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
+            <span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">],</span>
+            <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.65</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">],</span>
+            <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.55</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">],</span>
+            <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">],</span>
+            <span class="s2">&quot;finetune&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>  <span class="c1"># 100% high-quality for fine-tuning</span>
         <span class="p">}</span>
     <span class="p">)</span>
 
@@ -401,10 +405,18 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple quality-aware curriculum state.</span>
 
 <span class="sd">    Phases:</span>
-<span class="sd">      - warmup: focus on high-quality data</span>
-<span class="sd">      - expand: include more medium-quality</span>
-<span class="sd">      - robust: include some low-quality</span>
-<span class="sd">      - polish: re-focus on high-quality</span>
+<span class="sd">      - warmup: focus on high-quality data (establish strong baseline)</span>
+<span class="sd">      - expand: include more medium-quality (add diversity)</span>
+<span class="sd">      - robust: include some low-quality (max diversity for generalization)</span>
+<span class="sd">      - polish: re-focus on high-quality (refine final performance)</span>
+<span class="sd">      - finetune: (optional) train exclusively on high-quality data (100%)</span>
+
+<span class="sd">    Key design principles:</span>
+<span class="sd">      1. High-quality data is always the ultimate goal</span>
+<span class="sd">      2. Lower-quality data aids generalization but should not dominate</span>
+<span class="sd">      3. Each phase gets minimum training time before transitioning</span>
+<span class="sd">      4. Regression protection prevents catastrophic forgetting of high-quality patterns</span>
+<span class="sd">      5. Optional finetune phase for final refinement on high-quality only</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -412,6 +424,8 @@
         <span class="n">qualities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">patience</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CurriculumPhaseConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_epochs_per_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">finetune_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a curriculum that can support arbitrary quality labels.</span>
 
@@ -423,6 +437,12 @@
 <span class="sd">            Number of epochs with no improvement before moving to the next phase.</span>
 <span class="sd">        config</span>
 <span class="sd">            Phase configuration (names and weights). If None, uses default configuration.</span>
+<span class="sd">        min_epochs_per_phase</span>
+<span class="sd">            Minimum epochs to train in each phase before allowing transition.</span>
+<span class="sd">            Overrides config.min_epochs_per_phase if provided.</span>
+<span class="sd">        finetune_enabled</span>
+<span class="sd">            If True, adds a final &quot;finetune&quot; phase after polish that trains exclusively</span>
+<span class="sd">            on high-quality data (100%). Useful for pre-train + fine-tune workflows.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">qualities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">qualities</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;high&quot;</span><span class="p">,</span> <span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="s2">&quot;low&quot;</span><span class="p">]</span>
@@ -431,6 +451,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">qualities</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">CurriculumPhaseConfig</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finetune_enabled</span> <span class="o">=</span> <span class="n">finetune_enabled</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="s2">&quot;warmup&quot;</span>
         <span class="c1"># Start in warmup phase weights</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights_for_phase</span><span class="p">(</span><span class="s2">&quot;warmup&quot;</span><span class="p">)</span>
@@ -440,6 +461,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">best_val_top</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">best_epoch</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">patience</span> <span class="o">=</span> <span class="n">patience</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_epochs_per_phase</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">min_epochs_per_phase</span> <span class="k">if</span> <span class="n">min_epochs_per_phase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">min_epochs_per_phase</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_phase_start_epoch</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Track when current phase started</span>
 
 <div class="viewcode-block" id="CurriculumState.target_metric_key">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.target_metric_key">[docs]</a>
@@ -479,6 +504,57 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">best_epoch</span> <span class="o">=</span> <span class="n">epoch</span></div>
 
 
+<div class="viewcode-block" id="CurriculumState.boost_high_quality_weight">
+<a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.boost_high_quality_weight">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">boost_high_quality_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">boost_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Boost high-quality sampling weight when performance regression is detected.</span>
+
+<span class="sd">        This is a safety mechanism to prevent catastrophic forgetting of high-quality</span>
+<span class="sd">        patterns when lower-quality data degrades model performance.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        boost_factor : float, default=0.1</span>
+<span class="sd">            Amount to increase high-quality weight (10% by default).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            True if weights were adjusted, False if already at maximum.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">high_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">current_high</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">high_quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="c1"># Already at high weight, can&#39;t boost further</span>
+        <span class="k">if</span> <span class="n">current_high</span> <span class="o">&gt;=</span> <span class="mf">0.95</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">new_high</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">current_high</span> <span class="o">+</span> <span class="n">boost_factor</span><span class="p">)</span>
+        <span class="n">actual_boost</span> <span class="o">=</span> <span class="n">new_high</span> <span class="o">-</span> <span class="n">current_high</span>
+
+        <span class="c1"># Redistribute from other qualities proportionally</span>
+        <span class="n">other_total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="k">if</span> <span class="n">other_total</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">new_weights</span> <span class="o">=</span> <span class="p">{</span><span class="n">high_quality</span><span class="p">:</span> <span class="n">new_high</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">quality</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">old_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">quality</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">reduction</span> <span class="o">=</span> <span class="n">actual_boost</span> <span class="o">*</span> <span class="p">(</span><span class="n">old_weight</span> <span class="o">/</span> <span class="n">other_total</span><span class="p">)</span>
+            <span class="n">new_weights</span><span class="p">[</span><span class="n">quality</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">old_weight</span> <span class="o">-</span> <span class="n">reduction</span><span class="p">)</span>
+
+        <span class="c1"># Normalize</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">new_weights</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="o">/</span> <span class="n">total</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_weights</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;High-quality weight boosted by </span><span class="si">%.1f%%</span><span class="s2"> -&gt; new weights: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">actual_boost</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+            <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
 <div class="viewcode-block" id="CurriculumState.maybe_advance_phase">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.curriculum.CurriculumState.maybe_advance_phase">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">maybe_advance_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
@@ -488,8 +564,24 @@
 <span class="sd">        datasets this will simply do warmup -&gt; polish (return focus to top quality).</span>
 <span class="sd">        For 2-quality datasets: warmup -&gt; expand -&gt; polish.</span>
 <span class="sd">        For &gt;=3: warmup -&gt; expand -&gt; robust -&gt; polish.</span>
+
+<span class="sd">        Phase advancement requires BOTH:</span>
+<span class="sd">        1. Patience epochs with no improvement</span>
+<span class="sd">        2. Minimum epochs in current phase (prevents premature transitions)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Check patience condition</span>
         <span class="k">if</span> <span class="n">epoch</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_epoch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">patience</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Check minimum epochs condition</span>
+        <span class="n">epochs_in_phase</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_start_epoch</span>
+        <span class="k">if</span> <span class="n">epochs_in_phase</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_epochs_per_phase</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Phase &#39;</span><span class="si">%s</span><span class="s2">&#39; has only </span><span class="si">%d</span><span class="s2"> epochs (min=</span><span class="si">%d</span><span class="s2">), waiting before transition&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span>
+                <span class="n">epochs_in_phase</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">min_epochs_per_phase</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="k">return</span>
 
         <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">qualities</span><span class="p">)</span>
@@ -499,6 +591,8 @@
         <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
             <span class="n">phases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;robust&quot;</span><span class="p">)</span>
         <span class="n">phases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;polish&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">finetune_enabled</span><span class="p">:</span>
+            <span class="n">phases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;finetune&quot;</span><span class="p">)</span>
 
         <span class="c1"># determine current phase index</span>
         <span class="k">try</span><span class="p">:</span>
@@ -513,7 +607,17 @@
             <span class="c1"># compute weights based on phase and number of qualities</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights_for_phase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>
             <span class="c1"># Store base weights for adaptive adjustments</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_base_weights</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_base_weights</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+            <span class="c1"># Reset patience counter to give new phase full window</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_epoch</span> <span class="o">=</span> <span class="n">epoch</span>
+            <span class="c1"># Track phase start for minimum epochs enforcement</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_phase_start_epoch</span> <span class="o">=</span> <span class="n">epoch</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Phase advanced to &#39;</span><span class="si">%s</span><span class="s2">&#39; at epoch </span><span class="si">%d</span><span class="s2"> (after </span><span class="si">%d</span><span class="s2"> epochs in previous phase)&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span>
+                <span class="n">epoch</span><span class="p">,</span>
+                <span class="n">epochs_in_phase</span><span class="p">,</span>
+            <span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_weights_for_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
@@ -562,12 +666,20 @@
 <span class="sd">    Phase transitions are logged with epoch number and step for tracking</span>
 <span class="sd">    curriculum progression during training.</span>
 
+<span class="sd">    Includes regression protection: if high-quality metric degrades significantly</span>
+<span class="sd">    after adding lower-quality data, the high-quality sampling weight is boosted.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    curr_state : CurriculumState</span>
 <span class="sd">        The curriculum state object to update.</span>
 <span class="sd">    monitor_metric : str, optional</span>
 <span class="sd">        Metric key to monitor for phase transitions. Defaults to &#39;val_loss&#39;.</span>
+<span class="sd">    high_quality_metric : str, optional</span>
+<span class="sd">        Metric key for high-quality data performance (e.g., &#39;val/mae/high&#39;).</span>
+<span class="sd">        Used for regression protection. If None, no regression protection.</span>
+<span class="sd">    regression_threshold : float, default=0.15</span>
+<span class="sd">        Relative performance degradation (15%) that triggers regression protection.</span>
 <span class="sd">    reset_early_stopping_on_phase_change : bool, default=False</span>
 <span class="sd">        Whether to reset early stopping patience when advancing phases.</span>
 <span class="sd">    log_per_quality_metrics : bool, default=True</span>
@@ -580,6 +692,8 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">curr_state</span><span class="p">:</span> <span class="n">CurriculumState</span><span class="p">,</span>
         <span class="n">monitor_metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">high_quality_metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">regression_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span><span class="p">,</span>
         <span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">log_per_quality_metrics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">quality_labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -587,10 +701,16 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span> <span class="o">=</span> <span class="n">curr_state</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">monitor_metric</span> <span class="o">=</span> <span class="n">monitor_metric</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_quality_metric</span> <span class="o">=</span> <span class="n">high_quality_metric</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">regression_threshold</span> <span class="o">=</span> <span class="n">regression_threshold</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_previous_phase</span> <span class="o">=</span> <span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reset_early_stopping_on_phase_change</span> <span class="o">=</span> <span class="n">reset_early_stopping_on_phase_change</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log_per_quality_metrics</span> <span class="o">=</span> <span class="n">log_per_quality_metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">quality_labels</span> <span class="o">=</span> <span class="n">quality_labels</span>
+
+        <span class="c1"># Track best high-quality metric for regression protection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_best_high_quality_metric</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_regression_boost_cooldown</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Epochs to wait before another boost</span>
 
         <span class="c1"># Warn about potential infinite training when reset_early_stopping_on_phase_change=True</span>
         <span class="k">if</span> <span class="n">reset_early_stopping_on_phase_change</span><span class="p">:</span>
@@ -627,7 +747,7 @@
         <span class="p">)</span>
 
         <span class="c1"># Log initial curriculum state to MLflow</span>
-        <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;finetune&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/phase&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">phase_idx</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">quality</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -652,6 +772,68 @@
                 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Reset early stopping patience after curriculum phase change&quot;</span><span class="p">)</span>
                 <span class="k">break</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_regression_protection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trainer</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>  <span class="c1"># noqa: ARG002</span>
+        <span class="n">pl_module</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">LightningModule</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check for high-quality performance regression and boost weight if needed.</span>
+
+<span class="sd">        This prevents catastrophic forgetting of high-quality patterns when</span>
+<span class="sd">        lower-quality data is introduced.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_quality_metric</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Cooldown period after a boost</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_regression_boost_cooldown</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_regression_boost_cooldown</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Get high-quality metric value</span>
+        <span class="n">hq_val</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">high_quality_metric</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hq_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">hq_v</span> <span class="o">=</span> <span class="n">hq_val</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">hq_val</span><span class="p">,</span> <span class="s2">&quot;item&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">hq_val</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">hq_v</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Update best if improved</span>
+        <span class="k">if</span> <span class="n">hq_v</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_high_quality_metric</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_best_high_quality_metric</span> <span class="o">=</span> <span class="n">hq_v</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Check for regression (only in non-warmup phases)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;warmup&quot;</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">relative_regression</span> <span class="o">=</span> <span class="p">(</span><span class="n">hq_v</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_high_quality_metric</span><span class="p">)</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_best_high_quality_metric</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">relative_regression</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">regression_threshold</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;admet.model.chemprop.curriculum&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;High-quality regression detected at epoch </span><span class="si">%d</span><span class="s2">: </span><span class="si">%.4f</span><span class="s2"> -&gt; </span><span class="si">%.4f</span><span class="s2"> (</span><span class="si">%.1f%%</span><span class="s2"> worse). &quot;</span>
+                <span class="s2">&quot;Boosting high-quality weight.&quot;</span><span class="p">,</span>
+                <span class="n">epoch</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_best_high_quality_metric</span><span class="p">,</span>
+                <span class="n">hq_v</span><span class="p">,</span>
+                <span class="n">relative_regression</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">boosted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">boost_high_quality_weight</span><span class="p">(</span><span class="n">boost_factor</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">boosted</span><span class="p">:</span>
+                <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/regression_boost&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_regression_boost_cooldown</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Wait 5 epochs before another boost</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_log_per_quality_metrics</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -713,11 +895,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">update_from_val_top</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">maybe_advance_phase</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
 
+        <span class="c1"># Regression protection: check high-quality metric degradation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_regression_protection</span><span class="p">(</span><span class="n">trainer</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
+
         <span class="c1"># Log per-quality metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_log_per_quality_metrics</span><span class="p">(</span><span class="n">trainer</span><span class="p">,</span> <span class="n">pl_module</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
 
         <span class="c1"># Always log current curriculum state to MLflow (not just on transitions)</span>
-        <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">phase_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;warmup&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;expand&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;robust&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;polish&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;finetune&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">curr_state</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">pl_module</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;curriculum/phase&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">phase_idx</span><span class="p">),</span> <span class="n">on_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Log current weights for each quality</span>
@@ -1039,7 +1224,7 @@
             <span class="c1"># Compute and log metrics</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Computing per-quality metrics...&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_compute_and_log_metrics</span><span class="p">(</span><span class="n">pl_module</span><span class="p">,</span> <span class="n">all_preds_np</span><span class="p">,</span> <span class="n">all_targets_np</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_val_quality_indices</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Per-quality validation metrics computed for epoch </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">current_epoch</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Per-quality validation metrics computed for epoch </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">current_epoch</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
             <span class="c1"># Re-raise RuntimeError from our validation above</span>
