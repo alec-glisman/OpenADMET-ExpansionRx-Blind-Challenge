@@ -496,7 +496,7 @@ class CurriculumConfig:
     """Configuration for quality-aware curriculum learning.
 
     Curriculum learning progressively adjusts sampling based on quality labels.
-    Phases: warmup -> expand -> robust -> polish.
+    Phases: warmup -> expand -> robust -> polish -> (optional) finetune.
 
     Note: Only supported for PyTorch-based models (chemprop, chemeleon).
 
@@ -513,6 +513,11 @@ class CurriculumConfig:
         monitor_metric: Metric to monitor for phase advancement.
         high_quality_metric: Metric for high-quality regression detection.
         regression_threshold: Threshold for detecting high-quality regression.
+        finetune_enabled: If True, adds a "finetune" phase after polish
+            that trains exclusively on high-quality data (100%).
+        finetune_proportions: Custom proportions for finetune phase
+            (default: [1.0, 0.0, ...] for 100% high-quality).
+        finetune_min_epochs: Minimum epochs in finetune phase.
     """
 
     enabled: bool = False
@@ -534,6 +539,9 @@ class CurriculumConfig:
     expand_proportions: Optional[List[float]] = None
     robust_proportions: Optional[List[float]] = None
     polish_proportions: Optional[List[float]] = None
+    finetune_enabled: bool = False
+    finetune_proportions: Optional[List[float]] = None
+    finetune_min_epochs: int = 20
     monitor_metric: str = "val_loss"
     early_stopping_metric: Optional[str] = None
     high_quality_metric: Optional[str] = None

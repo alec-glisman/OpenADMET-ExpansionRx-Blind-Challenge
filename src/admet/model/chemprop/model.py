@@ -747,6 +747,7 @@ class ChempropModel:
                         qualities=list(joint_sampling_config.curriculum.qualities),
                         patience=joint_sampling_config.curriculum.patience,
                         config=phase_config,
+                        finetune_enabled=getattr(joint_sampling_config.curriculum, "finetune_enabled", False),
                     )
         elif self.curriculum_config is not None and self.curriculum_config.enabled:
             if self.curriculum_state is None:
@@ -755,6 +756,7 @@ class ChempropModel:
                     qualities=list(self.curriculum_config.qualities),
                     patience=self.curriculum_config.patience,
                     config=phase_config,
+                    finetune_enabled=getattr(self.curriculum_config, "finetune_enabled", False),
                 )
 
         # Task affinity configuration (legacy pre-training approach)

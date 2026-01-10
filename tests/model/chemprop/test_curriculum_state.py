@@ -137,3 +137,74 @@ def test_curriculum_state_patience_resets_on_phase_change():
     state.maybe_advance_phase(epoch=10)
     assert state.phase == "robust"
     assert state.best_epoch == 10, "best_epoch should reset again on second phase change"
+
+
+def test_curriculum_state_finetune_phase_enabled():
+    """Test that finetune phase is added when finetune_enabled=True."""
+    # Without finetune
+    state_no_finetune = CurriculumState(
+        qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0, finetune_enabled=False
+    )
+    assert state_no_finetune.finetune_enabled is False
+
+    # With finetune
+    state_with_finetune = CurriculumState(
+        qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0, finetune_enabled=True
+    )
+    assert state_with_finetune.finetune_enabled is True
+
+    # Test finetune weights are configured
+    finetune_weights = state_with_finetune.config.three_quality.get("finetune")
+    assert finetune_weights == [1.0, 0.0, 0.0], "Finetune should use 100% high-quality"
+
+    two_quality_finetune = state_with_finetune.config.two_quality.get("finetune")
+    assert two_quality_finetune == [1.0, 0.0], "Two-quality finetune should use 100% high"
+
+
+def test_curriculum_state_finetune_phase_progression():
+    """Test that phase progression includes finetune when enabled."""
+    state = CurriculumState(
+        qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0, finetune_enabled=True
+    )
+    assert state.phase == "warmup"
+
+    # Progress through all phases
+    phases_visited = [state.phase]
+    for epoch in range(1, 50):
+        state.update_from_val_top(epoch, 1.0)  # Constant loss triggers patience
+        state.maybe_advance_phase(epoch)
+        if state.phase not in phases_visited:
+            phases_visited.append(state.phase)
+
+    # Should visit all phases including finetune
+    expected_phases = ["warmup", "expand", "robust", "polish", "finetune"]
+    assert phases_visited == expected_phases, f"Expected {expected_phases}, got {phases_visited}"
+
+    # Final phase should be finetune
+    assert state.phase == "finetune"
+
+    # Finetune weights should be 100% high-quality
+    weights = state._weights_for_phase("finetune")
+    assert weights["high"] == 1.0
+    assert weights["medium"] == 0.0
+    assert weights["low"] == 0.0
+
+
+def test_curriculum_state_finetune_not_included_when_disabled():
+    """Test that finetune phase is NOT included when finetune_enabled=False."""
+    state = CurriculumState(
+        qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0, finetune_enabled=False
+    )
+
+    # Progress through all phases
+    phases_visited = [state.phase]
+    for epoch in range(1, 50):
+        state.update_from_val_top(epoch, 1.0)
+        state.maybe_advance_phase(epoch)
+        if state.phase not in phases_visited:
+            phases_visited.append(state.phase)
+
+    # Should NOT include finetune
+    expected_phases = ["warmup", "expand", "robust", "polish"]
+    assert phases_visited == expected_phases, f"Expected {expected_phases}, got {phases_visited}"
+    assert state.phase == "polish"

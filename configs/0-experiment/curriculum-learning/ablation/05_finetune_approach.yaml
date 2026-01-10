@@ -1,0 +1,126 @@
+# Experiment 05: Fine-Tuning Approach
+# Purpose: Pre-train on all data, then fine-tune exclusively on high-quality data
+#
+# Key differences from 01_baseline_curriculum:
+# - finetune_enabled: true
+# - finetune_proportions: [1.0, 0.0, 0.0] (100% high-quality)
+# - Uses longer training (max_epochs: 200) to allow time for finetune phase
+# - Higher patience (20) to allow thorough exploration of each phase
+#
+# Hypothesis: Pre-training on diverse data extracts useful representations,
+# while fine-tuning on high-quality only removes harmful patterns learned from
+# noisy external data.
+
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
+  output_dir: null
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+  target_weights:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.02
+  curriculum:
+    enabled: true
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 20
+    min_epochs_per_phase: 15
+    strategy: sampled
+    reset_early_stopping_on_phase_change: true
+    log_per_quality_metrics: true
+    seed: 42
+    count_normalize: true
+    min_high_quality_proportion: 0.25
+    # Enable finetune phase
+    finetune_enabled: true
+    finetune_proportions:
+      - 1.0
+      - 0.0
+      - 0.0
+    finetune_min_epochs: 20
+    monitor_metric: val_loss
+    early_stopping_metric: null
+    high_quality_metric: val/mae/high
+    regression_threshold: 0.15
+    adaptive_enabled: false
+    loss_weighting_enabled: false
+    loss_weights: null
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+
+model:
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
+
+optimization:
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
+  warmup_epochs: 5
+  max_epochs: 200
+  patience: 25
+  batch_size: 128
+  num_workers: 0
+  accumulate_grad_batches: 1
+  seed: 42
+  weight_decay: 0.0
+  progress_bar: false
+
+performance_optimization:
+  use_mixed_precision: true
+
+inter_task_affinity:
+  enabled: false
+
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: curriculum_ablation_study
+  run_name: 05_finetune_approach
+  nested: false
+
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+    - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false

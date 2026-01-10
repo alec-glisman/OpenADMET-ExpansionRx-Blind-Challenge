@@ -1,0 +1,120 @@
+# Experiment 03: Selective Tasks (Aggressive Loss Weighting)
+# Purpose: Reduce influence of medium/low quality data via aggressive loss weighting
+#
+# Key differences from 01_baseline_curriculum:
+# - loss_weighting_enabled: true
+# - loss_weights: {high: 1.0, medium: 0.3, low: 0.1}
+#
+# Hypothesis: By heavily down-weighting medium/low quality losses,
+# the model will focus on learning high-quality patterns and avoid
+# being misled by noisy external data.
+
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
+  output_dir: null
+  smiles_col: SMILES
+  target_cols:
+    - LogD
+    - Log KSOL
+    - Log HLM CLint
+    - Log MLM CLint
+    - Log Caco-2 Permeability Papp A>B
+    - Log Caco-2 Permeability Efflux
+    - Log MPPB
+    - Log MBPB
+    - Log MGMB
+  target_weights:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.02
+  curriculum:
+    enabled: true
+    quality_col: Quality
+    qualities:
+      - high
+      - medium
+      - low
+    patience: 15
+    min_epochs_per_phase: 10
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+    count_normalize: true
+    min_high_quality_proportion: 0.25
+    monitor_metric: val_loss
+    early_stopping_metric: null
+    high_quality_metric: null
+    regression_threshold: 0.15
+    adaptive_enabled: false
+    loss_weighting_enabled: true
+    loss_weights:
+      high: 1.0
+      medium: 0.3
+      low: 0.1
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+
+model:
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
+
+optimization:
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
+  warmup_epochs: 5
+  max_epochs: 150
+  patience: 15
+  batch_size: 128
+  num_workers: 0
+  accumulate_grad_batches: 1
+  seed: 42
+  weight_decay: 0.0
+  progress_bar: false
+
+performance_optimization:
+  use_mixed_precision: true
+
+inter_task_affinity:
+  enabled: false
+
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: curriculum_ablation_study
+  run_name: 03_selective_tasks
+  nested: false
+
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+    - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false

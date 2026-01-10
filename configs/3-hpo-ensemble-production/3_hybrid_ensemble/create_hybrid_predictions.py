@@ -1088,7 +1088,7 @@ def create_visualizations(
     sizes = [m["tasks_count"] for m in model_util]
     colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B2", "#CCB974"]
 
-    wedges, texts, autotexts = ax3.pie(
+    ax3.pie(  # type: ignore
         sizes,
         labels=labels,
         autopct="%1.1f%%",

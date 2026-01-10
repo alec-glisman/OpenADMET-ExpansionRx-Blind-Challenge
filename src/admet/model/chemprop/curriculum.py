@@ -48,7 +48,7 @@ class CurriculumPhaseConfig:
     - polish: [0.85, 0.10, 0.05] -> 85% high, 10% medium, 5% low (refine on high-quality)
     """
 
-    available_phases: List[str] = field(default_factory=lambda: ["warmup", "expand", "robust", "polish"])
+    available_phases: List[str] = field(default_factory=lambda: ["warmup", "expand", "robust", "polish", "finetune"])
 
     count_normalize: bool = True
 
@@ -61,6 +61,7 @@ class CurriculumPhaseConfig:
             "warmup": [0.90, 0.10],
             "expand": [0.70, 0.30],
             "polish": [0.90, 0.10],
+            "finetune": [1.0, 0.0],  # 100% high-quality for fine-tuning
         }
     )
 
@@ -70,6 +71,7 @@ class CurriculumPhaseConfig:
             "expand": [0.65, 0.25, 0.10],
             "robust": [0.55, 0.30, 0.15],
             "polish": [0.85, 0.10, 0.05],
+            "finetune": [1.0, 0.0, 0.0],  # 100% high-quality for fine-tuning
         }
     )
 
@@ -82,12 +84,14 @@ class CurriculumState:
       - expand: include more medium-quality (add diversity)
       - robust: include some low-quality (max diversity for generalization)
       - polish: re-focus on high-quality (refine final performance)
+      - finetune: (optional) train exclusively on high-quality data (100%)
 
     Key design principles:
       1. High-quality data is always the ultimate goal
       2. Lower-quality data aids generalization but should not dominate
       3. Each phase gets minimum training time before transitioning
       4. Regression protection prevents catastrophic forgetting of high-quality patterns
+      5. Optional finetune phase for final refinement on high-quality only
     """
 
     def __init__(
@@ -96,6 +100,7 @@ class CurriculumState:
         patience: int = 3,
         config: Optional[CurriculumPhaseConfig] = None,
         min_epochs_per_phase: Optional[int] = None,
+        finetune_enabled: bool = False,
     ):
         """Create a curriculum that can support arbitrary quality labels.
 
@@ -110,6 +115,9 @@ class CurriculumState:
         min_epochs_per_phase
             Minimum epochs to train in each phase before allowing transition.
             Overrides config.min_epochs_per_phase if provided.
+        finetune_enabled
+            If True, adds a final "finetune" phase after polish that trains exclusively
+            on high-quality data (100%). Useful for pre-train + fine-tune workflows.
         """
         if qualities is None:
             qualities = ["high", "medium", "low"]
@@ -118,6 +126,7 @@ class CurriculumState:
 
         self.qualities = list(qualities)
         self.config = config if config is not None else CurriculumPhaseConfig()
+        self.finetune_enabled = finetune_enabled
         self.phase = "warmup"
         # Start in warmup phase weights
         self.weights = self._weights_for_phase("warmup")
@@ -243,6 +252,8 @@ class CurriculumState:
         if n >= 3:
             phases.append("robust")
         phases.append("polish")
+        if self.finetune_enabled:
+            phases.append("finetune")
 
         # determine current phase index
         try:
@@ -388,7 +399,7 @@ class CurriculumCallback(pl.Callback):
         )
 
         # Log initial curriculum state to MLflow
-        phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
+        phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3, "finetune": 4}.get(self.curr_state.phase, -1)
         pl_module.log("curriculum/phase", float(phase_idx), on_step=False, on_epoch=True)
 
         for quality, weight in self.curr_state.weights.items():
@@ -540,7 +551,7 @@ class CurriculumCallback(pl.Callback):
         self._log_per_quality_metrics(trainer, pl_module, metrics)
 
         # Always log current curriculum state to MLflow (not just on transitions)
-        phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3}.get(self.curr_state.phase, -1)
+        phase_idx = {"warmup": 0, "expand": 1, "robust": 2, "polish": 3, "finetune": 4}.get(self.curr_state.phase, -1)
         pl_module.log("curriculum/phase", float(phase_idx), on_step=False, on_epoch=True)
 
         # Log current weights for each quality

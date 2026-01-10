@@ -936,10 +936,12 @@ class ChemeleonModel(BaseModel, MLflowMixin):
         if curriculum_enabled and quality_labels:
             patience = curriculum_config.get("patience", 3)
             qualities = curriculum_config.get("qualities", ["high", "medium", "low"])
+            finetune_enabled = curriculum_config.get("finetune_enabled", False)
 
             self._curriculum_state = CurriculumState(
                 qualities=qualities,
                 patience=patience,
+                finetune_enabled=finetune_enabled,
             )
 
         # Create JointSampler

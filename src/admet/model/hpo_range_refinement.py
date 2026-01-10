@@ -820,11 +820,16 @@ def generate_refined_phase3_config(
             elif original_type in ("uniform", "loguniform", "quniform", "randint", "qrandint"):
                 numeric_values = [v for v in values if isinstance(v, (int, float))]
                 if numeric_values:
-                    low, high = _compute_refined_range(
+                    range_result = _compute_refined_range(
                         numeric_values,
                         original_type,
                         margin_factor=margin_factor,
                     )
+                    if range_result is None:
+                        # Keep original config if range computation failed
+                        refined_search_space[param_name] = param_config
+                        continue
+                    low, high = range_result
 
                     refined_config = {
                         "type": original_type,
