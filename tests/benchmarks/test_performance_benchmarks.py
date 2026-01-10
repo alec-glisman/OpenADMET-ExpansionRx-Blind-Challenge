@@ -255,6 +255,227 @@ def test_benchmark_summary():
     print("  📊 SMILES Cache: Target 5-10x speedup")
     print("  📊 DataLoader Workers: Target 10-20% speedup")
     print("  📊 Mixed Precision: Target 1.5-2x speedup (GPU required)")
+    print("  📊 JointSampler Vectorization: Target 10-50x speedup")
     print("=" * 70)
     print("Run these tests with: pytest tests/benchmarks/ -v --durations=10")
     print("=" * 70 + "\n")
+
+
+@pytest.mark.slow
+class TestJointSamplerPerformance:
+    """Benchmark tests for JointSampler vectorization optimizations.
+
+    The vectorized implementation should provide 10-50x speedup over naive
+    per-sample loops for large datasets by:
+    1. Batch task selection with np.choice(..., size=num_samples)
+    2. Cached per-task probability distributions
+    3. Batch within-task sampling
+    4. Pre-allocated output arrays
+    """
+
+    @pytest.fixture
+    def large_dataset_params(self) -> tuple[np.ndarray, list[str], int]:
+        """Create large dataset parameters for benchmarking.
+
+        Returns targets (100k samples, 9 tasks), quality labels, and num_samples.
+        """
+        np.random.seed(42)
+        num_samples = 100_000
+        num_tasks = 9
+
+        # Create multi-task target array with varying sparsity per task
+        targets = np.full((num_samples, num_tasks), np.nan, dtype=np.float64)
+
+        # Task 0-2: Dense (80% valid)
+        for t in range(3):
+            mask = np.random.random(num_samples) < 0.8
+            targets[mask, t] = np.random.randn(mask.sum())
+
+        # Task 3-5: Medium (50% valid)
+        for t in range(3, 6):
+            mask = np.random.random(num_samples) < 0.5
+            targets[mask, t] = np.random.randn(mask.sum())
+
+        # Task 6-8: Sparse (20% valid)
+        for t in range(6, 9):
+            mask = np.random.random(num_samples) < 0.2
+            targets[mask, t] = np.random.randn(mask.sum())
+
+        # Quality labels with realistic distribution: 5% high, 80% medium, 15% low
+        quality_labels = (
+            ["high"] * int(num_samples * 0.05)
+            + ["medium"] * int(num_samples * 0.80)
+            + ["low"] * int(num_samples * 0.15)
+        )
+        np.random.shuffle(quality_labels)
+
+        return targets, quality_labels, num_samples
+
+    def test_joint_sampler_iteration_speed(self, large_dataset_params):
+        """Measure iteration speed of optimized JointSampler.
+
+        Target: Complete 100k sample iteration in < 0.5 seconds (vs ~10+ seconds before).
+        """
+        from admet.model.chemprop.curriculum import CurriculumState
+        from admet.model.chemprop.joint_sampler import JointSampler
+
+        targets, quality_labels, num_samples = large_dataset_params
+
+        curriculum_state = CurriculumState(
+            qualities=["high", "medium", "low"],
+            patience=5,
+        )
+
+        sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.3,
+            num_samples=num_samples,
+            seed=42,
+            increment_seed_per_epoch=True,
+            log_weight_stats=False,  # Disable for cleaner timing
+        )
+
+        # Warmup iteration
+        _ = list(sampler)
+
+        # Benchmark 5 iterations
+        num_iterations = 5
+        start = time.time()
+        for _ in range(num_iterations):
+            _ = list(sampler)
+        elapsed = time.time() - start
+
+        time_per_iter = elapsed / num_iterations
+        samples_per_second = num_samples / time_per_iter
+
+        print(f"\nJointSampler Performance ({num_samples:,} samples, 9 tasks):")
+        print(f"  Time per iteration: {time_per_iter:.4f}s")
+        print(f"  Samples per second: {samples_per_second:,.0f}")
+        print(f"  Total time (5 iters): {elapsed:.3f}s")
+
+        # Should complete in < 0.5 seconds per iteration for 100k samples
+        assert time_per_iter < 0.5, (
+            f"JointSampler iteration too slow: {time_per_iter:.3f}s > 0.5s. "
+            "Expected vectorized implementation to be much faster."
+        )
+
+    def test_dynamic_curriculum_sampler_speed(self, large_dataset_params):
+        """Measure iteration speed of optimized DynamicCurriculumSampler.
+
+        Target: Complete 100k sample iteration in < 0.1 seconds.
+        """
+        from admet.model.chemprop.curriculum import CurriculumState
+        from admet.model.chemprop.curriculum_sampler import DynamicCurriculumSampler
+
+        _, quality_labels, num_samples = large_dataset_params
+
+        curriculum_state = CurriculumState(
+            qualities=["high", "medium", "low"],
+            patience=5,
+        )
+
+        sampler = DynamicCurriculumSampler(
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            num_samples=num_samples,
+            seed=42,
+            increment_seed_per_epoch=True,
+        )
+
+        # Warmup iteration
+        _ = list(sampler)
+
+        # Benchmark 10 iterations
+        num_iterations = 10
+        start = time.time()
+        for _ in range(num_iterations):
+            _ = list(sampler)
+        elapsed = time.time() - start
+
+        time_per_iter = elapsed / num_iterations
+        samples_per_second = num_samples / time_per_iter
+
+        print(f"\nDynamicCurriculumSampler Performance ({num_samples:,} samples):")
+        print(f"  Time per iteration: {time_per_iter:.4f}s")
+        print(f"  Samples per second: {samples_per_second:,.0f}")
+        print(f"  Total time (10 iters): {elapsed:.3f}s")
+
+        # Should complete in < 0.1 seconds per iteration for 100k samples
+        assert time_per_iter < 0.1, (
+            f"DynamicCurriculumSampler iteration too slow: {time_per_iter:.4f}s > 0.1s. "
+            "Expected vectorized implementation to be much faster."
+        )
+
+    def test_sampler_correctness_after_optimization(self, large_dataset_params):
+        """Verify optimized samplers still produce correct sampling behavior.
+
+        Note: JointSampler uses two-stage sampling (task first, then within-task
+        curriculum weighting), so the global quality distribution is influenced
+        by both task probabilities and curriculum weights. The test verifies:
+        1. All quality levels appear in samples (no zero-weight exclusion)
+        2. High-quality samples are more frequent than their raw proportion
+        3. Within-task curriculum weighting is applied correctly
+        """
+        from admet.model.chemprop.curriculum import CurriculumState
+        from admet.model.chemprop.joint_sampler import JointSampler
+
+        targets, quality_labels, num_samples = large_dataset_params
+
+        curriculum_state = CurriculumState(
+            qualities=["high", "medium", "low"],
+            patience=5,
+        )
+        # Set to expand phase for interesting weight distribution
+        curriculum_state.phase = "expand"
+
+        sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.5,  # Moderate task rebalancing
+            num_samples=50_000,  # Enough samples for statistical significance
+            seed=123,
+            increment_seed_per_epoch=False,
+        )
+
+        # Sample once
+        indices = list(sampler)
+
+        # Check quality distribution
+        actual_counts = {"high": 0, "medium": 0, "low": 0}
+        for idx in indices:
+            actual_counts[quality_labels[idx]] += 1
+
+        total = sum(actual_counts.values())
+        actual_probs = {k: v / total for k, v in actual_counts.items()}
+
+        # Calculate raw data proportions for comparison
+        raw_counts = {"high": 0, "medium": 0, "low": 0}
+        for label in quality_labels:
+            raw_counts[label] += 1
+        raw_total = sum(raw_counts.values())
+        raw_probs = {k: v / raw_total for k, v in raw_counts.items()}
+
+        print("\nQuality Distribution Verification (Two-Stage Sampling):")
+        print("  Raw data proportions:")
+        for quality in ["high", "medium", "low"]:
+            print(f"    {quality}: {raw_probs[quality]:.3f}")
+        print("  Sampled proportions:")
+        for quality in ["high", "medium", "low"]:
+            print(f"    {quality}: {actual_probs[quality]:.3f}")
+
+        # Verify all quality levels are sampled (no exclusions)
+        for quality in ["high", "medium", "low"]:
+            assert actual_counts[quality] > 0, f"Quality '{quality}' should have non-zero samples"
+
+        # Verify curriculum weighting increases high-quality representation
+        # High-quality is 5% of raw data, but should be > 5% after curriculum weighting
+        assert actual_probs["high"] > raw_probs["high"], (
+            f"High-quality proportion ({actual_probs['high']:.3f}) should exceed "
+            f"raw proportion ({raw_probs['high']:.3f}) due to curriculum weighting"
+        )
+
+        print("  ✅ Curriculum weighting correctly increases high-quality representation")
+        print("  ✅ All quality levels are sampled (no zero-weight exclusion)")

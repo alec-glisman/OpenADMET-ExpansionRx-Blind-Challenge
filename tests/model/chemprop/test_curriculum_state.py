@@ -25,7 +25,8 @@ class DummyModule:
 
 
 def test_curriculum_state_basic_phases():
-    state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+    # Use min_epochs_per_phase=0 to test phase transitions without minimum constraint
+    state = CurriculumState(qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0)
     assert state.phase == "warmup"
 
     # Simulate no improvement: best_val_top stays inf so it will update on first value
@@ -38,7 +39,7 @@ def test_curriculum_state_basic_phases():
 
 
 def test_curriculum_state_weights_for_phases():
-    state = CurriculumState(qualities=["high", "medium"], patience=1)
+    state = CurriculumState(qualities=["high", "medium"], patience=1, min_epochs_per_phase=0)
     assert state.weights["high"] > state.weights["medium"]
 
     # Force expand
@@ -46,13 +47,13 @@ def test_curriculum_state_weights_for_phases():
     weights_expand = state._weights_for_phase("expand")
     assert weights_expand["high"] > weights_expand["medium"]
 
-    # Polish maintains diversity with new defaults: [0.75, 0.25]
+    # Polish returns to warmup-like focus with new defaults: [0.90, 0.10]
     weights_polish = state._weights_for_phase("polish")
-    assert weights_polish["high"] == 0.75 and weights_polish["medium"] == 0.25
+    assert weights_polish["high"] == 0.90 and weights_polish["medium"] == 0.10
 
 
 def test_curriculum_state_single_quality():
-    state = CurriculumState(qualities=["high"], patience=1)
+    state = CurriculumState(qualities=["high"], patience=1, min_epochs_per_phase=0)
     assert state.weights["high"] == 1.0
 
     # Advance eventually to 'polish' (only two phases)
@@ -68,7 +69,7 @@ def test_curriculum_state_invalid_qualities():
 
 def test_curriculum_callback_logs(caplog):
     """Test that the callback logs transitions and calls pl_module.log()."""
-    state = CurriculumState(qualities=["high", "medium", "low"], patience=0)
+    state = CurriculumState(qualities=["high", "medium", "low"], patience=0, min_epochs_per_phase=0)
     cb = CurriculumCallback(state)
 
     # Create a dummy trainer and module; simulate metrics
@@ -95,7 +96,7 @@ def test_curriculum_callback_logs(caplog):
 
 def test_curriculum_callback_handles_nan():
     """Test that callback handles NaN validation loss."""
-    state = CurriculumState(qualities=["high", "medium", "low"], patience=0)
+    state = CurriculumState(qualities=["high", "medium", "low"], patience=0, min_epochs_per_phase=0)
     cb = CurriculumCallback(state)
 
     # Metrics with NaN should be ignored and no update occurs
@@ -104,3 +105,35 @@ def test_curriculum_callback_handles_nan():
     cb.on_validation_epoch_end(trainer, pl_module)
     # No logs created
     assert pl_module.logged == {}
+
+
+def test_curriculum_state_patience_resets_on_phase_change():
+    """Test that patience counter (best_epoch) resets when phase advances.
+
+    This prevents cascading phase transitions when the model doesn't immediately
+    improve after a phase change.
+    """
+    # Use min_epochs_per_phase=0 so we can test patience reset in isolation
+    state = CurriculumState(qualities=["high", "medium", "low"], patience=5, min_epochs_per_phase=0)
+    assert state.phase == "warmup"
+    assert state.best_epoch == 0
+
+    # Simulate improvement at epoch 0
+    state.update_from_val_top(epoch=0, top_loss=1.0)
+    assert state.best_epoch == 0
+
+    # No improvement for patience epochs -> should advance at epoch 5
+    state.maybe_advance_phase(epoch=5)
+    assert state.phase == "expand"
+    # CRITICAL: best_epoch should be reset to current epoch
+    assert state.best_epoch == 5, "best_epoch should reset to current epoch on phase change"
+
+    # Now if we call maybe_advance_phase again immediately, it should NOT advance
+    # because epoch - best_epoch < patience
+    state.maybe_advance_phase(epoch=6)
+    assert state.phase == "expand", "Phase should not advance before patience expires"
+
+    # Only after another patience period should it advance again
+    state.maybe_advance_phase(epoch=10)
+    assert state.phase == "robust"
+    assert state.best_epoch == 10, "best_epoch should reset again on second phase change"

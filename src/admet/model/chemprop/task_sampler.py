@@ -91,7 +91,8 @@ class TaskAwareSampler(Sampler[int]):
         logger.info("Task probabilities: %s", np.round(self.task_probs, 4))
 
     def __iter__(self) -> Iterator[int]:
-        # Generate list of tasks to sample from
+        # Vectorized two-stage sampling:
+        # Stage 1: Sample all tasks at once
         sampled_tasks = self.rng.choice(
             self.num_tasks,
             size=self.num_samples,
@@ -99,17 +100,42 @@ class TaskAwareSampler(Sampler[int]):
             replace=True,
         )
 
-        for task_idx in sampled_tasks:
-            # Sample a molecule index for this task
-            # We sample uniformly from the molecules that have this task
+        # Stage 2: Vectorized within-task sampling using bincount grouping
+        # Count how many samples needed per task
+        task_sample_counts = np.bincount(sampled_tasks, minlength=self.num_tasks)
+
+        # Pre-allocate output array
+        indices = np.empty(self.num_samples, dtype=np.int64)
+
+        # Track position for each task's samples in the output
+        task_positions = np.zeros(self.num_tasks, dtype=np.int64)
+        current_pos = np.zeros(self.num_tasks, dtype=np.int64)
+
+        # Create position mapping: for each task, where do its samples go?
+        for i, task_idx in enumerate(sampled_tasks):
+            if task_positions[task_idx] == 0 and current_pos[task_idx] == 0:
+                task_positions[task_idx] = i
+            current_pos[task_idx] += 1
+
+        # Batch sample for each task that has samples to draw
+        for task_idx in range(self.num_tasks):
+            count = task_sample_counts[task_idx]
+            if count == 0:
+                continue
+
             valid_indices = self.task_indices[task_idx]
             if len(valid_indices) > 0:
-                mol_idx = self.rng.choice(valid_indices)
-                yield int(mol_idx)
+                # Batch sample all molecules for this task at once
+                sampled_mols = self.rng.choice(valid_indices, size=count, replace=True)
             else:
-                # Fallback if task has no samples
-                # Just sample a random molecule from the whole dataset
-                yield int(self.rng.integers(0, len(self.targets)))
+                # Fallback: sample random molecules from whole dataset
+                sampled_mols = self.rng.integers(0, len(self.targets), size=count)
+
+            # Place samples at their correct positions (where sampled_tasks == task_idx)
+            task_mask = sampled_tasks == task_idx
+            indices[task_mask] = sampled_mols
+
+        yield from indices.tolist()
 
     def __len__(self) -> int:
         return self.num_samples

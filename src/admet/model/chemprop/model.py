@@ -3549,7 +3549,7 @@ def train_from_config(config_path: str, log_level: str = "INFO") -> None:
 
     # Export config for reproducibility
     exported_config = model.to_config()
-    logger.info("Exported config:\n%s", OmegaConf.to_yaml(OmegaConf.structured(exported_config)))
+    logger.debug("Exported config:\n%s", OmegaConf.to_yaml(OmegaConf.structured(exported_config)))
 
     # Close the MLflow run when done
     model.close()

@@ -505,17 +505,21 @@ class CurriculumConfig:
         quality_col: Column name containing quality labels.
         qualities: Ordered list of quality levels (highest to lowest).
         patience: Epochs without improvement before phase advance.
+        min_epochs_per_phase: Minimum epochs to stay in each phase.
         seed: Random seed for reproducible sampling.
         strategy: "sampled" uses weighted random sampling.
         count_normalize: If True, interpret weights as target proportions.
         min_high_quality_proportion: Minimum proportion of high-quality data.
         monitor_metric: Metric to monitor for phase advancement.
+        high_quality_metric: Metric for high-quality regression detection.
+        regression_threshold: Threshold for detecting high-quality regression.
     """
 
     enabled: bool = False
     quality_col: str = "Quality"
     qualities: List[str] = field(default_factory=lambda: ["high", "medium", "low"])
     patience: int = 5
+    min_epochs_per_phase: int = 10
     seed: int = 42
     save_plots: bool = False
     plot_dpi: int = 150
@@ -532,6 +536,8 @@ class CurriculumConfig:
     polish_proportions: Optional[List[float]] = None
     monitor_metric: str = "val_loss"
     early_stopping_metric: Optional[str] = None
+    high_quality_metric: Optional[str] = None
+    regression_threshold: float = 0.15
     adaptive_enabled: bool = False
     adaptive_improvement_threshold: float = 0.02
     adaptive_max_adjustment: float = 0.1

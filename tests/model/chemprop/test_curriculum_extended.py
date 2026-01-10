@@ -53,7 +53,8 @@ class TestCurriculumState:
 
     def test_phase_progression_three_qualities(self) -> None:
         """Test full phase progression with 3 qualities."""
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        # Use min_epochs_per_phase=0 to test phase transitions without minimum constraint
+        state = CurriculumState(qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0)
 
         # Start in warmup
         assert state.phase == "warmup"
@@ -78,7 +79,7 @@ class TestCurriculumState:
 
     def test_no_advance_on_improvement(self) -> None:
         """Test that phase doesn't advance when loss improves."""
-        state = CurriculumState(patience=2)
+        state = CurriculumState(patience=2, min_epochs_per_phase=0)
 
         state.update_from_val_top(0, 0.5)
         state.maybe_advance_phase(0)
@@ -97,37 +98,37 @@ class TestCurriculumState:
         """Test warmup phase weights (high quality focused)."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("warmup")
-        # New conservative defaults: [0.80, 0.15, 0.05]
-        assert weights["high"] == 0.80
-        assert weights["medium"] == 0.15
+        # New conservative defaults: [0.85, 0.10, 0.05]
+        assert weights["high"] == 0.85
+        assert weights["medium"] == 0.10
         assert weights["low"] == 0.05
 
     def test_weights_for_expand_phase(self) -> None:
         """Test expand phase weights."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("expand")
-        # New conservative defaults: [0.60, 0.30, 0.10]
-        assert weights["high"] == 0.60
-        assert weights["medium"] == 0.30
+        # New conservative defaults: [0.65, 0.25, 0.10]
+        assert weights["high"] == 0.65
+        assert weights["medium"] == 0.25
         assert weights["low"] == 0.10
 
     def test_weights_for_robust_phase(self) -> None:
         """Test robust phase weights."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("robust")
-        # New conservative defaults: [0.50, 0.35, 0.15]
-        assert weights["high"] == 0.50
-        assert weights["medium"] == 0.35
+        # New conservative defaults: [0.55, 0.30, 0.15]
+        assert weights["high"] == 0.55
+        assert weights["medium"] == 0.30
         assert weights["low"] == 0.15
 
     def test_weights_for_polish_phase(self) -> None:
-        """Test polish phase weights (back to high quality but maintaining diversity)."""
+        """Test polish phase weights (returns to warmup-like focus)."""
         state = CurriculumState(qualities=["high", "medium", "low"])
         weights = state._weights_for_phase("polish")
-        # New conservative defaults: [0.70, 0.20, 0.10] - keeps some diversity
-        assert weights["high"] == 0.70
-        assert weights["medium"] == 0.20
-        assert weights["low"] == 0.10
+        # New defaults: [0.85, 0.10, 0.05] - same as warmup for final refinement
+        assert weights["high"] == 0.85
+        assert weights["medium"] == 0.10
+        assert weights["low"] == 0.05
 
 
 class TestCurriculumCallback:
@@ -149,7 +150,7 @@ class TestCurriculumCallback:
 
     def test_callback_updates_state(self, mocker) -> None:
         """Test that callback updates curriculum state on validation end."""
-        state = CurriculumState(patience=1)
+        state = CurriculumState(patience=1, min_epochs_per_phase=0)
         callback = CurriculumCallback(state)
 
         # Create mock trainer and module
@@ -167,7 +168,7 @@ class TestCurriculumCallback:
         """Test that callback handles torch tensor values."""
         import torch
 
-        state = CurriculumState()
+        state = CurriculumState(min_epochs_per_phase=0)
         callback = CurriculumCallback(state)
 
         trainer = SimpleNamespace(
@@ -182,7 +183,7 @@ class TestCurriculumCallback:
 
     def test_callback_ignores_nan_values(self, mocker) -> None:
         """Test that callback ignores NaN validation loss."""
-        state = CurriculumState()
+        state = CurriculumState(min_epochs_per_phase=0)
         state.update_from_val_top(0, 0.5)  # Set initial value
         callback = CurriculumCallback(state)
 
@@ -199,7 +200,7 @@ class TestCurriculumCallback:
 
     def test_callback_ignores_missing_metric(self, mocker) -> None:
         """Test that callback handles missing metric gracefully."""
-        state = CurriculumState()
+        state = CurriculumState(min_epochs_per_phase=0)
         callback = CurriculumCallback(state)
 
         trainer = SimpleNamespace(
@@ -215,7 +216,7 @@ class TestCurriculumCallback:
 
     def test_callback_logs_phase_transition(self, mocker) -> None:
         """Test that callback logs phase transitions."""
-        state = CurriculumState(patience=1)
+        state = CurriculumState(patience=1, min_epochs_per_phase=0)
         callback = CurriculumCallback(state)
 
         # First epoch - establish baseline
@@ -245,7 +246,7 @@ class TestCurriculumCallback:
 
     def test_callback_logs_metrics_on_phase_change(self, mocker) -> None:
         """Test that callback logs metrics to pl_module on phase change."""
-        state = CurriculumState(patience=1)
+        state = CurriculumState(patience=1, min_epochs_per_phase=0)
         callback = CurriculumCallback(state)
 
         pl_module = mocker.MagicMock()
@@ -292,7 +293,8 @@ class TestCurriculumPhaseWeightsConsistency:
     def test_phase_sequence_by_num_qualities(self, n_qualities: int, expected_phases: list[str]) -> None:
         """Test that phase sequence depends on number of qualities."""
         qualities = [f"q{i}" for i in range(n_qualities)]
-        state = CurriculumState(qualities=qualities, patience=1)
+        # Use min_epochs_per_phase=0 to test phase transitions without minimum constraint
+        state = CurriculumState(qualities=qualities, patience=1, min_epochs_per_phase=0)
 
         visited_phases = [state.phase]
         for epoch in range(1, len(expected_phases) + 5):
@@ -307,7 +309,7 @@ class TestCurriculumPhaseWeightsConsistency:
         """Test that weights always sum to 1 across all phases."""
         for n_qualities in [1, 2, 3, 4, 5]:
             qualities = [f"q{i}" for i in range(n_qualities)]
-            state = CurriculumState(qualities=qualities)
+            state = CurriculumState(qualities=qualities, min_epochs_per_phase=0)
 
             for phase in ["warmup", "expand", "robust", "polish"]:
                 weights = state._weights_for_phase(phase)
@@ -316,7 +318,7 @@ class TestCurriculumPhaseWeightsConsistency:
 
     def test_weights_non_negative(self) -> None:
         """Test that all weights are non-negative."""
-        state = CurriculumState(qualities=["high", "medium", "low"])
+        state = CurriculumState(qualities=["high", "medium", "low"], min_epochs_per_phase=0)
 
         for phase in ["warmup", "expand", "robust", "polish"]:
             weights = state._weights_for_phase(phase)

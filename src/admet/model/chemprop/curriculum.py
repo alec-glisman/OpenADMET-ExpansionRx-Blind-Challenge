@@ -42,32 +42,34 @@ class CurriculumPhaseConfig:
     Examples
     --------
     Three quality levels ["high", "medium", "low"] with count_normalize=True:
-    - warmup: [0.80, 0.15, 0.05] -> 80% high, 15% medium, 5% low in actual batches
-    - expand: [0.60, 0.30, 0.10] -> 60% high, 30% medium, 10% low
-    - robust: [0.50, 0.35, 0.15] -> 50% high, 35% medium, 15% low
-    - polish: [0.70, 0.20, 0.10] -> 70% high, 20% medium, 10% low (maintains diversity)
+    - warmup: [0.85, 0.10, 0.05] -> 85% high, 10% medium, 5% low (establish baseline)
+    - expand: [0.65, 0.25, 0.10] -> 65% high, 25% medium, 10% low (add diversity)
+    - robust: [0.55, 0.30, 0.15] -> 55% high, 30% medium, 15% low (max diversity)
+    - polish: [0.85, 0.10, 0.05] -> 85% high, 10% medium, 5% low (refine on high-quality)
     """
 
     available_phases: List[str] = field(default_factory=lambda: ["warmup", "expand", "robust", "polish"])
 
     count_normalize: bool = True
 
-    min_high_quality_proportion: float = 0.25
+    min_high_quality_proportion: float = 0.50
+
+    min_epochs_per_phase: int = 10
 
     two_quality: Dict[str, List[float]] = field(
         default_factory=lambda: {
-            "warmup": [0.85, 0.15],
-            "expand": [0.65, 0.35],
-            "polish": [0.75, 0.25],
+            "warmup": [0.90, 0.10],
+            "expand": [0.70, 0.30],
+            "polish": [0.90, 0.10],
         }
     )
 
     three_quality: Dict[str, List[float]] = field(
         default_factory=lambda: {
-            "warmup": [0.80, 0.15, 0.05],
-            "expand": [0.60, 0.30, 0.10],
-            "robust": [0.50, 0.35, 0.15],
-            "polish": [0.70, 0.20, 0.10],
+            "warmup": [0.85, 0.10, 0.05],
+            "expand": [0.65, 0.25, 0.10],
+            "robust": [0.55, 0.30, 0.15],
+            "polish": [0.85, 0.10, 0.05],
         }
     )
 
@@ -76,10 +78,16 @@ class CurriculumState:
     """Simple quality-aware curriculum state.
 
     Phases:
-      - warmup: focus on high-quality data
-      - expand: include more medium-quality
-      - robust: include some low-quality
-      - polish: re-focus on high-quality
+      - warmup: focus on high-quality data (establish strong baseline)
+      - expand: include more medium-quality (add diversity)
+      - robust: include some low-quality (max diversity for generalization)
+      - polish: re-focus on high-quality (refine final performance)
+
+    Key design principles:
+      1. High-quality data is always the ultimate goal
+      2. Lower-quality data aids generalization but should not dominate
+      3. Each phase gets minimum training time before transitioning
+      4. Regression protection prevents catastrophic forgetting of high-quality patterns
     """
 
     def __init__(
@@ -87,6 +95,7 @@ class CurriculumState:
         qualities: Optional[List[str]] = None,
         patience: int = 3,
         config: Optional[CurriculumPhaseConfig] = None,
+        min_epochs_per_phase: Optional[int] = None,
     ):
         """Create a curriculum that can support arbitrary quality labels.
 
@@ -98,6 +107,9 @@ class CurriculumState:
             Number of epochs with no improvement before moving to the next phase.
         config
             Phase configuration (names and weights). If None, uses default configuration.
+        min_epochs_per_phase
+            Minimum epochs to train in each phase before allowing transition.
+            Overrides config.min_epochs_per_phase if provided.
         """
         if qualities is None:
             qualities = ["high", "medium", "low"]
@@ -115,6 +127,10 @@ class CurriculumState:
         self.best_val_top = float("inf")
         self.best_epoch = 0
         self.patience = patience
+        self.min_epochs_per_phase = (
+            min_epochs_per_phase if min_epochs_per_phase is not None else self.config.min_epochs_per_phase
+        )
+        self._phase_start_epoch = 0  # Track when current phase started
 
     def target_metric_key(self) -> str:
         """Return the default metric key monitored by the curriculum.
@@ -145,6 +161,54 @@ class CurriculumState:
             self.best_val_top = top_loss
             self.best_epoch = epoch
 
+    def boost_high_quality_weight(self, boost_factor: float = 0.1) -> bool:
+        """Boost high-quality sampling weight when performance regression is detected.
+
+        This is a safety mechanism to prevent catastrophic forgetting of high-quality
+        patterns when lower-quality data degrades model performance.
+
+        Parameters
+        ----------
+        boost_factor : float, default=0.1
+            Amount to increase high-quality weight (10% by default).
+
+        Returns
+        -------
+        bool
+            True if weights were adjusted, False if already at maximum.
+        """
+        high_quality = self.qualities[0]
+        current_high = self.weights.get(high_quality, 0.0)
+
+        # Already at high weight, can't boost further
+        if current_high >= 0.95:
+            return False
+
+        new_high = min(0.95, current_high + boost_factor)
+        actual_boost = new_high - current_high
+
+        # Redistribute from other qualities proportionally
+        other_total = sum(self.weights.get(q, 0.0) for q in self.qualities[1:])
+        if other_total <= 0:
+            return False
+
+        new_weights = {high_quality: new_high}
+        for quality in self.qualities[1:]:
+            old_weight = self.weights.get(quality, 0.0)
+            reduction = actual_boost * (old_weight / other_total)
+            new_weights[quality] = max(0.01, old_weight - reduction)
+
+        # Normalize
+        total = sum(new_weights.values())
+        self.weights = {k: v / total for k, v in new_weights.items()}
+
+        logger.info(
+            "High-quality weight boosted by %.1f%% -> new weights: %s",
+            actual_boost * 100,
+            {k: f"{v:.2%}" for k, v in self.weights.items()},
+        )
+        return True
+
     def maybe_advance_phase(self, epoch: int):
         """Advance to the next phase when patience has passed with no top-quality improvement.
 
@@ -152,8 +216,24 @@ class CurriculumState:
         datasets this will simply do warmup -> polish (return focus to top quality).
         For 2-quality datasets: warmup -> expand -> polish.
         For >=3: warmup -> expand -> robust -> polish.
+
+        Phase advancement requires BOTH:
+        1. Patience epochs with no improvement
+        2. Minimum epochs in current phase (prevents premature transitions)
         """
+        # Check patience condition
         if epoch - self.best_epoch < self.patience:
+            return
+
+        # Check minimum epochs condition
+        epochs_in_phase = epoch - self._phase_start_epoch
+        if epochs_in_phase < self.min_epochs_per_phase:
+            logger.debug(
+                "Phase '%s' has only %d epochs (min=%d), waiting before transition",
+                self.phase,
+                epochs_in_phase,
+                self.min_epochs_per_phase,
+            )
             return
 
         n = len(self.qualities)
@@ -178,6 +258,16 @@ class CurriculumState:
             self.weights = self._weights_for_phase(self.phase)
             # Store base weights for adaptive adjustments
             self._base_weights = dict(self.weights)
+            # Reset patience counter to give new phase full window
+            self.best_epoch = epoch
+            # Track phase start for minimum epochs enforcement
+            self._phase_start_epoch = epoch
+            logger.info(
+                "Phase advanced to '%s' at epoch %d (after %d epochs in previous phase)",
+                self.phase,
+                epoch,
+                epochs_in_phase,
+            )
 
     def _weights_for_phase(self, phase: str) -> dict:
         """Return a weight mapping for the given phase adapted to the number of qualities."""
@@ -219,12 +309,20 @@ class CurriculumCallback(pl.Callback):
     Phase transitions are logged with epoch number and step for tracking
     curriculum progression during training.
 
+    Includes regression protection: if high-quality metric degrades significantly
+    after adding lower-quality data, the high-quality sampling weight is boosted.
+
     Parameters
     ----------
     curr_state : CurriculumState
         The curriculum state object to update.
     monitor_metric : str, optional
         Metric key to monitor for phase transitions. Defaults to 'val_loss'.
+    high_quality_metric : str, optional
+        Metric key for high-quality data performance (e.g., 'val/mae/high').
+        Used for regression protection. If None, no regression protection.
+    regression_threshold : float, default=0.15
+        Relative performance degradation (15%) that triggers regression protection.
     reset_early_stopping_on_phase_change : bool, default=False
         Whether to reset early stopping patience when advancing phases.
     log_per_quality_metrics : bool, default=True
@@ -237,6 +335,8 @@ class CurriculumCallback(pl.Callback):
         self,
         curr_state: CurriculumState,
         monitor_metric: Optional[str] = None,
+        high_quality_metric: Optional[str] = None,
+        regression_threshold: float = 0.15,
         reset_early_stopping_on_phase_change: bool = False,
         log_per_quality_metrics: bool = True,
         quality_labels: Optional[List[str]] = None,
@@ -244,10 +344,16 @@ class CurriculumCallback(pl.Callback):
         super().__init__()
         self.curr_state = curr_state
         self.monitor_metric = monitor_metric
+        self.high_quality_metric = high_quality_metric
+        self.regression_threshold = regression_threshold
         self._previous_phase = curr_state.phase
         self.reset_early_stopping_on_phase_change = reset_early_stopping_on_phase_change
         self.log_per_quality_metrics = log_per_quality_metrics
         self.quality_labels = quality_labels
+
+        # Track best high-quality metric for regression protection
+        self._best_high_quality_metric = float("inf")
+        self._regression_boost_cooldown = 0  # Epochs to wait before another boost
 
         # Warn about potential infinite training when reset_early_stopping_on_phase_change=True
         if reset_early_stopping_on_phase_change:
@@ -307,6 +413,68 @@ class CurriculumCallback(pl.Callback):
                 logger.info("Reset early stopping patience after curriculum phase change")
                 break
 
+    def _check_regression_protection(
+        self,
+        trainer: Any,  # noqa: ARG002
+        pl_module: pl.LightningModule,
+        metrics: Dict[str, Any],
+        epoch: int,
+    ) -> None:
+        """Check for high-quality performance regression and boost weight if needed.
+
+        This prevents catastrophic forgetting of high-quality patterns when
+        lower-quality data is introduced.
+        """
+        if self.high_quality_metric is None:
+            return
+
+        # Cooldown period after a boost
+        if self._regression_boost_cooldown > 0:
+            self._regression_boost_cooldown -= 1
+            return
+
+        # Get high-quality metric value
+        hq_val = metrics.get(self.high_quality_metric)
+        if hq_val is None:
+            return
+
+        try:
+            hq_v = hq_val.item() if hasattr(hq_val, "item") else float(hq_val)
+        except Exception:
+            return
+
+        if math.isnan(hq_v):
+            return
+
+        # Update best if improved
+        if hq_v < self._best_high_quality_metric:
+            self._best_high_quality_metric = hq_v
+            return
+
+        # Check for regression (only in non-warmup phases)
+        if self.curr_state.phase == "warmup":
+            return
+
+        relative_regression = (hq_v - self._best_high_quality_metric) / max(self._best_high_quality_metric, 1e-6)
+
+        if relative_regression > self.regression_threshold:
+            import logging
+
+            logger = logging.getLogger("admet.model.chemprop.curriculum")
+            logger.warning(
+                "High-quality regression detected at epoch %d: %.4f -> %.4f (%.1f%% worse). "
+                "Boosting high-quality weight.",
+                epoch,
+                self._best_high_quality_metric,
+                hq_v,
+                relative_regression * 100,
+            )
+
+            boosted = self.curr_state.boost_high_quality_weight(boost_factor=0.10)
+            if boosted:
+                pl_module.log("curriculum/regression_boost", 1.0, on_step=False, on_epoch=True)
+                self._regression_boost_cooldown = 5  # Wait 5 epochs before another boost
+
     def _log_per_quality_metrics(
         self,
         trainer: Any,  # noqa: ARG002
@@ -364,6 +532,9 @@ class CurriculumCallback(pl.Callback):
         global_step = trainer.global_step
         self.curr_state.update_from_val_top(epoch, float(v))
         self.curr_state.maybe_advance_phase(epoch)
+
+        # Regression protection: check high-quality metric degradation
+        self._check_regression_protection(trainer, pl_module, metrics, epoch)
 
         # Log per-quality metrics
         self._log_per_quality_metrics(trainer, pl_module, metrics)

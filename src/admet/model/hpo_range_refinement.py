@@ -180,7 +180,7 @@ def _compute_refined_range(
     use_percentiles: bool = True,
     percentile_low: float = 10.0,
     percentile_high: float = 90.0,
-) -> tuple[float, float]:
+) -> tuple[float, float] | None:
     """Compute refined range from observed values.
 
     Args:
@@ -192,14 +192,14 @@ def _compute_refined_range(
         percentile_high: Upper percentile
 
     Returns:
-        Tuple of (low, high) for the refined range
+        Tuple of (low, high) for the refined range, or None if no valid values
     """
     import numpy as np
 
     values_arr = np.array([v for v in values if v is not None and not np.isnan(v)])
 
     if len(values_arr) == 0:
-        raise ValueError("No valid values to compute range")
+        return None  # Signal to caller to use original param unchanged
 
     # Compute base range
     if use_percentiles and len(values_arr) >= 5:
@@ -309,7 +309,7 @@ def analyze_parameter(
     if original_type in ("uniform", "loguniform", "quniform", "randint", "qrandint"):
         numeric_values = [v for v in values if isinstance(v, (int, float))]
         if numeric_values:
-            refined.refined_low, refined.refined_high = _compute_refined_range(
+            result = _compute_refined_range(
                 numeric_values,
                 original_type,
                 margin_factor,
@@ -318,10 +318,29 @@ def analyze_parameter(
                 percentile_high,
             )
 
+            # If no valid values after NaN filtering, keep original
+            if result is None:
+                logger.warning(
+                    "Parameter %s: no valid values after filtering, keeping original range",
+                    param_name,
+                )
+                return refined
+
+            refined.refined_low, refined.refined_high = result
+
             # For integer types, round bounds
             if original_type in ("randint", "qrandint"):
                 refined.refined_low = int(math.floor(refined.refined_low))
                 refined.refined_high = int(math.ceil(refined.refined_high))
+
+            # For quantized types, round bounds to multiples of q
+            if original_type in ("quniform", "qrandint") and original_param is not None:
+                q = original_param.q
+                if q is not None and q > 0:
+                    # Round low down to nearest multiple of q
+                    refined.refined_low = math.floor(refined.refined_low / q) * q
+                    # Round high up to nearest multiple of q
+                    refined.refined_high = math.ceil(refined.refined_high / q) * q
 
             logger.info(
                 "Parameter %s: refined [%.6g, %.6g] (observed %d values)",
@@ -583,10 +602,7 @@ def refine_chemeleon_search_space(
         New ChemeleonSearchSpaceConfig with refined parameter ranges
     """
     # Import here to avoid circular imports
-    from admet.model.chemeleon.hpo_config import (
-        ChemeleonSearchSpaceConfig,
-        ParameterSpace as ChemeleonParameterSpace,
-    )
+    from admet.model.chemeleon.hpo_config import ChemeleonSearchSpaceConfig, ParameterSpace as ChemeleonParameterSpace
 
     if not refinement.enabled:
         logger.info("Refinement disabled, returning base config unchanged")

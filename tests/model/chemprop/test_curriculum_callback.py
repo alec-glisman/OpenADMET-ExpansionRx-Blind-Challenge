@@ -30,12 +30,12 @@ class DummyModule:
 
 
 def test_curriculum_state_weights_and_phases():
-    state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+    state = CurriculumState(qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0)
     # Initial phase is warmup
     assert state.phase == "warmup"
-    # Warmup weights - new defaults [0.80, 0.15, 0.05]
+    # Warmup weights - new defaults [0.85, 0.10, 0.05]
     w = state.sampling_probs()
-    assert abs(w["high"] - 0.80) < 1e-6
+    assert abs(w["high"] - 0.85) < 1e-6
 
     # Simulate improvement and advancement
     state.update_from_val_top(epoch=0, top_loss=0.5)
@@ -49,7 +49,7 @@ def test_curriculum_state_weights_and_phases():
 
 
 def test_curriculum_callback_updates_phase_and_logs(caplog):
-    state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+    state = CurriculumState(qualities=["high", "medium", "low"], patience=1, min_epochs_per_phase=0)
     cb = CurriculumCallback(state)
 
     # create dummy trainer and module

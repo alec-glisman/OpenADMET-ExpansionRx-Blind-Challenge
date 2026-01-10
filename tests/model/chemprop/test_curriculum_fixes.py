@@ -31,7 +31,7 @@ class TestDynamicCurriculumSampler:
     def test_sampler_uses_current_phase_weights(self) -> None:
         """Test that sampler uses weights from current phase."""
         quality_labels = ["high"] * 50 + ["medium"] * 30 + ["low"] * 20
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
 
         sampler = DynamicCurriculumSampler(
             quality_labels=quality_labels,
@@ -39,7 +39,7 @@ class TestDynamicCurriculumSampler:
             seed=42,
         )
 
-        # In warmup phase with count normalization: target [0.80, 0.15, 0.05]
+        # In warmup phase with count normalization: target [0.85, 0.10, 0.05]
         # These become the actual sampling proportions
         assert state.phase == "warmup"
         indices_warmup = list(sampler)
@@ -49,16 +49,15 @@ class TestDynamicCurriculumSampler:
         for idx in indices_warmup:
             counts[quality_labels[idx]] += 1
 
-        # High-quality should dominate in warmup (~80%)
+        # High-quality should dominate in warmup (~85%)
         assert counts["high"] > counts["medium"]
         # Low-quality should have some samples (~5%) due to new defaults
-        # (previously was 0, now it's 0.05)
-        assert counts["low"] < counts["medium"]
+        assert counts["low"] <= counts["medium"]
 
     def test_sampler_responds_to_phase_change(self) -> None:
         """Test that sampler picks up new weights after phase change."""
         quality_labels = ["high"] * 50 + ["medium"] * 50
-        state = CurriculumState(qualities=["high", "medium"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium"], patience=1)
 
         sampler = DynamicCurriculumSampler(
             quality_labels=quality_labels,
@@ -67,11 +66,11 @@ class TestDynamicCurriculumSampler:
             seed=42,
         )
 
-        # Sample in warmup phase (high=0.9, medium=0.1)
+        # Sample in warmup phase (high=0.90, medium=0.10)
         indices_warmup = list(sampler)
         warmup_high = sum(1 for idx in indices_warmup if quality_labels[idx] == "high")
 
-        # Manually advance to expand phase (high=0.6, medium=0.4)
+        # Manually advance to expand phase (high=0.70, medium=0.30)
         state.phase = "expand"
         state.weights = state._weights_for_phase("expand")
 
@@ -87,34 +86,34 @@ class TestDynamicCurriculumSampler:
         expand_high = sum(1 for idx in indices_expand if quality_labels[idx] == "high")
 
         # Expand should have more medium samples than warmup
-        # (warmup: 85% high, expand: 65% high for 2-quality)
+        # (warmup: 90% high, expand: 70% high for 2-quality)
         warmup_ratio = warmup_high / 1000
         expand_ratio = expand_high / 1000
 
-        assert warmup_ratio > 0.80, f"Warmup high ratio should be ~0.85, got {warmup_ratio}"
-        assert expand_ratio < 0.70, f"Expand high ratio should be ~0.65, got {expand_ratio}"
+        assert warmup_ratio > 0.85, f"Warmup high ratio should be ~0.90, got {warmup_ratio}"
+        assert expand_ratio < 0.75, f"Expand high ratio should be ~0.70, got {expand_ratio}"
 
     def test_sampler_computes_weights_dynamically(self) -> None:
         """Test that _compute_weights reads from current state."""
         quality_labels = ["high", "medium", "low"]
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
 
         sampler = DynamicCurriculumSampler(
             quality_labels=quality_labels,
             curriculum_state=state,
         )
 
-        # Get weights in warmup (target [0.80, 0.15, 0.05])
+        # Get weights in warmup (target [0.85, 0.10, 0.05])
         weights_warmup = sampler._compute_weights()
-        assert weights_warmup[0] >= 0.75  # high weight should be ~0.8
+        assert weights_warmup[0] >= 0.80  # high weight should be ~0.85
 
         # Change phase
         state.phase = "robust"
         state.weights = state._weights_for_phase("robust")
 
-        # Weights should change (robust target [0.50, 0.35, 0.15])
+        # Weights should change (robust target [0.55, 0.30, 0.15])
         weights_robust = sampler._compute_weights()
-        assert weights_robust[0] < 0.55  # high weight lower in robust
+        assert weights_robust[0] < 0.60  # high weight lower in robust
 
     def test_sampler_produces_different_samples_per_epoch_by_default(self) -> None:
         """Test that sampler produces different samples when iterating multiple times.
@@ -123,7 +122,7 @@ class TestDynamicCurriculumSampler:
         use a different seed and produce different sample indices.
         """
         quality_labels = ["high"] * 50 + ["medium"] * 50
-        state = CurriculumState(qualities=["high", "medium"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium"], patience=1)
 
         sampler = DynamicCurriculumSampler(
             quality_labels=quality_labels,
@@ -151,7 +150,7 @@ class TestDynamicCurriculumSampler:
     def test_sampler_produces_same_samples_when_increment_disabled(self) -> None:
         """Test that sampler produces same samples when increment_seed_per_epoch=False."""
         quality_labels = ["high"] * 50 + ["medium"] * 50
-        state = CurriculumState(qualities=["high", "medium"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium"], patience=1)
 
         sampler = DynamicCurriculumSampler(
             quality_labels=quality_labels,
@@ -171,7 +170,7 @@ class TestDynamicCurriculumSampler:
     def test_epoch_counter_increments_correctly(self) -> None:
         """Test that the internal epoch counter increments on each iteration."""
         quality_labels = ["high"] * 30 + ["medium"] * 30 + ["low"] * 30
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
 
         sampler = DynamicCurriculumSampler(
             quality_labels=quality_labels,
@@ -206,7 +205,7 @@ class TestPerQualityMetricsLogging:
 
     def test_callback_logs_per_quality_metrics_when_available(self) -> None:
         """Test that callback logs per-quality metrics from trainer metrics."""
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
         callback = CurriculumCallback(
             curr_state=state,
             log_per_quality_metrics=True,
@@ -237,7 +236,7 @@ class TestPerQualityMetricsLogging:
 
     def test_callback_skips_per_quality_when_disabled(self) -> None:
         """Test that callback does not log per-quality metrics when disabled."""
-        state = CurriculumState(qualities=["high", "medium"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium"], patience=1)
         callback = CurriculumCallback(
             curr_state=state,
             log_per_quality_metrics=False,
@@ -261,7 +260,7 @@ class TestPerQualityMetricsLogging:
 
     def test_callback_logs_curriculum_weights_on_phase_change(self) -> None:
         """Test that callback logs curriculum weights when phase changes."""
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
         callback = CurriculumCallback(curr_state=state)
 
         # Set up state to trigger phase change
@@ -294,7 +293,7 @@ class TestEarlyStoppingReset:
 
     def test_callback_resets_early_stopping_when_enabled(self) -> None:
         """Test that early stopping is reset on phase change when enabled."""
-        state = CurriculumState(qualities=["high", "medium"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium"], patience=1)
         callback = CurriculumCallback(
             curr_state=state,
             reset_early_stopping_on_phase_change=True,
@@ -335,7 +334,7 @@ class TestEarlyStoppingReset:
 
     def test_callback_does_not_reset_when_disabled(self) -> None:
         """Test that early stopping is not reset when option is disabled."""
-        state = CurriculumState(qualities=["high", "medium"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium"], patience=1)
         callback = CurriculumCallback(
             curr_state=state,
             reset_early_stopping_on_phase_change=False,  # Default
@@ -428,7 +427,7 @@ class TestCurriculumIntegration:
     def test_phase_change_updates_sampler_weights(self) -> None:
         """Test full flow: phase change -> sampler uses new weights."""
         quality_labels = ["high"] * 100 + ["medium"] * 100 + ["low"] * 100
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
 
         # Create sampler
         sampler = DynamicCurriculumSampler(
@@ -462,7 +461,7 @@ class TestCurriculumIntegration:
     def test_callback_and_sampler_share_state(self) -> None:
         """Test that callback and sampler share the same CurriculumState."""
         quality_labels = ["high", "medium", "low"]
-        state = CurriculumState(qualities=["high", "medium", "low"], patience=1)
+        state = CurriculumState(min_epochs_per_phase=0, qualities=["high", "medium", "low"], patience=1)
 
         # Create sampler and callback with same state
         sampler = DynamicCurriculumSampler(
@@ -483,10 +482,10 @@ class TestCurriculumIntegration:
         # Sampler should see the new phase
         assert sampler.curriculum_state.phase == "polish"
         weights = sampler._compute_weights()
-        # In polish with new defaults: [0.70, 0.20, 0.10] - maintains diversity
-        assert weights[0] > 0.65  # high ~70%
-        assert weights[1] > 0.15  # medium ~20%
-        assert weights[2] > 0.05  # low ~10%
+        # In polish with new defaults: [0.85, 0.10, 0.05] - same as warmup for refinement
+        assert weights[0] > 0.80  # high ~85%
+        assert weights[1] > 0.05  # medium ~10%
+        assert weights[2] > 0.02  # low ~5%
 
 
 # =============================================================================

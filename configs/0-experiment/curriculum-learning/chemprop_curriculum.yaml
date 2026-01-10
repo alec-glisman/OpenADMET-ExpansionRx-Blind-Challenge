@@ -36,24 +36,27 @@ joint_sampling:
       - high
       - medium
       - low
-    patience: 5
+    patience: 20
+    min_epochs_per_phase: 15
     strategy: sampled
     reset_early_stopping_on_phase_change: true
     log_per_quality_metrics: true
     seed: 42
     count_normalize: true
-    min_high_quality_proportion: 0.25
-    monitor_metric: val/mae/high
-    early_stopping_metric: null
+    min_high_quality_proportion: 0.50
+    monitor_metric: val/mae
+    early_stopping_metric: val/mae
+    high_quality_metric: val/mae/high
+    regression_threshold: 0.15
     adaptive_enabled: false
     adaptive_improvement_threshold: 0.02
     adaptive_max_adjustment: 0.1
     adaptive_lookback_epochs: 5
-    loss_weighting_enabled: false
+    loss_weighting_enabled: true
     loss_weights:
       high: 1.0
-      medium: 0.5
-      low: 0.3
+      medium: 0.7
+      low: 0.4
   num_samples: null
   seed: 42
   increment_seed_per_epoch: true
@@ -78,7 +81,7 @@ optimization:
   final_lr: 0.000113
   warmup_epochs: 5
   max_epochs: 400
-  patience: 15
+  patience: 40
   batch_size: 128
   num_workers: 0 # Must be 0 with curriculum - sampler state not synchronized across workers
   accumulate_grad_batches: 1

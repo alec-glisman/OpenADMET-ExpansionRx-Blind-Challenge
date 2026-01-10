@@ -57,6 +57,26 @@ class TestLoadTopConfigs:
 class TestComputeRefinedRange:
     """Tests for _compute_refined_range function."""
 
+    def test_empty_values_returns_none(self) -> None:
+        """Test that empty values after NaN filtering returns None."""
+        result = _compute_refined_range(
+            [],
+            original_type="uniform",
+            margin_factor=0.0,
+            use_percentiles=False,
+        )
+        assert result is None
+
+    def test_all_nan_values_returns_none(self) -> None:
+        """Test that all-NaN values returns None."""
+        result = _compute_refined_range(
+            [float("nan"), float("nan")],
+            original_type="uniform",
+            margin_factor=0.0,
+            use_percentiles=False,
+        )
+        assert result is None
+
     def test_uniform_range_no_margin(self) -> None:
         """Test uniform range computation without margin."""
         values = [1.0, 2.0, 3.0, 4.0, 5.0]

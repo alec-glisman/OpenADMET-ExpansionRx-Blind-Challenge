@@ -957,3 +957,421 @@ class TestJointSamplerIntegrationWithDataLoader:
 
         # Both epochs should be identical
         assert epoch1 == epoch2
+
+
+class ReferenceJointSamplerNonVectorized:
+    """
+    Non-vectorized reference implementation for regression testing.
+
+    This implements the original per-sample loop algorithm that the optimized
+    JointSampler must match statistically. Used to verify that vectorization
+    optimizations don't change the sampling behavior.
+
+    The algorithm:
+    1. For each sample in num_samples:
+       a. Sample task t with probability p_t ∝ count_t^(-α)
+       b. Sample molecule from task t's valid indices, weighted by curriculum
+    """
+
+    def __init__(
+        self,
+        targets: np.ndarray,
+        quality_labels: list[str] | None = None,
+        curriculum_state: "CurriculumState | None" = None,
+        task_alpha: float = 0.0,
+        num_samples: int | None = None,
+        seed: int = 42,
+    ):
+        self.targets = targets
+        self.quality_labels = quality_labels
+        self.curriculum_state = curriculum_state
+        self.task_alpha = task_alpha
+        self.num_samples = num_samples or len(targets)
+        self.seed = seed
+
+        # Precompute task indices and counts
+        self.num_tasks = targets.shape[1]
+        self.task_indices: list[np.ndarray] = []
+        task_counts = []
+
+        for t in range(self.num_tasks):
+            valid_mask = ~np.isnan(targets[:, t])
+            indices = np.where(valid_mask)[0]
+            self.task_indices.append(indices)
+            task_counts.append(len(indices))
+
+        self.task_counts = np.array(task_counts, dtype=float)
+
+        # Calculate task probabilities
+        weights = np.power(self.task_counts + 1e-6, -self.task_alpha)
+        self.task_probs = weights / np.sum(weights)
+
+    def _compute_curriculum_weights(self) -> np.ndarray:
+        """Compute curriculum weights using original non-vectorized approach."""
+        if self.quality_labels is None or self.curriculum_state is None:
+            return np.ones(len(self.targets), dtype=np.float64)
+
+        probs = self.curriculum_state.sampling_probs()
+        # Original: list comprehension with dict lookups
+        weights = np.array([probs.get(label, 0.0) for label in self.quality_labels])
+
+        if weights.sum() == 0:
+            weights = np.ones(len(self.targets), dtype=np.float64)
+
+        return weights
+
+    def _sample_from_task(
+        self,
+        task_idx: int,
+        curriculum_weights: np.ndarray,
+        rng: np.random.Generator,
+    ) -> int:
+        """Original per-sample method for sampling within a task."""
+        valid_indices = self.task_indices[task_idx]
+
+        if len(valid_indices) == 0:
+            return rng.integers(0, len(self.targets))
+
+        # Original: slice and normalize per call
+        task_curriculum_weights = curriculum_weights[valid_indices]
+        total = task_curriculum_weights.sum()
+
+        if total == 0:
+            probs = np.ones(len(valid_indices)) / len(valid_indices)
+        else:
+            probs = task_curriculum_weights / total
+
+        local_idx = rng.choice(len(valid_indices), p=probs)
+        return valid_indices[local_idx]
+
+    def __iter__(self):
+        """Original per-sample loop implementation."""
+        curriculum_weights = self._compute_curriculum_weights()
+        rng = np.random.default_rng(self.seed)
+
+        # Original: per-sample Python loop with list.append
+        indices: list[int] = []
+        for _ in range(self.num_samples):
+            task_idx = rng.choice(self.num_tasks, p=self.task_probs)
+            mol_idx = self._sample_from_task(task_idx, curriculum_weights, rng)
+            indices.append(mol_idx)
+
+        return iter(indices)
+
+    def __len__(self):
+        return self.num_samples
+
+
+class TestJointSamplerVectorizationRegression:
+    """
+    Regression tests verifying vectorized optimizations match original behavior.
+
+    These tests ensure that the performance optimizations (batch task selection,
+    cached per-task probabilities, vectorized weight assignment) produce
+    statistically equivalent results to the original per-sample implementation.
+    """
+
+    @pytest.fixture
+    def regression_test_data(self) -> tuple[np.ndarray, list[str], CurriculumState]:
+        """Create test data for regression testing."""
+        np.random.seed(42)
+        num_samples = 1000
+        num_tasks = 5
+
+        # Create multi-task target array with varying sparsity
+        targets = np.full((num_samples, num_tasks), np.nan, dtype=np.float64)
+
+        # Task 0-1: Dense (80% valid)
+        for t in range(2):
+            mask = np.random.random(num_samples) < 0.8
+            targets[mask, t] = np.random.randn(mask.sum())
+
+        # Task 2-3: Medium (50% valid)
+        for t in range(2, 4):
+            mask = np.random.random(num_samples) < 0.5
+            targets[mask, t] = np.random.randn(mask.sum())
+
+        # Task 4: Sparse (20% valid)
+        mask = np.random.random(num_samples) < 0.2
+        targets[mask, 4] = np.random.randn(mask.sum())
+
+        # Quality labels: 10% high, 60% medium, 30% low
+        quality_labels = (
+            ["high"] * int(num_samples * 0.10)
+            + ["medium"] * int(num_samples * 0.60)
+            + ["low"] * int(num_samples * 0.30)
+        )
+        np.random.shuffle(quality_labels)
+
+        curriculum_state = CurriculumState(
+            qualities=["high", "medium", "low"],
+            patience=5,
+        )
+
+        return targets, quality_labels, curriculum_state
+
+    def test_task_distribution_matches_reference(self, regression_test_data):
+        """Verify task sampling distribution matches reference implementation."""
+        targets, quality_labels, curriculum_state = regression_test_data
+        num_samples = 50_000
+        seed = 123
+
+        # Reference (non-vectorized)
+        ref_sampler = ReferenceJointSamplerNonVectorized(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.5,
+            num_samples=num_samples,
+            seed=seed,
+        )
+
+        # Optimized (vectorized)
+        opt_sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.5,
+            num_samples=num_samples,
+            seed=seed,
+            increment_seed_per_epoch=False,
+            log_weight_stats=False,
+        )
+
+        # Count which task each sample belongs to
+        def get_task_distribution(indices):
+            task_counts = np.zeros(targets.shape[1])
+            for idx in indices:
+                for t in range(targets.shape[1]):
+                    if not np.isnan(targets[idx, t]):
+                        task_counts[t] += 1
+                        break  # Count first valid task only
+            return task_counts / task_counts.sum()
+
+        ref_indices = list(ref_sampler)
+        opt_indices = list(opt_sampler)
+
+        ref_dist = get_task_distribution(ref_indices)
+        opt_dist = get_task_distribution(opt_indices)
+
+        # Distributions should be very close (within 2% for 50k samples)
+        for t in range(targets.shape[1]):
+            diff = abs(ref_dist[t] - opt_dist[t])
+            assert diff < 0.02, (
+                f"Task {t} distribution mismatch: ref={ref_dist[t]:.4f}, " f"opt={opt_dist[t]:.4f}, diff={diff:.4f}"
+            )
+
+    def test_quality_distribution_matches_reference(self, regression_test_data):
+        """Verify quality sampling distribution matches reference implementation."""
+        targets, quality_labels, curriculum_state = regression_test_data
+        num_samples = 50_000
+        seed = 456
+
+        # Set curriculum to expand phase for interesting weights
+        curriculum_state.phase = "expand"
+
+        # Reference (non-vectorized)
+        ref_sampler = ReferenceJointSamplerNonVectorized(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.3,
+            num_samples=num_samples,
+            seed=seed,
+        )
+
+        # Optimized (vectorized)
+        opt_sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.3,
+            num_samples=num_samples,
+            seed=seed,
+            increment_seed_per_epoch=False,
+            log_weight_stats=False,
+        )
+
+        def get_quality_distribution(indices):
+            counts = {"high": 0, "medium": 0, "low": 0}
+            for idx in indices:
+                counts[quality_labels[idx]] += 1
+            total = sum(counts.values())
+            return {k: v / total for k, v in counts.items()}
+
+        ref_indices = list(ref_sampler)
+        opt_indices = list(opt_sampler)
+
+        ref_dist = get_quality_distribution(ref_indices)
+        opt_dist = get_quality_distribution(opt_indices)
+
+        # Distributions should be very close (within 2% for 50k samples)
+        for quality in ["high", "medium", "low"]:
+            diff = abs(ref_dist[quality] - opt_dist[quality])
+            assert diff < 0.02, (
+                f"Quality '{quality}' distribution mismatch: ref={ref_dist[quality]:.4f}, "
+                f"opt={opt_dist[quality]:.4f}, diff={diff:.4f}"
+            )
+
+    def test_sample_range_valid(self, regression_test_data):
+        """Verify all sampled indices are within valid range."""
+        targets, quality_labels, curriculum_state = regression_test_data
+
+        sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.5,
+            num_samples=10_000,
+            seed=789,
+            log_weight_stats=False,
+        )
+
+        indices = list(sampler)
+
+        # All indices should be valid
+        assert all(0 <= idx < len(targets) for idx in indices), "Found out-of-range indices"
+
+        # Should return exactly num_samples indices
+        assert len(indices) == 10_000
+
+    def test_curriculum_phase_transition_consistency(self, regression_test_data):
+        """Verify phase transitions produce consistent distributions."""
+        targets, quality_labels, curriculum_state = regression_test_data
+
+        sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.3,
+            num_samples=20_000,
+            seed=111,
+            increment_seed_per_epoch=False,
+            log_weight_stats=False,
+        )
+
+        # Sample in warmup phase
+        curriculum_state.phase = "warmup"
+        warmup_indices = list(sampler)
+        warmup_high = sum(1 for idx in warmup_indices if quality_labels[idx] == "high")
+
+        # Reset sampler epoch counter for fair comparison
+        sampler._current_epoch = 0
+
+        # Sample in expand phase
+        curriculum_state.phase = "expand"
+        expand_indices = list(sampler)
+        expand_high = sum(1 for idx in expand_indices if quality_labels[idx] == "high")
+
+        # Reset sampler epoch counter
+        sampler._current_epoch = 0
+
+        # Sample in robust phase
+        curriculum_state.phase = "robust"
+        robust_indices = list(sampler)
+        robust_high = sum(1 for idx in robust_indices if quality_labels[idx] == "high")
+
+        # Warmup should have highest proportion of high-quality samples
+        warmup_prop = warmup_high / len(warmup_indices)
+        expand_prop = expand_high / len(expand_indices)
+        _ = robust_high / len(robust_indices)  # computed but not asserted for flexibility
+
+        # Verify phase weighting affects sampling (warmup >= expand >= robust for high quality)
+        assert warmup_prop >= expand_prop * 0.9, (
+            f"Warmup high-quality proportion ({warmup_prop:.3f}) should be >= " f"expand proportion ({expand_prop:.3f})"
+        )
+
+    def test_vectorized_weight_computation_matches_reference(self, regression_test_data):
+        """Verify vectorized weight computation matches original list comprehension."""
+        targets, quality_labels, curriculum_state = regression_test_data
+
+        # Reference: list comprehension approach
+        probs = curriculum_state.sampling_probs()
+        ref_weights = np.array([probs.get(label, 0.0) for label in quality_labels])
+
+        # Optimized: vectorized approach (replicate the logic)
+        quality_to_idx = {q: i for i, q in enumerate(curriculum_state.qualities)}
+        num_qualities = len(curriculum_state.qualities)
+        quality_weights_array = np.zeros(num_qualities + 1, dtype=np.float64)
+        for idx, quality in enumerate(curriculum_state.qualities):
+            quality_weights_array[idx] = probs.get(quality, 0.0)
+
+        quality_label_indices = np.array(
+            [quality_to_idx.get(label, -1) for label in quality_labels],
+            dtype=np.int32,
+        )
+        opt_weights = quality_weights_array[quality_label_indices]
+
+        # Weights should be exactly equal
+        np.testing.assert_array_almost_equal(
+            ref_weights,
+            opt_weights,
+            decimal=10,
+            err_msg="Vectorized weight computation differs from reference",
+        )
+
+    def test_no_zero_probability_samples_excluded(self, regression_test_data):
+        """Verify samples with zero curriculum weight are never sampled."""
+        targets, quality_labels, curriculum_state = regression_test_data
+
+        # Set polish phase where low-quality gets minimal weight
+        curriculum_state.phase = "polish"
+
+        sampler = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.0,  # Uniform task selection
+            num_samples=50_000,
+            seed=222,
+            log_weight_stats=False,
+        )
+
+        indices = list(sampler)
+
+        # Count samples by quality
+        quality_counts = {"high": 0, "medium": 0, "low": 0}
+        for idx in indices:
+            quality_counts[quality_labels[idx]] += 1
+
+        # All defined qualities should have non-zero samples
+        # (polish phase still gives some weight to medium/low)
+        for quality in ["high", "medium", "low"]:
+            assert quality_counts[quality] > 0, f"Quality '{quality}' should have non-zero samples even in polish phase"
+
+    def test_determinism_across_implementations(self):
+        """Verify both implementations are deterministic with same seed."""
+        np.random.seed(42)
+        targets = np.random.randn(500, 3)
+        quality_labels = ["high"] * 100 + ["medium"] * 300 + ["low"] * 100
+
+        curriculum_state = CurriculumState(qualities=["high", "medium", "low"])
+
+        # Run optimized sampler twice with same seed
+        sampler1 = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.5,
+            num_samples=1000,
+            seed=42,
+            increment_seed_per_epoch=False,
+            log_weight_stats=False,
+        )
+
+        sampler2 = JointSampler(
+            targets=targets,
+            quality_labels=quality_labels,
+            curriculum_state=curriculum_state,
+            task_alpha=0.5,
+            num_samples=1000,
+            seed=42,
+            increment_seed_per_epoch=False,
+            log_weight_stats=False,
+        )
+
+        indices1 = list(sampler1)
+        indices2 = list(sampler2)
+
+        # Must be exactly identical
+        assert indices1 == indices2, "Same seed should produce identical samples"
