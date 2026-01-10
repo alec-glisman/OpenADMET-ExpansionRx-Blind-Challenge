@@ -10,8 +10,8 @@
 
 #### MLflow
 
-* **Experiment ID**: `TODO`
-* **Run ID**: `TODO`
+* **Experiment ID**: `15`
+* **Run ID**: `2d072c086c974a47b029f295a546497f`
 * **Run Name**: `rank_001_task_weighted`
 
 #### Architecture
@@ -84,64 +84,99 @@ Where:
 
 | Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
 |---|---|---:|---:|---:|---:|---:|---:|---|---|
-| TODO | aglisman | TODO | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| 18/307 | aglisman | 0.59 ± 0.02 | 0.52 | 11.9% | 0.55 ± 0.04 | 0.77 ± 0.02 | 0.60 ± 0.02 | 2026-01-09 14:29:34+00:00 | 🏆 Top 5.9% |
 
 #### By Task
 
 | Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
 |---:|---|---:|---:|---:|---:|---:|---:|---|
-| TODO | LogD | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | KSOL | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | MLM CLint | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | HLM CLint | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | Caco-2 Permeability Efflux | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | Caco-2 Permeability Papp A>B | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | MPPB | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | MBPB | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| TODO | MGMB | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| 61 | LogD | 0.35 ± 0.01 | 0.25 | 28.6% | 0.73 ± 0.03 | 0.88 ± 0.01 | 0.74 ± 0.01 | Needs improvement - Top 19.9% |
+| 30 | KSOL | 0.35 ± 0.01 | 0.30 | 14.3% | 0.61 ± 0.02 | 0.72 ± 0.02 | 0.53 ± 0.01 | Okay - Top 9.8% |
+| 27 | MLM CLint | 0.35 ± 0.01 | 0.33 | 5.7% | 0.42 ± 0.03 | 0.59 ± 0.03 | 0.42 ± 0.02 | Okay - Top 8.8% |
+| 33 | HLM CLint | 0.30 ± 0.01 | 0.27 | 10.0% | 0.38 ± 0.05 | 0.62 ± 0.03 | 0.45 ± 0.03 | Okay - Top 10.7% |
+| 50 | Caco-2 Permeability Efflux | 0.33 ± 0.01 | 0.26 | 21.2% | 0.28 ± 0.04 | 0.81 ± 0.01 | 0.60 ± 0.01 | Top 16.3% |
+| 42 | Caco-2 Permeability Papp A>B | 0.24 ± 0.01 | 0.19 | 20.8% | 0.42 ± 0.04 | 0.77 ± 0.02 | 0.57 ± 0.02 | Top 13.7% |
+| 24 | MPPB | 0.17 ± 0.01 | 0.14 | 17.6% | 0.70 ± 0.03 | 0.85 ± 0.02 | 0.66 ± 0.02 | Good - Top 7.8% |
+| 55 | MBPB | 0.15 ± 0.01 | 0.12 | 20.0% | 0.76 ± 0.03 | 0.87 ± 0.02 | 0.71 ± 0.02 | Top 17.9% |
+| 12 | MGMB | 0.16 ± 0.01 | 0.14 | 12.5% | 0.71 ± 0.05 | 0.83 ± 0.03 | 0.68 ± 0.03 | 🏆 Excellent - Top 3.9% |
 
-### Expected Outcomes
+### Expected vs Actual Outcomes
 
 Based on the task weighting strategy:
 
-| Task | Jan-06 Rank | Expected Change | Target Rank |
-|------|-------------|-----------------|-------------|
-| LogD | 63 | ↑ 15-25 ranks | 38-48 |
-| KSOL | 17 | ↔ maintain | 15-20 |
-| MLM CLint | 39 | ↑ 5-10 ranks | 29-34 |
-| HLM CLint | 35 | ↔ maintain | 30-40 |
-| Caco-2 Efflux | 98 | ↑ 25-40 ranks | 58-73 |
-| Caco-2 Papp A>B | 70 | ↑ 15-25 ranks | 45-55 |
-| MPPB | 47 | ↑ 5-15 ranks | 32-42 |
-| MBPB | 65 | ↑ 10-20 ranks | 45-55 |
-| MGMB | 18 | ↔ or slight ↓ | 18-25 |
+| Task | Jan-06 Rank | Expected Change | Target Rank | Actual Rank | Result |
+|------|-------------|-----------------|-------------|-------------|--------|
+| LogD | 63 | ↑ 15-25 ranks | 38-48 | 61 | ❌ Minimal improvement (+2) |
+| KSOL | 17 | ↔ maintain | 15-20 | 30 | ❌ Regressed (-13) |
+| MLM CLint | 39 | ↑ 5-10 ranks | 29-34 | 27 | ✅ Improved (+12) |
+| HLM CLint | 35 | ↔ maintain | 30-40 | 33 | ✅ Maintained (+2) |
+| Caco-2 Efflux | 98 | ↑ 25-40 ranks | 58-73 | 50 | ✅ Exceeded expectations (+48) |
+| Caco-2 Papp A>B | 70 | ↑ 15-25 ranks | 45-55 | 42 | ✅ Exceeded expectations (+28) |
+| MPPB | 47 | ↑ 5-15 ranks | 32-42 | 24 | ✅ Exceeded expectations (+23) |
+| MBPB | 65 | ↑ 10-20 ranks | 45-55 | 55 | ✅ Met target (+10) |
+| MGMB | 18 | ↔ or slight ↓ | 18-25 | 12 | ✅ Improved (+6) |
 
-**Expected MA-RAE:** 0.58-0.60 (improved from 0.61)
-**Expected Rank:** Top 8-10% (improved from 10.7%)
+**Expected MA-RAE:** 0.58-0.60 → **Actual:** 0.59 ✅
+**Expected Rank:** Top 8-10% → **Actual:** Top 5.9% (18/307) ✅
 
 ### Conclusions
 
-**Hypothesis:**
+**What worked:**
 
-Task-weighted loss will improve MA-RAE by directing model capacity toward the worst-performing tasks (Caco-2 Efflux, LogD, MBPB) while accepting minor regression on already-strong tasks (KSOL, MGMB).
+* Task-weighted loss strategy was highly effective for overall ranking (10.7% → 5.9%)
+* Caco-2 tasks improved dramatically: Efflux (+48 ranks), Papp A>B (+28 ranks)
+* MPPB showed major improvement (+23 ranks) despite moderate weight (1.3)
+* MGMB improved despite reduced weight (0.7), likely benefiting from overall model improvements
+* MA-RAE improved from 0.61 to 0.59 as predicted
 
-**What to watch:**
+**What didn't work:**
 
-* Did Caco-2 Efflux improve significantly (target: rank < 70)?
-* Did KSOL/MGMB regress unacceptably (threshold: rank > 30)?
-* Did overall MA-RAE decrease?
+* LogD showed minimal improvement despite highest weight (1.5) - only +2 ranks
+* KSOL regressed significantly (17 → 30) despite weight reduction (0.7)
+* Task weighting may have negative spillover effects on correlated tasks
 
-**Next steps if successful:**
+**Key insights:**
 
-* Apply similar weighting to Chemeleon model
-* Combine task-weighted Chemprop + Chemeleon in ensemble
-* Explore more aggressive weights for worst tasks (2.0-2.5)
+* Caco-2 Efflux was the biggest success story: rank 98 → 50 with weight 1.8
+* KSOL regression suggests weight 0.7 may be too aggressive for down-weighting
+* Task correlations may explain unexpected improvements (MGMB) and regressions (KSOL)
 
-**Next steps if unsuccessful:**
+**Next steps:**
 
-* Weights may be too aggressive - try narrower range [0.8, 1.5]
-* Consider task_oversampling_alpha increase (0.02 → 0.10) instead of loss weights
-* Investigate if task correlations make some weight combinations counterproductive
+* Investigate KSOL regression - may need weight ≥ 0.9 to prevent degradation
+* LogD remains stubborn - consider data augmentation or architecture changes
+* Apply refined weights to Chemeleon model with narrower down-weight range [0.85, 1.8]
+* Explore ensemble of task-weighted Chemprop + Chemeleon for complementary strengths
+
+### Recommended Next Submission (January 10)
+
+**Strategy:** Refined Task Weights v2 + Fix KSOL Regression
+
+Based on today's results, the recommended configuration for the next submission:
+
+| Task | Current Weight | Proposed Weight | Rationale |
+|------|----------------|-----------------|-----------|
+| LogD | 1.5 | **2.0** | Stubborn task needs more aggressive weighting |
+| KSOL | 0.7 | **1.0** | Restore baseline to prevent further regression |
+| HLM CLint | 1.0 | 1.0 | Maintaining well |
+| MLM CLint | 1.1 | 1.0 | Already improved, reduce to baseline |
+| Caco-2 Papp A>B | 1.4 | 1.2 | Exceeded target, slight reduction |
+| Caco-2 Efflux | 1.8 | 1.5 | Major success, can reduce slightly |
+| MPPB | 1.3 | 1.0 | Exceeded target significantly |
+| MBPB | 1.4 | 1.3 | Met target, maintain moderate weight |
+| MGMB | 0.7 | **0.9** | Improved unexpectedly, safer down-weight |
+
+**Alternative approach:** Ensemble of:
+
+1. Task-weighted Chemprop (this submission) - strong on Caco-2, MPPB, MGMB
+2. Baseline Chemprop (Jan-06) - strong on KSOL, LogD
+3. Chemeleon (Jan-08) - complementary strengths on binding tasks
+
+**Priority tasks for Top 3%:**
+
+1. 🔴 **LogD** (rank 61) - Largest gap to close, consider adding molecular descriptors
+2. 🟡 **KSOL** (rank 30) - Regression must be fixed
+3. 🟡 **MBPB** (rank 55) - Still significant room for improvement
 
 ---
 
