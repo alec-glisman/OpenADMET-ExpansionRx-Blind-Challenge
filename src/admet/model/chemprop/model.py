@@ -1558,12 +1558,12 @@ class ChempropModel:
                 logger.info("EPOCH %d TRAIN COMPLETE", trainer.current_epoch + 1)
 
             def on_validation_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-                logger.info("EPOCH %d VALIDATION STARTING", trainer.current_epoch + 1)
+                logger.debug("EPOCH %d VALIDATION STARTING", trainer.current_epoch + 1)
 
             def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
                 # Log current metrics
                 metrics = {k: v for k, v in trainer.callback_metrics.items() if not k.startswith("_")}
-                logger.info("EPOCH %d VALIDATION COMPLETE - metrics: %s", trainer.current_epoch + 1, metrics)
+                logger.debug("EPOCH %d VALIDATION COMPLETE - metrics: %s", trainer.current_epoch + 1, metrics)
 
         # Configure logger and checkpointing based on mlflow_tracking setting
         pl_logger: MLFlowLogger | bool
