@@ -309,7 +309,7 @@ class JointSampler(Sampler[int]):
             return
 
         stats = self.get_weight_statistics(weights)
-        logger.info(
+        logger.debug(
             "Weight stats: min=%.6f, max=%.6f, mean=%.6f, entropy=%.3f, effective_samples=%.1f",
             stats["min"],
             stats["max"],

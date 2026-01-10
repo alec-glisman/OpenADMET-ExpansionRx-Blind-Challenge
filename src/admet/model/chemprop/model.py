@@ -3519,10 +3519,10 @@ def train_from_config(config_path: str, log_level: str = "INFO") -> None:
     )
 
     # Log the configuration
-    logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
+    logger.debug("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Create model from config
-    logger.info("Creating model from configuration...")
+    logger.debug("Creating model from configuration...")
     model = ChempropModel.from_config(config)  # type: ignore[arg-type]
 
     # Train the model

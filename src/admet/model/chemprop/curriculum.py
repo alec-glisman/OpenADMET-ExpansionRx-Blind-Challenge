@@ -553,6 +553,8 @@ class PerQualityMetricsCallback(pl.Callback):
 
             # Per-target metrics: <split>/<metric>/<quality>/<target>
             if self.target_cols is not None and q_preds_valid.ndim > 1:
+                from admet.model.chemprop.model import _sanitize_mlflow_metric_name
+
                 for t_idx, target in enumerate(self.target_cols):
                     if t_idx >= q_preds_valid.shape[1]:
                         continue
@@ -571,16 +573,19 @@ class PerQualityMetricsCallback(pl.Callback):
                     t_mse = float(np.mean((t_preds_v - t_targets_v) ** 2))
                     t_rmse = float(np.sqrt(t_mse))
 
-                    pl_module.log(f"{split}/mae/{quality}/{target}", t_mae, on_step=False, on_epoch=True)
-                    pl_module.log(f"{split}/mse/{quality}/{target}", t_mse, on_step=False, on_epoch=True)
-                    pl_module.log(f"{split}/rmse/{quality}/{target}", t_rmse, on_step=False, on_epoch=True)
+                    # Sanitize target name for MLflow compatibility
+                    safe_target = _sanitize_mlflow_metric_name(target)
+
+                    pl_module.log(f"{split}/mae/{quality}/{safe_target}", t_mae, on_step=False, on_epoch=True)
+                    pl_module.log(f"{split}/mse/{quality}/{safe_target}", t_mse, on_step=False, on_epoch=True)
+                    pl_module.log(f"{split}/rmse/{quality}/{safe_target}", t_rmse, on_step=False, on_epoch=True)
 
                     try:
                         if mlflow.active_run():
                             step = pl_module.current_epoch if hasattr(pl_module, "current_epoch") else 0
-                            mlflow.log_metric(f"{split}/mae/{quality}/{target}", t_mae, step=step)
-                            mlflow.log_metric(f"{split}/mse/{quality}/{target}", t_mse, step=step)
-                            mlflow.log_metric(f"{split}/rmse/{quality}/{target}", t_rmse, step=step)
+                            mlflow.log_metric(f"{split}/mae/{quality}/{safe_target}", t_mae, step=step)
+                            mlflow.log_metric(f"{split}/mse/{quality}/{safe_target}", t_mse, step=step)
+                            mlflow.log_metric(f"{split}/rmse/{quality}/{safe_target}", t_rmse, step=step)
                     except Exception:
                         pass
 

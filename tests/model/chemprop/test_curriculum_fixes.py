@@ -839,3 +839,40 @@ class TestPerQualityMetricsCallback:
                 # Check step parameter
                 for call in calls:
                     assert call[1]["step"] == 5
+
+    def test_callback_sanitizes_target_names_with_special_chars(self) -> None:
+        """Test that target names with special characters are sanitized for MLflow."""
+        import numpy as np
+
+        from admet.model.chemprop.curriculum import PerQualityMetricsCallback
+
+        quality_labels = ["high", "high", "medium"]
+        qualities = ["high", "medium"]
+        # Target with special character that MLflow doesn't allow
+        target_cols = ["LogD", "Log Caco-2 Permeability Papp A>B"]
+
+        callback = PerQualityMetricsCallback(
+            val_quality_labels=quality_labels,
+            qualities=qualities,
+            target_cols=target_cols,
+        )
+
+        mock_module = MagicMock()
+        mock_module.current_epoch = 0
+
+        # Two targets, three samples
+        all_preds = np.array([[1.0, 2.0], [1.5, 2.5], [2.0, 3.0]])
+        all_targets = np.array([[1.1, 2.1], [1.6, 2.6], [2.1, 3.1]])
+
+        with patch("mlflow.active_run", return_value=None):
+            callback._compute_and_log_metrics(mock_module, all_preds, all_targets, callback._val_quality_indices, "val")
+
+        logged_keys = [call[0][0] for call in mock_module.log.call_args_list]
+
+        # Original metric names without special characters should still work
+        assert "val/mae/high/LogD" in logged_keys
+
+        # Target name with ">" should be sanitized (> removed)
+        assert "val/mae/high/Log Caco-2 Permeability Papp AB" in logged_keys
+        # Original name with ">" should NOT be present
+        assert "val/mae/high/Log Caco-2 Permeability Papp A>B" not in logged_keys

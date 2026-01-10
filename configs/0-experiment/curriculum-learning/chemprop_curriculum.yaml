@@ -15,48 +15,18 @@ data:
     - Log MBPB
     - Log MGMB
   target_weights:
+    - 1.5
+    - 0.7
     - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-model:
-  type: chemprop
-  chemprop:
-    depth: 3
-    message_hidden_dim: 700
-    aggregation: norm
-    ffn_type: regression
-    num_layers: 4
-    hidden_dim: 200
-    dropout: 0.15
-    batch_norm: true
-optimization:
-  criterion: MAE
-  init_lr: 0.00113
-  max_lr: 0.000227
-  final_lr: 0.000113
-  warmup_epochs: 5
-  max_epochs: 400
-  patience: 15
-  batch_size: 128
-  num_workers: 4 # OPTIMIZATION: Enable parallel data loading (10-20% speedup when curriculum disabled)
-  accumulate_grad_batches: 1 # OPTIMIZATION: Gradient accumulation (1 = disabled, increase for larger effective batch)
-  seed: 12345
-  weight_decay: 0.0
-  progress_bar: false
-performance_optimization:
-  use_mixed_precision: true
+    - 1.1
+    - 1.4
+    - 1.8
+    - 1.3
+    - 1.4
+    - 0.7
+
 joint_sampling:
   enabled: true
-  num_samples: null
-  seed: 42
-  increment_seed_per_epoch: true
-  log_to_mlflow: true
   task_oversampling:
     alpha: 0.02
   curriculum:
@@ -84,6 +54,40 @@ joint_sampling:
       high: 1.0
       medium: 0.5
       low: 0.3
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+
+model:
+  type: chemprop
+  chemprop:
+    depth: 3
+    message_hidden_dim: 700
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 4
+    hidden_dim: 200
+    dropout: 0.15
+    batch_norm: true
+
+optimization:
+  criterion: MAE
+  init_lr: 0.00113
+  max_lr: 0.000227
+  final_lr: 0.000113
+  warmup_epochs: 5
+  max_epochs: 400
+  patience: 15
+  batch_size: 128
+  num_workers: 0 # Must be 0 with curriculum - sampler state not synchronized across workers
+  accumulate_grad_batches: 1
+  seed: 42
+  weight_decay: 0.0
+  progress_bar: false
+performance_optimization:
+  use_mixed_precision: true
+
 inter_task_affinity:
   enabled: false
   compute_every_n_steps: 2
@@ -99,12 +103,21 @@ inter_task_affinity:
     - head
     - readout
   log_to_mlflow: true
+
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: Default
+  experiment_name: chemprop_curriculum_learning
   run_name: null
   nested: false
+profiling:
+  enabled: false
+  mode: phase # "disabled", "phase", "function", "full"
+  function_top_n: 50
+  function_filter_module: admet
+  log_to_mlflow: true
+  print_summary: true
+  ensemble_aggregation: true
 post_training:
   generate_plots: true
   plot_dpi: 150
@@ -113,8 +126,3 @@ post_training:
   cache_predictions: true
   compute_test_metrics: true
   compute_train_metrics: false
-logging:
-  enabled: true
-  verbose: 0
-  max_total_logs_gb: 1.0
-  fail_on_upload_error: true
