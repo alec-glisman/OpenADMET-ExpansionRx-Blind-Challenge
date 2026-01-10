@@ -50,9 +50,10 @@ pre-commit run --all-files                # All hooks
 
 ```bash
 admet --help
-admet model train -c configs/0-experiment/chemprop.yaml
-admet model ensemble -c configs/3-production/ensemble_chemprop_hpo_001.yaml --max-parallel 4
-admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50
+admet model train -c configs/0-experiment/0-single-fold/chemprop.yaml
+admet model ensemble -c configs/3-hpo-ensemble-production/0_chemprop_v1/ensemble_chemprop_hpo_001.yaml --max-parallel 4
+admet model hpo -c configs/1-hpo-single-fold/hpo_chemprop.yaml --num-samples 50
+admet model hpo-list-studies --verbose    # List Optuna studies for warmstart
 admet data split data.csv --cluster-method bitbirch
 admet leaderboard scrape --user <username>
 ```
@@ -74,12 +75,14 @@ src/admet/
 └── leaderboard/         # Challenge leaderboard scraping and reports
 configs/
 ├── 0-experiment/        # Single model experiments
-├── 1-hpo-single/        # HPO configs
+│   ├── 0-single-fold/   # Single fold training configs
+│   ├── 1-ensemble/      # Ensemble training configs
+│   ├── 2-classical-models-ensemble/  # XGBoost, LightGBM, CatBoost
+│   ├── curriculum-learning/  # Curriculum learning configs
+│   └── task-affinity/   # Task affinity grouping configs
+├── 1-hpo-single-fold/   # HPO configs for single fold
 ├── 2-hpo-ensemble/      # Ensemble HPO configs
-├── 3-production/        # Production ensemble configs
-├── 4-more-models/       # Classical model examples
-├── curriculum/          # Curriculum learning configs
-└── task-affinity/       # Task affinity grouping configs
+└── 3-hpo-ensemble-production/  # Production ensemble configs
 tests/                   # pytest test files
 ```
 

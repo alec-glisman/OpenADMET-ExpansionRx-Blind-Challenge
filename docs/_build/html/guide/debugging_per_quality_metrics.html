@@ -11,7 +11,7 @@
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
 <meta name="description" content="Summary: All diagnostic tests pass! The PerQualityMetricsCallback is working correctly in isolation. If you’re not seeing metrics in your actual training, follow this guide to diagnose the issue. W..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="MLflow Artifacts Guide" href="mlflow_artifacts.html"><link rel="prev" title="Task Affinity Grouping" href="task_affinity.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modeling Guide" href="modeling.html"><link rel="prev" title="Dataset Splitting Methodology" href="splitting.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
@@ -19,8 +19,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
-    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
     
     
@@ -210,8 +209,45 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
@@ -221,53 +257,44 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Per-Quality Metrics Debugging Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -290,7 +317,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../_sources/guide/debugging_per_quality_metrics.md.txt" title="View this page">
+  <a class="muted-link" href="../_sources/guide/debugging_per_quality_metrics.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -317,7 +344,7 @@
 <section id="what-we-ve-done">
 <h2>What We’ve Done<a class="headerlink" href="#what-we-ve-done" title="Link to this heading">¶</a></h2>
 <section id="added-detailed-logging">
-<h3>1. ✅ Added Detailed Logging<a class="headerlink" href="#added-detailed-logging" title="Link to this heading">¶</a></h3>
+<h3>1. Added Detailed Logging<a class="headerlink" href="#added-detailed-logging" title="Link to this heading">¶</a></h3>
 <p>Enhanced the callback with INFO-level logging that shows:</p>
 <ul class="simple">
 <li><p>When the callback is called</p></li>
@@ -330,23 +357,23 @@
 </ul>
 </section>
 <section id="verified-configuration">
-<h3>2. ✅ Verified Configuration<a class="headerlink" href="#verified-configuration" title="Link to this heading">¶</a></h3>
+<h3>2. Verified Configuration<a class="headerlink" href="#verified-configuration" title="Link to this heading">¶</a></h3>
 <p>Your config at <code class="docutils literal notranslate"><span class="pre">configs/curriculum/chemprop_curriculum.yaml</span></code> has:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">log_per_quality_metrics:</span> <span class="pre">true</span></code> ✓</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">curriculum.enabled:</span> <span class="pre">true</span></code> ✓</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">curriculum.qualities:</span> <span class="pre">[high,</span> <span class="pre">medium,</span> <span class="pre">low]</span></code> ✓</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_per_quality_metrics:</span> <span class="pre">true</span></code> (correct)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum.enabled:</span> <span class="pre">true</span></code> (correct)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curriculum.qualities:</span> <span class="pre">[high,</span> <span class="pre">medium,</span> <span class="pre">low]</span></code> (correct)</p></li>
 </ul>
 </section>
 <section id="created-debug-script">
-<h3>3. ✅ Created Debug Script<a class="headerlink" href="#created-debug-script" title="Link to this heading">¶</a></h3>
+<h3>3. Created Debug Script<a class="headerlink" href="#created-debug-script" title="Link to this heading">¶</a></h3>
 <p>The script at <code class="docutils literal notranslate"><span class="pre">scripts/analysis/debug_per_quality_metrics.py</span></code> validates:</p>
 <ul class="simple">
-<li><p>Callback can be imported ✓</p></li>
-<li><p>Callback can be instantiated with quality labels ✓</p></li>
-<li><p>Callback computes and logs metrics correctly ✓</p></li>
-<li><p>Configuration is correct ✓</p></li>
-<li><p>MLflow is accessible ✓</p></li>
+<li><p>Callback can be imported (correct)</p></li>
+<li><p>Callback can be instantiated with quality labels (correct)</p></li>
+<li><p>Callback computes and logs metrics correctly (correct)</p></li>
+<li><p>Configuration is correct (correct)</p></li>
+<li><p>MLflow is accessible (correct)</p></li>
 </ul>
 </section>
 </section>
@@ -362,7 +389,7 @@ python<span class="w"> </span>your_training_script.py<span class="w"> </span><sp
 </pre></div>
 </div>
 <p>Look for these log messages:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>INFO - ================================================================================
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>INFO - ================================================================================
 INFO - PerQualityMetricsCallback.on_validation_epoch_end called
 INFO - Current epoch: X, compute_every_n_epochs: 1
 INFO - Validation dataloader: &lt;class &#39;...&#39;&gt;, is_none: False
@@ -469,13 +496,13 @@ INFO - Validation dataloader: &lt;class &#39;...&#39;&gt;, is_none: False
 <h3>Step 4: Check Training Logs<a class="headerlink" href="#step-4-check-training-logs" title="Link to this heading">¶</a></h3>
 <p>After training starts, check for these patterns:</p>
 <p><strong>Good Signs</strong> (callback is working):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>INFO - PerQualityMetricsCallback.on_validation_epoch_end called
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>INFO - PerQualityMetricsCallback.on_validation_epoch_end called
 INFO - Current epoch: 0, compute_every_n_epochs: 1
 INFO - Processing dataloader 1/1
 INFO - Processed 10 batches total
 INFO - Collected 10 prediction batches
 INFO - Computing per-quality metrics...
-INFO - ✓ Per-quality validation metrics successfully computed and logged for epoch 0
+INFO - Per-quality validation metrics successfully computed and logged for epoch 0
 </pre></div>
 </div>
 <p><strong>Bad Signs</strong> (callback not working):</p>
@@ -529,22 +556,22 @@ python<span class="w"> </span>scripts/analysis/debug_per_quality_metrics.py
 <section id="expected-output">
 <h2>Expected Output<a class="headerlink" href="#expected-output" title="Link to this heading">¶</a></h2>
 <p>When working correctly, you should see metrics in MLflow like:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">high</span> <span class="o">=</span> <span class="mf">0.123</span>
-<span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">medium</span> <span class="o">=</span> <span class="mf">0.234</span>
-<span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">low</span> <span class="o">=</span> <span class="mf">0.345</span>
-<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">high</span> <span class="o">=</span> <span class="mf">0.456</span>
-<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">medium</span> <span class="o">=</span> <span class="mf">0.567</span>
-<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">low</span> <span class="o">=</span> <span class="mf">0.678</span>
-<span class="n">val</span><span class="o">/</span><span class="n">count</span><span class="o">/</span><span class="n">high</span> <span class="o">=</span> <span class="mi">100</span>
-<span class="n">val</span><span class="o">/</span><span class="n">count</span><span class="o">/</span><span class="n">medium</span> <span class="o">=</span> <span class="mi">80</span>
-<span class="n">val</span><span class="o">/</span><span class="n">count</span><span class="o">/</span><span class="n">low</span> <span class="o">=</span> <span class="mi">50</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>val/mae/high = 0.123
+val/mae/medium = 0.234
+val/mae/low = 0.345
+val/rmse/high = 0.456
+val/rmse/medium = 0.567
+val/rmse/low = 0.678
+val/count/high = 100
+val/count/medium = 80
+val/count/low = 50
 </pre></div>
 </div>
 <p>And with target columns:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">high</span><span class="o">/</span><span class="n">LogD</span> <span class="o">=</span> <span class="mf">0.111</span>
-<span class="n">val</span><span class="o">/</span><span class="n">mae</span><span class="o">/</span><span class="n">high</span><span class="o">/</span><span class="n">KSOL</span> <span class="o">=</span> <span class="mf">0.222</span>
-<span class="n">val</span><span class="o">/</span><span class="n">rmse</span><span class="o">/</span><span class="n">medium</span><span class="o">/</span><span class="n">LogD</span> <span class="o">=</span> <span class="mf">0.333</span>
-<span class="o">...</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>val/mae/high/LogD = 0.111
+val/mae/high/KSOL = 0.222
+val/rmse/medium/LogD = 0.333
+...
 </pre></div>
 </div>
 </section>
@@ -566,11 +593,11 @@ python<span class="w"> </span>scripts/analysis/debug_per_quality_metrics.py
 <section id="test-results">
 <h2>Test Results<a class="headerlink" href="#test-results" title="Link to this heading">¶</a></h2>
 <p>Run on: 2025-12-17</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Import              : ✓ PASS
-Instantiation       : ✓ PASS
-Mock Data           : ✓ PASS
-Config              : ✓ PASS
-MLflow              : ✓ PASS
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Import              : PASS
+Instantiation       : PASS
+Mock Data           : PASS
+Config              : PASS
+MLflow              : PASS
 </pre></div>
 </div>
 <p>All diagnostic tests passed! The callback implementation is correct.</p>
@@ -582,23 +609,23 @@ MLflow              : ✓ PASS
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="mlflow_artifacts.html">
+          <a class="next-page" href="modeling.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">MLflow Artifacts Guide</div>
+                <div class="title">Modeling Guide</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="task_affinity.html">
+          <a class="prev-page" href="splitting.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Task Affinity Grouping</div>
+                <div class="title">Dataset Splitting Methodology</div>
                 
               </div>
             </a>
@@ -635,9 +662,9 @@ MLflow              : ✓ PASS
 <li><a class="reference internal" href="#">Per-Quality Metrics Debugging Guide</a><ul>
 <li><a class="reference internal" href="#summary">Summary</a></li>
 <li><a class="reference internal" href="#what-we-ve-done">What We’ve Done</a><ul>
-<li><a class="reference internal" href="#added-detailed-logging">1. ✅ Added Detailed Logging</a></li>
-<li><a class="reference internal" href="#verified-configuration">2. ✅ Verified Configuration</a></li>
-<li><a class="reference internal" href="#created-debug-script">3. ✅ Created Debug Script</a></li>
+<li><a class="reference internal" href="#added-detailed-logging">1. Added Detailed Logging</a></li>
+<li><a class="reference internal" href="#verified-configuration">2. Verified Configuration</a></li>
+<li><a class="reference internal" href="#created-debug-script">3. Created Debug Script</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#diagnostic-steps">Diagnostic Steps</a><ul>
@@ -681,5 +708,6 @@ MLflow              : ✓ PASS
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
     </body>
 </html>

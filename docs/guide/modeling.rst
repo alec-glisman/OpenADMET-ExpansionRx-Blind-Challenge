@@ -1,8 +1,48 @@
 Modeling Guide
 ==============
 
-This guide describes the model implementations and how to train models for
-ADMET property prediction using the ``admet`` package.
+Model training uses Chemprop message-passing neural networks, classical ML methods
+(XGBoost, LightGBM, CatBoost), and foundation models (Chemeleon). Train single models
+or ensembles across 5 splits × 5 folds with Ray parallelization.
+
+Training Workflow
+-----------------
+
+The typical training workflow progresses from single model to optimized ensemble:
+
+.. mermaid::
+
+   flowchart LR
+      subgraph "Data Preparation"
+         A[Raw Data] --> B[Cluster<br/>BitBirch]
+         B --> C[5×5 Splits]
+      end
+
+      subgraph "Model Development"
+         D[Single Model] --> E[Validate]
+         E --> F[HPO Search]
+         F --> G[Top K Configs]
+      end
+
+      subgraph "Production"
+         H[Ensemble<br/>25 Models] --> I[Average<br/>Predictions]
+         I --> J[Submit]
+      end
+
+      C --> D
+      G --> H
+
+      style A fill:#e1f5fe
+      style F fill:#fff9c4
+      style J fill:#c8e6c9
+
+**Workflow Steps:**
+
+1. **Data Split**: Generate cluster-aware splits with :doc:`splitting`
+2. **Single Model**: Train baseline model to validate data and config
+3. **HPO**: Run hyperparameter search with :doc:`hpo` to find optimal configs
+4. **Ensemble**: Train multiple models across splits/folds for robustness
+5. **Submit**: Average predictions and evaluate on test set
 
 Chemprop Models
 ---------------
@@ -26,7 +66,7 @@ Single Model Training
    # Load configuration from YAML
    config = OmegaConf.merge(
        OmegaConf.structured(UnifiedModelConfig),
-       OmegaConf.load("configs/0-experiment/chemprop.yaml")
+       OmegaConf.load("configs/0-experiment/0-single-fold/chemprop.yaml")
    )
 
    # Create and train model
@@ -267,6 +307,7 @@ Cross-References
 ----------------
 
 - See :doc:`hpo` for hyperparameter optimization guide
+- See :doc:`profiling` for performance profiling and optimization
 - See :doc:`configuration` for detailed configuration options
 - See :doc:`splitting` for dataset partitioning methodology
 - See :doc:`mlflow_artifacts` for MLflow artifact structure and accessing predictions

@@ -1,9 +1,50 @@
 Hyperparameter Optimization Guide
 ==================================
 
-This guide covers hyperparameter optimization (HPO) for Chemprop models using
-Ray Tune with the ASHA scheduler. HPO enables systematic exploration of model
-configurations to find optimal hyperparameters for your ADMET prediction tasks.
+Hyperparameter optimization systematically explores model configurations using
+Ray Tune and the ASHA scheduler. Efficient search with early stopping identifies
+optimal settings for depth, hidden dimensions, dropout, and learning rates.
+
+HPO Workflow
+------------
+
+The HPO process consists of trial execution, early stopping, and config selection:
+
+.. mermaid::
+
+   flowchart LR
+      subgraph Configure
+         A[Define Search Space] --> B[Set ASHA Params]
+      end
+
+      subgraph "Run Trials"
+         C[Sample Config] --> D[Train Model]
+         D --> E{Rung Check}
+         E -->|Underperforms| F[Early Stop]
+         E -->|Promising| D
+      end
+
+      subgraph "Select Results"
+         G[Rank by Val MAE] --> H[Select Top K]
+         H --> I[Generate Configs]
+      end
+
+      B --> C
+      D --> G
+      F --> G
+
+      style A fill:#e1f5fe
+      style I fill:#c8e6c9
+      style F fill:#ffcdd2
+
+**Workflow Steps:**
+
+1. **Configure**: Define search space for hyperparameters in YAML
+2. **Run Trials**: Ray Tune explores configurations with ASHA scheduler
+3. **Early Stopping**: ASHA halts poor-performing trials to save resources
+4. **Rank**: Sort trials by validation MAE (lower is better)
+5. **Select Top K**: Extract best N configurations (typically 10-100)
+6. **Generate Configs**: Create ensemble configs from top performers
 
 Overview
 --------
@@ -23,7 +64,7 @@ Run HPO using the CLI:
 
 .. code-block:: bash
 
-   python -m admet.model.chemprop.hpo --config configs/1-hpo-single/hpo_chemprop.yaml
+   admet model hpo --config configs/1-hpo-single-fold/hpo_chemprop.yaml --num-samples 50
 
 Or programmatically:
 
@@ -32,7 +73,7 @@ Or programmatically:
    from admet.model.chemprop.hpo import ChempropHPO
    from omegaconf import OmegaConf
 
-   config = OmegaConf.load("configs/1-hpo-single/hpo_chemprop.yaml")
+   config = OmegaConf.load("configs/1-hpo-single-fold/hpo_chemprop.yaml")
    hpo = ChempropHPO(config)
    best_config, results = hpo.run()
 
@@ -686,35 +727,124 @@ Benefits
 Warmstarting Optimization
 --------------------------
 
-Continue optimization from previous runs using persistent Optuna studies.
-See :doc:`hpo_warmstart` for detailed guide.
+Continue optimization from previous runs using persistent :term:`Optuna` studies.
+Warmstarting leverages historical trial data to accelerate convergence.
 
-Quick example:
+**Key Benefits:**
+
+- **30-50% fewer trials** to reach optimal configurations
+- Reuse expensive trial evaluations from previous runs
+- Iteratively refine search without starting from scratch
+- Build institutional knowledge of hyperparameter landscapes
+
+Configuration
+^^^^^^^^^^^^^
+
+Enable study persistence in your HPO config:
+
+.. code-block:: yaml
+
+   search_algorithm:
+     type: optuna
+     seed: 42
+     n_initial_points: 100
+     persist_study: true
+     study_name: "chemprop_hpo_v1"
+     storage_dir: "hpo_results/optuna_studies"
+
+To warmstart from a previous study:
 
 .. code-block:: yaml
 
    search_algorithm:
      type: optuna
      persist_study: true
-     study_name: "chemprop_hpo_v2"
-     warmstart_from: "chemprop_hpo_v1"  # Load top trials from previous study
-     warmstart_n_trials: 15  # Number of trials to enqueue
+     study_name: "chemprop_hpo_v2"       # New study name
+     warmstart_from: "chemprop_hpo_v1"   # Load trials from this study
+     warmstart_n_trials: 15              # Number of top trials to enqueue
 
-Benefits:
+CLI Usage
+^^^^^^^^^
 
-- **30-50% fewer trials** to reach optimal configuration
-- Iteratively refine search without starting from scratch
-- Build on previous experiments
-
-Commands:
+List available studies:
 
 .. code-block:: bash
 
-   # List available studies
    admet model hpo-list-studies
+   admet model hpo-list-studies --storage-dir my_studies/ --verbose
 
-   # Run HPO with warmstart
-   admet model hpo -c configs/hpo_warmstart.yaml
+Run HPO with warmstart:
+
+.. code-block:: bash
+
+   admet model hpo -c configs/hpo_warmstart.yaml --num-samples 50
+
+Workflow: Iterative Refinement
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Phase 1: Broad Search**
+
+.. code-block:: yaml
+
+   experiment_name: chemprop_broad_search
+   search_algorithm:
+     persist_study: true
+     study_name: "chemprop_v1_broad"
+
+   search_space:
+     learning_rate:
+       type: loguniform
+       low: 0.0001
+       high: 0.03  # Wide range
+
+   resources:
+     num_samples: 1000
+
+**Phase 2: Focused Search**
+
+.. code-block:: yaml
+
+   experiment_name: chemprop_focused_search
+   search_algorithm:
+     persist_study: true
+     study_name: "chemprop_v2_focused"
+     warmstart_from: "chemprop_v1_broad"
+     warmstart_n_trials: 20
+
+   search_space:
+     learning_rate:
+       type: loguniform
+       low: 0.001
+       high: 0.01  # Narrowed based on v1 results
+
+   resources:
+     num_samples: 500
+
+Warmstart Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``persist_study``
+     - bool
+     - Enable persistent study storage (default: False)
+   * - ``study_name``
+     - str
+     - Unique study identifier (auto-generated if None)
+   * - ``storage_dir``
+     - str
+     - Directory for SQLite database (default: hpo_results/optuna_studies)
+   * - ``warmstart_from``
+     - str
+     - Name of previous study to load trials from
+   * - ``warmstart_n_trials``
+     - int
+     - Number of top trials to enqueue (default: 10)
 
 Example Configurations
 ----------------------
@@ -766,5 +896,6 @@ Cross-References
 ----------------
 
 - See :doc:`modeling` for general modeling guide
+- See :doc:`profiling` for performance profiling and optimization during HPO
 - See :doc:`configuration` for configuration file format
 - See :doc:`splitting` for dataset preparation

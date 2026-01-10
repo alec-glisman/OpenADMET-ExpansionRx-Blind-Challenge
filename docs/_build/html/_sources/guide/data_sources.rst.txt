@@ -80,6 +80,46 @@ The challenge focuses on the following ADMET endpoints:
 Curation Steps (High-Level)
 ---------------------------
 
+.. mermaid::
+
+   flowchart TB
+      subgraph "1. Raw Sources"
+         A1[ChEMBL]
+         A2[TDC]
+         A3[Polaris]
+         A4[PharmaBench]
+      end
+
+      subgraph "2. Standardization"
+         B[Schema<br/>Normalization] --> C[Chemical<br/>Standardization]
+         C --> D[Duplicate<br/>Handling]
+      end
+
+      subgraph "3. Quality Assignment"
+         D --> E{Quality<br/>Heuristics}
+         E --> F1[🟢 High]
+         E --> F2[🟡 Medium]
+      end
+
+      subgraph "4. Output"
+         G[Unified<br/>Dataset]
+      end
+
+      A1 --> B
+      A2 --> B
+      A3 --> B
+      A4 --> B
+      F1 --> G
+      F2 --> G
+
+      style A1 fill:#e1f5fe
+      style A2 fill:#e1f5fe
+      style A3 fill:#e1f5fe
+      style A4 fill:#e1f5fe
+      style F1 fill:#c8e6c9
+      style F2 fill:#fff9c4
+      style G fill:#f3e5f5
+
 Each raw dataset typically undergoes:
 
 1. Schema Normalization: Standardize column names (e.g. SMILES, target, label/value).

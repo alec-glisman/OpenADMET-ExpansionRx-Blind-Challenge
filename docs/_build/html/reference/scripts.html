@@ -1,0 +1,1097 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="Shell Scripts Reference" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/reference/scripts.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="Comprehensive reference for all shell scripts in the scripts/ directory for training, data processing, analysis, and infrastructure management. Directory Structure: Training Scripts: train_chemprop..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="Comprehensive reference for all shell scripts in the scripts/ directory for training, data processing, analysis, and infrastructure management. Directory Structure: Training Scripts: train_chemprop..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Glossary" href="../glossary.html"><link rel="prev" title="Configuration File Reference" href="../guide/config_reference.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+        <title>Shell Scripts Reference - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/leaderboard.html">Leaderboard Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/reference/scripts.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="shell-scripts-reference">
+<h1>Shell Scripts Reference<a class="headerlink" href="#shell-scripts-reference" title="Link to this heading">¶</a></h1>
+<p>Comprehensive reference for all shell scripts in the <code class="docutils literal notranslate"><span class="pre">scripts/</span></code> directory for training, data processing, analysis, and infrastructure management.</p>
+<section id="directory-structure">
+<h2>Directory Structure<a class="headerlink" href="#directory-structure" title="Link to this heading">¶</a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>scripts/
+├── training/          # Model training scripts
+├── hpo/               # Hyperparameter optimization
+├── data/              # Data processing and splitting
+├── analysis/          # Analysis and visualization
+├── mlflow/            # MLflow server and cleanup
+├── infra/             # Infrastructure utilities
+└── lib/               # Shared library functions
+</pre></div>
+</div>
+</section>
+<section id="training-scripts">
+<h2>Training Scripts<a class="headerlink" href="#training-scripts" title="Link to this heading">¶</a></h2>
+<section id="train-chemprop-ensembles-sh">
+<h3>train_chemprop_ensembles.sh<a class="headerlink" href="#train-chemprop-ensembles-sh" title="Link to this heading">¶</a></h3>
+<p>Trains Chemprop ensemble models across multiple data splits and folds using Ray parallelization.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/training/train_chemprop_ensembles.sh<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run</span></code></p></td>
+<td><p>Print commands without executing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-parallel</span> <span class="pre">N</span></code></p></td>
+<td><p>Override maximum parallel models (default: from config)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">LEVEL</span></code></p></td>
+<td><p>Set logging level (DEBUG, INFO, WARNING, ERROR)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Iterates through all configured data directories</p></li>
+<li><p>Creates temporary configs with updated <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> paths</p></li>
+<li><p>Tracks success/failure/skipped counts</p></li>
+<li><p>Logs results to MLflow</p></li>
+</ul>
+</section>
+<section id="train-chemprop-model-sh">
+<h3>train_chemprop_model.sh<a class="headerlink" href="#train-chemprop-model-sh" title="Link to this heading">¶</a></h3>
+<p>Trains individual Chemprop models for each split/fold combination sequentially.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/training/train_chemprop_model.sh<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run</span></code></p></td>
+<td><p>Print commands without executing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">LEVEL</span></code></p></td>
+<td><p>Set logging level (DEBUG, INFO, WARNING, ERROR)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--splits</span> <span class="pre">N</span></code></p></td>
+<td><p>Limit number of splits to train (default: all)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--folds</span> <span class="pre">N</span></code></p></td>
+<td><p>Limit number of folds per split (default: all)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Discovers split/fold directory structure automatically</p></li>
+<li><p>Trains models one at a time without Ray parallelization</p></li>
+<li><p>Useful for debugging or resource-constrained environments</p></li>
+</ul>
+</section>
+<section id="train-chemprop-hpo-sh">
+<h3>train_chemprop_hpo.sh<a class="headerlink" href="#train-chemprop-hpo-sh" title="Link to this heading">¶</a></h3>
+<p>Runs hyperparameter optimization (HPO) for Chemprop models using Ray Tune with ASHA scheduler.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/training/train_chemprop_hpo.sh<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Path to HPO config file (default: configs/1-hpo-single-fold/hpo_chemprop.yaml)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-samples</span> <span class="pre">N</span></code></p></td>
+<td><p>Number of HPO trials to run (default: from config)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gpus-per-trial</span> <span class="pre">N</span></code></p></td>
+<td><p>GPUs per trial (default: 0.25)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cpus-per-trial</span> <span class="pre">N</span></code></p></td>
+<td><p>CPUs per trial (default: 2)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--output-dir</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Output directory for results (default: hpo_results/)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">LEVEL</span></code></p></td>
+<td><p>Set logging level (DEBUG, INFO, WARNING, ERROR)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>ASHA (Asynchronous Successive Halving Algorithm) early stopping</p></li>
+<li><p>Conditional search spaces for FFN architectures (MoE, branched, standard)</p></li>
+<li><p>MLflow integration for experiment tracking</p></li>
+<li><p>GPU resource management for parallel trials</p></li>
+<li><p>Outputs <code class="docutils literal notranslate"><span class="pre">top_k_configs.json</span></code> with best hyperparameter configurations</p></li>
+<li><p>Transfer learning support from pretrained checkpoints</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run HPO with 50 trials</span>
+./scripts/training/train_chemprop_hpo.sh<span class="w"> </span>--num-samples<span class="w"> </span><span class="m">50</span>
+
+<span class="c1"># Custom config and output directory</span>
+./scripts/training/train_chemprop_hpo.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/my_hpo.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output-dir<span class="w"> </span>my_hpo_results/
+</pre></div>
+</div>
+</section>
+<section id="train-chemprop-hpo-ensembles-sh">
+<h3>train_chemprop_hpo_ensembles.sh<a class="headerlink" href="#train-chemprop-hpo-ensembles-sh" title="Link to this heading">¶</a></h3>
+<p>Trains ensemble models using the top 100 HPO configurations in rank order.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/training/train_chemprop_hpo_ensembles.sh<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--start</span> <span class="pre">N</span></code></p></td>
+<td><p>Starting rank (default: 1)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--end</span> <span class="pre">N</span></code></p></td>
+<td><p>Ending rank (default: 100)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ranks</span> <span class="pre">N,N,N</span></code></p></td>
+<td><p>Specific ranks to train (comma-separated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-parallel</span> <span class="pre">N</span></code></p></td>
+<td><p>Maximum parallel models (default: 4)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run</span></code></p></td>
+<td><p>Print commands without executing</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="train-production-ensembles-sh">
+<h3>train_production_ensembles.sh<a class="headerlink" href="#train-production-ensembles-sh" title="Link to this heading">¶</a></h3>
+<p>Train all production ensemble models from <code class="docutils literal notranslate"><span class="pre">configs/3-hpo-ensemble-production/</span></code>. These are the final selected configurations for production deployment.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Train all production configs</span>
+./scripts/training/train_production_ensembles.sh
+
+<span class="c1"># Train specific config</span>
+./scripts/training/train_production_ensembles.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>ensemble_chemprop_hpo_001.yaml
+
+<span class="c1"># Continue from a specific config (useful after failures)</span>
+./scripts/training/train_production_ensembles.sh<span class="w"> </span>--continue-from<span class="w"> </span><span class="m">19</span>
+
+<span class="c1"># With custom parallelization</span>
+./scripts/training/train_production_ensembles.sh<span class="w"> </span>--max-parallel<span class="w"> </span><span class="m">2</span>
+
+<span class="c1"># Dry run to see what would be executed</span>
+./scripts/training/train_production_ensembles.sh<span class="w"> </span>--dry-run
+</pre></div>
+</div>
+</section>
+</section>
+<section id="hyperparameter-optimization-scripts">
+<h2>Hyperparameter Optimization Scripts<a class="headerlink" href="#hyperparameter-optimization-scripts" title="Link to this heading">¶</a></h2>
+<section id="generate-ensemble-configs-py">
+<h3>generate_ensemble_configs.py<a class="headerlink" href="#generate-ensemble-configs-py" title="Link to this heading">¶</a></h3>
+<p>Python script to generate ensemble configuration files from HPO results.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/hpo/generate_ensemble_configs.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Extracts top-performing configurations from HPO results</p></li>
+<li><p>Generates production-ready ensemble config files</p></li>
+<li><p>Outputs to <code class="docutils literal notranslate"><span class="pre">configs/3-hpo-ensemble-production/</span></code> directory</p></li>
+</ul>
+</section>
+<section id="generate-chemeleon-ensemble-configs-py">
+<h3>generate_chemeleon_ensemble_configs.py<a class="headerlink" href="#generate-chemeleon-ensemble-configs-py" title="Link to this heading">¶</a></h3>
+<p>Python script to generate Chemeleon ensemble configuration files from HPO results.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/hpo/generate_chemeleon_ensemble_configs.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Specialized for Chemeleon model ensemble generation</p></li>
+<li><p>Extracts best configurations from Chemeleon HPO runs</p></li>
+<li><p>Creates ensemble configs in standardized format</p></li>
+</ul>
+</section>
+<section id="select-diverse-configs-py">
+<h3>select_diverse_configs.py<a class="headerlink" href="#select-diverse-configs-py" title="Link to this heading">¶</a></h3>
+<p>Analyzes HPO results and selects diverse high-performing configurations.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/hpo/select_diverse_configs.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Performance distribution analysis</p></li>
+<li><p>Hyperparameter correlation analysis</p></li>
+<li><p>PCA and clustering for diversity selection</p></li>
+<li><p>Generates comprehensive visualizations</p></li>
+<li><p>Outputs top configurations to YAML</p></li>
+</ul>
+</section>
+</section>
+<section id="data-processing-scripts">
+<h2>Data Processing Scripts<a class="headerlink" href="#data-processing-scripts" title="Link to this heading">¶</a></h2>
+<section id="run-data-splits-sh">
+<h3>run_data_splits.sh<a class="headerlink" href="#run-data-splits-sh" title="Link to this heading">¶</a></h3>
+<p>Runs data splitting across multiple configurations of split methods, clustering methods, and quality filters.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/data/run_data_splits.sh<span class="w"> </span>--input<span class="w"> </span>data.csv<span class="w"> </span>--output-dir<span class="w"> </span>outputs/
+./scripts/data/run_data_splits.sh<span class="w"> </span>-i<span class="w"> </span>data.csv<span class="w"> </span>-o<span class="w"> </span>outputs/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cluster-methods<span class="w"> </span>bitbirch<span class="w"> </span>scaffold
+./scripts/data/run_data_splits.sh<span class="w"> </span>-i<span class="w"> </span>data.csv<span class="w"> </span>-o<span class="w"> </span>outputs/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--qualities<span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="w"> </span><span class="s2">&quot;high,medium&quot;</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-i,</span> <span class="pre">--input</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Input CSV file path (required)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-o,</span> <span class="pre">--output-dir</span> <span class="pre">DIR</span></code></p></td>
+<td><p>Output directory (default: assets/dataset/split_train_val)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--smiles-col</span> <span class="pre">COL</span></code></p></td>
+<td><p>SMILES column name (default: SMILES)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--quality-col</span> <span class="pre">COL</span></code></p></td>
+<td><p>Quality column name (default: Quality)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--split-methods</span> <span class="pre">M...</span></code></p></td>
+<td><p>Split methods to use (space-separated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--cluster-methods</span> <span class="pre">M...</span></code></p></td>
+<td><p>Clustering methods to use (space-separated)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q,</span> <span class="pre">--qualities</span> <span class="pre">Q...</span></code></p></td>
+<td><p>Quality filter combinations (comma-delimited, space-separated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-t,</span> <span class="pre">--target-cols</span> <span class="pre">T...</span></code></p></td>
+<td><p>Target columns for stratification</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run</span></code></p></td>
+<td><p>Print commands without executing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--log-level</span> <span class="pre">LEVEL</span></code></p></td>
+<td><p>Set logging level (DEBUG, INFO, WARNING, ERROR)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Available Split Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">group_kfold</span></code> - Splits by clusters without stratification</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stratified_kfold</span></code> - Stratifies on single-label cluster presence vectors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">multilabel_stratified_kfold</span></code> - Stratifies on multi-label cluster presence vectors</p></li>
+</ul>
+<p><strong>Available Clustering Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code> - Random cluster assignment</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scaffold</span></code> - Bemis-Murcko scaffold-based clustering</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmeans</span></code> - K-means clustering on fingerprints</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">umap</span></code> - UMAP dimensionality reduction + clustering</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">butina</span></code> - Butina clustering with Tanimoto similarity</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bitbirch</span></code> - BitBirch hierarchical clustering (recommended)</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run all configurations</span>
+./scripts/data/run_data_splits.sh<span class="w"> </span>-i<span class="w"> </span>data.csv<span class="w"> </span>-o<span class="w"> </span>outputs/splits/
+
+<span class="c1"># Run specific methods only</span>
+./scripts/data/run_data_splits.sh<span class="w"> </span>-i<span class="w"> </span>data.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-s<span class="w"> </span>multilabel_stratified_kfold<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-c<span class="w"> </span>bitbirch<span class="w"> </span>scaffold
+
+<span class="c1"># Run with specific quality filters</span>
+./scripts/data/run_data_splits.sh<span class="w"> </span>-i<span class="w"> </span>data.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-q<span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="w"> </span><span class="s2">&quot;high,medium&quot;</span><span class="w"> </span><span class="s2">&quot;high,medium,low&quot;</span>
+
+<span class="c1"># Dry run to preview commands</span>
+./scripts/data/run_data_splits.sh<span class="w"> </span>-i<span class="w"> </span>data.csv<span class="w"> </span>--dry-run
+</pre></div>
+</div>
+</section>
+<section id="create-dataset-splits-py">
+<h3>create_dataset_splits.py<a class="headerlink" href="#create-dataset-splits-py" title="Link to this heading">¶</a></h3>
+<p>Python script for creating dataset splits with fingerprints and multiple splitting strategies. Originally a Jupyter notebook (<code class="docutils literal notranslate"><span class="pre">1_dataset_splits.ipynb</span></code>), converted to a standalone script.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/data/create_dataset_splits.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Loads high/medium/low quality datasets</p></li>
+<li><p>Calculates Morgan fingerprints</p></li>
+<li><p>Creates temporal and k-fold splits</p></li>
+<li><p>Saves datasets in HuggingFace format</p></li>
+<li><p>Generates visualizations</p></li>
+</ul>
+</section>
+</section>
+<section id="analysis-scripts">
+<h2>Analysis Scripts<a class="headerlink" href="#analysis-scripts" title="Link to this heading">¶</a></h2>
+<section id="compute-task-affinity-py">
+<h3>compute_task_affinity.py<a class="headerlink" href="#compute-task-affinity-py" title="Link to this heading">¶</a></h3>
+<p>Computes task affinity using gradient cosine approach and saves artifacts.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/analysis/compute_task_affinity.py<span class="w"> </span>data.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--smiles<span class="w"> </span>SMILES<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--targets<span class="w"> </span><span class="s2">&quot;LogD,KSOL,CLint&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--outdir<span class="w"> </span>output/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--n_groups<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--save_plots
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--smiles</span></code></p></td>
+<td><p>SMILES column name (default: SMILES)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--targets</span></code></p></td>
+<td><p>Comma-separated target column names (required)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--outdir</span></code></p></td>
+<td><p>Output directory for artifacts (default: .)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--n_groups</span></code></p></td>
+<td><p>Number of task groups (default: 3)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--epochs</span></code></p></td>
+<td><p>Affinity computation epochs (default: 1)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--batch_size</span></code></p></td>
+<td><p>Batch size (default: 64)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--save_plots</span></code></p></td>
+<td><p>Save heatmap and clustermap visualizations</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Outputs:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">affinity_matrix.csv</span></code> - Task affinity matrix</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">affinity_heatmap.png</span></code> - Heatmap visualization (if –save_plots)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">affinity_clustermap.png</span></code> - Hierarchical clustering visualization (if –save_plots)</p></li>
+</ul>
+</section>
+<section id="calculate-weights-py">
+<h3>calculate_weights.py<a class="headerlink" href="#calculate-weights-py" title="Link to this heading">¶</a></h3>
+<p>Calculates target weights based on sample counts for handling class imbalance.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/analysis/calculate_weights.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Computes linear, clipped, and sqrt weights</p></li>
+<li><p>Recommends clipped (10.0) weights for stability</p></li>
+<li><p>Outputs weights in config-ready format</p></li>
+</ul>
+</section>
+</section>
+<section id="mlflow-scripts">
+<h2>MLflow Scripts<a class="headerlink" href="#mlflow-scripts" title="Link to this heading">¶</a></h2>
+<section id="mlflow-server-sh">
+<h3>mlflow_server.sh<a class="headerlink" href="#mlflow-server-sh" title="Link to this heading">¶</a></h3>
+<p>Starts a local MLflow tracking server for experiment logging.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/mlflow/mlflow_server.sh
+</pre></div>
+</div>
+<p><strong>Details:</strong></p>
+<ul class="simple">
+<li><p>Starts MLflow server on <code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:8080</span></code></p></li>
+<li><p>Run this before training to enable experiment tracking</p></li>
+<li><p>Access the MLflow UI at <a class="reference external" href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></p></li>
+</ul>
+</section>
+<section id="setup-mlflow-postgres-sh">
+<h3>setup_mlflow_postgres.sh<a class="headerlink" href="#setup-mlflow-postgres-sh" title="Link to this heading">¶</a></h3>
+<p>Sets up MLflow with PostgreSQL backend using Docker.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/mlflow/setup_mlflow_postgres.sh<span class="w"> </span><span class="o">[</span>COMMAND<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Commands:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Command</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">start</span></code></p></td>
+<td><p>Start PostgreSQL and MLflow server (default)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stop</span></code></p></td>
+<td><p>Stop both services</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">restart</span></code></p></td>
+<td><p>Restart both services</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">status</span></code></p></td>
+<td><p>Show service status</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">logs</span> <span class="pre">[postgres|mlflow|all]</span></code></p></td>
+<td><p>Show service logs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Configuration:</strong></p>
+<p>See <code class="docutils literal notranslate"><span class="pre">scripts/mlflow/README_mlflow_postgres.md</span></code> for detailed configuration options.</p>
+</section>
+<section id="mlflow-cleanup-py">
+<h3>mlflow_cleanup.py<a class="headerlink" href="#mlflow-cleanup-py" title="Link to this heading">¶</a></h3>
+<p>Cleans up old MLflow experiments and runs.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/mlflow/mlflow_cleanup.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Removes old or failed experiment runs</p></li>
+<li><p>Optionally archives experiments before deletion</p></li>
+<li><p>Helps manage MLflow storage usage</p></li>
+</ul>
+</section>
+<section id="cleanup-storage-py">
+<h3>cleanup_storage.py<a class="headerlink" href="#cleanup-storage-py" title="Link to this heading">¶</a></h3>
+<p>Storage cleanup utility for MLflow artifacts and database.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/mlflow/cleanup_storage.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Removes orphaned artifact files</p></li>
+<li><p>Cleans up old checkpoints and logs</p></li>
+<li><p>Frees up disk space</p></li>
+</ul>
+</section>
+<section id="mlflow-experiment-info-py">
+<h3>mlflow_experiment_info.py<a class="headerlink" href="#mlflow-experiment-info-py" title="Link to this heading">¶</a></h3>
+<p>Displays information about MLflow experiments and runs.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/mlflow/mlflow_experiment_info.py
+</pre></div>
+</div>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Lists all experiments and their run counts</p></li>
+<li><p>Shows experiment metrics and parameters</p></li>
+<li><p>Useful for monitoring training progress</p></li>
+</ul>
+</section>
+</section>
+<section id="shared-libraries">
+<h2>Shared Libraries<a class="headerlink" href="#shared-libraries" title="Link to this heading">¶</a></h2>
+<section id="common-sh">
+<h3>common.sh<a class="headerlink" href="#common-sh" title="Link to this heading">¶</a></h3>
+<p>Shared library containing common functions and variables used by training scripts.</p>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Data directory definitions</p></li>
+<li><p>Logging functions (info, warn, error, cmd, section)</p></li>
+<li><p>Configuration helpers (create/cleanup temp configs)</p></li>
+<li><p>Validation helpers (check files and directories)</p></li>
+<li><p>Directory discovery (find splits and folds)</p></li>
+<li><p>Summary reporting</p></li>
+</ul>
+<p><strong>Usage in scripts:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SCRIPT_DIR</span><span class="s2">/lib/common.sh&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="configuration-files">
+<h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Link to this heading">¶</a></h2>
+<p>Training scripts use configuration files from the <code class="docutils literal notranslate"><span class="pre">configs/</span></code> directory:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Configuration</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configs/0-experiment/0-single-fold/chemprop.yaml</span></code></p></td>
+<td><p>Single model training configuration</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">configs/0-experiment/1-ensemble/ensemble_chemprop_production.yaml</span></code></p></td>
+<td><p>Ensemble training configuration</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configs/1-hpo-single-fold/hpo_chemprop.yaml</span></code></p></td>
+<td><p>Hyperparameter optimization configuration</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">configs/3-hpo-ensemble-production/</span></code></p></td>
+<td><p>Production ensemble configurations</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="expected-data-directory-structure">
+<h2>Expected Data Directory Structure<a class="headerlink" href="#expected-data-directory-structure" title="Link to this heading">¶</a></h2>
+<p>Training scripts expect data in the following structure:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>assets/dataset/split_train_val/v3/
+├── quality_high/
+│   └── bitbirch/
+│       ├── multilabel_stratified_kfold/data/
+│       ├── stratified_kfold/data/
+│       └── group_kfold/data/
+├── quality_high_medium/
+│   └── ...
+└── quality_high_medium_low/
+    └── ...
+</pre></div>
+</div>
+<p>Each <code class="docutils literal notranslate"><span class="pre">data/</span></code> directory contains:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>data/
+├── split_0/
+│   ├── fold_0/
+│   │   ├── train.csv
+│   │   └── validation.csv
+│   ├── fold_1/
+│   │   └── ...
+│   └── ...
+├── split_1/
+│   └── ...
+└── ...
+</pre></div>
+</div>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../guide/cli.html"><span class="doc">CLI Command Reference</span></a> - Python CLI commands</p></li>
+<li><p><a class="reference internal" href="../guide/modeling.html"><span class="doc">Modeling Guide</span></a> - Model training workflows</p></li>
+<li><p><a class="reference internal" href="../guide/hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> - Hyperparameter optimization guide</p></li>
+<li><p><a class="reference internal" href="../guide/configuration.html"><span class="doc">Configuration Guide</span></a> - Configuration system reference</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../glossary.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Glossary</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../guide/config_reference.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Configuration File Reference</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Shell Scripts Reference</a><ul>
+<li><a class="reference internal" href="#directory-structure">Directory Structure</a></li>
+<li><a class="reference internal" href="#training-scripts">Training Scripts</a><ul>
+<li><a class="reference internal" href="#train-chemprop-ensembles-sh">train_chemprop_ensembles.sh</a></li>
+<li><a class="reference internal" href="#train-chemprop-model-sh">train_chemprop_model.sh</a></li>
+<li><a class="reference internal" href="#train-chemprop-hpo-sh">train_chemprop_hpo.sh</a></li>
+<li><a class="reference internal" href="#train-chemprop-hpo-ensembles-sh">train_chemprop_hpo_ensembles.sh</a></li>
+<li><a class="reference internal" href="#train-production-ensembles-sh">train_production_ensembles.sh</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hyperparameter-optimization-scripts">Hyperparameter Optimization Scripts</a><ul>
+<li><a class="reference internal" href="#generate-ensemble-configs-py">generate_ensemble_configs.py</a></li>
+<li><a class="reference internal" href="#generate-chemeleon-ensemble-configs-py">generate_chemeleon_ensemble_configs.py</a></li>
+<li><a class="reference internal" href="#select-diverse-configs-py">select_diverse_configs.py</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#data-processing-scripts">Data Processing Scripts</a><ul>
+<li><a class="reference internal" href="#run-data-splits-sh">run_data_splits.sh</a></li>
+<li><a class="reference internal" href="#create-dataset-splits-py">create_dataset_splits.py</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#analysis-scripts">Analysis Scripts</a><ul>
+<li><a class="reference internal" href="#compute-task-affinity-py">compute_task_affinity.py</a></li>
+<li><a class="reference internal" href="#calculate-weights-py">calculate_weights.py</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mlflow-scripts">MLflow Scripts</a><ul>
+<li><a class="reference internal" href="#mlflow-server-sh">mlflow_server.sh</a></li>
+<li><a class="reference internal" href="#setup-mlflow-postgres-sh">setup_mlflow_postgres.sh</a></li>
+<li><a class="reference internal" href="#mlflow-cleanup-py">mlflow_cleanup.py</a></li>
+<li><a class="reference internal" href="#cleanup-storage-py">cleanup_storage.py</a></li>
+<li><a class="reference internal" href="#mlflow-experiment-info-py">mlflow_experiment_info.py</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#shared-libraries">Shared Libraries</a><ul>
+<li><a class="reference internal" href="#common-sh">common.sh</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-files">Configuration Files</a></li>
+<li><a class="reference internal" href="#expected-data-directory-structure">Expected Data Directory Structure</a></li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

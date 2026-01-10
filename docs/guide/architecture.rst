@@ -29,13 +29,25 @@ Data Flow Lifecycle
 
 The typical end-to-end pipeline follows these stages:
 
-.. code-block:: text
+.. mermaid::
 
-   raw data --> standardization / cleaning --> SMILES canonicalization
-             --> cluster-based splitting (BitBirch + stratification)
-             --> model training (Chemprop + JointSampler)
-             --> ensemble predictions (with uncertainty)
-             --> evaluation (metrics) --> visualization
+   graph LR
+      A[Raw SMILES] --> B[Canonicalize]
+      B --> C[BitBirch<br/>Clustering]
+      C --> D[Train/Val/Test<br/>Split]
+      D --> E[Chemprop<br/>MPNN]
+      E --> F[25-Model<br/>Ensemble]
+      F --> G[Predictions<br/>+ Uncertainty]
+      G --> H[Evaluation<br/>& Visualization]
+
+The pipeline handles data from raw SMILES through model training to predictions:
+
+1. **Canonicalization**: Standardize SMILES representations
+2. **Clustering**: Group similar molecules with :term:`BitBirch`
+3. **Splitting**: Cluster-aware train/val/test splits (5 splits × 5 folds)
+4. **Training**: :term:`Chemprop` :term:`MPNN` with multi-task learning
+5. **Ensemble**: Combine 25 models for robust predictions
+6. **Output**: Predictions with uncertainty estimates
 
 Key Modules and Responsibilities
 --------------------------------

@@ -11,6 +11,38 @@ The package uses OmegaConf-based dataclasses for type-safe configuration.
 YAML files under ``configs/`` define settings that are loaded and merged
 with structured defaults.
 
+.. mermaid::
+
+   graph TB
+      subgraph "UnifiedModelConfig"
+         M[model]
+         D[data]
+         O[optimization]
+         ML[mlflow]
+         E[ensemble]
+         JS[joint_sampling]
+      end
+
+      subgraph "Model Types"
+         M --> CP[chemprop]
+         M --> CM[chemeleon]
+         M --> XG[xgboost]
+         M --> LG[lightgbm]
+         M --> CB[catboost]
+      end
+
+      subgraph "Advanced"
+         JS --> TO[task_oversampling]
+         JS --> CU[curriculum]
+         E --> SP[splits]
+         E --> FO[folds]
+      end
+
+      style M fill:#e1f5fe
+      style D fill:#fff9c4
+      style O fill:#c8e6c9
+      style ML fill:#f3e5f5
+
 All model configurations use the **UnifiedModelConfig** schema with a
 discriminator pattern. The ``model.type`` field determines which model-specific
 parameters are validated and used.
@@ -410,3 +442,11 @@ Best Practices
 - Use ``seed`` for reproducibility
 - Set ``target_weights`` to emphasize important endpoints
 - Use ``nested: true`` for ensemble runs to group folds
+
+Cross-References
+----------------
+
+- See :doc:`modeling` for model training workflow
+- See :doc:`hpo` for hyperparameter optimization
+- See :doc:`profiling` for performance profiling and optimization
+- See :doc:`config_reference` for complete parameter reference

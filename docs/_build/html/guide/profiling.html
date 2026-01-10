@@ -1,0 +1,963 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:title" content="Profiling Guide" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://github.com/alec-glisman/guide/profiling.html" />
+<meta property="og:site_name" content="OpenADMET Challenge" />
+<meta property="og:description" content="The profiling system identifies performance bottlenecks in ensemble training with minimal overhead. Three profiling modes provide progressively detailed insights: phase-level (~1%), function-level ..." />
+<meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
+<meta property="og:image:alt" content="OpenADMET Challenge" />
+<meta name="description" content="The profiling system identifies performance bottlenecks in ensemble training with minimal overhead. Three profiling modes provide progressively detailed insights: phase-level (~1%), function-level ..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Ray Tune Output Logging to MLflow" href="logging.html"><link rel="prev" title="MLflow Artifacts Guide" href="mlflow_artifacts.html">
+        <link rel="prefetch" href="../_static/logo.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
+        <title>Profiling Guide - OpenADMET Challenge</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #007A73;
+  --color-brand-content: #C4C7F2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">OpenADMET Challenge</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.model.html">Model Package (<code class="docutils literal notranslate"><span class="pre">admet.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.plot.html">Visualization Tools (<code class="docutils literal notranslate"><span class="pre">admet.plot</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/admet.util.html">Utilities (<code class="docutils literal notranslate"><span class="pre">admet.util</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/guide/profiling.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="profiling-guide">
+<h1>Profiling Guide<a class="headerlink" href="#profiling-guide" title="Link to this heading">¶</a></h1>
+<p>The profiling system identifies performance bottlenecks in ensemble training with
+minimal overhead. Three profiling modes provide progressively detailed insights:
+phase-level (~1%), function-level (~5-10%), and full profiling (~15-25% overhead).</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>The profiling system provides three levels of detail to help you optimize training performance:</p>
+<ol class="arabic simple">
+<li><p><strong>Phase-level profiling</strong> (default): Tracks major phases like training, prediction, plot generation, and artifact logging (~1% overhead)</p></li>
+<li><p><strong>Function-level profiling</strong>: Uses cProfile to track individual function calls within your code (~5-10% overhead)</p></li>
+<li><p><strong>Full profiling</strong>: Extended function tracking with detailed statistics (~15-25% overhead)</p></li>
+</ol>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
+<section id="enable-profiling-default">
+<h3>1. Enable Profiling (Default)<a class="headerlink" href="#enable-profiling-default" title="Link to this heading">¶</a></h3>
+<p>Profiling is enabled by default in phase mode. Your config already includes:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">phase</span><span class="w">  </span><span class="c1"># Minimal overhead, tracks major phases</span>
+<span class="w">  </span><span class="nt">print_summary</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</section>
+<section id="run-ensemble-training">
+<h3>2. Run Ensemble Training<a class="headerlink" href="#run-ensemble-training" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>-c<span class="w"> </span>configs/3-hpo-production/ensemble_chemprop_hpo_001.yaml<span class="w"> </span>--max-parallel<span class="w"> </span><span class="m">5</span>
+</pre></div>
+</div>
+</section>
+<section id="review-profiling-output">
+<h3>3. Review Profiling Output<a class="headerlink" href="#review-profiling-output" title="Link to this heading">¶</a></h3>
+<p>After training completes, you’ll see a detailed profiling summary:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>================================================================================
+ PROFILING SUMMARY: ensemble_chemprop
+================================================================================
+ Total Duration: 15m 32.4s
+================================================================================
+Phase                                    Count      Total         Mean       %
+--------------------------------------------------------------------------------
+ensemble_model_train                         1    14m 28.1s    14m 28.1s   93.1%
+plot_generation                              1      1m 2.3s      1m 2.3s    6.7%
+artifact_logging                             1        2.1s         2.1s    0.2%
+================================================================================
+
+================================================================================
+ PER-MODEL TRAINING BREAKDOWN
+================================================================================
+Model                     Total      Training      Predict      Metrics        Plots    Artifacts
+------------------------------------------------------------------------------------------------------------------------
+split_0_fold_0          3m 12.5s      2m 45.2s       15.3s        3.2s        7.8s         1.0s
+split_0_fold_1          3m 8.1s       2m 42.1s       14.9s        3.1s        7.2s         0.8s
+...
+------------------------------------------------------------------------------------------------------------------------
+Min                     3m 8.1s
+Max                     3m 12.5s
+Mean                    3m 10.2s
+Sum (serial)           15m 51.0s
+Parallel speedup          1.10x (22.0% efficiency)
+================================================================================
+
+================================================================================
+ BOTTLENECK ANALYSIS (Aggregated across all models)
+================================================================================
+Phase                            Total Time      Per Model    % of Total         Optimization Potential
+------------------------------------------------------------------------------------------------------------------------
+Training (PyTorch)                 13m 46.5s       2m 45.3s        86.9%                              -
+Plot Generation                      36.0s           7.2s         3.8%     Set post_training.generate_plots=false
+Prediction                           1m 15.0s       15.0s         7.9%     Ensure cache_predictions=true
+Metrics Computation                  15.5s           3.1s         1.6%     Disable compute_train_metrics
+Artifact Logging                      4.0s           0.8s         0.4%                              -
+================================================================================
+</pre></div>
+</div>
+</section>
+</section>
+<section id="profiling-modes">
+<h2>Profiling Modes<a class="headerlink" href="#profiling-modes" title="Link to this heading">¶</a></h2>
+<section id="phase-mode-recommended-for-production">
+<h3>Phase Mode (Recommended for Production)<a class="headerlink" href="#phase-mode-recommended-for-production" title="Link to this heading">¶</a></h3>
+<p><strong>Overhead</strong>: ~1%</p>
+<p><strong>Use case</strong>: Default profiling for all training runs</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">phase</span>
+</pre></div>
+</div>
+<p><strong>Tracks</strong>:</p>
+<ul class="simple">
+<li><p>Data loading and preprocessing</p></li>
+<li><p>Training epochs</p></li>
+<li><p>Validation</p></li>
+<li><p>Prediction</p></li>
+<li><p>Metrics computation</p></li>
+<li><p>Plot generation</p></li>
+<li><p>Artifact logging to MLflow</p></li>
+</ul>
+</section>
+<section id="function-mode-debugging-bottlenecks">
+<h3>Function Mode (Debugging Bottlenecks)<a class="headerlink" href="#function-mode-debugging-bottlenecks" title="Link to this heading">¶</a></h3>
+<p><strong>Overhead</strong>: ~5-10%</p>
+<p><strong>Use case</strong>: Identifying slow functions within phases</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">function</span>
+<span class="w">  </span><span class="nt">function_top_n</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">  </span><span class="c1"># Track top 100 slowest functions</span>
+</pre></div>
+</div>
+<p><strong>Additional output</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>================================================================================
+ AGGREGATED FUNCTION HOTSPOTS (across all models)
+================================================================================
+Function                                                    Cum(s)       Calls   Models
+------------------------------------------------------------------------------------------------------------------------
+admet.model.chemprop.model.ChempropModel.fit               825.3        5        5
+admet.plot.parity.plot_parity                              36.2       45        5
+matplotlib.pyplot.savefig                                  28.1       45        5
+admet.model.chemprop.model._generate_evaluation_plots      24.5       10        5
+mlflow.log_artifact                                        12.3       50        5
+...
+================================================================================
+</pre></div>
+</div>
+</section>
+<section id="full-mode-deep-performance-analysis">
+<h3>Full Mode (Deep Performance Analysis)<a class="headerlink" href="#full-mode-deep-performance-analysis" title="Link to this heading">¶</a></h3>
+<p><strong>Overhead</strong>: ~15-25%</p>
+<p><strong>Use case</strong>: Comprehensive profiling for optimization work</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span>
+<span class="w">  </span><span class="nt">function_top_n</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+</pre></div>
+</div>
+<p>Includes extended function tracking and per-batch timing.</p>
+</section>
+<section id="disabled-mode-maximum-speed">
+<h3>Disabled Mode (Maximum Speed)<a class="headerlink" href="#disabled-mode-maximum-speed" title="Link to this heading">¶</a></h3>
+<p><strong>Overhead</strong>: 0%</p>
+<p><strong>Use case</strong>: Final production runs where every second counts</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="c1"># or</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="optimizing-based-on-profiling-results">
+<h2>Optimizing Based on Profiling Results<a class="headerlink" href="#optimizing-based-on-profiling-results" title="Link to this heading">¶</a></h2>
+<section id="plot-generation-is-slow-5-of-total-time">
+<h3>1. Plot Generation is Slow (&gt;5% of total time)<a class="headerlink" href="#plot-generation-is-slow-5-of-total-time" title="Link to this heading">¶</a></h3>
+<p><strong>Problem</strong>: Generating parity plots for each model is taking too long.</p>
+<p><strong>Solutions</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option A: Disable plots entirely (fastest)</span>
+<span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">generate_plots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+
+<span class="c1"># Option B: Lower plot quality (faster rendering)</span>
+<span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">generate_plots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">plot_dpi</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">  </span><span class="c1"># vs default 150</span>
+
+<span class="c1"># Option C: Only generate ensemble-level plots (disable per-model plots)</span>
+<span class="c1"># This requires code changes to skip plots in individual model training</span>
+</pre></div>
+</div>
+<p><strong>Expected speedup</strong>: 3-10% reduction in total training time.</p>
+</section>
+<section id="mlflow-artifact-logging-is-slow-3-of-total-time">
+<h3>2. MLflow Artifact Logging is Slow (&gt;3% of total time)<a class="headerlink" href="#mlflow-artifact-logging-is-slow-3-of-total-time" title="Link to this heading">¶</a></h3>
+<p><strong>Problem</strong>: Uploading artifacts to MLflow is blocking model training.</p>
+<p><strong>Solutions</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">async_artifact_upload</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Experimental: upload in background</span>
+<span class="w">  </span><span class="nt">log_model_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">   </span><span class="c1"># Skip PyTorch model logging (saves time)</span>
+</pre></div>
+</div>
+<p><strong>Expected speedup</strong>: 2-5% reduction in total training time.</p>
+</section>
+<section id="metrics-computation-is-slow-30-of-total-time">
+<h3>3. Metrics Computation is Slow (&gt;30% of total time)<a class="headerlink" href="#metrics-computation-is-slow-30-of-total-time" title="Link to this heading">¶</a></h3>
+<p><strong>Problem</strong>: Computing correlation metrics (especially Spearman and Kendall rank correlations) is taking too long.</p>
+<p><strong>Symptoms</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Phase                                     Count        Total         Mean        %
+--------------------------------------------------------------------------------
+metrics_computation                           1     8m 47.3s     8m 47.3s    93.6%
+training_total                                1       20.49s       20.49s     3.6%
+</pre></div>
+</div>
+<p><strong>Solutions</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option A: Disable expensive rank correlations (30-50% speedup)</span>
+<span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">compute_rank_correlations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># Disables Spearman and Kendall tau</span>
+<span class="w">  </span><span class="c1"># You&#39;ll still get: MAE, RMSE, R2, Pearson correlation</span>
+
+<span class="c1"># Option B: Disable per-quality metrics if using curriculum learning</span>
+<span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">compute_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># Skip quality-level breakdown</span>
+<span class="w">  </span><span class="c1"># Metrics still computed for overall validation/test</span>
+
+<span class="c1"># Option C: Disable train set metrics</span>
+<span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">compute_train_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># Skip training set metrics entirely</span>
+
+<span class="c1"># Option D: Combine all optimizations for maximum speed</span>
+<span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">compute_rank_correlations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">compute_per_quality_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">compute_train_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">cache_predictions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Essential for avoiding redundant predictions</span>
+</pre></div>
+</div>
+<p><strong>Expected speedup</strong>:</p>
+<ul class="simple">
+<li><p><strong>Automatic (v2.0+)</strong>: Vectorized batch computation provides 10-30x speedup automatically</p></li>
+<li><p>Disabling rank correlations: Additional 30-50% reduction in metrics computation time</p></li>
+<li><p>Disabling per-quality metrics: Additional 40-70% reduction (if many quality levels)</p></li>
+<li><p>Disabling train metrics: Additional 30-50% reduction</p></li>
+<li><p>GPU acceleration: Additional 2-5x speedup for large datasets (requires CuPy)</p></li>
+<li><p><strong>Combined: Can reduce 8+ minutes to under 10 seconds</strong> (~50-100x total speedup)</p></li>
+</ul>
+<p><strong>Advanced GPU Acceleration</strong> (Optional):</p>
+<p>For datasets with &gt;10k samples, enable GPU-accelerated metrics:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">use_gpu_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Requires: pip install cupy-cuda11x or cupy-cuda12x</span>
+<span class="w">  </span><span class="nt">compute_rank_correlations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># Recommended with GPU for maximum speed</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>GPU acceleration automatically falls back to CPU if CuPy is unavailable or errors occur.</p>
+</div>
+<p><strong>What you keep</strong>:</p>
+<p>Even with all optimizations enabled, you still get:</p>
+<ul class="simple">
+<li><p>MAE, RAE, MAPE, RMSE, R², Pearson correlation for validation/test sets</p></li>
+<li><p>Parity plots (if enabled)</p></li>
+<li><p>All training metrics from PyTorch Lightning</p></li>
+</ul>
+</section>
+<section id="prediction-is-slow-5-of-total-time">
+<h3>4. Prediction is Slow (&gt;5% of total time)<a class="headerlink" href="#prediction-is-slow-5-of-total-time" title="Link to this heading">¶</a></h3>
+<p><strong>Problem</strong>: Multiple redundant <code class="docutils literal notranslate"><span class="pre">predict()</span></code> calls on the same data.</p>
+<p><strong>Solutions</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">post_training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cache_predictions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Should already be enabled (default)</span>
+<span class="w">  </span><span class="nt">compute_train_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># Disable train set predictions</span>
+</pre></div>
+</div>
+<p><strong>Expected speedup</strong>: 5-15% reduction in total training time.</p>
+</section>
+<section id="low-parallel-efficiency-50">
+<h3>5. Low Parallel Efficiency (&lt;50%)<a class="headerlink" href="#low-parallel-efficiency-50" title="Link to this heading">¶</a></h3>
+<p><strong>Problem</strong>: Models are waiting for resources instead of running in parallel.</p>
+<p><strong>Diagnosis</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Parallel speedup: 1.10x (22.0% efficiency)
+</pre></div>
+</div>
+<p>This means you’re only getting 22% of the ideal 5x speedup with 5 parallel workers.</p>
+<p><strong>Solutions</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option A: Reduce parallelism to match available resources</span>
+<span class="nt">ray</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">  </span><span class="c1"># vs 5</span>
+
+<span class="c1"># Option B: Add more GPUs</span>
+<span class="nt">ray</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">num_gpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w">  </span><span class="c1"># Full GPU per model</span>
+<span class="w">  </span><span class="nt">gpu_ids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># 5 GPUs</span>
+
+<span class="c1"># Option C: Reduce per-model GPU allocation</span>
+<span class="nt">ray</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">num_gpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span><span class="w">  </span><span class="c1"># 5 models share 1 GPU</span>
+</pre></div>
+</div>
+<p><strong>Expected improvement</strong>: Efficiency &gt;80% indicates good parallelization.</p>
+</section>
+</section>
+<section id="advanced-usage">
+<h2>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Link to this heading">¶</a></h2>
+<section id="profiling-a-specific-training-run">
+<h3>Profiling a Specific Training Run<a class="headerlink" href="#profiling-a-specific-training-run" title="Link to this heading">¶</a></h3>
+<p>To enable function-level profiling for a single diagnostic run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Edit your config to enable function mode</span>
+vim<span class="w"> </span>configs/3-hpo-production/ensemble_chemprop_hpo_001.yaml
+
+<span class="c1"># Change:</span>
+<span class="c1"># profiling:</span>
+<span class="c1">#   mode: function</span>
+
+<span class="c1"># Run with fewer models for faster profiling</span>
+admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>-c<span class="w"> </span>configs/3-hpo-production/ensemble_chemprop_hpo_001.yaml
+</pre></div>
+</div>
+</section>
+<section id="accessing-profiling-metrics-in-mlflow">
+<h3>Accessing Profiling Metrics in MLflow<a class="headerlink" href="#accessing-profiling-metrics-in-mlflow" title="Link to this heading">¶</a></h3>
+<p>Profiling metrics are logged to MLflow at two levels:</p>
+<p><strong>1. Individual Model Runs (Nested Runs)</strong></p>
+<p>Each split/fold model logs its own profiling metrics under <code class="docutils literal notranslate"><span class="pre">profiling.*</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.total_seconds</span></code>: Total time for this specific model</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.training_total.total_seconds</span></code>: PyTorch training time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble_prediction.total_seconds</span></code>: Prediction time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.plot_generation.total_seconds</span></code>: Plot generation time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.artifact_logging.total_seconds</span></code>: Artifact upload time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.metrics_computation.total_seconds</span></code>: Metrics computation time</p></li>
+</ul>
+<p><strong>2. Parent Run (Aggregated Statistics)</strong></p>
+<p>The parent run contains aggregated statistics across all models under <code class="docutils literal notranslate"><span class="pre">profiling.ensemble.*</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.n_models</span></code>: Number of models trained</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.mean_seconds</span></code>: Average time per model</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.sum_seconds</span></code>: Total serial time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.parallel_speedup</span></code>: Actual speedup achieved</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.parallel_efficiency_pct</span></code>: Parallelization efficiency</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.training_total_seconds</span></code>: Aggregated training time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.training_pct</span></code>: Percentage of time spent in training</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.plots_total_seconds</span></code>: Aggregated plot generation time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.plots_pct</span></code>: Percentage of time spent generating plots</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.artifacts_total_seconds</span></code>: Aggregated artifact logging time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">profiling.ensemble.artifacts_pct</span></code>: Percentage of time spent logging artifacts</p></li>
+</ul>
+<p>You can query these metrics to track performance across experiments:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span>
+<span class="n">runs</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">search_runs</span><span class="p">(</span><span class="n">experiment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1&quot;</span><span class="p">])</span>
+
+<span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">:</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metrics</span>
+
+    <span class="c1"># Check if this is a parent run (has ensemble metrics)</span>
+    <span class="k">if</span> <span class="s2">&quot;profiling.ensemble.n_models&quot;</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Ensemble Run: </span><span class="si">{</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Models trained: </span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;profiling.ensemble.n_models&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Parallel speedup: </span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;profiling.ensemble.parallel_speedup&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">x&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Efficiency: </span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;profiling.ensemble.parallel_efficiency_pct&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Plot generation: </span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;profiling.ensemble.plots_pct&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Training time: </span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;profiling.ensemble.training_pct&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="disabling-profiling-summary-output">
+<h3>Disabling Profiling Summary Output<a class="headerlink" href="#disabling-profiling-summary-output" title="Link to this heading">¶</a></h3>
+<p>If you’re running many experiments and don’t want console output:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">phase</span>
+<span class="w">  </span><span class="nt">print_summary</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># Disable console output</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span><span class="c1"># Still log metrics to MLflow</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="profiling-configuration-reference">
+<h2>Profiling Configuration Reference<a class="headerlink" href="#profiling-configuration-reference" title="Link to this heading">¶</a></h2>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># Whether to enable profiling at all</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="c1"># Profiling detail level: &quot;disabled&quot;, &quot;phase&quot;, &quot;function&quot;, &quot;full&quot;</span>
+<span class="w">  </span><span class="c1"># - disabled: No profiling (0% overhead)</span>
+<span class="w">  </span><span class="c1"># - phase: Phase-level timing only (~1% overhead)</span>
+<span class="w">  </span><span class="c1"># - function: cProfile function tracking (~5-10% overhead)</span>
+<span class="w">  </span><span class="c1"># - full: Extended function tracking (~15-25% overhead)</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">phase</span>
+
+<span class="w">  </span><span class="c1"># Number of top functions to track (function/full mode only)</span>
+<span class="w">  </span><span class="nt">function_top_n</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+
+<span class="w">  </span><span class="c1"># Only track functions from modules containing this string</span>
+<span class="w">  </span><span class="nt">function_filter_module</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admet</span>
+
+<span class="w">  </span><span class="c1"># Whether to log profiling metrics to MLflow</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="c1"># Whether to print profiling summary to console</span>
+<span class="w">  </span><span class="nt">print_summary</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="w">  </span><span class="c1"># Whether to aggregate profiling data across ensemble models</span>
+<span class="w">  </span><span class="nt">ensemble_aggregation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</section>
+<section id="common-issues">
+<h2>Common Issues<a class="headerlink" href="#common-issues" title="Link to this heading">¶</a></h2>
+<section id="issue-profiling-overhead-is-too-high">
+<h3>Issue: Profiling overhead is too high<a class="headerlink" href="#issue-profiling-overhead-is-too-high" title="Link to this heading">¶</a></h3>
+<p><strong>Solution</strong>: Switch to phase mode or disable profiling:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">phase</span><span class="w">  </span><span class="c1"># or &quot;disabled&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-no-profiling-output-shown">
+<h3>Issue: No profiling output shown<a class="headerlink" href="#issue-no-profiling-output-shown" title="Link to this heading">¶</a></h3>
+<p><strong>Check</strong>:</p>
+<ol class="arabic simple">
+<li><p>Is <code class="docutils literal notranslate"><span class="pre">profiling.enabled:</span> <span class="pre">true</span></code>?</p></li>
+<li><p>Is <code class="docutils literal notranslate"><span class="pre">profiling.print_summary:</span> <span class="pre">true</span></code>?</p></li>
+<li><p>Did training complete successfully?</p></li>
+</ol>
+</section>
+<section id="issue-mlflow-profiling-metrics-not-logged">
+<h3>Issue: MLflow profiling metrics not logged<a class="headerlink" href="#issue-mlflow-profiling-metrics-not-logged" title="Link to this heading">¶</a></h3>
+<p><strong>Check</strong>:</p>
+<ol class="arabic simple">
+<li><p>Is <code class="docutils literal notranslate"><span class="pre">profiling.log_to_mlflow:</span> <span class="pre">true</span></code>?</p></li>
+<li><p>Is <code class="docutils literal notranslate"><span class="pre">mlflow.tracking:</span> <span class="pre">true</span></code>?</p></li>
+<li><p>Check MLflow UI under the run’s metrics tab</p></li>
+</ol>
+</section>
+</section>
+<section id="best-practices">
+<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Always use phase mode in production</strong> - Minimal overhead, useful insights</p></li>
+<li><p><strong>Use function mode for optimization</strong> - Temporarily enable when investigating performance</p></li>
+<li><p><strong>Review profiling after every major config change</strong> - Ensure your changes improved performance</p></li>
+<li><p><strong>Compare profiling across experiments</strong> - Use MLflow metrics to track performance trends</p></li>
+<li><p><strong>Profile with representative data</strong> - Use realistic dataset sizes for accurate bottleneck identification</p></li>
+</ol>
+</section>
+<section id="example-optimization-workflow">
+<h2>Example Optimization Workflow<a class="headerlink" href="#example-optimization-workflow" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Baseline</strong>: Run with <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">phase</span></code> to establish baseline timing</p></li>
+<li><p><strong>Identify</strong>: Look at bottleneck analysis for phases &gt;5% of total time</p></li>
+<li><p><strong>Investigate</strong>: If needed, run with <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">function</span></code> to dig deeper</p></li>
+<li><p><strong>Optimize</strong>: Apply suggested optimizations from bottleneck analysis</p></li>
+<li><p><strong>Verify</strong>: Run again with <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">phase</span></code> to measure improvement</p></li>
+<li><p><strong>Production</strong>: Keep <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">phase</span></code> enabled for ongoing monitoring</p></li>
+</ol>
+</section>
+<section id="error-handling-and-robustness">
+<h2>Error Handling and Robustness<a class="headerlink" href="#error-handling-and-robustness" title="Link to this heading">¶</a></h2>
+<p>The profiling system is designed to always collect data, even when things go wrong:</p>
+<section id="keyboard-interrupts-ctrl-c">
+<h3>Keyboard Interrupts (Ctrl+C)<a class="headerlink" href="#keyboard-interrupts-ctrl-c" title="Link to this heading">¶</a></h3>
+<p>If you interrupt ensemble training, profiling data will still be:</p>
+<ul class="simple">
+<li><p>✅ Displayed in the terminal summary</p></li>
+<li><p>✅ Logged to MLflow for all completed models</p></li>
+<li><p>✅ Aggregated across whatever models finished</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Even if you Ctrl+C during training...</span>
+^C<span class="w"> </span>Ensemble<span class="w"> </span>training<span class="w"> </span>interrupted<span class="w"> </span>by<span class="w"> </span>user.<span class="w"> </span>Saving<span class="w"> </span>profiling<span class="w"> </span>info...
+
+<span class="o">================================================================================</span>
+PROFILING<span class="w"> </span>SUMMARY<span class="w"> </span><span class="o">(</span>collected<span class="w"> </span>even<span class="w"> </span>on<span class="w"> </span>error/interrupt<span class="o">)</span>
+<span class="o">================================================================================</span>
+<span class="c1"># Full profiling output still appears</span>
+</pre></div>
+</div>
+</section>
+<section id="training-failures">
+<h3>Training Failures<a class="headerlink" href="#training-failures" title="Link to this heading">¶</a></h3>
+<p>If individual models fail during training:</p>
+<ul class="simple">
+<li><p>✅ Profiling data is still collected for that model</p></li>
+<li><p>✅ Partial timing information is logged to MLflow</p></li>
+<li><p>✅ Aggregated statistics include all models (failed + successful)</p></li>
+<li><p>✅ Terminal summary shows which models failed</p></li>
+</ul>
+</section>
+<section id="mlflow-logging-errors">
+<h3>MLflow Logging Errors<a class="headerlink" href="#mlflow-logging-errors" title="Link to this heading">¶</a></h3>
+<p>If MLflow logging fails:</p>
+<ul class="simple">
+<li><p>✅ Terminal output is still generated</p></li>
+<li><p>✅ Warning logged but training continues</p></li>
+<li><p>✅ Profiling data preserved in memory</p></li>
+</ul>
+</section>
+</section>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
+<p>The profiling system gives you visibility into where ensemble training time is spent, helping you:</p>
+<ul class="simple">
+<li><p><strong>Identify bottlenecks</strong>: See which phases are slowest</p></li>
+<li><p><strong>Optimize selectively</strong>: Focus on high-impact improvements</p></li>
+<li><p><strong>Track performance</strong>: Monitor training speed across experiments</p></li>
+<li><p><strong>Debug issues</strong>: Drill down to function-level when needed</p></li>
+<li><p><strong>Always available</strong>: Profiling data collected even on errors/interrupts</p></li>
+</ul>
+<section id="key-features">
+<h3>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">¶</a></h3>
+<p>✅ <strong>Per-model profiling</strong>: Each split/fold logs detailed timing to its own MLflow run</p>
+<p>✅ <strong>Aggregated statistics</strong>: Parent run contains ensemble-wide metrics</p>
+<p>✅ <strong>Robust to failures</strong>: Profiling data always collected, even on errors</p>
+<p>✅ <strong>Terminal output</strong>: Summary always printed, even if MLflow fails</p>
+<p>✅ <strong>Automatic bottleneck detection</strong>: Suggestions for optimization</p>
+<p>For most users, the default <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">phase</span></code> provides the best balance of insight and performance.</p>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="logging.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Ray Tune Output Logging to MLflow</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="mlflow_artifacts.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">MLflow Artifacts Guide</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Alec Glisman, Ph.D.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Profiling Guide</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#quick-start">Quick Start</a><ul>
+<li><a class="reference internal" href="#enable-profiling-default">1. Enable Profiling (Default)</a></li>
+<li><a class="reference internal" href="#run-ensemble-training">2. Run Ensemble Training</a></li>
+<li><a class="reference internal" href="#review-profiling-output">3. Review Profiling Output</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#profiling-modes">Profiling Modes</a><ul>
+<li><a class="reference internal" href="#phase-mode-recommended-for-production">Phase Mode (Recommended for Production)</a></li>
+<li><a class="reference internal" href="#function-mode-debugging-bottlenecks">Function Mode (Debugging Bottlenecks)</a></li>
+<li><a class="reference internal" href="#full-mode-deep-performance-analysis">Full Mode (Deep Performance Analysis)</a></li>
+<li><a class="reference internal" href="#disabled-mode-maximum-speed">Disabled Mode (Maximum Speed)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#optimizing-based-on-profiling-results">Optimizing Based on Profiling Results</a><ul>
+<li><a class="reference internal" href="#plot-generation-is-slow-5-of-total-time">1. Plot Generation is Slow (&gt;5% of total time)</a></li>
+<li><a class="reference internal" href="#mlflow-artifact-logging-is-slow-3-of-total-time">2. MLflow Artifact Logging is Slow (&gt;3% of total time)</a></li>
+<li><a class="reference internal" href="#metrics-computation-is-slow-30-of-total-time">3. Metrics Computation is Slow (&gt;30% of total time)</a></li>
+<li><a class="reference internal" href="#prediction-is-slow-5-of-total-time">4. Prediction is Slow (&gt;5% of total time)</a></li>
+<li><a class="reference internal" href="#low-parallel-efficiency-50">5. Low Parallel Efficiency (&lt;50%)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#advanced-usage">Advanced Usage</a><ul>
+<li><a class="reference internal" href="#profiling-a-specific-training-run">Profiling a Specific Training Run</a></li>
+<li><a class="reference internal" href="#accessing-profiling-metrics-in-mlflow">Accessing Profiling Metrics in MLflow</a></li>
+<li><a class="reference internal" href="#disabling-profiling-summary-output">Disabling Profiling Summary Output</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#profiling-configuration-reference">Profiling Configuration Reference</a></li>
+<li><a class="reference internal" href="#common-issues">Common Issues</a><ul>
+<li><a class="reference internal" href="#issue-profiling-overhead-is-too-high">Issue: Profiling overhead is too high</a></li>
+<li><a class="reference internal" href="#issue-no-profiling-output-shown">Issue: No profiling output shown</a></li>
+<li><a class="reference internal" href="#issue-mlflow-profiling-metrics-not-logged">Issue: MLflow profiling metrics not logged</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#best-practices">Best Practices</a></li>
+<li><a class="reference internal" href="#example-optimization-workflow">Example Optimization Workflow</a></li>
+<li><a class="reference internal" href="#error-handling-and-robustness">Error Handling and Robustness</a><ul>
+<li><a class="reference internal" href="#keyboard-interrupts-ctrl-c">Keyboard Interrupts (Ctrl+C)</a></li>
+<li><a class="reference internal" href="#training-failures">Training Failures</a></li>
+<li><a class="reference internal" href="#mlflow-logging-errors">MLflow Logging Errors</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#summary">Summary</a><ul>
+<li><a class="reference internal" href="#key-features">Key Features</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8a448e45"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

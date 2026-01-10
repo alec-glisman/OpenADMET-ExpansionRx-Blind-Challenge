@@ -1,8 +1,43 @@
 Dataset Splitting Methodology
 =============================
 
-This guide describes how datasets are partitioned into training and validation
-sets using cluster-aware cross-validation with quality stratification.
+Cluster-aware splitting prevents data leakage by keeping similar molecules together
+in the same fold. Quality stratification ensures representative distributions across
+splits for robust model training and evaluation.
+
+.. mermaid::
+
+   flowchart LR
+      subgraph "Input"
+         A[Raw SMILES<br/>+ Targets]
+      end
+
+      subgraph "Clustering"
+         B[Fingerprints] --> C{BitBirch}
+         C --> D[Cluster Labels]
+      end
+
+      subgraph "Splitting"
+         D --> E[Stratified<br/>K-Fold]
+         E --> F1[split_0]
+         E --> F2[split_1]
+         E --> F3[...]
+         E --> F4[split_4]
+      end
+
+      subgraph "Output"
+         F1 --> G1[fold_0..4]
+         F2 --> G2[fold_0..4]
+         F4 --> G3[fold_0..4]
+      end
+
+      A --> B
+
+      style A fill:#e1f5fe
+      style C fill:#fff9c4
+      style G1 fill:#c8e6c9
+      style G2 fill:#c8e6c9
+      style G3 fill:#c8e6c9
 
 Goals
 -----

@@ -4,7 +4,38 @@
 MLflow Artifacts Guide
 =======================
 
-This document describes the complete MLflow artifacts structure generated during ensemble training for the OpenADMET ExpansionRx Challenge.
+Ensemble training generates a hierarchical MLflow run structure with 1 parent run
+and 25 nested runs (5 splits × 5 folds). Each run stores predictions, metrics,
+plots, model checkpoints, and configuration files.
+
+.. mermaid::
+
+   flowchart TB
+      subgraph "MLflow Experiment"
+         P[🏠 Parent Run<br/>Ensemble Aggregation]
+
+         subgraph "Split 0"
+            N0[Fold 0]
+            N1[Fold 1]
+            N2[Fold 2]
+            N3[Fold 3]
+            N4[Fold 4]
+         end
+
+         subgraph "Split 1-4"
+            N5[... 20 more<br/>nested runs]
+         end
+      end
+
+      P --> N0 & N1 & N2 & N3 & N4
+      P --> N5
+
+      style P fill:#e1f5fe
+      style N0 fill:#c8e6c9
+      style N1 fill:#c8e6c9
+      style N2 fill:#c8e6c9
+      style N3 fill:#c8e6c9
+      style N4 fill:#c8e6c9
 
 Overview
 ========

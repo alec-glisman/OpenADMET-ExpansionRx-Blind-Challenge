@@ -2,10 +2,6 @@
 Configuration File Reference
 ===============================
 
-.. contents:: Table of Contents
-   :local:
-   :depth: 2
-
 Overview
 ========
 

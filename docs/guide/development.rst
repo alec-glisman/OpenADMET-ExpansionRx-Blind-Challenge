@@ -71,6 +71,38 @@ Then build the HTML documentation:
 
 You can view the generated documentation by opening `docs/_build/html/index.html` in your web browser.
 
+Performance Profiling
+---------------------
+
+When debugging slow training or optimizing ensemble workflows, use the built-in profiling system:
+
+.. code-block:: yaml
+
+   # Enable in your config YAML
+   profiling:
+     enabled: true
+     mode: phase  # Options: phase, function, full
+     print_summary: true
+     log_to_mlflow: true
+
+Profiling modes:
+
+* **phase**: Tracks major phases (training, prediction, plots) with ~1% overhead
+* **function**: Uses cProfile for function-level tracking (~5-10% overhead)
+* **full**: Extended function tracking with detailed statistics (~15-25% overhead)
+
+After training, you'll see a bottleneck analysis showing where time is spent:
+
+.. code-block:: bash
+
+   # Example output
+   Phase                     Total Time    % of Total    Optimization Potential
+   Training (PyTorch)        13m 46.5s     86.9%         -
+   Plot Generation           36.0s         3.8%          Set generate_plots=false
+   Prediction                1m 15.0s      7.9%          Ensure cache_predictions=true
+
+For detailed usage and optimization strategies, see the :doc:`profiling` guide.
+
 Continuous Improvement
 ----------------------
 
@@ -79,5 +111,6 @@ We welcome contributions! If you find missing documentation, unclear type hints,
 See also
 --------
 
-* :doc:`overview`
+* :doc:`architecture`
 * :doc:`cli`
+* :doc:`profiling`

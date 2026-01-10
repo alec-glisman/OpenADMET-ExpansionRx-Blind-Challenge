@@ -11,7 +11,7 @@
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
 <meta name="description" content="This guide will help you set up your development environment and contribute to the OpenADMET project. Environment Setup: To get started, you’ll need a Python 3.11 environment. We recommend using a ..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Architecture Overview" href="architecture.html"><link rel="prev" title="Leaderboard Analysis" href="leaderboard.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Development Resources" href="../dev/planning.html"><link rel="prev" title="Leaderboard Analysis" href="leaderboard.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
@@ -19,8 +19,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
-    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
     
     
@@ -210,8 +209,45 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
@@ -221,53 +257,44 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Development Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
-<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -367,6 +394,33 @@
 </div>
 <p>You can view the generated documentation by opening <cite>docs/_build/html/index.html</cite> in your web browser.</p>
 </section>
+<section id="performance-profiling">
+<h2>Performance Profiling<a class="headerlink" href="#performance-profiling" title="Link to this heading">¶</a></h2>
+<p>When debugging slow training or optimizing ensemble workflows, use the built-in profiling system:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Enable in your config YAML</span>
+<span class="nt">profiling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">phase</span><span class="w">  </span><span class="c1"># Options: phase, function, full</span>
+<span class="w">  </span><span class="nt">print_summary</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">log_to_mlflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p>Profiling modes:</p>
+<ul class="simple">
+<li><p><strong>phase</strong>: Tracks major phases (training, prediction, plots) with ~1% overhead</p></li>
+<li><p><strong>function</strong>: Uses cProfile for function-level tracking (~5-10% overhead)</p></li>
+<li><p><strong>full</strong>: Extended function tracking with detailed statistics (~15-25% overhead)</p></li>
+</ul>
+<p>After training, you’ll see a bottleneck analysis showing where time is spent:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example output</span>
+Phase<span class="w">                     </span>Total<span class="w"> </span>Time<span class="w">    </span>%<span class="w"> </span>of<span class="w"> </span>Total<span class="w">    </span>Optimization<span class="w"> </span>Potential
+Training<span class="w"> </span><span class="o">(</span>PyTorch<span class="o">)</span><span class="w">        </span>13m<span class="w"> </span><span class="m">46</span>.5s<span class="w">     </span><span class="m">86</span>.9%<span class="w">         </span>-
+Plot<span class="w"> </span>Generation<span class="w">           </span><span class="m">36</span>.0s<span class="w">         </span><span class="m">3</span>.8%<span class="w">          </span>Set<span class="w"> </span><span class="nv">generate_plots</span><span class="o">=</span><span class="nb">false</span>
+Prediction<span class="w">                </span>1m<span class="w"> </span><span class="m">15</span>.0s<span class="w">      </span><span class="m">7</span>.9%<span class="w">          </span>Ensure<span class="w"> </span><span class="nv">cache_predictions</span><span class="o">=</span><span class="nb">true</span>
+</pre></div>
+</div>
+<p>For detailed usage and optimization strategies, see the <a class="reference internal" href="profiling.html"><span class="doc">Profiling Guide</span></a> guide.</p>
+</section>
 <section id="continuous-improvement">
 <h2>Continuous Improvement<a class="headerlink" href="#continuous-improvement" title="Link to this heading">¶</a></h2>
 <p>We welcome contributions! If you find missing documentation, unclear type hints, or have ideas for improving the data pipelines, training orchestration, or model protocols, please open an issue or submit a pull request.</p>
@@ -374,8 +428,9 @@
 <section id="see-also">
 <h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="overview.html"><span class="doc">Overview</span></a></p></li>
-<li><p><a class="reference internal" href="cli.html"><span class="doc">CLI Usage</span></a></p></li>
+<li><p><a class="reference internal" href="architecture.html"><span class="doc">Architecture Overview</span></a></p></li>
+<li><p><a class="reference internal" href="cli.html"><span class="doc">CLI Command Reference</span></a></p></li>
+<li><p><a class="reference internal" href="profiling.html"><span class="doc">Profiling Guide</span></a></p></li>
 </ul>
 </section>
 </section>
@@ -385,12 +440,12 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="architecture.html">
+          <a class="next-page" href="../dev/planning.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Architecture Overview</div>
+                <div class="title">Development Resources</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -441,6 +496,7 @@
 <li><a class="reference internal" href="#code-style">Code Style</a></li>
 <li><a class="reference internal" href="#type-checking">Type Checking</a></li>
 <li><a class="reference internal" href="#docs-build">Docs Build</a></li>
+<li><a class="reference internal" href="#performance-profiling">Performance Profiling</a></li>
 <li><a class="reference internal" href="#continuous-improvement">Continuous Improvement</a></li>
 <li><a class="reference internal" href="#see-also">See also</a></li>
 </ul>
@@ -460,5 +516,6 @@
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
     </body>
 </html>

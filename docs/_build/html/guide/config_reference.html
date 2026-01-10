@@ -7,11 +7,11 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/guide/config_reference.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="Table of Contents: Overview, Available Configuration Files- Base Configurations, Task Affinity Configurations, Ensemble Configurations, Curriculum Learning Configurations, Hyperparameter Optimizati..." />
+<meta property="og:description" content="Overview: This project uses YAML configuration files to define all aspects of model training, hyperparameter optimization, and evaluation. All configs are located in the configs/ directory and can ..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="Table of Contents: Overview, Available Configuration Files- Base Configurations, Task Affinity Configurations, Ensemble Configurations, Curriculum Learning Configurations, Hyperparameter Optimizati..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modeling Guide" href="modeling.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
+<meta name="description" content="Overview: This project uses YAML configuration files to define all aspects of model training, hyperparameter optimization, and evaluation. All configs are located in the configs/ directory and can ..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Shell Scripts Reference" href="../reference/scripts.html"><link rel="prev" title="Configuration Guide" href="configuration.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
@@ -19,8 +19,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
-    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
     
     
@@ -210,8 +209,45 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
@@ -221,53 +257,44 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Usage</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration File Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
-<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -310,45 +337,8 @@
         <article role="main" id="furo-main-content">
           <section id="configuration-file-reference">
 <h1>Configuration File Reference<a class="headerlink" href="#configuration-file-reference" title="Link to this heading">¶</a></h1>
-<nav class="contents local" id="table-of-contents">
-<p class="topic-title">Table of Contents</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="#overview" id="id1">Overview</a></p></li>
-<li><p><a class="reference internal" href="#available-configuration-files" id="id2">Available Configuration Files</a></p>
-<ul>
-<li><p><a class="reference internal" href="#base-configurations" id="id3">Base Configurations</a></p></li>
-<li><p><a class="reference internal" href="#task-affinity-configurations" id="id4">Task Affinity Configurations</a></p></li>
-<li><p><a class="reference internal" href="#ensemble-configurations" id="id5">Ensemble Configurations</a></p></li>
-<li><p><a class="reference internal" href="#curriculum-learning-configurations" id="id6">Curriculum Learning Configurations</a></p></li>
-<li><p><a class="reference internal" href="#hyperparameter-optimization" id="id7">Hyperparameter Optimization</a></p></li>
-</ul>
-</li>
-<li><p><a class="reference internal" href="#configuration-structure" id="id8">Configuration Structure</a></p>
-<ul>
-<li><p><a class="reference internal" href="#data-section" id="id9">Data Section</a></p></li>
-<li><p><a class="reference internal" href="#model-section" id="id10">Model Section</a></p></li>
-<li><p><a class="reference internal" href="#optimization-section" id="id11">Optimization Section</a></p></li>
-<li><p><a class="reference internal" href="#task-affinity-section" id="id12">Task Affinity Section</a></p></li>
-<li><p><a class="reference internal" href="#joint-sampling-section" id="id13">Joint Sampling Section</a></p></li>
-<li><p><a class="reference internal" href="#curriculum-learning-section" id="id14">Curriculum Learning Section</a></p></li>
-<li><p><a class="reference internal" href="#mlflow-section" id="id15">MLflow Section</a></p></li>
-<li><p><a class="reference internal" href="#system-section" id="id16">System Section</a></p></li>
-</ul>
-</li>
-<li><p><a class="reference internal" href="#usage-patterns" id="id17">Usage Patterns</a></p>
-<ul>
-<li><p><a class="reference internal" href="#loading-configurations" id="id18">Loading Configurations</a></p></li>
-<li><p><a class="reference internal" href="#overriding-parameters" id="id19">Overriding Parameters</a></p></li>
-<li><p><a class="reference internal" href="#merging-multiple-configs" id="id20">Merging Multiple Configs</a></p></li>
-</ul>
-</li>
-<li><p><a class="reference internal" href="#configuration-best-practices" id="id21">Configuration Best Practices</a></p></li>
-<li><p><a class="reference internal" href="#quick-reference-config-selection" id="id22">Quick Reference: Config Selection</a></p></li>
-<li><p><a class="reference internal" href="#see-also" id="id23">See Also</a></p></li>
-</ul>
-</nav>
 <section id="overview">
-<h2><a class="toc-backref" href="#id1" role="doc-backlink">Overview</a><a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
 <p>This project uses YAML configuration files to define all aspects of model training,
 hyperparameter optimization, and evaluation. All configs are located in the <code class="docutils literal notranslate"><span class="pre">configs/</span></code>
 directory and can be loaded with OmegaConf.</p>
@@ -363,9 +353,9 @@ directory and can be loaded with OmegaConf.</p>
 </ul>
 </section>
 <section id="available-configuration-files">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Available Configuration Files</a><a class="headerlink" href="#available-configuration-files" title="Link to this heading">¶</a></h2>
+<h2>Available Configuration Files<a class="headerlink" href="#available-configuration-files" title="Link to this heading">¶</a></h2>
 <section id="base-configurations">
-<h3><a class="toc-backref" href="#id3" role="doc-backlink">Base Configurations</a><a class="headerlink" href="#base-configurations" title="Link to this heading">¶</a></h3>
+<h3>Base Configurations<a class="headerlink" href="#base-configurations" title="Link to this heading">¶</a></h3>
 <section id="chemprop-yaml">
 <h4>chemprop.yaml<a class="headerlink" href="#chemprop-yaml" title="Link to this heading">¶</a></h4>
 <p><strong>Purpose</strong>: Standard single-model Chemprop training without task affinity or curriculum learning.</p>
@@ -402,7 +392,7 @@ directory and can be loaded with OmegaConf.</p>
 </section>
 </section>
 <section id="task-affinity-configurations">
-<h3><a class="toc-backref" href="#id4" role="doc-backlink">Task Affinity Configurations</a><a class="headerlink" href="#task-affinity-configurations" title="Link to this heading">¶</a></h3>
+<h3>Task Affinity Configurations<a class="headerlink" href="#task-affinity-configurations" title="Link to this heading">¶</a></h3>
 <section id="chemprop-task-affinity-yaml">
 <h4>chemprop_task_affinity.yaml<a class="headerlink" href="#chemprop-task-affinity-yaml" title="Link to this heading">¶</a></h4>
 <p><strong>Purpose</strong>: Standard task affinity training (recommended starting point).</p>
@@ -530,7 +520,7 @@ directory and can be loaded with OmegaConf.</p>
 </section>
 </section>
 <section id="ensemble-configurations">
-<h3><a class="toc-backref" href="#id5" role="doc-backlink">Ensemble Configurations</a><a class="headerlink" href="#ensemble-configurations" title="Link to this heading">¶</a></h3>
+<h3>Ensemble Configurations<a class="headerlink" href="#ensemble-configurations" title="Link to this heading">¶</a></h3>
 <section id="ensemble-chemprop-1-yaml">
 <h4>ensemble_chemprop_1.yaml<a class="headerlink" href="#ensemble-chemprop-1-yaml" title="Link to this heading">¶</a></h4>
 <p><strong>Purpose</strong>: First ensemble configuration variant.</p>
@@ -579,7 +569,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </section>
 </section>
 <section id="curriculum-learning-configurations">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Curriculum Learning Configurations</a><a class="headerlink" href="#curriculum-learning-configurations" title="Link to this heading">¶</a></h3>
+<h3>Curriculum Learning Configurations<a class="headerlink" href="#curriculum-learning-configurations" title="Link to this heading">¶</a></h3>
 <section id="chemprop-curriculum-yaml">
 <h4>chemprop_curriculum.yaml<a class="headerlink" href="#chemprop-curriculum-yaml" title="Link to this heading">¶</a></h4>
 <p><strong>Purpose</strong>: Single model with curriculum learning enabled.</p>
@@ -633,7 +623,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </section>
 </section>
 <section id="hyperparameter-optimization">
-<h3><a class="toc-backref" href="#id7" role="doc-backlink">Hyperparameter Optimization</a><a class="headerlink" href="#hyperparameter-optimization" title="Link to this heading">¶</a></h3>
+<h3>Hyperparameter Optimization<a class="headerlink" href="#hyperparameter-optimization" title="Link to this heading">¶</a></h3>
 <section id="hpo-chemprop-yaml">
 <h4>hpo_chemprop.yaml<a class="headerlink" href="#hpo-chemprop-yaml" title="Link to this heading">¶</a></h4>
 <p><strong>Purpose</strong>: Ray Tune hyperparameter optimization with ASHA scheduler.</p>
@@ -676,10 +666,10 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </section>
 </section>
 <section id="configuration-structure">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">Configuration Structure</a><a class="headerlink" href="#configuration-structure" title="Link to this heading">¶</a></h2>
+<h2>Configuration Structure<a class="headerlink" href="#configuration-structure" title="Link to this heading">¶</a></h2>
 <p>All configuration files share a common structure with these main sections:</p>
 <section id="data-section">
-<h3><a class="toc-backref" href="#id9" role="doc-backlink">Data Section</a><a class="headerlink" href="#data-section" title="Link to this heading">¶</a></h3>
+<h3>Data Section<a class="headerlink" href="#data-section" title="Link to this heading">¶</a></h3>
 <p>Controls data loading, column mapping, and file paths.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">data</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># Single model</span>
@@ -711,7 +701,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="model-section">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">Model Section</a><a class="headerlink" href="#model-section" title="Link to this heading">¶</a></h3>
+<h3>Model Section<a class="headerlink" href="#model-section" title="Link to this heading">¶</a></h3>
 <p>Defines model type and architecture parameters using unified format.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># Model type selector</span>
@@ -763,7 +753,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="optimization-section">
-<h3><a class="toc-backref" href="#id11" role="doc-backlink">Optimization Section</a><a class="headerlink" href="#optimization-section" title="Link to this heading">¶</a></h3>
+<h3>Optimization Section<a class="headerlink" href="#optimization-section" title="Link to this heading">¶</a></h3>
 <p>Training hyperparameters and learning rate schedule.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">optimization</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># Loss and metrics</span>
@@ -792,7 +782,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="task-affinity-section">
-<h3><a class="toc-backref" href="#id12" role="doc-backlink">Task Affinity Section</a><a class="headerlink" href="#task-affinity-section" title="Link to this heading">¶</a></h3>
+<h3>Task Affinity Section<a class="headerlink" href="#task-affinity-section" title="Link to this heading">¶</a></h3>
 <p>Task grouping for improved multi-task learning (optional).</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task_affinity</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># Set to true to enable</span>
@@ -819,7 +809,7 @@ to increase ensemble diversity (specifics depend on file contents).</p>
 </div>
 </section>
 <section id="joint-sampling-section">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Joint Sampling Section</a><a class="headerlink" href="#joint-sampling-section" title="Link to this heading">¶</a></h3>
+<h3>Joint Sampling Section<a class="headerlink" href="#joint-sampling-section" title="Link to this heading">¶</a></h3>
 <p>Unified two-stage sampling combining task-aware oversampling and curriculum learning
 via the <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code>.</p>
 <p><strong>Algorithm:</strong></p>
@@ -938,7 +928,7 @@ curriculum learning.</p>
 </section>
 </section>
 <section id="curriculum-learning-section">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Curriculum Learning Section</a><a class="headerlink" href="#curriculum-learning-section" title="Link to this heading">¶</a></h3>
+<h3>Curriculum Learning Section<a class="headerlink" href="#curriculum-learning-section" title="Link to this heading">¶</a></h3>
 <p>Quality-aware curriculum learning with count-normalized sampling (part of JointSampling).</p>
 <section id="curriculumconfig-parameters">
 <h4>CurriculumConfig Parameters<a class="headerlink" href="#curriculumconfig-parameters" title="Link to this heading">¶</a></h4>
@@ -1014,7 +1004,7 @@ curriculum learning.</p>
 </section>
 </section>
 <section id="mlflow-section">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">MLflow Section</a><a class="headerlink" href="#mlflow-section" title="Link to this heading">¶</a></h3>
+<h3>MLflow Section<a class="headerlink" href="#mlflow-section" title="Link to this heading">¶</a></h3>
 <p>Experiment tracking configuration.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># Tracking</span>
@@ -1033,7 +1023,7 @@ curriculum learning.</p>
 </div>
 </section>
 <section id="system-section">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">System Section</a><a class="headerlink" href="#system-section" title="Link to this heading">¶</a></h3>
+<h3>System Section<a class="headerlink" href="#system-section" title="Link to this heading">¶</a></h3>
 <p>Hardware and reproducibility settings.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Device</span>
 <span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;auto&quot;</span><span class="w">                </span><span class="c1"># &quot;auto&quot;, &quot;cpu&quot;, &quot;cuda&quot;, &quot;cuda:N&quot;</span>
@@ -1049,9 +1039,9 @@ curriculum learning.</p>
 </section>
 </section>
 <section id="usage-patterns">
-<h2><a class="toc-backref" href="#id17" role="doc-backlink">Usage Patterns</a><a class="headerlink" href="#usage-patterns" title="Link to this heading">¶</a></h2>
+<h2>Usage Patterns<a class="headerlink" href="#usage-patterns" title="Link to this heading">¶</a></h2>
 <section id="loading-configurations">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Loading Configurations</a><a class="headerlink" href="#loading-configurations" title="Link to this heading">¶</a></h3>
+<h3>Loading Configurations<a class="headerlink" href="#loading-configurations" title="Link to this heading">¶</a></h3>
 <p><strong>Python</strong>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
@@ -1073,7 +1063,7 @@ curriculum learning.</p>
 </div>
 </section>
 <section id="overriding-parameters">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Overriding Parameters</a><a class="headerlink" href="#overriding-parameters" title="Link to this heading">¶</a></h3>
+<h3>Overriding Parameters<a class="headerlink" href="#overriding-parameters" title="Link to this heading">¶</a></h3>
 <p><strong>Via CLI</strong>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>admet.model.chemprop.model<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--config<span class="w"> </span>configs/chemprop.yaml<span class="w"> </span><span class="se">\</span>
@@ -1093,7 +1083,7 @@ curriculum learning.</p>
 </div>
 </section>
 <section id="merging-multiple-configs">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">Merging Multiple Configs</a><a class="headerlink" href="#merging-multiple-configs" title="Link to this heading">¶</a></h3>
+<h3>Merging Multiple Configs<a class="headerlink" href="#merging-multiple-configs" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load base and override configs</span>
@@ -1107,7 +1097,7 @@ curriculum learning.</p>
 </section>
 </section>
 <section id="configuration-best-practices">
-<h2><a class="toc-backref" href="#id21" role="doc-backlink">Configuration Best Practices</a><a class="headerlink" href="#configuration-best-practices" title="Link to this heading">¶</a></h2>
+<h2>Configuration Best Practices<a class="headerlink" href="#configuration-best-practices" title="Link to this heading">¶</a></h2>
 <ol class="arabic">
 <li><p><strong>Start Simple</strong>: Begin with <code class="docutils literal notranslate"><span class="pre">chemprop.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">chemprop_task_affinity.yaml</span></code></p></li>
 <li><p><strong>Version Control</strong>: Commit all config changes with meaningful messages</p></li>
@@ -1125,7 +1115,7 @@ curriculum learning.</p>
 </ol>
 </section>
 <section id="quick-reference-config-selection">
-<h2><a class="toc-backref" href="#id22" role="doc-backlink">Quick Reference: Config Selection</a><a class="headerlink" href="#quick-reference-config-selection" title="Link to this heading">¶</a></h2>
+<h2>Quick Reference: Config Selection<a class="headerlink" href="#quick-reference-config-selection" title="Link to this heading">¶</a></h2>
 <p>Choose your configuration based on your goal:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -1186,7 +1176,7 @@ curriculum learning.</p>
 </div>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> - General configuration guide</p></li>
 <li><p><a class="reference internal" href="task_affinity.html"><span class="doc">Task Affinity Grouping</span></a> - Task affinity detailed guide</p></li>
@@ -1202,12 +1192,12 @@ curriculum learning.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="modeling.html">
+          <a class="next-page" href="../reference/scripts.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Modeling Guide</div>
+                <div class="title">Shell Scripts Reference</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -1326,5 +1316,6 @@ curriculum learning.</p>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
     </body>
 </html>

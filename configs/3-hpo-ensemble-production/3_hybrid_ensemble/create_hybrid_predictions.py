@@ -25,7 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -553,6 +553,10 @@ def fetch_leaderboard_metrics() -> dict[str, LeaderboardMetrics]:
                 max_kendall_std = unc if unc is not None else 0.0
 
         if all(v is not None for v in [min_mae, max_r2, max_spearman, max_kendall]):
+            assert min_mae is not None
+            assert max_r2 is not None
+            assert max_spearman is not None
+            assert max_kendall is not None
             metrics[task] = LeaderboardMetrics(
                 min_mae=min_mae,
                 max_r2=max_r2,
@@ -609,8 +613,8 @@ def find_best_model_per_task() -> dict[str, tuple[str, ModelSubmission]]:
 
     for task in TASKS:
         best_rank = float("inf")
-        best_model_key = None
-        best_model = None
+        best_model_key: str | None = None
+        best_model: ModelSubmission | None = None
 
         for model_key, model in MODEL_SUBMISSIONS.items():
             rank = model.per_task_ranks[task]
@@ -619,7 +623,8 @@ def find_best_model_per_task() -> dict[str, tuple[str, ModelSubmission]]:
                 best_model_key = model_key
                 best_model = model
 
-        best_models[task] = (best_model_key, best_model)
+        if best_model_key is not None and best_model is not None:
+            best_models[task] = (best_model_key, best_model)
 
     return best_models
 
@@ -2167,14 +2172,14 @@ def main():
     print("Summary")
     print("=" * 70)
     print(f"\nOutput files in {args.output_dir}:")
-    print(f"  data/:")
+    print("  data/:")
     print(f"    • {predictions_path.name} - Blind predictions (log-scale)")
     print(f"    • {submissions_path.name} - Blind submissions (for challenge upload)")
-    print(f"  reports/:")
+    print("  reports/:")
     print(f"    • {report_path.name} - Analysis report")
     print(f"    • {metadata_path.name} - Reproducibility metadata")
     if visualization_files:
-        print(f"  figures/:")
+        print("  figures/:")
         print(f"    • png/ - {len(visualization_files)//2} PNG files")
         print(f"    • svg/ - {len(visualization_files)//2} SVG files")
 

@@ -1,8 +1,46 @@
 Classical Models Guide
 ======================
 
-This guide explains how to use traditional machine learning models (XGBoost,
-LightGBM, CatBoost) with molecular fingerprints for ADMET prediction.
+XGBoost, LightGBM, and CatBoost provide fast CPU-based baselines using molecular
+fingerprints. These models train in minutes instead of hours and often match
+deep learning performance without requiring GPUs.
+
+.. mermaid::
+
+   flowchart LR
+      subgraph "Input"
+         A[SMILES]
+      end
+
+      subgraph "Featurization"
+         B{Fingerprint<br/>Type}
+         B --> C1[Morgan<br/>2048-bit]
+         B --> C2[MACCS<br/>167-bit]
+         B --> C3[Mordred<br/>~1800]
+      end
+
+      subgraph "Model"
+         D{Gradient<br/>Boosting}
+         D --> E1[XGBoost]
+         D --> E2[LightGBM]
+         D --> E3[CatBoost]
+      end
+
+      subgraph "Output"
+         F[9 ADMET<br/>Predictions]
+      end
+
+      A --> B
+      C1 --> D
+      C2 --> D
+      C3 --> D
+      E1 --> F
+      E2 --> F
+      E3 --> F
+
+      style A fill:#e1f5fe
+      style D fill:#fff9c4
+      style F fill:#c8e6c9
 
 Overview
 --------

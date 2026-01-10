@@ -3,24 +3,23 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta property="og:title" content="CLI Usage" />
+<meta property="og:title" content="CLI Command Reference" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/guide/cli.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="The admet package provides command-line tools for leaderboard analysis and model training workflows. Leaderboard Commands: The admet leaderboard command provides tools for scraping and analyzing co..." />
+<meta property="og:description" content="The admet command-line interface provides commands for model training, data processing, and leaderboard analysis. Installation and Setup: After installing the package, the admet command is availabl..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="The admet package provides command-line tools for leaderboard analysis and model training workflows. Leaderboard Commands: The admet leaderboard command provides tools for scraping and analyzing co..." />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Overview" href="overview.html"><link rel="prev" title="Leaderboard API" href="../api/leaderboard.html">
+<meta name="description" content="The admet command-line interface provides commands for model training, data processing, and leaderboard analysis. Installation and Setup: After installing the package, the admet command is availabl..." />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration Guide" href="configuration.html"><link rel="prev" title="Troubleshooting" href="troubleshooting.html">
         <link rel="prefetch" href="../_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="../_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
-        <title>CLI Usage - OpenADMET Challenge</title>
+        <title>CLI Command Reference - OpenADMET Challenge</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-dropdown.css?v=995e94df" />
-    <link rel="stylesheet" type="text/css" href="../_static/panels-bootstrap.min.css?v=21c0b90a" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
     
     
@@ -210,8 +209,45 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
@@ -221,53 +257,44 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../api/leaderboard.html">Leaderboard API</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">CLI Usage</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="data_sources.html">Data Sources &amp; Curation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="splitting.html">Dataset Splitting Methodology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modeling.html">Modeling Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classical_models.html">Classical Models Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpo.html">Hyperparameter Optimization Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="curriculum.html">Curriculum Learning Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="task_affinity.html">Task Affinity Grouping</a></li>
-<li class="toctree-l1"><a class="reference internal" href="debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="logging.html">Ray Tune Output Logging to MLflow</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -308,38 +335,445 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="cli-usage">
-<h1>CLI Usage<a class="headerlink" href="#cli-usage" title="Link to this heading">¶</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">admet</span></code> package provides command-line tools for leaderboard analysis
-and model training workflows.</p>
+          <section id="cli-command-reference">
+<h1>CLI Command Reference<a class="headerlink" href="#cli-command-reference" title="Link to this heading">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">admet</span></code> command-line interface provides commands for model training, data processing, and leaderboard analysis.</p>
+<section id="installation-and-setup">
+<h2>Installation and Setup<a class="headerlink" href="#installation-and-setup" title="Link to this heading">¶</a></h2>
+<p>After installing the package, the <code class="docutils literal notranslate"><span class="pre">admet</span></code> command is available:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Verify installation</span>
+admet<span class="w"> </span>--help
+
+<span class="c1"># Show version</span>
+admet<span class="w"> </span>--version
+</pre></div>
+</div>
+<p>Available top-level commands: <code class="docutils literal notranslate"><span class="pre">model</span></code>, <code class="docutils literal notranslate"><span class="pre">data</span></code>, <code class="docutils literal notranslate"><span class="pre">leaderboard</span></code></p>
+</section>
+<section id="model-commands">
+<h2>Model Commands<a class="headerlink" href="#model-commands" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">model</span></code> command group handles model training, hyperparameter optimization, and ensemble workflows.</p>
+<section id="admet-model-train">
+<h3>admet model train<a class="headerlink" href="#admet-model-train" title="Link to this heading">¶</a></h3>
+<p>Train a single model or ensemble using a configuration file.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>train<span class="w"> </span>--config<span class="w"> </span>CONFIG_PATH
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--config</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Path to YAML configuration file (required)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Train single model</span>
+admet<span class="w"> </span>model<span class="w"> </span>train<span class="w"> </span>-c<span class="w"> </span>configs/0-experiment/0-single-fold/chemprop.yaml
+
+<span class="c1"># Train with custom config</span>
+admet<span class="w"> </span>model<span class="w"> </span>train<span class="w"> </span>-c<span class="w"> </span>my_config.yaml
+</pre></div>
+</div>
+<p><strong>Configuration File Requirements:</strong></p>
+<ul class="simple">
+<li><p>Must specify <code class="docutils literal notranslate"><span class="pre">model.type</span></code> (chemprop, chemeleon, xgboost, lightgbm, catboost)</p></li>
+<li><p>Must specify <code class="docutils literal notranslate"><span class="pre">data.data_dir</span></code> or <code class="docutils literal notranslate"><span class="pre">data.path</span></code></p></li>
+<li><p>Must specify <code class="docutils literal notranslate"><span class="pre">data.target_cols</span></code></p></li>
+</ul>
+<p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for complete config reference.</p>
+</section>
+<section id="admet-model-ensemble">
+<h3>admet model ensemble<a class="headerlink" href="#admet-model-ensemble" title="Link to this heading">¶</a></h3>
+<p>Train ensemble models across multiple data splits and folds using Ray parallelization.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>--config<span class="w"> </span>CONFIG_PATH<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--config</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Path to ensemble configuration file (required)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--max-parallel</span> <span class="pre">N</span></code></p></td>
+<td><p>Maximum number of parallel models (default: from config)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Train ensemble with default parallelization</span>
+admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>-c<span class="w"> </span>configs/0-experiment/1-ensemble/ensemble_chemprop_production.yaml
+
+<span class="c1"># Limit parallel models</span>
+admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>-c<span class="w"> </span>configs/3-hpo-ensemble-production/0_chemprop_v1/ensemble_chemprop_hpo_001.yaml<span class="w"> </span>--max-parallel<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
+<p><strong>Configuration Requirements:</strong></p>
+<ul class="simple">
+<li><p>Must specify <code class="docutils literal notranslate"><span class="pre">ensemble.enabled:</span> <span class="pre">true</span></code></p></li>
+<li><p>Must specify <code class="docutils literal notranslate"><span class="pre">ensemble.data_dirs</span></code> (list of split/fold directories)</p></li>
+<li><p>Ray will parallelize training across available resources</p></li>
+</ul>
+<p>See <a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> for ensemble training workflows.</p>
+</section>
+<section id="admet-model-hpo">
+<h3>admet model hpo<a class="headerlink" href="#admet-model-hpo" title="Link to this heading">¶</a></h3>
+<p>Run hyperparameter optimization using Ray Tune with ASHA scheduler.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>--config<span class="w"> </span>CONFIG_PATH<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--config</span> <span class="pre">PATH</span></code></p></td>
+<td><p>Path to HPO configuration file (required)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--num-samples</span> <span class="pre">N</span></code></p></td>
+<td><p>Number of trials to run (overrides config)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gpus-per-trial</span> <span class="pre">N</span></code></p></td>
+<td><p>GPUs per trial (default: 0.25)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cpus-per-trial</span> <span class="pre">N</span></code></p></td>
+<td><p>CPUs per trial (default: 2)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run HPO with 50 trials</span>
+admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>-c<span class="w"> </span>configs/1-hpo-single-fold/hpo_chemprop.yaml<span class="w"> </span>--num-samples<span class="w"> </span><span class="m">50</span>
+
+<span class="c1"># Custom resource allocation</span>
+admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>-c<span class="w"> </span>configs/1-hpo-single-fold/hpo_chemprop.yaml<span class="w"> </span>--gpus-per-trial<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--cpus-per-trial<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
+<p><strong>Configuration Requirements:</strong></p>
+<ul class="simple">
+<li><p>Must specify <code class="docutils literal notranslate"><span class="pre">hpo.enabled:</span> <span class="pre">true</span></code></p></li>
+<li><p>Must define <code class="docutils literal notranslate"><span class="pre">hpo.search_space</span></code> (hyperparameter ranges)</p></li>
+<li><p>Supports warmstart from previous Optuna studies</p></li>
+</ul>
+<p><strong>Outputs:</strong></p>
+<ul class="simple">
+<li><p>Results logged to MLflow</p></li>
+<li><p>Top configurations saved to <code class="docutils literal notranslate"><span class="pre">hpo_results/top_k_configs.json</span></code></p></li>
+</ul>
+<p>See <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> for complete HPO guide.</p>
+</section>
+<section id="admet-model-hpo-list-studies">
+<h3>admet model hpo-list-studies<a class="headerlink" href="#admet-model-hpo-list-studies" title="Link to this heading">¶</a></h3>
+<p>List available Optuna studies for warmstart configuration.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>hpo-list-studies<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<td><p>Show detailed study information</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># List all studies</span>
+admet<span class="w"> </span>model<span class="w"> </span>hpo-list-studies
+
+<span class="c1"># Show detailed info</span>
+admet<span class="w"> </span>model<span class="w"> </span>hpo-list-studies<span class="w"> </span>--verbose
+</pre></div>
+</div>
+<p><strong>Output Format:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Available Optuna Studies:
+1. chemprop_hpo_2024 (125 trials, best_value=0.456)
+2. chemeleon_hpo_2024 (87 trials, best_value=0.523)
+</pre></div>
+</div>
+<p>See the Warmstarting section in <a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> for using studies to warmstart HPO.</p>
+</section>
+<section id="admet-model-list">
+<h3>admet model list<a class="headerlink" href="#admet-model-list" title="Link to this heading">¶</a></h3>
+<p>List all registered model types.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>list
+</pre></div>
+</div>
+<p><strong>Example Output:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Available model types:
+- chemprop: Graph neural network (MPNN)
+- chemeleon: Foundation model with pre-trained encoder
+- xgboost: XGBoost gradient boosting
+- lightgbm: LightGBM gradient boosting
+- catboost: CatBoost gradient boosting
+</pre></div>
+</div>
+</section>
+<section id="admet-model-train-chemprop-deprecated">
+<h3>admet model train-chemprop (deprecated)<a class="headerlink" href="#admet-model-train-chemprop-deprecated" title="Link to this heading">¶</a></h3>
+<p>Legacy command for Chemprop training. Use <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">model</span> <span class="pre">train</span></code> instead.</p>
+</section>
+</section>
+<section id="data-commands">
+<h2>Data Commands<a class="headerlink" href="#data-commands" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">data</span></code> command group handles data processing and splitting.</p>
+<section id="admet-data-split">
+<h3>admet data split<a class="headerlink" href="#admet-data-split" title="Link to this heading">¶</a></h3>
+<p>Generate cluster-aware train/validation splits with multiple splitting strategies.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>data<span class="w"> </span>split<span class="w"> </span>INPUT_FILE<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">INPUT_FILE</span></code></p></td>
+<td><p>Path to input CSV file (required, positional)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-o,</span> <span class="pre">--output</span> <span class="pre">DIR</span></code></p></td>
+<td><p>Output directory (default: assets/dataset/split_train_val)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--smiles-col</span> <span class="pre">COL</span></code></p></td>
+<td><p>SMILES column name (default: SMILES)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--quality-col</span> <span class="pre">COL</span></code></p></td>
+<td><p>Quality column name (default: Quality)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--split-method</span> <span class="pre">METHOD</span></code></p></td>
+<td><p>Split method (default: multilabel_stratified_kfold)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-c,</span> <span class="pre">--cluster-method</span> <span class="pre">METHOD</span></code></p></td>
+<td><p>Clustering method (default: bitbirch)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--n-splits</span> <span class="pre">N</span></code></p></td>
+<td><p>Number of splits (default: 5)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--n-folds</span> <span class="pre">N</span></code></p></td>
+<td><p>Number of folds per split (default: 5)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--qualities</span> <span class="pre">Q...</span></code></p></td>
+<td><p>Quality filters to apply (space-separated)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Available Split Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">multilabel_stratified_kfold</span></code> - Multi-label stratification (recommended)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stratified_kfold</span></code> - Single-label stratification</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">group_kfold</span></code> - Group-based splitting without stratification</p></li>
+</ul>
+<p><strong>Available Clustering Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bitbirch</span></code> - BitBirch hierarchical clustering (recommended)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scaffold</span></code> - Bemis-Murcko scaffold-based</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmeans</span></code> - K-means on fingerprints</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">umap</span></code> - UMAP + clustering</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">butina</span></code> - Butina clustering with Tanimoto similarity</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code> - Random assignment</p></li>
+</ul>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic usage with defaults</span>
+admet<span class="w"> </span>data<span class="w"> </span>split<span class="w"> </span>data/admet_train.csv
+
+<span class="c1"># Custom output and clustering</span>
+admet<span class="w"> </span>data<span class="w"> </span>split<span class="w"> </span>data/admet_train.csv<span class="w"> </span>-o<span class="w"> </span>outputs/<span class="w"> </span>-c<span class="w"> </span>bitbirch<span class="w"> </span>-s<span class="w"> </span>multilabel_stratified_kfold
+
+<span class="c1"># Custom splits and folds</span>
+admet<span class="w"> </span>data<span class="w"> </span>split<span class="w"> </span>data/admet_train.csv<span class="w"> </span>--n-splits<span class="w"> </span><span class="m">3</span><span class="w"> </span>--n-folds<span class="w"> </span><span class="m">5</span>
+
+<span class="c1"># Filter by quality</span>
+admet<span class="w"> </span>data<span class="w"> </span>split<span class="w"> </span>data/admet_train.csv<span class="w"> </span>--qualities<span class="w"> </span>high<span class="w"> </span>high,medium
+</pre></div>
+</div>
+<p><strong>Output Structure:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>output_dir/
+└── quality_high/
+    └── bitbirch/
+        └── multilabel_stratified_kfold/data/
+            ├── split_0/
+            │   ├── fold_0/
+            │   │   ├── train.csv
+            │   │   └── validation.csv
+            │   └── fold_1/...
+            └── split_1/...
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> for detailed splitting strategies.</p>
+</section>
+</section>
 <section id="leaderboard-commands">
 <h2>Leaderboard Commands<a class="headerlink" href="#leaderboard-commands" title="Link to this heading">¶</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">leaderboard</span></code> command provides tools for scraping and analyzing
-competition leaderboards.</p>
-<p><strong>Basic Usage</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Scrape leaderboard for a user</span>
+<p>The <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">leaderboard</span></code> command group handles competition leaderboard analysis.</p>
+<section id="admet-leaderboard-scrape">
+<h3>admet leaderboard scrape<a class="headerlink" href="#admet-leaderboard-scrape" title="Link to this heading">¶</a></h3>
+<p>Scrape leaderboard data from HuggingFace Spaces and generate analysis reports.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span class="w"> </span>--user<span class="w"> </span>USERNAME<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-u,</span> <span class="pre">--user</span> <span class="pre">USERNAME</span></code></p></td>
+<td><p>HuggingFace username to track (required)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-o,</span> <span class="pre">--output</span> <span class="pre">DIR</span></code></p></td>
+<td><p>Output directory (default: assets/submissions/YYYY-MM-DD)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--space</span> <span class="pre">NAME</span></code></p></td>
+<td><p>HuggingFace Space name (default: auto-detect)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-plots</span></code></p></td>
+<td><p>Skip plot generation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<td><p>Detailed logging</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic scrape</span>
 admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span class="w"> </span>--user<span class="w"> </span>your_username
 
 <span class="c1"># Custom output directory</span>
 admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span class="w"> </span>--user<span class="w"> </span>your_username<span class="w"> </span>--output<span class="w"> </span>./results
 
-<span class="c1"># Skip plot generation (faster)</span>
+<span class="c1"># Skip plots for faster execution</span>
 admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span class="w"> </span>--user<span class="w"> </span>your_username<span class="w"> </span>--no-plots
 
 <span class="c1"># Different HuggingFace Space</span>
 admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span class="w"> </span>--user<span class="w"> </span>your_username<span class="w"> </span>--space<span class="w"> </span>owner/space-name
 </pre></div>
 </div>
-<p>For detailed leaderboard documentation, see <a class="reference internal" href="leaderboard.html"><span class="doc">Leaderboard Analysis</span></a>.</p>
+<p><strong>Outputs:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">leaderboard_full.csv</span></code> - Complete leaderboard data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">user_submissions.csv</span></code> - User’s submissions only</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">analysis_report.md</span></code> - Markdown report with rankings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">plots/</span></code> - Visualizations (if –no-plots not set)</p></li>
+</ul>
 </section>
-<section id="model-training">
-<h2>Model Training<a class="headerlink" href="#model-training" title="Link to this heading">¶</a></h2>
-<p>Training Chemprop models is done via configuration files and Python scripts.</p>
+<section id="admet-leaderboard-report">
+<h3>admet leaderboard report<a class="headerlink" href="#admet-leaderboard-report" title="Link to this heading">¶</a></h3>
+<p>Generate analysis report from existing leaderboard data.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>leaderboard<span class="w"> </span>report<span class="w"> </span>LEADERBOARD_FILE<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LEADERBOARD_FILE</span></code></p></td>
+<td><p>Path to leaderboard CSV (required, positional)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-u,</span> <span class="pre">--user</span> <span class="pre">USERNAME</span></code></p></td>
+<td><p>Username to highlight</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-o,</span> <span class="pre">--output</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Output report file (default: analysis_report.md)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate report</span>
+admet<span class="w"> </span>leaderboard<span class="w"> </span>report<span class="w"> </span>leaderboard_full.csv<span class="w"> </span>--user<span class="w"> </span>your_username
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="leaderboard.html"><span class="doc">Leaderboard Analysis</span></a> for complete leaderboard analysis guide.</p>
 </section>
-<section id="training-chemprop-models">
-<h2>Training Chemprop Models<a class="headerlink" href="#training-chemprop-models" title="Link to this heading">¶</a></h2>
-<p><strong>Single Model Training</strong></p>
-<p>Train a single Chemprop model using a configuration file:</p>
+</section>
+<section id="programmatic-usage">
+<h2>Programmatic Usage<a class="headerlink" href="#programmatic-usage" title="Link to this heading">¶</a></h2>
+<p>All CLI commands can also be invoked programmatically:</p>
+<p><strong>Using Typer CliRunner:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typer.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliRunner</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">app</span> <span class="k">as</span> <span class="n">main_app</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">CliRunner</span><span class="p">()</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">main_app</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;config.yaml&quot;</span><span class="p">])</span>
+<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<p><strong>Direct Module Access:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnifiedModelConfig</span>
@@ -347,7 +781,7 @@ admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span clas
 <span class="c1"># Load configuration</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
     <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">UnifiedModelConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/chemprop.yaml&quot;</span><span class="p">)</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/0-single-fold/chemprop.yaml&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
 <span class="c1"># Train model</span>
@@ -355,58 +789,59 @@ admet<span class="w"> </span>leaderboard<span class="w"> </span>scrape<span clas
 <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><strong>Ensemble Training</strong></p>
-<p>Train an ensemble of models across multiple data splits:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Using the admet CLI</span>
-admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>--config<span class="w"> </span>configs/0-experiment/ensemble_chemprop_production.yaml
-</pre></div>
-</div>
-<p>Or programmatically:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnifiedModelConfig</span>
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">UnifiedModelConfig</span><span class="p">),</span>
-    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/ensemble_chemprop_production.yaml&quot;</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="c1"># Create model with ensemble config</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<span class="n">model</span><span class="o">.</span><span class="n">train_all</span><span class="p">()</span>  <span class="c1"># Trains across all splits/folds</span>
-</pre></div>
-</div>
-<p><strong>Hyperparameter Optimization</strong></p>
-<p>Run HPO with Ray Tune and ASHA scheduler:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Using the admet CLI</span>
-admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>--config<span class="w"> </span>configs/1-hpo-single/hpo_chemprop.yaml
-</pre></div>
-</div>
-<p><strong>List Available Models</strong></p>
-<p>View all registered model types:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>list
-</pre></div>
-</div>
-<p>This shows the available model backends: <code class="docutils literal notranslate"><span class="pre">chemprop</span></code>, <code class="docutils literal notranslate"><span class="pre">chemeleon</span></code>, <code class="docutils literal notranslate"><span class="pre">xgboost</span></code>,
-<code class="docutils literal notranslate"><span class="pre">lightgbm</span></code>, <code class="docutils literal notranslate"><span class="pre">catboost</span></code>.</p>
 </section>
 <section id="configuration-files">
 <h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Link to this heading">¶</a></h2>
+<p>Training scripts use configuration files from the <code class="docutils literal notranslate"><span class="pre">configs/</span></code> directory:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Configuration</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configs/0-experiment/0-single-fold/chemprop.yaml</span></code></p></td>
+<td><p>Single model training</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">configs/0-experiment/1-ensemble/ensemble_chemprop_production.yaml</span></code></p></td>
+<td><p>Ensemble training</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">configs/1-hpo-single-fold/hpo_chemprop.yaml</span></code></p></td>
+<td><p>Hyperparameter optimization</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">configs/3-hpo-ensemble-production/</span></code></p></td>
+<td><p>Production ensemble configs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for complete configuration reference.</p>
 </section>
-<section id="data-commands">
-<h2>Data Commands<a class="headerlink" href="#data-commands" title="Link to this heading">¶</a></h2>
-<p>Split datasets and generate cluster-aware train/validation assignments using the <cite>admet</cite> CLI.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the high-level split pipeline and save augmented dataframe</span>
-admet<span class="w"> </span>data<span class="w"> </span>split<span class="w"> </span>data/admet_train.csv<span class="w"> </span>--output<span class="w"> </span>outputs/<span class="w"> </span>--smiles-col<span class="w"> </span>SMILES
+<section id="mlflow-integration">
+<h2>MLflow Integration<a class="headerlink" href="#mlflow-integration" title="Link to this heading">¶</a></h2>
+<p>All training runs automatically log to MLflow. Configure in YAML:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8084&quot;</span>
+<span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_admet&quot;</span>
 </pre></div>
 </div>
+<p>Start the MLflow server:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlflow<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8084</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="mlflow_artifacts.html"><span class="doc">MLflow Artifacts Guide</span></a> for MLflow workflow details.</p>
 </section>
 <section id="testing-the-cli">
 <h2>Testing the CLI<a class="headerlink" href="#testing-the-cli" title="Link to this heading">¶</a></h2>
-<p>The Typer app used by the CLI is available programmatically as <code class="docutils literal notranslate"><span class="pre">admet.cli.app</span></code>.
-When writing unit tests, prefer invoking the top-level app (<code class="docutils literal notranslate"><span class="pre">admet</span></code>) so subcommand
+<p>When writing unit tests, prefer invoking the top-level app (<code class="docutils literal notranslate"><span class="pre">admet</span></code>) so subcommand
 parsing behaves the same as when the CLI is installed as a console script. Use
-Typer’s <code class="docutils literal notranslate"><span class="pre">CliRunner</span></code> to exercise commands in tests, for example:</p>
+Typer’s <code class="docutils literal notranslate"><span class="pre">CliRunner</span></code> to exercise commands in tests:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typer.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliRunner</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">app</span> <span class="k">as</span> <span class="n">main_app</span>
 
@@ -415,40 +850,19 @@ Typer’s <code class="docutils literal notranslate"><span class="pre">CliRunner
 <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">0</span>
 </pre></div>
 </div>
-<p>Avoid invoking sub-<code class="docutils literal notranslate"><span class="pre">Typer</span></code> instances (for example <code class="docutils literal notranslate"><span class="pre">data_app</span></code>) directly when
+<p>Avoid invoking sub-<code class="docutils literal notranslate"><span class="pre">Typer</span></code> instances (e.g. <code class="docutils literal notranslate"><span class="pre">data_app</span></code>) directly when
 testing command-line parsing; doing so can lead to different argument parsing
 behavior and unexpected errors.</p>
-<p>Configuration files are located in <code class="docutils literal notranslate"><span class="pre">configs/</span></code>:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">0-experiment/chemprop.yaml</span></code>: Single model training configuration</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">0-experiment/ensemble_chemprop_production.yaml</span></code>: Ensemble training across splits/folds</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">0-experiment/ensemble_joint_sampling_example.yaml</span></code>: Joint sampling example</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">1-hpo-single/hpo_chemprop.yaml</span></code>: Hyperparameter optimization settings</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">curriculum/</span></code>: Curriculum learning configurations</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">task-affinity/</span></code>: Task affinity configurations</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">3-production/</span></code>: Production ensemble configurations</p></li>
-</ul>
-</section>
-<section id="mlflow-tracking">
-<h2>MLflow Tracking<a class="headerlink" href="#mlflow-tracking" title="Link to this heading">¶</a></h2>
-<p>All training runs log to MLflow automatically. Configure tracking in your YAML:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">mlflow</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">tracking</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">tracking_uri</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8084&quot;</span>
-<span class="w">  </span><span class="nt">experiment_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chemprop_admet&quot;</span>
-</pre></div>
-</div>
-<p>Start the MLflow server:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mlflow<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span>
-</pre></div>
-</div>
 </section>
 <section id="see-also">
-<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="overview.html"><span class="doc">Overview</span></a> for a high-level introduction</p></li>
-<li><p><a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> for detailed training workflows</p></li>
-<li><p><a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> for configuration file structure</p></li>
+<li><p><a class="reference internal" href="../getting-started/quickstart.html"><span class="doc">Quickstart: Train Your First Model</span></a> - 5-minute training tutorial</p></li>
+<li><p><a class="reference internal" href="../reference/scripts.html"><span class="doc">Shell Scripts Reference</span></a> - Shell scripts reference</p></li>
+<li><p><a class="reference internal" href="modeling.html"><span class="doc">Modeling Guide</span></a> - Detailed training workflows</p></li>
+<li><p><a class="reference internal" href="configuration.html"><span class="doc">Configuration Guide</span></a> - Configuration file structure</p></li>
+<li><p><a class="reference internal" href="hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> - Hyperparameter optimization guide</p></li>
+<li><p><a class="reference internal" href="../api/admet.html"><span class="doc">ADMET Package API</span></a> - Python API reference</p></li>
 </ul>
 </section>
 </section>
@@ -458,23 +872,23 @@ behavior and unexpected errors.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="overview.html">
+          <a class="next-page" href="configuration.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Overview</div>
+                <div class="title">Configuration Guide</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../api/leaderboard.html">
+          <a class="prev-page" href="troubleshooting.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Leaderboard API</div>
+                <div class="title">Troubleshooting</div>
                 
               </div>
             </a>
@@ -508,15 +922,31 @@ behavior and unexpected errors.</p>
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">CLI Usage</a><ul>
-<li><a class="reference internal" href="#leaderboard-commands">Leaderboard Commands</a></li>
-<li><a class="reference internal" href="#model-training">Model Training</a></li>
-<li><a class="reference internal" href="#training-chemprop-models">Training Chemprop Models</a></li>
+<li><a class="reference internal" href="#">CLI Command Reference</a><ul>
+<li><a class="reference internal" href="#installation-and-setup">Installation and Setup</a></li>
+<li><a class="reference internal" href="#model-commands">Model Commands</a><ul>
+<li><a class="reference internal" href="#admet-model-train">admet model train</a></li>
+<li><a class="reference internal" href="#admet-model-ensemble">admet model ensemble</a></li>
+<li><a class="reference internal" href="#admet-model-hpo">admet model hpo</a></li>
+<li><a class="reference internal" href="#admet-model-hpo-list-studies">admet model hpo-list-studies</a></li>
+<li><a class="reference internal" href="#admet-model-list">admet model list</a></li>
+<li><a class="reference internal" href="#admet-model-train-chemprop-deprecated">admet model train-chemprop (deprecated)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#data-commands">Data Commands</a><ul>
+<li><a class="reference internal" href="#admet-data-split">admet data split</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#leaderboard-commands">Leaderboard Commands</a><ul>
+<li><a class="reference internal" href="#admet-leaderboard-scrape">admet leaderboard scrape</a></li>
+<li><a class="reference internal" href="#admet-leaderboard-report">admet leaderboard report</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#programmatic-usage">Programmatic Usage</a></li>
 <li><a class="reference internal" href="#configuration-files">Configuration Files</a></li>
-<li><a class="reference internal" href="#data-commands">Data Commands</a></li>
+<li><a class="reference internal" href="#mlflow-integration">MLflow Integration</a></li>
 <li><a class="reference internal" href="#testing-the-cli">Testing the CLI</a></li>
-<li><a class="reference internal" href="#mlflow-tracking">MLflow Tracking</a></li>
-<li><a class="reference internal" href="#see-also">See also</a></li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
 </ul>
 </li>
 </ul>
@@ -534,5 +964,6 @@ behavior and unexpected errors.</p>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
     </body>
 </html>

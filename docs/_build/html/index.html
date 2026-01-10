@@ -3,15 +3,15 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta property="og:title" content="OpenADMET Challenge Docs" />
+<meta property="og:title" content="Documentation" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://github.com/alec-glisman/index.html" />
 <meta property="og:site_name" content="OpenADMET Challenge" />
-<meta property="og:description" content="OpenADMET challenge logo Welcome to the OpenADMET + ExpansionRx Blind Challenge docs. This site contains developer guides, CLI examples, API references, and visualization tooling to help you build ..." />
+<meta property="og:description" content="OpenADMET Challenge 🏆 Competition Results Ranked 18th out of 307 participants (Top 5.9%) in the OpenADMET ExpansionRx Blind Challenge with MA-RAE of 0.59 ± 0.02 across 9 ADMET endpoints. 🔬 Robust M..." />
 <meta property="og:image" content="https://github.com/alec-glisman/_static/images/logo.svg" />
 <meta property="og:image:alt" content="OpenADMET Challenge" />
-<meta name="description" content="OpenADMET challenge logo Welcome to the OpenADMET + ExpansionRx Blind Challenge docs. This site contains developer guides, CLI examples, API references, and visualization tooling to help you build ..." />
-<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="ADMET Package API" href="api/admet.html">
+<meta name="description" content="OpenADMET Challenge 🏆 Competition Results Ranked 18th out of 307 participants (Top 5.9%) in the OpenADMET ExpansionRx Blind Challenge with MA-RAE of 0.59 ± 0.02 across 9 ADMET endpoints. 🔬 Robust M..." />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Getting Started" href="getting-started/index.html">
         <link rel="prefetch" href="_static/logo.svg" as="image">
 
     <link rel="shortcut icon" href="_static/logo.svg"><!-- Generated with Sphinx 7.3.7 and Furo 2025.09.25 -->
@@ -19,9 +19,7 @@
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-dropdown.css?v=995e94df" />
-    <link rel="stylesheet" type="text/css" href="_static/panels-bootstrap.min.css?v=21c0b90a" />
-    <link rel="stylesheet" type="text/css" href="_static/tabs.css?v=a5c4661c" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
     
     
@@ -191,7 +189,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
         <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
       </label>
     </div>
@@ -211,8 +209,45 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/architecture.html">Architecture Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/endpoints.html">ADMET Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/data_sources.html">Data Sources &amp; Curation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/splitting.html">Dataset Splitting Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/modeling.html">Modeling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/classical_models.html">Classical Models Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/hpo.html">Hyperparameter Optimization Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/admet.data.html">Data Pipeline (<code class="docutils literal notranslate"><span class="pre">admet.data</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/admet.features.html">Features (<code class="docutils literal notranslate"><span class="pre">admet.features</span></code>)</a></li>
@@ -222,53 +257,44 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api/leaderboard.html">Leaderboard API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/cli.html">CLI Usage</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="guide/overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/development.html">Development Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/architecture.html">Architecture Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/data_sources.html">Data Sources &amp; Curation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/splitting.html">Dataset Splitting Methodology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/configuration.html">Configuration Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/config_reference.html">Configuration File Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/modeling.html">Modeling Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/classical_models.html">Classical Models Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/hpo.html">Hyperparameter Optimization Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/curriculum.html">Curriculum Learning Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/task_affinity.html">Task Affinity Grouping</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/feature-chemprop-hpo.html">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_training.html">Planned Model Training Steps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#integration-points">Integration Points</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#plot-designs">Plot Designs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#computation-details">Computation Details</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#validation">Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#assumptions">Assumptions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#transform-map">Transform Map</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#api-examples">API Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="dev/planning.html">Development Resources</a><input aria-label="Toggle navigation of Development Resources" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="planning/index.html">Planning</a><input aria-label="Toggle navigation of Planning" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="planning/chemprop.html">3. Features &amp; Implementation Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/chemprop.html#how-to-use-once-implemented">4. How to Use (Once Implemented)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/chemprop.html#extension-ideas">5. Extension Ideas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/curriculum_learning_integration.html">Curriculum Learning Integration Plan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/feature-chemprop-hpo.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_training.html">Planned Model Training Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#scope-requirements">Scope &amp; Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#data-transforms">Data &amp; Transforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#integration-points">Integration Points</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#plot-designs">Plot Designs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#implementation-outline">Implementation Outline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#computation-details">Computation Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#file-layout-naming">File Layout &amp; Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#styling-conventions">Styling &amp; Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#risks-mitigations">Risks &amp; Mitigations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#assumptions">Assumptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#transform-map">Transform Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#api-examples">API Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#todo-checklist">TODO Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#unit-testing-strategy">Unit Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#error-overwrite-policy">Error &amp; Overwrite Policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#spearman-clarification">Spearman Clarification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#extension-hooks-future">Extension Hooks (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="planning/model_visualization.html#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -304,134 +330,413 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
             <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <a class="reference internal image-reference" href="_images/logo.svg"><img alt="OpenADMET challenge logo" class="align-center" src="_images/logo.svg" width="360px" /></a>
-<section id="openadmet-challenge-docs">
-<h1>OpenADMET Challenge Docs<a class="headerlink" href="#openadmet-challenge-docs" title="Link to this heading">¶</a></h1>
-<p>Welcome to the OpenADMET + ExpansionRx Blind Challenge docs. This
-site contains developer guides, CLI examples, API references, and
-visualization tooling to help you build and evaluate ADMET models.</p>
-<section id="quick-links">
-<h2>Quick links<a class="headerlink" href="#quick-links" title="Link to this heading">¶</a></h2>
-<div class="sphinx-bs container pb-4 docutils">
-<div class="row docutils">
-<div class="d-flex col-lg-6 col-md-6 col-sm-6 col-xs-12 p-2 docutils">
-<div class="card w-100 shadow docutils">
-<div class="card-header docutils">
-<p class="card-text">Quick Start</p>
+          <style>
+.hero-section { text-align: center; padding: 2rem 0 3rem; }
+.hero-section h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.hero-tagline { font-size: 1.25rem; color: #666; margin-bottom: 2rem; max-width: 700px; margin-left: auto; margin-right: auto; }
+.stat-number { font-size: 2rem; font-weight: 700; color: #007A73; }
+.stat-label { font-size: 0.85rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+.section-header { text-align: center; margin: 3rem 0 1.5rem; }
+.section-header h2 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+.section-subtitle { color: #666; font-size: 1rem; }
+</style><a class="reference internal image-reference" href="_images/logo.svg"><img alt="OpenADMET Challenge" class="align-center" src="_images/logo.svg" width="280px" /></a>
+<div class="hero-section">
+<h1>OpenADMET Challenge</h1>
+<p class="hero-tagline">
+Production-ready ADMET prediction with graph neural networks,
+hyperparameter optimization, and ensemble training.
+</p>
+</div><div class="sd-container-fluid sd-sphinx-override sd-mb-4 sd-text-center docutils">
+<div class="sd-row sd-row-cols-3 sd-row-cols-xs-3 sd-row-cols-sm-3 sd-row-cols-md-3 sd-row-cols-lg-3 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="stat-number">9</div>
+<div class="stat-label">ADMET Endpoints</div></div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="stat-number">25</div>
+<div class="stat-label">Ensemble Models</div></div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="stat-number">5×5</div>
+<div class="stat-label">Split × Fold CV</div></div>
 </div>
-<div class="card-body docutils">
-<p class="card-text">Create a Python virtualenv, install the package with docs extras,
-and build the docs locally.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create virtual environment</span>
-uv<span class="w"> </span>venv
-<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[docs,dev]&#39;</span>
-
-<span class="c1"># Build the documentation</span>
-make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>html
-
-<span class="c1"># Run unit tests</span>
-pytest<span class="w"> </span>-q
+</div>
+<hr class="docutils" />
+<div class="section-header">
+<h2>Competition Solution Highlights</h2>
+<p class="section-subtitle">Competitive approach in the ExpansionRx Blind Challenge</p>
+</div><div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-3 sd-row-cols-xs-3 sd-row-cols-sm-3 sd-row-cols-md-3 sd-row-cols-lg-3 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+🏆 Competition Results</div>
+<p class="sd-card-text">Ranked 18th out of 307 participants (Top 5.9%) in the OpenADMET ExpansionRx
+Blind Challenge with MA-RAE of 0.59 ± 0.02 across 9 ADMET endpoints.</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+🔬 Robust Methodology</div>
+<p class="sd-card-text">5×5 cross-validation with <a class="reference internal" href="glossary.html#term-BitBirch"><span class="xref std std-term">BitBirch</span></a> cluster-aware splitting
+prevents data leakage and ensures robust performance estimates.</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+🧠 Advanced Techniques</div>
+<p class="sd-card-text"><a class="reference internal" href="glossary.html#term-Chemprop"><span class="xref std std-term">Chemprop</span></a> <a class="reference internal" href="glossary.html#term-MPNN"><span class="xref std std-term">MPNN</span></a> with 25-model <a class="reference internal" href="glossary.html#term-Ensemble"><span class="xref std std-term">ensemble</span></a>, curriculum learning,
+and task-weighted loss optimization for multi-task ADMET prediction.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<hr class="docutils" />
+<div class="section-header">
+<h2>Quick Commands</h2>
+<p class="section-subtitle">Get running in seconds</p>
+</div><div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Install</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/alec-glisman/OpenADMET-ExpansionRx-Blind-Challenge.git
+<span class="nb">cd</span><span class="w"> </span>OpenADMET-ExpansionRx-Blind-Challenge
+uv<span class="w"> </span>venv<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Train</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>train<span class="w"> </span>-c<span class="w"> </span>configs/0-experiment/0-single-fold/chemprop.yaml
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+HPO</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>hpo<span class="w"> </span>-c<span class="w"> </span>configs/1-hpo-single-fold/hpo_chemprop.yaml<span class="w"> </span>--num-samples<span class="w"> </span><span class="m">50</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Ensemble</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>admet<span class="w"> </span>model<span class="w"> </span>ensemble<span class="w"> </span>-c<span class="w"> </span>configs/0-experiment/1-ensemble/chemprop_ensemble.yaml
 </pre></div>
 </div>
 </div>
 </div>
+<hr class="docutils" />
+<div class="section-header">
+<h2>End-to-End Pipeline</h2>
+<p class="section-subtitle">From raw molecules to robust predictions</p>
+</div><pre  class="mermaid">
+        flowchart LR
+   subgraph &quot;📥 Data&quot;
+      A[SMILES] --&gt; B[BitBirch&lt;br/&gt;Clustering]
+      B --&gt; C[5×5 Splits]
+   end
+
+   subgraph &quot;🧠 Training&quot;
+      D[Chemprop&lt;br/&gt;MPNN] --&gt; E[HPO&lt;br/&gt;Ray Tune]
+      E --&gt; F[Top K&lt;br/&gt;Configs]
+   end
+
+   subgraph &quot;🎯 Production&quot;
+      G[25-Model&lt;br/&gt;Ensemble] --&gt; H[Predictions&lt;br/&gt;+ Uncertainty]
+   end
+
+   C --&gt; D
+   F --&gt; G
+
+   style A fill:#e1f5fe
+   style E fill:#fff9c4
+   style H fill:#c8e6c9
+    </pre><hr class="docutils" />
+<div class="section-header">
+<h2>Get Started</h2>
+<p class="section-subtitle">From first model to production ensemble in minutes</p>
+</div><div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-3 sd-row-cols-xs-3 sd-row-cols-sm-3 sd-row-cols-md-3 sd-row-cols-lg-3 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+🚀 Quickstart</div>
+<p class="sd-card-text">Train your first Chemprop model in 5 minutes with a complete end-to-end example.</p>
 </div>
-<div class="d-flex col-lg-6 col-md-6 col-sm-6 col-xs-12 p-2 docutils">
-<div class="card w-100 shadow docutils">
-<div class="card-header docutils">
-<p class="card-text">API Reference</p>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="getting-started/quickstart.html"><span class="doc">Quickstart: Train Your First Model</span></a></div>
 </div>
-<div class="card-body docutils">
-<p class="card-text">Explore the public package API and modules with detailed docstrings.</p>
-<p class="card-text"><span class="sphinx-bs badge badge-primary">Browse API</span></p>
-<p class="card-text"><a class="sphinx-bs btn text-wrap stretched-link reference external" href="api/admet.html"><span>ADMET Package CLI</span></a></p>
-<p class="card-text"><span class="sphinx-bs badge badge-primary">Examples</span></p>
-<p class="card-text"><a class="sphinx-bs btn text-wrap stretched-link reference external" href="cli.html"><span>ADMET Package CLI Examples</span></a></p>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+⚙️ Configuration</div>
+<p class="sd-card-text">Master the YAML configuration system for models, training, and experiments.</p>
 </div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="guide/configuration.html"><span class="doc">Configuration Guide</span></a></div>
 </div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+📊 MLflow Tracking</div>
+<p class="sd-card-text">Track experiments, compare runs, and analyze results with MLflow integration.</p>
 </div>
-<div class="d-flex col-lg-6 col-md-6 col-sm-6 col-xs-12 p-2 docutils">
-<div class="card w-100 shadow docutils">
-<div class="card-header docutils">
-<p class="card-text">Contributing</p>
-</div>
-<div class="card-body docutils">
-<p class="card-text">Learn how to run tests and prepare PRs in <a class="reference internal" href="guide/development.html"><span class="doc">Development Guide</span></a>.</p>
-<p class="card-text"><span class="sphinx-bs badge badge-primary">Repository</span></p>
-<p class="card-text"><a class="sphinx-bs btn text-wrap stretched-link reference external" href="https://github.com/alec-glisman/OpenADMET-ExpansionRx-Blind-Challenge"><span>Code Repository</span></a></p>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="guide/mlflow_artifacts.html"><span class="doc">MLflow Artifacts Guide</span></a></div>
 </div>
 </div>
 </div>
+<hr class="docutils" />
+<div class="section-header">
+<h2>Core Workflows</h2>
+<p class="section-subtitle">Everything you need for ADMET modeling</p>
+</div><div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Data Pipeline</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-1 sd-row-cols-lg-1 sd-g-1 sd-g-xs-1 sd-g-sm-1 sd-g-md-1 sd-g-lg-1 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/data_sources.html"><span class="doc">Data Sources &amp; Curation</span></a> — Load and preprocess molecular data</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/splitting.html"><span class="doc">Dataset Splitting Methodology</span></a> — Cluster-aware train/val/test splits</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/debugging_per_quality_metrics.html"><span class="doc">Per-Quality Metrics Debugging Guide</span></a> — Debug quality-stratified metrics</p>
 </div>
 </div>
-</section>
-<section id="documentation-sections">
-<h2>Documentation sections<a class="headerlink" href="#documentation-sections" title="Link to this heading">¶</a></h2>
+</div>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Model Training</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-1 sd-row-cols-lg-1 sd-g-1 sd-g-xs-1 sd-g-sm-1 sd-g-md-1 sd-g-lg-1 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/modeling.html"><span class="doc">Modeling Guide</span></a> — Chemprop MPNN and Chemeleon training</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/classical_models.html"><span class="doc">Classical Models Guide</span></a> — XGBoost, LightGBM, CatBoost baselines</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/hpo.html"><span class="doc">Hyperparameter Optimization Guide</span></a> — Ray Tune hyperparameter optimization</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mt-3 sd-mb-0 sd-ml-0 sd-mr-0 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Advanced Techniques</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-1 sd-row-cols-lg-1 sd-g-1 sd-g-xs-1 sd-g-sm-1 sd-g-md-1 sd-g-lg-1 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> — Quality-aware curriculum learning</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/task_affinity.html"><span class="doc">Task Affinity Grouping</span></a> — Multi-task gradient optimization</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/endpoints.html"><span class="doc">ADMET Endpoints</span></a> — ADMET endpoint reference</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Operations</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-1 sd-row-cols-lg-1 sd-g-1 sd-g-xs-1 sd-g-sm-1 sd-g-md-1 sd-g-lg-1 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/profiling.html"><span class="doc">Profiling Guide</span></a> — Performance profiling and optimization</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="guide/logging.html"><span class="doc">Ray Tune Output Logging to MLflow</span></a> — Ray Tune logging and debugging</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p class="sd-card-text"><a class="reference internal" href="reference/scripts.html"><span class="doc">Shell Scripts Reference</span></a> — Shell scripts for automation</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<hr class="docutils" />
+<div class="section-header">
+<h2>Reference</h2>
+<p class="section-subtitle">API documentation and configuration specs</p>
+</div><div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-4 sd-row-cols-xs-4 sd-row-cols-sm-4 sd-row-cols-md-4 sd-row-cols-lg-4 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-text-center sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+🐍 Python API</div>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="api/admet.html"><span class="doc">ADMET Package API</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-text-center sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+💻 CLI Reference</div>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="guide/cli.html"><span class="doc">CLI Command Reference</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-text-center sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+📋 Config Spec</div>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="guide/config_reference.html"><span class="doc">Configuration File Reference</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-text-center sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+🏆 Leaderboard</div>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="guide/leaderboard.html"><span class="doc">Leaderboard Analysis</span></a></div>
+</div>
+</div>
+</div>
+<hr class="docutils" />
+<section id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">¶</a></h1>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="api/admet.html">ADMET Package API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/leaderboard.html">Leaderboard API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/cli.html">CLI Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started/quickstart.html">Quickstart: Train Your First Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/architecture.html">Architecture Overview</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<p class="caption" role="heading"><span class="caption-text">Data Pipeline</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="guide/overview.html">Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/leaderboard.html">Leaderboard Analysis</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/development.html">Development Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/architecture.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/endpoints.html">ADMET Endpoints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/data_sources.html">Data Sources &amp; Curation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/splitting.html">Dataset Splitting Methodology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/configuration.html">Configuration Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Model Training</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="guide/modeling.html">Modeling Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/classical_models.html">Classical Models Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guide/hpo.html">Hyperparameter Optimization Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/curriculum.html">Curriculum Learning Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/task_affinity.html">Task Affinity Grouping</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/debugging_per_quality_metrics.html">Per-Quality Metrics Debugging Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="planning/index.html">Planning</a></li>
 </ul>
 </div>
-<section id="to-build-the-docs-locally-follow-one-of-these-methods">
-<h3>To build the docs locally, follow one of these methods:<a class="headerlink" href="#to-build-the-docs-locally-follow-one-of-these-methods" title="Link to this heading">¶</a></h3>
-<div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Makefile</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Sphinx-Autobuild</button><button aria-controls="panel-0-0-2" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-2" name="0-2" role="tab" tabindex="-1">Python</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>clean<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>html
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Advanced Training</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/curriculum.html">Curriculum Learning Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/task_affinity.html">Task Affinity Grouping</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Operations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/mlflow_artifacts.html">MLflow Artifacts Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/profiling.html">Profiling Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/logging.html">Ray Tune Output Logging to MLflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/troubleshooting.html">Troubleshooting</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/cli.html">CLI Command Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/scripts.html">Shell Scripts Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/admet.html">ADMET Package API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/leaderboard.html">Leaderboard API</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide/leaderboard.html">Leaderboard Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guide/development.html">Development Guide</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<hr class="docutils" />
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<p><strong>Build Docs Locally</strong></p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-4">
+Make</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>html
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sphinx-autobuild<span class="w"> </span>docs<span class="w"> </span>docs/_build/html<span class="w"> </span>--open-browser
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+Auto-reload</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sphinx-autobuild<span class="w"> </span>docs<span class="w"> </span>docs/_build/html
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-0-0-2" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-2" name="0-2" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>sphinx<span class="w"> </span>-b<span class="w"> </span>html<span class="w"> </span>docs<span class="w"> </span>docs/_build/html
-</pre></div>
 </div>
-</div></div>
-</section>
-</section>
-<section id="would-you-like-to-contribute">
-<h2>Would you like to contribute?<a class="headerlink" href="#would-you-like-to-contribute" title="Link to this heading">¶</a></h2>
-<p>We welcome bug reports and improvements. Please follow the
-contribution guidelines in <a class="reference internal" href="guide/development.html"><span class="doc">Development Guide</span></a> and open an issue
-for missing documentation, broken examples, or build errors.</p>
-</section>
-<section id="indices-and-tables">
-<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h2>
+</div>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<p><strong>Contributing</strong></p>
+<p>We welcome contributions! See <a class="reference internal" href="guide/development.html"><span class="doc">Development Guide</span></a> for setup
+instructions, coding standards, and how to submit pull requests.</p>
+<p>Found a bug? <a class="reference external" href="https://github.com/alec-glisman/OpenADMET-ExpansionRx-Blind-Challenge/issues">Open an issue</a></p>
+</div>
+</div>
+</div>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
-</section>
 </section>
 
         </article>
@@ -439,12 +744,12 @@ for missing documentation, broken examples, or build errors.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="api/admet.html">
+          <a class="next-page" href="getting-started/index.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">ADMET Package API</div>
+                <div class="title">Getting Started</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -467,33 +772,8 @@ for missing documentation, broken examples, or build errors.</p>
         
       </footer>
     </div>
-    <aside class="toc-drawer">
+    <aside class="toc-drawer no-toc">
       
-      
-      <div class="toc-sticky toc-scroll">
-        <div class="toc-title-container">
-          <span class="toc-title">
-            On this page
-          </span>
-        </div>
-        <div class="toc-tree-container">
-          <div class="toc-tree">
-            <ul>
-<li><a class="reference internal" href="#">OpenADMET Challenge Docs</a><ul>
-<li><a class="reference internal" href="#quick-links">Quick links</a></li>
-<li><a class="reference internal" href="#documentation-sections">Documentation sections</a><ul>
-<li><a class="reference internal" href="#to-build-the-docs-locally-follow-one-of-these-methods">To build the docs locally, follow one of these methods:</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#would-you-like-to-contribute">Would you like to contribute?</a></li>
-<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
-</ul>
-</li>
-</ul>
-
-          </div>
-        </div>
-      </div>
       
       
     </aside>
@@ -504,7 +784,372 @@ for missing documentation, broken examples, or build errors.</p>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=6dbb43f8"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="_static/tabs.js?v=3030b3cb"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.2.0/dist/mermaid-layout-elk.esm.min.mjs"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.2.0/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+const defaultStyle = document.createElement('style');
+defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+`;
+document.head.appendChild(defaultStyle);
+
+const fullscreenStyle = document.createElement('style');
+fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+document.head.appendChild(fullscreenStyle);
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness < 128;
+    }
+    return false;
+};
+
+const load = async () => {
+    await mermaid.run();
+
+    const all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(load, 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(load, 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(load, 200);
+        return;
+    }
+
+    const darkTheme = isDarkTheme();
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    const modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    const modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    let previousScrollOffset = [window.scrollX, window.scrollY];
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    const allButtons = [];
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+
+        container.appendChild(fullscreenBtn);
+        allButtons.push(fullscreenBtn);
+    });
+
+    // Update theme classes when theme changes
+    const updateTheme = () => {
+        const dark = isDarkTheme();
+        allButtons.forEach(btn => {
+            if (dark) {
+                btn.classList.add('dark-theme');
+            } else {
+                btn.classList.remove('dark-theme');
+            }
+        });
+        if (dark) {
+            modal.classList.add('dark-theme');
+            modalContent.classList.add('dark-theme');
+            closeBtn.classList.add('dark-theme');
+        } else {
+            modal.classList.remove('dark-theme');
+            modalContent.classList.remove('dark-theme');
+            closeBtn.classList.remove('dark-theme');
+        }
+    };
+
+    // Watch for theme changes
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style']
+    });
+};
+
+window.addEventListener("load", load);
+</script>
     </body>
 </html>

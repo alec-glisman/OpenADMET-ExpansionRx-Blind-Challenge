@@ -28,8 +28,9 @@ extensions = [
     "sphinx_copybutton",
     "myst_parser",
     "sphinx_autodoc_typehints",
-    "sphinx_panels",
     "sphinx_tabs.tabs",
+    "sphinx_design",
+    "sphinxcontrib.mermaid",
     "sphinxext.opengraph",
 ]
 

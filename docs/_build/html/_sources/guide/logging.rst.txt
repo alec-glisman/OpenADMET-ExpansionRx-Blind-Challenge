@@ -4,11 +4,9 @@
 Ray Tune Output Logging to MLflow
 =====================================
 
-This guide explains the Ray Tune logging infrastructure for the OpenADMET Challenge, which automatically collects Ray trial logs and uploads them to MLflow artifacts for storage and inspection.
-
-.. contents:: Table of Contents
-   :local:
-   :depth: 2
+Ray Tune logging captures trial output and uploads compressed archives to MLflow.
+Automatic collection, compression, and centralized storage enable post-training
+analysis of trial execution without manual log management.
 
 Overview
 ========

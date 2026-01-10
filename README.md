@@ -1,7 +1,8 @@
 # OpenADMET + ExpansionRx Blind Challenge
 
 - **Authors**: Alec Glisman, PhD
-- **Date**: December 2025
+- **Date**: January 2026
+- **Current Rank**: Top 5.9% (18/307) with MA-RAE 0.59
 
 ---
 
@@ -36,6 +37,7 @@
 - [Hyperparameter Optimization](#hyperparameter-optimization-hpo)
 - [Ensemble Training](#ensemble-training)
 - [Task Affinity Grouping](#task-affinity-grouping)
+- [Performance Profiling](./docs/guide/profiling.rst)
 
 **Reference**
 
@@ -104,10 +106,11 @@ flowchart LR
 | Command | Purpose | Example |
 |---------|---------|--------|
 | `admet data split` | Generate train/val splits | `admet data split data.csv --cluster-method bitbirch` |
-| `admet model train` | Train single model | `admet model train -c configs/0-experiment/chemprop.yaml` |
-| `admet model ensemble` | Train ensemble | `admet model ensemble -c configs/3-production/ensemble.yaml` |
-| `admet model hpo` | Hyperparameter search | `admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 50` |
+| `admet model train` | Train single model | `admet model train -c configs/0-experiment/0-single-fold/chemprop.yaml` |
+| `admet model ensemble` | Train ensemble | `admet model ensemble -c configs/0-experiment/1-ensemble/chemprop_ensemble_production.yaml` |
+| `admet model hpo` | Hyperparameter search | `admet model hpo -c configs/1-hpo-single-fold/hpo_chemprop.yaml --num-samples 50` |
 | `admet model list` | List available models | `admet model list` |
+| `admet model hpo-list-studies` | List Optuna studies for warmstart | `admet model hpo-list-studies --verbose` |
 | `admet leaderboard scrape` | Download leaderboard | `admet leaderboard scrape --user username` |
 | `admet leaderboard report` | Generate report | `admet leaderboard report assets/submissions/latest/data --user username` |
 
@@ -185,13 +188,14 @@ mlflow:
   tracking_uri: http://localhost:8080
 ```
 
-**Config examples:** See [configs/4-more-models/](./configs/4-more-models/) for all model types.
+**Config examples:** See [configs/0-experiment/2-classical-models-ensemble/](./configs/0-experiment/2-classical-models-ensemble/) for classical model configs and [configs/0-experiment/0-single-fold/](./configs/0-experiment/0-single-fold/) for neural network configs.
 
 ## Training Strategy
 
 - **Ensemble:** 5 Butina splits × 5 CV folds = 25 models
 - **HPO:** Ray Tune with ASHA scheduler (~2,000 trials)
 - **Early Stopping:** 15 epochs patience on validation MAE
+- **Task-Weighted Loss:** Per-endpoint loss weights based on leaderboard analysis (upweight underperforming tasks)
 - **Joint Sampling:** Unified two-stage sampling combining:
   - **Task Oversampling:** α-weighted inverse-power sampling for sparse endpoints (α ∈ [0,1])
   - **Curriculum Learning:** Progressive quality-based inclusion (warmup → expand → robust → polish)
@@ -386,7 +390,14 @@ flowchart TB
 Train individual models using YAML configs:
 
 ```bash
-admet model train -c configs/0-experiment/chemprop.yaml
+# Chemprop MPNN
+admet model train -c configs/0-experiment/0-single-fold/chemprop.yaml
+
+# CheMeleon (pretrained encoder)
+admet model train -c configs/0-experiment/0-single-fold/chemeleon.yaml
+
+# Classical models (XGBoost, LightGBM, CatBoost)
+admet model train -c configs/0-experiment/2-classical-models-ensemble/xgboost.yaml
 ```
 
 **Config examples:** See [configs/0-experiment/](./configs/0-experiment/) for templates
@@ -467,10 +478,14 @@ flowchart TB
 Train ensembles across multiple splits/folds with Ray parallelization:
 
 ```bash
-admet model ensemble -c configs/3-production/ensemble.yaml --max-parallel 4
+# Standard ensemble
+admet model ensemble -c configs/0-experiment/1-ensemble/chemprop_ensemble_production.yaml --max-parallel 4
+
+# HPO-optimized production ensemble
+admet model ensemble -c configs/3-hpo-ensemble-production/0_chemprop_v1/ensemble_chemprop_hpo_001.yaml --max-parallel 4
 ```
 
-**Ensemble config:** Extends single-model config with `data_dir` (pointing to `split_*/fold_*/` structure) and resource limits. See [configs/3-production/](./configs/3-production/) for examples.
+**Ensemble config:** Extends single-model config with `data_dir` (pointing to `split_*/fold_*/` structure) and resource limits. See [configs/0-experiment/1-ensemble/](./configs/0-experiment/1-ensemble/) for standard ensembles and [configs/3-hpo-ensemble-production/](./configs/3-hpo-ensemble-production/) for HPO-optimized production configs.
 
 #### Hyperparameter Optimization (HPO)
 
@@ -560,10 +575,10 @@ flowchart TB
 Automatically discover related tasks for joint training:
 
 ```bash
-admet model train -c configs/task-affinity/chemprop.yaml
+admet model train -c configs/0-experiment/task-affinity/chemprop_single_hpo_task_affinity_groups.yaml
 ```
 
-**Config:** Set `task_affinity.enabled: true` and `task_affinity.n_groups: 3`. See [configs/task-affinity/](./configs/task-affinity/) and [docs/guide/task_affinity.rst](./docs/guide/task_affinity.rst)
+**Config:** Set `task_affinity.enabled: true` and `task_affinity.n_groups: 3`. See [configs/0-experiment/task-affinity/](./configs/0-experiment/task-affinity/) and [docs/guide/task_affinity.rst](./docs/guide/task_affinity.rst)
 
 ```mermaid
 flowchart TB
@@ -671,13 +686,18 @@ Task affinity automatically groups related tasks (e.g., solubility, permeability
 Run distributed HPO with Ray Tune + ASHA scheduler and Bayesian optimization:
 
 ```bash
-admet model hpo -c configs/1-hpo-single/hpo_chemprop.yaml --num-samples 100
+# Chemprop HPO
+admet model hpo -c configs/1-hpo-single-fold/hpo_chemprop.yaml --num-samples 100
+
+# CheMeleon HPO
+admet model hpo -c configs/1-hpo-single-fold/hpo_chemeleon.yaml --num-samples 50
 ```
 
 **Key Features:**
 
 - **Bayesian Optimization**: Optuna TPE sampler learns from previous trials (3-5x more efficient than random search)
 - **ASHA Scheduler**: Early stopping of unpromising trials saves compute
+- **Warmstart Support**: Resume from previous Optuna studies via `admet model hpo-list-studies`
 - **Conditional Search Spaces**: FFN type, MoE experts, task affinity groups
 - **Weight Decay**: L2 regularization via AdamW optimizer (1e-6 to 1e-3)
 - **MLflow Tracking**: All trials logged with metrics and hyperparameters
@@ -691,9 +711,11 @@ search_algorithm:
   type: optuna        # optuna (recommended), random, bayesopt, hyperopt
   seed: 42
   n_initial_points: 20  # Random exploration before Bayesian phase
+  persist_study: true   # Enable warmstart capability
+  warmstart_from: 'previous_study_name'  # Resume from existing study
 ```
 
-**See:** [configs/1-hpo-single/](./configs/1-hpo-single/) for search space definitions and [docs/guide/hpo.rst](./docs/guide/hpo.rst) for detailed documentation
+**See:** [configs/1-hpo-single-fold/](./configs/1-hpo-single-fold/) for search space definitions, [docs/guide/hpo.rst](./docs/guide/hpo.rst) for detailed documentation, and [docs/guide/hpo_warmstart.rst](./docs/guide/hpo_warmstart.rst) for warmstart guide
 
 ---
 

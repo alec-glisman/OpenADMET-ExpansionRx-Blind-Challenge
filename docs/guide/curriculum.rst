@@ -1,9 +1,9 @@
 Curriculum Learning Guide
 =========================
 
-This guide covers quality-aware curriculum learning for Chemprop models. Curriculum
-learning progressively adjusts sampling from high-quality to lower-quality data
-based on validation loss improvements, enabling more robust model training.
+Curriculum learning progressively exposes models to data of increasing noise,
+improving robustness. Training begins with high-quality data and gradually
+introduces medium and low-quality samples based on validation loss improvements.
 
 Overview
 --------
@@ -17,6 +17,30 @@ prediction, data quality varies significantly:
 - **Low quality**: Noisy or less reliable measurements
 
 The curriculum progressively exposes the model to this data in phases.
+
+.. mermaid::
+
+   flowchart LR
+      subgraph "Data Quality"
+         H["🟢 High<br/>Reliable"]
+         M["🟡 Medium<br/>Mixed"]
+         L["🔴 Low<br/>Noisy"]
+      end
+
+      subgraph "Curriculum Phases"
+         W[Warmup<br/>80/15/5] --> E[Expand<br/>60/30/10]
+         E --> R[Robust<br/>50/35/15]
+         R --> P[Polish<br/>70/20/10]
+      end
+
+      H --> W
+      M --> E
+      L --> R
+
+      style H fill:#c8e6c9
+      style M fill:#fff9c4
+      style L fill:#ffcdd2
+      style P fill:#e1f5fe
 
 Curriculum Phases
 -----------------

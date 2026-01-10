@@ -2,14 +2,9 @@
 Task Affinity Grouping
 ===============================
 
-.. contents:: Table of Contents
-   :local:
-   :depth: 2
-
-Overview
-========
-
-Task Affinity Grouping (TAG) is an algorithm for efficiently identifying which tasks benefit from being trained together in multi-task learning. The method, introduced in `Fifty et al. (NeurIPS 2021) <https://arxiv.org/abs/2109.04617>`_, computes gradient-based affinity scores between tasks and uses these to cluster tasks into groups.
+Task Affinity Grouping (TAG) identifies which tasks benefit from joint training by
+computing gradient-based affinity scores. The method clusters tasks into groups,
+enabling separate prediction heads for positively-correlated task subsets.
 
 Key Benefits
 ------------
@@ -21,6 +16,41 @@ Key Benefits
 
 Algorithm Overview
 ------------------
+
+.. mermaid::
+
+   flowchart TB
+      subgraph "1. Affinity Computation"
+         A[Joint Training] --> B[Per-Task Gradients]
+         B --> C[Gradient Vectors]
+      end
+
+      subgraph "2. Affinity Scoring"
+         C --> D[Cosine Similarity]
+         D --> E[Affinity Matrix<br/>Z_ij]
+      end
+
+      subgraph "3. Task Clustering"
+         E --> F{Hierarchical<br/>Clustering}
+         F --> G1[Group 1<br/>LogD, KSOL]
+         F --> G2[Group 2<br/>HLM, MLM]
+         F --> G3[Group 3<br/>Binding]
+      end
+
+      subgraph "4. Multi-Head Training"
+         G1 --> H[Shared<br/>Encoder]
+         G2 --> H
+         G3 --> H
+         H --> I1[Head 1]
+         H --> I2[Head 2]
+         H --> I3[Head 3]
+      end
+
+      style A fill:#e1f5fe
+      style E fill:#fff9c4
+      style H fill:#c8e6c9
+
+**Steps:**
 
 1. **Affinity Computation**: Run a short joint training phase and compute per-task gradients with respect to shared encoder parameters
 2. **Affinity Scoring**: Measure cosine similarity between gradient vectors to quantify task affinity
@@ -107,10 +137,10 @@ Key Differences from Legacy Approach
      - Inspired by TAG but simplified
 
 Inter-Task Affinity Parameters
-------------------------------
+==============================
 
 enabled
-^^^^^^^
+-------
 
 :Type: ``bool``
 :Default: ``False``
@@ -126,7 +156,7 @@ enabled
       enabled: true
 
 compute_every_n_steps
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 :Type: ``int``
 :Default: ``1``
@@ -149,7 +179,7 @@ compute_every_n_steps
       compute_every_n_steps: 10
 
 log_every_n_steps
-^^^^^^^^^^^^^^^^^
+-----------------
 
 :Type: ``int``
 :Default: ``100``
@@ -165,7 +195,7 @@ log_every_n_steps
       log_every_n_steps: 100
 
 log_epoch_summary
-^^^^^^^^^^^^^^^^^
+-----------------
 
 :Type: ``bool``
 :Default: ``True``
@@ -181,7 +211,7 @@ log_epoch_summary
       log_epoch_summary: true
 
 log_step_matrices
-^^^^^^^^^^^^^^^^^
+-----------------
 
 :Type: ``bool``
 :Default: ``False``
@@ -201,7 +231,7 @@ log_step_matrices
       log_step_matrices: false  # Keep off unless debugging
 
 lookahead_lr
-^^^^^^^^^^^^
+------------
 
 :Type: ``float``
 :Default: ``0.001``
@@ -222,7 +252,7 @@ lookahead_lr
       lookahead_lr: 0.001
 
 use_optimizer_lr
-^^^^^^^^^^^^^^^^
+----------------
 
 :Type: ``bool``
 :Default: ``True``
@@ -243,7 +273,7 @@ use_optimizer_lr
       use_optimizer_lr: true
 
 exclude_param_patterns
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 :Type: ``List[str]``
 :Default: ``["predictor", "ffn", "output", "head", "readout"]``
@@ -272,7 +302,7 @@ exclude_param_patterns
         - readout
 
 log_to_mlflow
-^^^^^^^^^^^^^
+-------------
 
 :Type: ``bool``
 :Default: ``True``
@@ -294,7 +324,7 @@ Complete Inter-Task Affinity Example
 ------------------------------------
 
 Production Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. code-block:: yaml
 
@@ -316,7 +346,7 @@ Production Configuration
       log_to_mlflow: true
 
 Analysis Configuration
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 For detailed affinity analysis (more overhead):
 
@@ -402,7 +432,7 @@ Basic Parameters
 ----------------
 
 enabled
-^^^^^^^
+-------
 
 :Type: ``bool``
 :Default: ``False``
@@ -418,7 +448,7 @@ enabled
       enabled: true
 
 n_groups
-^^^^^^^^
+--------
 
 :Type: ``int``
 :Default: ``3``
@@ -445,7 +475,7 @@ Affinity Computation Parameters
 --------------------------------
 
 affinity_epochs
-^^^^^^^^^^^^^^^
+---------------
 
 :Type: ``int``
 :Default: ``1``
@@ -468,7 +498,7 @@ affinity_epochs
       affinity_epochs: 2
 
 affinity_batch_size
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 :Type: ``int``
 :Default: ``64``
@@ -490,7 +520,7 @@ affinity_batch_size
       affinity_batch_size: 64
 
 affinity_lr
-^^^^^^^^^^^
+-----------
 
 :Type: ``float``
 :Default: ``1e-3`` (0.001)
@@ -516,7 +546,7 @@ Affinity Scoring Parameters
 ----------------------------
 
 affinity_type
-^^^^^^^^^^^^^
+-------------
 
 :Type: ``str``
 :Default: ``"cosine"``
@@ -543,7 +573,7 @@ affinity_type
       affinity_type: "cosine"
 
 normalize_gradients
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 :Type: ``bool``
 :Default: ``True``
@@ -568,7 +598,7 @@ Clustering Parameters
 ---------------------
 
 clustering_method
-^^^^^^^^^^^^^^^^^
+-----------------
 
 :Type: ``str``
 :Default: ``"agglomerative"``
@@ -600,7 +630,7 @@ Advanced Parameters
 -------------------
 
 encoder_param_patterns
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 :Type: ``List[str]``
 :Default: ``[]`` (uses default exclusion patterns)
@@ -636,7 +666,7 @@ encoder_param_patterns
       encoder_param_patterns: ["encoder", "mpnn", "bond_message"]  # Custom
 
 device
-^^^^^^
+------
 
 :Type: ``str``
 :Default: ``"auto"``
@@ -663,7 +693,7 @@ device
       device: "auto"
 
 seed
-^^^^
+----
 
 :Type: ``int``
 :Default: ``42``
@@ -685,7 +715,7 @@ seed
       seed: 42
 
 log_affinity_matrix
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 :Type: ``bool``
 :Default: ``True``
@@ -792,7 +822,7 @@ YAML Configuration Files
 -------------------------
 
 Basic Configuration (Recommended Starting Point)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------
 
 Create ``configs/task-affinity/chemprop_task_affinity.yaml``:
 
@@ -833,7 +863,7 @@ Create ``configs/task-affinity/chemprop_task_affinity.yaml``:
         - "CLint"
 
 Advanced Configuration with All Parameters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------
 
 Create ``configs/task-affinity/chemprop_task_affinity_advanced.yaml``:
 
@@ -896,7 +926,7 @@ Create ``configs/task-affinity/chemprop_task_affinity_advanced.yaml``:
         - "CLhep"
 
 Exploratory Configuration (Finding Optimal Groups)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------------------
 
 Create ``configs/task-affinity/chemprop_task_affinity_explore.yaml`` to try different group numbers:
 
@@ -940,7 +970,7 @@ Command Line Interface Examples
 --------------------------------
 
 Basic Usage with YAML Config
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 Train a model with task affinity enabled:
 
@@ -953,7 +983,7 @@ Train a model with task affinity enabled:
       --save-dir models/chemprop_task_affinity
 
 Override Config with CLI Arguments
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------
 
 Start with a base config and override specific parameters:
 
@@ -970,7 +1000,7 @@ Start with a base config and override specific parameters:
       --save-dir models/chemprop_affinity_3groups
 
 Experiment with Different Group Numbers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------------
 
 Run multiple experiments to find optimal grouping:
 
@@ -1001,7 +1031,7 @@ Run multiple experiments to find optimal grouping:
       --save-dir models/affinity_5groups
 
 Compare Clustering Methods
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 Test different clustering algorithms:
 
@@ -1020,7 +1050,7 @@ Test different clustering algorithms:
       --save-dir models/affinity_spectral
 
 Compute Affinity Matrix Only
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 Compute and save the affinity matrix without full training:
 
@@ -1037,7 +1067,7 @@ Compute and save the affinity matrix without full training:
       --plot-heatmap results/task_affinity_heatmap.png
 
 Production Training with Optimized Groups
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------
 
 After determining optimal grouping, train production model:
 
@@ -1091,7 +1121,7 @@ Using the configuration class directly:
     # Output: [['LogD', 'KSOL'], ['PAMPA', 'hERG'], ['CLint']]
 
 Complete Workflow: Compute, Visualize, and Train
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------------
 
 .. code-block:: python
 
@@ -1146,7 +1176,7 @@ Complete Workflow: Compute, Visualize, and Train
     # (use groups in your training pipeline)
 
 Exploring Different Numbers of Groups
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------
 
 .. code-block:: python
 
@@ -1182,7 +1212,7 @@ Analyzing Affinity Results
 ---------------------------
 
 Extracting and Examining the Affinity Matrix
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------------
 
 .. code-block:: bash
 
@@ -1202,7 +1232,7 @@ Extracting and Examining the Affinity Matrix
     #   CLint: [0.089 0.045 0.123 0.567 1.000]
 
 Reading the Affinity Matrix
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 From the example above:
 
@@ -1219,7 +1249,7 @@ Expected groupings for n_groups=3:
 - Or alternative based on dendrogram structure
 
 Visualizing Affinity with Heatmaps
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------
 
 .. code-block:: python
 
@@ -1250,7 +1280,7 @@ Visualizing Affinity with Heatmaps
     )
 
 Batch Processing Multiple Datasets
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------
 
 .. code-block:: bash
 
@@ -1283,7 +1313,7 @@ Step-by-Step Guide to Using Task Affinity
 ------------------------------------------
 
 Step 1: Initial Affinity Computation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
 Start by computing the affinity matrix to understand task relationships:
 
@@ -1307,7 +1337,7 @@ Start by computing the affinity matrix to understand task relationships:
 - Review the heatmap for natural clustering patterns
 
 Step 2: Determine Optimal Number of Groups
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------
 
 Run quick experiments with different group numbers:
 
@@ -1352,7 +1382,7 @@ Run quick experiments with different group numbers:
 - Ensure groups make scientific sense
 
 Step 3: Train Production Model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------
 
 Once optimal grouping is determined, train the final model:
 
@@ -1371,7 +1401,7 @@ Once optimal grouping is determined, train the final model:
       --seed 42
 
 Step 4: Compare Against Baselines
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 Compare task affinity model against standard approaches:
 
@@ -1410,7 +1440,7 @@ Decision Making Guide
 ---------------------
 
 When to Use Task Affinity
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 ✅ **Use task affinity when:**
 
@@ -1429,7 +1459,7 @@ When to Use Task Affinity
 - You need the absolute simplest model
 
 How to Choose Number of Groups
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------
 
 **Rule of thumb:**
 
@@ -1455,7 +1485,7 @@ How to Choose Number of Groups
     20 tasks → Try 6-8 groups
 
 Interpreting Affinity Values
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 **Strong positive affinity (0.7 - 1.0):**
 
@@ -1613,7 +1643,7 @@ Common Issues
 -------------
 
 No Gradient Steps
-^^^^^^^^^^^^^^^^^
+-----------------
 
 **Error**: ``RuntimeError: No gradient steps were performed``
 
@@ -1630,7 +1660,7 @@ No Gradient Steps
 * Validate SMILES with canonicalization
 
 Unstable Affinity Scores
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 **Symptom**: Affinity matrix has extreme values or NaNs
 
@@ -1642,7 +1672,7 @@ Unstable Affinity Scores
 * Use ``affinity_type="cosine"`` for robustness
 
 Poor Groupings
-^^^^^^^^^^^^^^
+--------------
 
 **Symptom**: Clustering produces unintuitive groups
 

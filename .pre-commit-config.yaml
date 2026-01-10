@@ -92,7 +92,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: pytest -n auto -q -m "not no_mlflow_runs"
+        entry: pytest -q -m "not no_mlflow_runs"
         language: system
         pass_filenames: false
 
