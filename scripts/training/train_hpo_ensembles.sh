@@ -80,6 +80,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Strip 'configs/' prefix from CONFIG_DIR if present
+CONFIG_DIR="${CONFIG_DIR#configs/}"
+
 # Function to discover available config files and extract ranks
 discover_available_ranks() {
   local config_pattern="configs/${CONFIG_DIR}/ensemble_${MODEL_TYPE}_hpo_*.yaml"
