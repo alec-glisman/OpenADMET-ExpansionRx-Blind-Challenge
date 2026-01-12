@@ -198,7 +198,7 @@ mlflow:
 - **Task-Weighted Loss:** Per-endpoint loss weights based on leaderboard analysis (upweight underperforming tasks)
 - **Joint Sampling:** Unified two-stage sampling combining:
   - **Task Oversampling:** α-weighted inverse-power sampling for sparse endpoints (α ∈ [0,1])
-  - **Curriculum Learning:** Progressive quality-based inclusion (warmup → expand → robust → polish)
+  - **~~Curriculum Learning~~:** *(Abandoned)* A [comprehensive ablation study](assets/analysis/curriculum-learning/CURRICULUM_LEARNING_ANALYSIS.md) found that curriculum learning with external datasets degraded performance by 15-30% due to extreme data sparsity (>90% missing) and distribution shift. The base model using high-quality data only remains the production approach.
   - Count-normalized sampling ensures target proportions regardless of dataset size imbalance
 - **Task Affinity Grouping:** Automatic grouping of related endpoints for joint training
 

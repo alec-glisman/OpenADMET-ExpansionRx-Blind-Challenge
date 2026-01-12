@@ -150,13 +150,12 @@ ASHA scheduler tuning, and best practices, see :doc:`hpo`.
 Joint Sampling
 --------------
 
-The ``JointSampler`` provides unified two-stage sampling that combines task-aware
-oversampling with curriculum learning:
+The ``JointSampler`` provides unified two-stage sampling with task-aware oversampling:
 
-**Two-Stage Algorithm:**
+**Task Oversampling Algorithm:**
 
-1. **Stage 1 (Task Selection):** Sample task ``t`` with probability ``p_t ∝ count_t^(-α)``
-2. **Stage 2 (Within-Task):** Sample molecule from task's indices, weighted by curriculum phase
+Sample task ``t`` with probability ``p_t ∝ count_t^(-α)`` where ``α ∈ [0, 1]``
+controls rebalancing strength (0 = uniform, 1 = fully inverse-weighted by task size).
 
 **Configuration via YAML:**
 
@@ -166,21 +165,13 @@ oversampling with curriculum learning:
      enabled: true
      task_oversampling:
        alpha: 0.5  # [0, 1] task rebalancing strength
-     curriculum:
-       enabled: true
-       quality_col: "Quality"
-       qualities: ["high", "medium", "low"]
-       patience: 5
-       count_normalize: true
 
-**Curriculum Phases** (when curriculum enabled):
-
-1. **Warmup**: 80% high, 15% medium, 5% low - learn core patterns
-2. **Expand**: 60% high, 30% medium, 10% low - incorporate more data
-3. **Robust**: 50% high, 35% medium, 15% low - build robustness
-4. **Polish**: 70% high, 20% medium, 10% low - fine-tune while maintaining diversity
-
-For detailed configuration and algorithm explanation, see :doc:`curriculum`.
+.. note::
+   **Curriculum Learning (Abandoned):** The curriculum learning feature that was
+   part of joint sampling has been abandoned after a comprehensive ablation study
+   showed it degraded performance by 15-30% when using external datasets. The
+   extreme data sparsity (>90% missing) and distribution shift caused catastrophic
+   forgetting on multiple endpoints. See :doc:`curriculum` for details.
 
 MLflow Integration
 ------------------

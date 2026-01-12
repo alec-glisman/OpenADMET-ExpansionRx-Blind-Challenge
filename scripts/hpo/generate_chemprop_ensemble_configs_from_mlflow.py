@@ -261,14 +261,10 @@ def extract_chemprop_hyperparams(row: pd.Series) -> dict:
         PARAM_DEFAULTS["message_hidden_dim"],
         int,
     )
-    aggregation = safe_get_param(
-        row, ["aggregation", "config/aggregation"], PARAM_DEFAULTS["aggregation"], str
-    )
+    aggregation = safe_get_param(row, ["aggregation", "config/aggregation"], PARAM_DEFAULTS["aggregation"], str)
 
     # FFN parameters
-    ffn_type_raw = safe_get_param(
-        row, ["ffn_type", "config/ffn_type"], PARAM_DEFAULTS["ffn_type"], str
-    )
+    ffn_type_raw = safe_get_param(row, ["ffn_type", "config/ffn_type"], PARAM_DEFAULTS["ffn_type"], str)
     ffn_type = FFN_TYPE_MAPPING.get(ffn_type_raw, "regression")
     ffn_num_layers = safe_get_param(
         row,
@@ -282,19 +278,13 @@ def extract_chemprop_hyperparams(row: pd.Series) -> dict:
         PARAM_DEFAULTS["ffn_hidden_dim"],
         int,
     )
-    dropout = safe_get_param(
-        row, ["dropout", "config/dropout"], PARAM_DEFAULTS["dropout"], float
-    )
-    batch_norm = parse_bool(
-        safe_get_param(row, ["batch_norm", "config/batch_norm"], PARAM_DEFAULTS["batch_norm"])
-    )
+    dropout = safe_get_param(row, ["dropout", "config/dropout"], PARAM_DEFAULTS["dropout"], float)
+    batch_norm = parse_bool(safe_get_param(row, ["batch_norm", "config/batch_norm"], PARAM_DEFAULTS["batch_norm"]))
 
     # Conditional FFN parameters
     n_experts = safe_get_param(row, ["n_experts", "config/n_experts"], None, int)
     trunk_depth = safe_get_param(row, ["trunk_depth", "config/trunk_depth"], None, int)
-    trunk_hidden_dim = safe_get_param(
-        row, ["trunk_hidden_dim", "config/trunk_hidden_dim"], None, int
-    )
+    trunk_hidden_dim = safe_get_param(row, ["trunk_hidden_dim", "config/trunk_hidden_dim"], None, int)
 
     # Learning rate schedule
     learning_rate = safe_get_param(
@@ -313,12 +303,8 @@ def extract_chemprop_hyperparams(row: pd.Series) -> dict:
     final_lr = learning_rate * lr_final_ratio
 
     # Training parameters
-    batch_size = safe_get_param(
-        row, ["batch_size", "config/batch_size"], PARAM_DEFAULTS["batch_size"], int
-    )
-    weight_decay = safe_get_param(
-        row, ["weight_decay", "config/weight_decay"], PARAM_DEFAULTS["weight_decay"], float
-    )
+    batch_size = safe_get_param(row, ["batch_size", "config/batch_size"], PARAM_DEFAULTS["batch_size"], int)
+    weight_decay = safe_get_param(row, ["weight_decay", "config/weight_decay"], PARAM_DEFAULTS["weight_decay"], float)
 
     # Joint sampling parameters
     joint_sampling_enabled = parse_bool(
@@ -330,8 +316,7 @@ def extract_chemprop_hyperparams(row: pd.Series) -> dict:
     )
     joint_sampling_alpha = safe_get_param(
         row,
-        ["joint_sampling_alpha", "config/joint_sampling_alpha",
-         "task_sampling_alpha", "config/task_sampling_alpha"],
+        ["joint_sampling_alpha", "config/joint_sampling_alpha", "task_sampling_alpha", "config/task_sampling_alpha"],
         PARAM_DEFAULTS["joint_sampling_alpha"],
         float,
     )
@@ -789,8 +774,12 @@ class ChempropHPOVisualizer:
             # Create empty plot
             fig, ax = plt.subplots(figsize=self.figsize_single)
             ax.text(
-                0.5, 0.5, "No numeric parameters found",
-                ha="center", va="center", transform=ax.transAxes,
+                0.5,
+                0.5,
+                "No numeric parameters found",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
             )
             return self._save_figure(fig, "01_parameter_distributions")
 
@@ -839,7 +828,9 @@ class ChempropHPOVisualizer:
 
         fig.suptitle(
             "Hyperparameter Distributions: All Trials vs Top-K",
-            fontsize=14, fontweight="bold", y=1.02,
+            fontsize=14,
+            fontweight="bold",
+            y=1.02,
         )
         plt.tight_layout()
         return self._save_figure(fig, "01_parameter_distributions")
@@ -856,8 +847,12 @@ class ChempropHPOVisualizer:
         if len(data.columns) < 2:
             fig, ax = plt.subplots(figsize=self.figsize_single)
             ax.text(
-                0.5, 0.5, "Not enough numeric parameters for correlation",
-                ha="center", va="center", transform=ax.transAxes,
+                0.5,
+                0.5,
+                "Not enough numeric parameters for correlation",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
             )
             return self._save_figure(fig, "02_correlation_heatmap")
 
@@ -912,8 +907,12 @@ class ChempropHPOVisualizer:
         if len(key_params) < 2:
             fig, ax = plt.subplots(figsize=self.figsize_wide)
             ax.text(
-                0.5, 0.5, "Not enough parameters for parallel coordinates",
-                ha="center", va="center", transform=ax.transAxes,
+                0.5,
+                0.5,
+                "Not enough parameters for parallel coordinates",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
             )
             return self._save_figure(fig, "03_parallel_coordinates")
 
@@ -1020,8 +1019,12 @@ class ChempropHPOVisualizer:
                 ax.hist(np.log10(lr_all), bins=30, alpha=0.5, label="All", color="steelblue", density=True)
             if len(lr_top) > 0 and (lr_top > 0).all():
                 ax.hist(
-                    np.log10(lr_top), bins=20, alpha=0.7,
-                    label=f"Top {len(self.top_k)}", color="coral", density=True,
+                    np.log10(lr_top),
+                    bins=20,
+                    alpha=0.7,
+                    label=f"Top {len(self.top_k)}",
+                    color="coral",
+                    density=True,
                 )
             ax.set_xlabel("log10(Learning Rate)")
             ax.set_ylabel("Density")
@@ -1184,8 +1187,12 @@ class ChempropHPOVisualizer:
         if len(params) == 0:
             fig, ax = plt.subplots(figsize=self.figsize_single)
             ax.text(
-                0.5, 0.5, "No parameters available for scatter plots",
-                ha="center", va="center", transform=ax.transAxes,
+                0.5,
+                0.5,
+                "No parameters available for scatter plots",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
             )
             return self._save_figure(fig, "07_parameter_performance_scatter")
 
@@ -1485,9 +1492,7 @@ class ChempropHPOVisualizer:
 
 def main() -> None:
     """Main function to generate Chemprop ensemble configs from MLflow."""
-    parser = argparse.ArgumentParser(
-        description="Generate Chemprop ensemble configs from MLflow HPO experiments"
-    )
+    parser = argparse.ArgumentParser(description="Generate Chemprop ensemble configs from MLflow HPO experiments")
     parser.add_argument(
         "--tracking-uri",
         default="http://127.0.0.1:8084",

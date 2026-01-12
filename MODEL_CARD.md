@@ -47,7 +47,7 @@ flowchart LR
 
 - **Task Oversampling (Stage 1):** α-weighted inverse-power sampling for sparse endpoints
 - **Curriculum Learning (Stage 2):** Quality-aware within-task sampling (warmup → expand → robust → polish)
-  - *Note:* Curriculum learning was extensively evaluated during HPO but **not enabled** in the final production ensemble. The best-performing models used only task oversampling (α = 0.02).
+  - *Note:* Curriculum learning was extensively evaluated but **abandoned** after ablation studies showed consistent performance degradation. See [Curriculum Learning Study](#curriculum-learning-study-negative-result) section below.
 
 ### Training Performance
 
@@ -516,11 +516,45 @@ Y_std = std(Y_pred across 25 models)
 
 ---
 
+## Curriculum Learning Study (Negative Result)
+
+### Summary
+
+We conducted a comprehensive ablation study to evaluate curriculum learning for leveraging external ADMET datasets of varying quality. **All experiments showed significant performance degradation compared to the base model.**
+
+| Experiment | Test MAE | Test R² | vs Base MAE |
+|------------|----------|---------|-------------|
+| **Base Model (High-Quality Only)** | **0.307** | **0.582** | — |
+| 01 Baseline Curriculum | 0.385 | 0.297 | +25.4% worse |
+| 02 Two-Quality Only | 0.355 | 0.407 | +15.7% worse |
+| 03 Selective Tasks (Loss Weighting) | 0.378 | 0.334 | +23.2% worse |
+| 04 High-Quality Focus | 0.381 | 0.317 | +24.0% worse |
+| 05 Finetune Approach | 0.372 | 0.339 | +21.2% worse |
+
+### Key Findings
+
+1. **Catastrophic forgetting** on 3 endpoints (Caco-2 Papp, Caco-2 Efflux, MGMB) — R² dropped from positive to negative
+2. **Extreme data sparsity** in external datasets (>90% missing for most endpoints) disrupted multi-task learning
+3. **Distribution shift** between high-quality and external data sources compounded the problem
+4. **None of the mitigations tested** (excluding low-quality data, loss weighting, HQ monitoring, fine-tuning) recovered base model performance
+
+### Recommendation
+
+**Abandon curriculum learning with current external datasets.** The data quality and coverage issues cause more harm than benefit. Future work should focus on:
+
+- Data-centric improvements (quality filtering, distribution alignment)
+- Per-endpoint curriculum enabling only for well-covered endpoints
+- Alternative approaches like self-training with pseudo-labels
+
+Full analysis: [`assets/analysis/curriculum-learning/CURRICULUM_LEARNING_ANALYSIS.md`](assets/analysis/curriculum-learning/CURRICULUM_LEARNING_ANALYSIS.md)
+
+---
+
 ## Known Limitations
 
 ### Data Harmonization Caveats (Future Work)
 
-> **Note:** Supplementary data integration is planned but not used in the final submission.
+> **Note:** Supplementary data integration was evaluated but not used in the final submission.
 
 1. **Assay Condition Mismatches:**
    - KERMT Biogen solubility at pH 6.8 vs challenge pH ~7.0-7.4
@@ -542,11 +576,11 @@ Y_std = std(Y_pred across 25 models)
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| Supplementary Data | KERMT, PharmaBench integration with harmonization | 🔮 Planned |
-| Joint Sampling | Unified `JointSampler` with two-stage algorithm | ✅ Implemented |
-| Alternative Models | XGBoost, LightGBM, CheMeleon ensemble | 🔮 Planned |
+| Supplementary Data | KERMT, PharmaBench integration with harmonization | ✅ Evaluated |
+| Joint Sampling | Unified `JointSampler` with two-stage algorithm | ✅ Evaluated |
+| Alternative Models | XGBoost, LightGBM, CheMeleon ensemble | ✅ Implemented |
 | Uncertainty | Conformal prediction, Bayesian methods | 🔮 Planned |
-| Task Weights | HPO-optimized per-endpoint loss weights (currently uniform) | 🔮 Planned |
+| Task Weights | HPO-optimized per-endpoint loss weights (currently uniform) |  ✅ Evaluated |
 
 ---
 
