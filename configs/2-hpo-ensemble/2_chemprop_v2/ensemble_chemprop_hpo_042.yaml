@@ -1,0 +1,124 @@
+# Ensemble configuration file generated from Chemprop single-fold model results.
+# This file is auto-generated. Do not modify manually.
+# Original single-fold:
+#   Experiment Name: chemprop_hpo_phase3_refine
+#   Experiment ID: 17
+#   Run ID: d5275cd30c284bc6ae417ba9fc200ec0
+#   Val Loss: 0.430715
+# Generated on: 2026-01-11 20:30:54
+data:
+  data_dir: assets/dataset/split_train_val/v3/quality_high/bitbirch/multilabel_stratified_kfold/data
+  splits: null
+  folds: null
+  test_file: assets/dataset/set/local_test.csv
+  blind_file: assets/dataset/set/blind_test.csv
+  output_dir: null
+  smiles_col: SMILES
+  target_cols:
+  - LogD
+  - Log KSOL
+  - Log HLM CLint
+  - Log MLM CLint
+  - Log Caco-2 Permeability Papp A>B
+  - Log Caco-2 Permeability Efflux
+  - Log MPPB
+  - Log MBPB
+  - Log MGMB
+  target_weights:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+model:
+  type: chemprop
+  chemprop:
+    depth: 6
+    message_hidden_dim: 600
+    aggregation: norm
+    ffn_type: regression
+    num_layers: 2
+    hidden_dim: 200
+    dropout: 0.162821
+    batch_norm: true
+optimization:
+  criterion: MAE
+  init_lr: 1.203e-05
+  max_lr: 0.00088565
+  final_lr: 9.71e-06
+  warmup_epochs: 5
+  max_epochs: 150
+  patience: 15
+  batch_size: 64
+  num_workers: 4
+  accumulate_grad_batches: 1
+  seed: 42
+  weight_decay: 0.0
+  progress_bar: false
+performance_optimization:
+  use_mixed_precision: true
+mlflow:
+  tracking: true
+  tracking_uri: http://127.0.0.1:8084
+  experiment_name: chemprop_hpo_ensemble_v2
+  run_name: rank_042
+  nested: true
+post_training:
+  generate_plots: true
+  plot_dpi: 150
+  plot_formats:
+  - png
+  cache_predictions: true
+  compute_test_metrics: true
+  compute_train_metrics: false
+inter_task_affinity:
+  enabled: false
+  compute_every_n_steps: 2
+  log_every_n_steps: 10
+  log_epoch_summary: true
+  log_step_matrices: false
+  lookahead_lr: 0.001
+  use_optimizer_lr: true
+  exclude_param_patterns:
+  - predictor
+  - ffn
+  - output
+  - head
+  - readout
+  log_to_mlflow: true
+joint_sampling:
+  enabled: true
+  task_oversampling:
+    alpha: 0.02
+  curriculum:
+    enabled: false
+    quality_col: Quality
+    qualities:
+    - high
+    - medium
+    - low
+    patience: 5
+    strategy: sampled
+    reset_early_stopping_on_phase_change: false
+    log_per_quality_metrics: true
+    seed: 42
+  num_samples: null
+  seed: 42
+  increment_seed_per_epoch: true
+  log_to_mlflow: true
+ray:
+  max_parallel: 6
+  num_cpus: 24
+  num_gpus: 2
+  gpu_ids:
+  - 0
+  - 1
+logging:
+  enabled: true
+  verbose: 0
+  max_total_logs_gb: 1.0
+  fail_on_upload_error: true
