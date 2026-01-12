@@ -1,6 +1,27 @@
 Curriculum Learning Guide
 =========================
 
+.. warning::
+   **Status: Experimental Feature (Abandoned for Production)**
+
+   A comprehensive ablation study found that curriculum learning with external
+   datasets **degraded performance by 15-30%** compared to training on high-quality
+   data only. All five ablation experiments showed significant performance loss.
+
+   **Key findings:**
+
+   - Best curriculum variant: +15.7% MAE increase, -30% R² decrease vs base model
+   - Catastrophic forgetting on 3/9 endpoints (R² dropped to negative values)
+   - Root cause: Extreme data sparsity (>90% missing) and distribution shift in external data
+
+   **Recommendation:** Use high-quality data only for production models. See the
+   `full analysis report <../../../assets/analysis/curriculum-learning/CURRICULUM_LEARNING_ANALYSIS.md>`_
+   for details.
+
+   This documentation is retained for reference and future research purposes.
+
+----
+
 Curriculum learning progressively exposes models to data of increasing noise,
 improving robustness. Training begins with high-quality data and gradually
 introduces medium and low-quality samples based on validation loss improvements.

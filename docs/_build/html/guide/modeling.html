@@ -473,34 +473,25 @@ ASHA scheduler tuning, and best practices, see <a class="reference internal" hre
 </section>
 <section id="joint-sampling">
 <h2>Joint Sampling<a class="headerlink" href="#joint-sampling" title="Link to this heading">¶</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> provides unified two-stage sampling that combines task-aware
-oversampling with curriculum learning:</p>
-<p><strong>Two-Stage Algorithm:</strong></p>
-<ol class="arabic simple">
-<li><p><strong>Stage 1 (Task Selection):</strong> Sample task <code class="docutils literal notranslate"><span class="pre">t</span></code> with probability <code class="docutils literal notranslate"><span class="pre">p_t</span> <span class="pre">∝</span> <span class="pre">count_t^(-α)</span></code></p></li>
-<li><p><strong>Stage 2 (Within-Task):</strong> Sample molecule from task’s indices, weighted by curriculum phase</p></li>
-</ol>
+<p>The <code class="docutils literal notranslate"><span class="pre">JointSampler</span></code> provides unified two-stage sampling with task-aware oversampling:</p>
+<p><strong>Task Oversampling Algorithm:</strong></p>
+<p>Sample task <code class="docutils literal notranslate"><span class="pre">t</span></code> with probability <code class="docutils literal notranslate"><span class="pre">p_t</span> <span class="pre">∝</span> <span class="pre">count_t^(-α)</span></code> where <code class="docutils literal notranslate"><span class="pre">α</span> <span class="pre">∈</span> <span class="pre">[0,</span> <span class="pre">1]</span></code>
+controls rebalancing strength (0 = uniform, 1 = fully inverse-weighted by task size).</p>
 <p><strong>Configuration via YAML:</strong></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">joint_sampling</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="nt">task_oversampling</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># [0, 1] task rebalancing strength</span>
-<span class="w">  </span><span class="nt">curriculum</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">    </span><span class="nt">quality_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Quality&quot;</span>
-<span class="w">    </span><span class="nt">qualities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;high&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;medium&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;low&quot;</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">patience</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-<span class="w">    </span><span class="nt">count_normalize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
-<p><strong>Curriculum Phases</strong> (when curriculum enabled):</p>
-<ol class="arabic simple">
-<li><p><strong>Warmup</strong>: 80% high, 15% medium, 5% low - learn core patterns</p></li>
-<li><p><strong>Expand</strong>: 60% high, 30% medium, 10% low - incorporate more data</p></li>
-<li><p><strong>Robust</strong>: 50% high, 35% medium, 15% low - build robustness</p></li>
-<li><p><strong>Polish</strong>: 70% high, 20% medium, 10% low - fine-tune while maintaining diversity</p></li>
-</ol>
-<p>For detailed configuration and algorithm explanation, see <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Curriculum Learning (Abandoned):</strong> The curriculum learning feature that was
+part of joint sampling has been abandoned after a comprehensive ablation study
+showed it degraded performance by 15-30% when using external datasets. The
+extreme data sparsity (&gt;90% missing) and distribution shift caused catastrophic
+forgetting on multiple endpoints. See <a class="reference internal" href="curriculum.html"><span class="doc">Curriculum Learning Guide</span></a> for details.</p>
+</div>
 </section>
 <section id="mlflow-integration">
 <h2>MLflow Integration<a class="headerlink" href="#mlflow-integration" title="Link to this heading">¶</a></h2>

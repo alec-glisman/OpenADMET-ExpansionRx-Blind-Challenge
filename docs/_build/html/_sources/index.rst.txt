@@ -79,7 +79,7 @@
    .. grid-item-card:: 🧠 Advanced Techniques
       :class-card: sd-border-0 sd-shadow-sm
 
-      :term:`Chemprop` :term:`MPNN` with 25-model :term:`ensemble`, curriculum learning,
+      :term:`Chemprop` :term:`MPNN` with 25-model :term:`ensemble`
       and task-weighted loss optimization for multi-task ADMET prediction.
 
 ----
@@ -246,7 +246,7 @@
 
          .. grid-item::
 
-            :doc:`guide/curriculum` — Quality-aware curriculum learning
+            :doc:`guide/curriculum` — Quality-aware curriculum learning *(experimental, abandoned)*
 
          .. grid-item::
 

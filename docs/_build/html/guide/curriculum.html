@@ -337,6 +337,24 @@
         <article role="main" id="furo-main-content">
           <section id="curriculum-learning-guide">
 <h1>Curriculum Learning Guide<a class="headerlink" href="#curriculum-learning-guide" title="Link to this heading">¶</a></h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Status: Experimental Feature (Abandoned for Production)</strong></p>
+<p>A comprehensive ablation study found that curriculum learning with external
+datasets <strong>degraded performance by 15-30%</strong> compared to training on high-quality
+data only. All five ablation experiments showed significant performance loss.</p>
+<p><strong>Key findings:</strong></p>
+<ul class="simple">
+<li><p>Best curriculum variant: +15.7% MAE increase, -30% R² decrease vs base model</p></li>
+<li><p>Catastrophic forgetting on 3/9 endpoints (R² dropped to negative values)</p></li>
+<li><p>Root cause: Extreme data sparsity (&gt;90% missing) and distribution shift in external data</p></li>
+</ul>
+<p><strong>Recommendation:</strong> Use high-quality data only for production models. See the
+<a class="reference external" href="../../../assets/analysis/curriculum-learning/CURRICULUM_LEARNING_ANALYSIS.md">full analysis report</a>
+for details.</p>
+<p>This documentation is retained for reference and future research purposes.</p>
+</div>
+<hr class="docutils" />
 <p>Curriculum learning progressively exposes models to data of increasing noise,
 improving robustness. Training begins with high-quality data and gradually
 introduces medium and low-quality samples based on validation loss improvements.</p>
