@@ -4,6 +4,20 @@
 
 ---
 
+## January 12, 2026
+
+### Summary
+
+**Leaderboard Update:** Competition grew from 309 to 321 submissions. Despite increased competition, maintained strong position at **11th place (Top 3.4%)** with MA-RAE of 0.57 ± 0.02, remaining within error bar of 2nd place.
+
+### Statistics
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| **11/321** | aglisman | **0.57 ± 0.02** | 0.52 | 8.8% | 0.57 ± 0.04 | 0.78 ± 0.02 | 0.60 ± 0.02 | 🏆 **Top 3.4%** — Within MA-RAE error of 2nd place |
+
+---
+
 ## January 10, 2026
 
 ### Model

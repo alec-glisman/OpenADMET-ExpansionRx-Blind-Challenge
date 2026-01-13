@@ -2,7 +2,7 @@
 
 - **Authors**: Alec Glisman, PhD
 - **Date**: January 2026
-- **Current Rank**: 11th/309 (Top 3.6%) with MA-RAE 0.57 ± 0.02 — Within error bar of 2nd place (as of 2026-01-10)
+- **Current Rank**: 11th/321 (Top 3.4%) with MA-RAE 0.57 ± 0.02 — Within error bar of 2nd place (as of 2026-01-12)
 
 ---
 

@@ -360,7 +360,7 @@ Data quality is assigned per-endpoint based on:
 
 Blind test evaluation revealed:
 
-- **Overall Performance:** 11th/309 (Top 3.6%) as of 2026-01-10, within MA-RAE error of 2nd place. Strong correlation metrics across endpoints.
+- **Overall Performance:** 11th/321 (Top 3.4%) as of 2026-01-12, within MA-RAE error of 2nd place. Strong correlation metrics across endpoints.
 - **Strengths:** Solubility (KSOL) and binding endpoints (MGMB) showed excellent performance, maintaining strong R² and rank correlation
 - **Areas for Improvement:** Permeability endpoints (Caco-2 Papp/Efflux) and certain binding tasks (MPPB, MBPB) showed larger gaps to top performers
 - **Generalization:** Models demonstrated reasonable generalization from validation to blind test, with correlation metrics remaining robust
