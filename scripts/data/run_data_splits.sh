@@ -335,9 +335,10 @@ run_split() {
   local quality_str="$3"
 
   # Build output directory path
+  # Note: CLI appends cluster_method/split_method automatically, so we only add quality_dir
   local quality_dir
   quality_dir=$(quality_to_dirname "$quality_str")
-  local output_path="${OUTPUT_DIR}/${quality_dir}/${cluster_method}/${split_method}"
+  local output_path="${OUTPUT_DIR}/${quality_dir}"
 
   # Build quality args
   local quality_args

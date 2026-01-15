@@ -63,6 +63,7 @@ import admet.model.chemprop.adapter  # noqa: F401
 import admet.model.classical.catboost_model  # noqa: F401
 import admet.model.classical.lightgbm_model  # noqa: F401
 import admet.model.classical.xgboost_model  # noqa: F401
+from admet.data.column_mapping import normalize_dataframe_columns
 from admet.model.base import BaseModel
 from admet.model.chemprop.config import (
     ChempropConfig,
@@ -438,6 +439,7 @@ class ModelEnsemble:
         - Only SMILES canonicalization is performed; MoleculeDataset creation
           is deferred to individual models
         - For ensembles without test/blind files, silently skips
+        - Column names are normalized to canonical format
         """
         from admet.data.smiles import parallel_canonicalize_smiles
 
@@ -449,6 +451,8 @@ class ModelEnsemble:
             if test_file.exists():
                 logger.info("Precomputing shared test dataset from %s", test_file)
                 self._shared_test_df = pd.read_csv(test_file, low_memory=False)
+                # Normalize column names (test may not have all target columns)
+                self._shared_test_df = normalize_dataframe_columns(self._shared_test_df, target_cols=None)
                 self._shared_test_df[smiles_col] = parallel_canonicalize_smiles(
                     self._shared_test_df[smiles_col].tolist()
                 )
@@ -460,6 +464,8 @@ class ModelEnsemble:
             if blind_file.exists():
                 logger.info("Precomputing shared blind dataset from %s", blind_file)
                 self._shared_blind_df = pd.read_csv(blind_file, low_memory=False)
+                # Normalize column names (blind set does not have target columns)
+                self._shared_blind_df = normalize_dataframe_columns(self._shared_blind_df, target_cols=None)
                 self._shared_blind_df[smiles_col] = parallel_canonicalize_smiles(
                     self._shared_blind_df[smiles_col].tolist()
                 )
@@ -1054,17 +1060,21 @@ class ModelEnsemble:
                     data_dir = Path(config.data.data_dir)
                     train_file = data_dir / "train.csv"
                     val_file = data_dir / "validation.csv"
-
-                    train_df = pd.read_csv(train_file)
                     smiles_col = config.data.smiles_col
                     target_cols = list(config.data.target_cols)
 
+                    # Import column normalization inside worker for Ray process isolation
+                    from admet.data.column_mapping import normalize_dataframe_columns as _normalize_cols
+
+                    train_df = pd.read_csv(train_file)
+                    train_df = _normalize_cols(train_df, target_cols=target_cols)
                     train_smiles = train_df[smiles_col].tolist()
                     train_y = train_df[target_cols].values
 
                     val_smiles, val_y = None, None
                     if val_file.exists():
                         val_df = pd.read_csv(val_file)
+                        val_df = _normalize_cols(val_df, target_cols=target_cols)
                         val_smiles = val_df[smiles_col].tolist()
                         val_y = val_df[target_cols].values
 

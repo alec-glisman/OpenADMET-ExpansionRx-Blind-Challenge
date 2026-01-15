@@ -314,10 +314,20 @@ def train_chemprop_trial(config: dict[str, Any]) -> None:
     pl.seed_everything(seed, workers=True)
     logger.info("Seeded HPO trial with seed=%d for reproducibility", seed)
 
-    # Load data
+    # Load data and normalize column names
+    from admet.data.column_mapping import normalize_dataframe_columns
+
     df_train = pd.read_csv(data_path)
+    df_train = normalize_dataframe_columns(df_train, target_cols=target_columns)
+
     df_val = pd.read_csv(val_data_path) if val_data_path else None
+    if df_val is not None:
+        df_val = normalize_dataframe_columns(df_val, target_cols=target_columns)
+
     df_test = pd.read_csv(test_data_path) if test_data_path else None
+    if df_test is not None:
+        # Test may not have all target columns
+        df_test = normalize_dataframe_columns(df_test, target_cols=None)
 
     # Build hyperparameters from sampled config
     hyperparams = _build_hyperparams(config, max_epochs, seed)

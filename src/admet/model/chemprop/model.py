@@ -59,6 +59,7 @@ from mlflow.tracking.fluent import ActiveRun
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
+from admet.data.column_mapping import normalize_dataframe_columns
 from admet.data.smiles import parallel_canonicalize_smiles
 from admet.data.stats import correlation, correlation_batch, distribution
 from admet.model.chemprop.config import (
@@ -978,17 +979,25 @@ class ChempropModel:
         """
         # Load dataframes if not provided
         data_dir = Path(config.data.data_dir)
+        target_cols = list(config.data.target_cols)
+
         if df_train is None:
             df_train = pd.read_csv(data_dir / "train.csv", low_memory=False)
+            df_train = normalize_dataframe_columns(df_train, target_cols=target_cols)
 
         if df_validation is None:
             df_validation = pd.read_csv(data_dir / "validation.csv", low_memory=False)
+            df_validation = normalize_dataframe_columns(df_validation, target_cols=target_cols)
 
         if df_test is None and config.data.test_file is not None:
             df_test = pd.read_csv(config.data.test_file, low_memory=False)
+            # Test may not have all target columns (blind prediction)
+            df_test = normalize_dataframe_columns(df_test, target_cols=None)
 
         if df_blind is None and config.data.blind_file is not None:
             df_blind = pd.read_csv(config.data.blind_file, low_memory=False)
+            # Blind set does not have target columns
+            df_blind = normalize_dataframe_columns(df_blind, target_cols=None)
 
         # Canonicalize SMILES
         df_train[config.data.smiles_col] = parallel_canonicalize_smiles(df_train[config.data.smiles_col].tolist())

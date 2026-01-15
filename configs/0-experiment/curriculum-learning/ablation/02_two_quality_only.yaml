@@ -8,9 +8,9 @@
 # Hypothesis: If performance improves, low-quality data is the main problem.
 
 data:
-  data_dir: assets/dataset/split_train_val/v3/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
-  test_file: assets/dataset/set/local_test.csv
-  blind_file: assets/dataset/set/blind_test.csv
+  data_dir: assets/dataset/split_train_val/v5/quality_high_medium_low/bitbirch/multilabel_stratified_kfold/data/split_0/fold_0
+  test_file: assets/dataset/set/v5/data/cleaned_combined_admet_test.csv
+  blind_file: assets/dataset/set/v5/data/blind_test.csv
   output_dir: null
   smiles_col: SMILES
   target_cols:
