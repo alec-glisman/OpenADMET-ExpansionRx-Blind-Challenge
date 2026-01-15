@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from numpy import ndarray
 
@@ -12,38 +13,77 @@ logger = logging.getLogger(__name__)
 def latex_sanitize(text: str, use_math_mode: bool = False) -> str:
     """Sanitize text for LaTeX rendering in plots.
 
+    Handles both Unicode and ASCII special characters that cause LaTeX errors.
+    This function is idempotent - calling it multiple times on the same text
+    produces the same result.
+
     Parameters
     ----------
     text : str
         Input text.
     use_math_mode : bool, default=False
-        If True, wrap < and > in math mode ($<$, $>$).
-        If False, use Unicode arrows (→, ←) which render cleanly.
+        If True, use math mode for symbols.
+        If False, convert Unicode to LaTeX-compatible format.
 
     Returns
     -------
     str
-        Sanitized text.
+        Sanitized text safe for LaTeX rendering.
     """
-    if use_math_mode:
-        return (
-            text.replace(">", r"$>$")
-            .replace("<", r"$<$")
-            .replace("_", r"\_")
-            .replace("%", r"\%")
-            .replace("10^-6", r"10$^{-6}$")
-        )
-    else:
-        # Use Unicode characters that render cleanly without LaTeX issues
-        return (
-            text.replace("A>B", "A→B")
-            .replace("B>A", "B→A")
-            .replace(">", "›")
-            .replace("<", "‹")
-            .replace("_", " ")
-            .replace("%", "%%")
-            .replace("10^-6", "10⁻⁶")
-        )
+    # Check if already sanitized (contains LaTeX math mode markers or escaped percent)
+    # This makes the function idempotent and prevents double-sanitization
+    if "$^{" in text or "$\\rightarrow$" in text or "\\%" in text or " pct " in text:
+        return text
+
+    # Replace percent sign - use simple text replacement to avoid LaTeX issues
+    # Don't use backslash escaping as it causes line-breaking problems
+    text = text.replace("% unbound", " pct unbound")
+    text = text.replace("%", " pct")
+
+    # Handle arrows
+    text = text.replace("→", r"$\rightarrow$")
+    text = text.replace(">", r"$>$")
+    text = text.replace("<", r"$<$")
+
+    # Handle Unicode superscripts
+    superscript_map = {
+        "⁰": "0",
+        "¹": "1",
+        "²": "2",
+        "³": "3",
+        "⁴": "4",
+        "⁵": "5",
+        "⁶": "6",
+        "⁷": "7",
+        "⁸": "8",
+        "⁹": "9",
+        "⁻": "-",
+        "⁺": "+",
+    }
+
+    # Replace sequences of Unicode superscripts
+    i = 0
+    result = []
+    while i < len(text):
+        if text[i] in superscript_map:
+            # Start of superscript sequence
+            superscript_text = ""
+            j = i
+            while j < len(text) and text[j] in superscript_map:
+                superscript_text += superscript_map[text[j]]
+                j += 1
+            result.append(f"$^{{{superscript_text}}}$")
+            i = j
+        else:
+            result.append(text[i])
+            i += 1
+
+    text = "".join(result)
+
+    # Handle ASCII caret notation (e.g., "10^-6" -> "10$^{-6}$")
+    text = re.sub(r"(\d+)\^(-?\d+)", r"\1$^{\2}$", text)
+
+    return text
 
 
 def text_distribution(array: ndarray) -> str:

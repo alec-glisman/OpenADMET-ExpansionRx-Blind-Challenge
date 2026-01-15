@@ -26,16 +26,23 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Default values
 INPUT_FILE=""
-OUTPUT_DIR="assets/dataset/split_train_val"
+OUTPUT_DIR=""
 SMILES_COL="SMILES"
 QUALITY_COL="Quality"
 LOG_LEVEL="INFO"
 DRY_RUN=false
 MAX_PARALLEL=1
+USE_PRESET=""  # Can be 'full' or 'held-out-test'
+
+# Preset paths for common use cases
+FULL_DATASET_INPUT="assets/dataset/set/v5/data/cleaned_combined_admet_full.csv"
+FULL_DATASET_OUTPUT="assets/dataset/split_train_val/v5"
+HELD_OUT_TEST_INPUT="assets/dataset/set/v5/data/cleaned_combined_admet_train_val.csv"
+HELD_OUT_TEST_OUTPUT="assets/dataset/split_train_val_local_test/v5"
 
 # Available options
-ALL_SPLIT_METHODS=("group_kfold" "stratified_kfold" "multilabel_stratified_kfold")
-ALL_CLUSTER_METHODS=("random" "kmeans" "umap" "bitbirch") # NOTE: butina excluded for speed/memory
+ALL_SPLIT_METHODS=("multilabel_stratified_kfold" "stratified_kfold" "group_kfold")
+ALL_CLUSTER_METHODS=("bitbirch" "random" "kmeans" "umap") # NOTE: butina excluded for speed/memory
 ALL_QUALITY_COMBINATIONS=(
   "high"
   "high,medium"
@@ -93,11 +100,19 @@ Usage: $(basename "$0") [OPTIONS]
 
 Run data splitting across multiple configurations.
 
-Required:
+Required (unless using preset):
   -i, --input FILE          Input CSV file path
+  -o, --output-dir DIR      Output directory
 
-Options:
-  -o, --output-dir DIR      Output directory (default: assets/dataset/split_train_val)
+Preset Options (auto-set input and output):
+  --full                    Use full dataset preset
+                            Input:  $FULL_DATASET_INPUT
+                            Output: $FULL_DATASET_OUTPUT
+  --held-out-test           Use held-out test set preset
+                            Input:  $HELD_OUT_TEST_INPUT
+                            Output: $HELD_OUT_TEST_OUTPUT
+
+Other Options:
   --smiles-col COL          SMILES column name (default: SMILES)
   --quality-col COL         Quality column name (default: Quality)
 
@@ -127,17 +142,23 @@ Help:
   -h, --help                Show this help message
 
 Examples:
-  # Run all configurations
+  # Use full dataset preset
+  $(basename "$0") --full
+
+  # Use held-out test set preset
+  $(basename "$0") --held-out-test
+
+  # Run with custom input/output
   $(basename "$0") -i data.csv -o outputs/splits/
 
-  # Run specific methods
-  $(basename "$0") -i data.csv -s multilabel_stratified_kfold -c bitbirch scaffold
+  # Run specific methods with preset
+  $(basename "$0") --full -s multilabel_stratified_kfold -c bitbirch scaffold
 
   # Run with specific quality filters
-  $(basename "$0") -i data.csv -q "high" "high,medium"
+  $(basename "$0") -i data.csv -o outputs/ -q "high" "high,medium"
 
   # Dry run to see commands
-  $(basename "$0") -i data.csv --dry-run
+  $(basename "$0") --full --dry-run
 
 EOF
 }
@@ -149,6 +170,18 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
+    --full)
+      USE_PRESET="full"
+      INPUT_FILE="$FULL_DATASET_INPUT"
+      OUTPUT_DIR="$FULL_DATASET_OUTPUT"
+      shift
+      ;;
+    --held-out-test)
+      USE_PRESET="held-out-test"
+      INPUT_FILE="$HELD_OUT_TEST_INPUT"
+      OUTPUT_DIR="$HELD_OUT_TEST_OUTPUT"
+      shift
+      ;;
     -i | --input)
       INPUT_FILE="$2"
       shift 2
@@ -225,7 +258,14 @@ parse_args() {
 validate_args() {
   # Check input file
   if [[ -z "$INPUT_FILE" ]]; then
-    log_error "Input file is required (-i, --input)"
+    log_error "Input file is required (-i, --input) or use a preset (--full, --held-out-test)"
+    usage
+    exit 1
+  fi
+
+  # Check output directory
+  if [[ -z "$OUTPUT_DIR" ]]; then
+    log_error "Output directory is required (-o, --output-dir) or use a preset (--full, --held-out-test)"
     usage
     exit 1
   fi
@@ -346,6 +386,9 @@ main() {
   validate_args
 
   log_section "Data Splitting Configuration"
+  if [[ -n "$USE_PRESET" ]]; then
+    log_info "Using preset:     $USE_PRESET"
+  fi
   log_info "Input file:       $INPUT_FILE"
   log_info "Output directory: $OUTPUT_DIR"
   log_info "SMILES column:    $SMILES_COL"

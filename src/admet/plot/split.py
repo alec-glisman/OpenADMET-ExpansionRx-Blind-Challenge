@@ -32,8 +32,6 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MultipleLocator
 from pandas import DataFrame
 
-from admet.plot.latex import latex_sanitize
-
 LOGGER = logging.getLogger(__name__)
 # Ensure matplotlib internal logging remains quiet even when the user sets
 # a global logging level for the application. This keeps matplotlib's
@@ -90,7 +88,10 @@ def plot_cluster_size_histogram(
 
     ax.xaxis.set_major_locator(MultipleLocator(10))
     ax.xaxis.set_minor_locator(MultipleLocator(5))
-    ax.set_xticklabels(ax.get_xticks(), rotation=45)
+    # Set ticks explicitly before setting labels to avoid warning
+    tick_positions = [int(x) for x in ax.get_xticks()]
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(tick_positions, rotation=45)
 
     ax.set_xlabel("Cluster rank (sorted)")
     ax.set_ylabel("Cluster size (number of molecules)")
@@ -133,6 +134,9 @@ def plot_train_cluster_size_boxplots(
     # Seaborn accepts a list-of-arrays; draw on provided axis
     sns.boxplot(data=data, ax=ax, showfliers=True)
 
+    # Explicitly set integer tick labels to avoid categorical units warning
+    ax.set_xticks(range(len(fold_ids)))
+    ax.set_xticklabels([int(fid) for fid in fold_ids])
     ax.set_xlabel("Fold")
     ax.set_ylabel("Cluster size (number of molecules)")
     ax.set_title(title)
@@ -181,7 +185,9 @@ def plot_train_val_dataset_sizes(
     ax.bar(x - width / 2, train_sizes, width, label="Training Set Size")
     ax.bar(x + width / 2, val_sizes, width, label="Validation Set Size")
 
+    # Cast to int to avoid categorical units warning
     ax.set_xticks(x)
+    ax.set_xticklabels([int(i) for i in fold_ids])
     ax.set_xlabel("Fold")
     ax.set_yscale("log")
     ax.set_ylabel("Number of Molecules")
@@ -224,12 +230,13 @@ def plot_endpoint_finite_value_counts(
     Axes
         Matplotlib axes for the plot.
     """
-    fig, axes = plt.subplots(figsize=(9, 6), dpi=FIGURE_DPI)
+    fig, axes = plt.subplots(figsize=(12, 7), dpi=FIGURE_DPI, constrained_layout=True)
 
-    x = np.arange(len(target_cols))
+    # Ensure x is an integer array to prevent categorical interpretation
+    x = np.arange(len(target_cols), dtype=int)
     width = 0.35
-    train_counts = [df_train[col].notna().sum() for col in target_cols]
-    val_counts = [df_test[col].notna().sum() for col in target_cols]
+    train_counts = [int(df_train[col].notna().sum()) for col in target_cols]
+    val_counts = [int(df_test[col].notna().sum()) for col in target_cols]
 
     axes.bar(x - width / 2, train_counts, width, label="Train", color="skyblue")
     axes.bar(x + width / 2, val_counts, width, label="Validation", color="salmon")
@@ -237,7 +244,8 @@ def plot_endpoint_finite_value_counts(
     axes.set_ylabel("Number of Non-NaN Entries", fontsize=14)
     axes.set_title(title, fontsize=16)
     axes.set_xticks(x)
-    axes.set_xticklabels([latex_sanitize(c) for c in target_cols], rotation=30, ha="right", fontsize=12)
+    # Column names are already LaTeX-sanitized from data processing, don't double-sanitize
+    axes.set_xticklabels(target_cols, rotation=45, ha="right", fontsize=11)
     axes.set_yscale("log")
     legend = axes.legend()
     if legend is not None:
@@ -282,5 +290,7 @@ def plot_endpoint_finite_value_counts(
                 bbox=dict(boxstyle="round,pad=0.1", facecolor="white", edgecolor="black", alpha=0.85),
             )
 
-    # constrained_layout used at creation ensures correct spacing
+    # Ensure proper spacing with margins for rotated labels
+    axes.margins(x=0.02)
+
     return fig, axes

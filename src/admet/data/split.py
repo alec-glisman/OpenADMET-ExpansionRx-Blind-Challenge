@@ -1029,7 +1029,7 @@ def pipeline(
             "Log KSOL",
             "Log HLM CLint",
             "Log MLM CLint",
-            "Log Caco-2 Permeability Papp A>B",
+            "Log Caco-2 Permeability Papp A$>$B",
             "Log Caco-2 Permeability Efflux",
             "Log MPPB",
             "Log MBPB",

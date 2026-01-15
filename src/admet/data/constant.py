@@ -47,11 +47,19 @@ COLS_WITH_UNITS: Dict[str, str] = {
 #: Simple numeric transformations used during dataset harmonization.
 TRANSFORMATIONS: Dict[str, Callable[..., Any]] = {
     "None": lambda x: x,
-    "log10(x)": lambda x: np.log10(x + 1e-6),
+    "log10(x)": lambda x: np.log10(x) if x > 0 else np.log10(1e-6),
+    # For CLint and permeability: replace 0s with half of smallest non-zero value
+    "log10_clint_perm": lambda series: series.apply(
+        lambda x: np.log10(x) if x > 0 else np.log10(series[series > 0].min() / 2)
+    ),
+    # For PPB endpoints: set 0s to 10^(-6) before log10
+    "log10_ppb": lambda series: series.apply(lambda x: np.log10(x) if x > 0 else np.log10(1e-6)),
     "e^(x)": lambda x: np.exp(x),
     "10^(x+6)": lambda x: np.power(10.0, x + 6.0),
     "10^(x)": lambda x: np.power(10.0, x),
-    "10^(x); 1/g to 1/kg": lambda x: np.power(10.0, x) * 1.0e3,
+    "10^(x+2)": lambda x: np.power(10.0, x) * 1.0e2,
+    "10^(x-2)": lambda x: np.power(10.0, x) * 1.0e-2,
+    "10^(x); 1/g to 1/kg": lambda x: np.power(0.0, x) * 1.0e3,
     "10^(x); 1/kg to 1/g": lambda x: np.power(10.0, x) * 1.0e-3,
     # requires MW in g/mol; converts ug/mL to uM
     "ug/mL to uM": lambda x, mw: (x / mw) * 1.0e3 if (mw is not None and mw > 0) else float("nan"),
