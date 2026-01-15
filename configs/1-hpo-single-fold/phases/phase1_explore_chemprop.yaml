@@ -183,3 +183,17 @@ profiling:
   enabled: false
   print_summary: false
   log_to_mlflow: false
+target_clipping:
+  enabled: true
+  apply_to_individual_models: false
+  apply_after_ensemble: true
+  clip_ranges:
+    LogD: [-3, 7]
+    Log KSOL: [-3, 2.52]
+    Log HLM CLint: [-1.31, 4.5]
+    Log MLM CLint: [-1.31, 4.5]
+    Log Caco-2 Permeability Papp A>B: [-3.0, 2.0]
+    Log Caco-2 Permeability Efflux: [-0.75, 2.8]
+    Log MPPB: [-6.0, 2.0]
+    Log MBPB: [-6.0, 2.0]
+    Log MGMB: [-6.0, 2.0]
