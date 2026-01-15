@@ -837,9 +837,12 @@ class ChempropModel:
         self._joint_sampler: Optional[JointSampler] = None
 
         # Performance optimization configuration
-        from admet.model.chemprop.config import PerformanceOptimizationConfig
+        from admet.model.chemprop.config import PerformanceOptimizationConfig, TargetClippingConfig
 
         self._performance_optimization: PerformanceOptimizationConfig = PerformanceOptimizationConfig()
+
+        # Target clipping configuration for bounding predictions
+        self._target_clipping_config: Optional[TargetClippingConfig] = None
 
         # Post-training configuration for optimization
         self._post_training_config: PostTrainingConfig = PostTrainingConfig()
@@ -1074,6 +1077,10 @@ class ChempropModel:
         # Apply performance optimization configuration if present
         if hasattr(config, "performance_optimization"):
             model._performance_optimization = config.performance_optimization
+
+        # Apply target clipping configuration if present
+        if hasattr(config, "target_clipping"):
+            model._target_clipping_config = config.target_clipping
 
         # Apply post-training configuration if present
         if hasattr(config, "post_training"):
@@ -3142,6 +3149,21 @@ class ChempropModel:
 
         all_preds_arr = np.vstack(all_preds)
         pred_df = pd.DataFrame(all_preds_arr, columns=[f"{t}" for t in self.target_cols])
+
+        # Apply target clipping if configured for individual models
+        if (
+            self._target_clipping_config is not None
+            and self._target_clipping_config.enabled
+            and self._target_clipping_config.apply_to_individual_models
+        ):
+            from admet.model.config import apply_target_clipping
+
+            pred_df = apply_target_clipping(
+                pred_df,
+                self.target_cols,
+                dict(self._target_clipping_config.clip_ranges),
+            )
+            logger.debug("Applied target clipping to individual model predictions")
 
         # Log prediction metrics if enabled, ground truth is available, and MLflow tracking is enabled
         if log_metrics and self.mlflow_tracking and self._mlflow_logger is not None:

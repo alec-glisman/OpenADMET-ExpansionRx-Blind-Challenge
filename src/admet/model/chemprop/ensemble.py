@@ -1453,14 +1453,37 @@ class ModelEnsemble:
             result[f"{target}_std"] = std_pred
             result[f"{target}_stderr"] = stderr_pred
 
+        # Apply target clipping after ensemble aggregation if configured
+        target_clipping = getattr(self.config, "target_clipping", None)
+        if (
+            target_clipping is not None
+            and getattr(target_clipping, "enabled", False)
+            and getattr(target_clipping, "apply_after_ensemble", True)
+        ):
+            from admet.model.config import apply_target_clipping
+
+            clip_ranges = getattr(target_clipping, "clip_ranges", {})
+            if clip_ranges:
+                result = apply_target_clipping(
+                    result,
+                    target_cols,
+                    dict(clip_ranges),
+                    column_suffix="_mean",
+                )
+                logger.info("Applied target clipping to ensemble mean predictions")
+
+        # Compute transformed values after clipping
+        for target in target_cols:
             # For "Log " columns (with space), compute transformed values
             # Average first, then transform: 10^mean(x_i)
             # Note: "Log" (no space) columns are already in correct form, no transform needed
             if target.startswith("Log "):
-                result[f"{target}_transformed_mean"] = np.power(10, mean_pred)
+                result[f"{target}_transformed_mean"] = np.power(10, result[f"{target}_mean"])
                 # Propagate uncertainty through log transform
                 # For y = 10^x, dy = ln(10) * 10^x * dx
-                result[f"{target}_transformed_stderr"] = np.log(10) * np.power(10, mean_pred) * stderr_pred
+                result[f"{target}_transformed_stderr"] = (
+                    np.log(10) * np.power(10, result[f"{target}_mean"]) * result[f"{target}_stderr"]
+                )
 
         # Cache aggregated result (performance optimization)
         if self._cache_enabled:

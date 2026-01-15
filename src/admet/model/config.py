@@ -20,9 +20,12 @@ validated for model-type compatibility.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-from omegaconf import MISSING, DictConfig, OmegaConf
+from omegaconf import MISSING, DictConfig, ListConfig, OmegaConf
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 
 @dataclass
@@ -477,6 +480,32 @@ class CatBoostModelParams:
 
 
 @dataclass
+class TargetClippingConfig:
+    """Configuration for per-target prediction clipping bounds.
+
+    Clips predictions to specified [min, max] ranges after model inference.
+    Useful for enforcing domain knowledge constraints on predictions
+    (e.g., solubility cannot exceed saturation limits).
+
+    Parameters:
+        enabled: Whether to enable target clipping.
+        clip_ranges: Dict mapping target column names to [min, max] bounds.
+            Each key must match a target_col name exactly.
+            Example: {"Log KSOL": [-7.0, 0.5], "LogD": [-3.0, 5.0]}
+            Default bounds are [-1e9, 1e9] (effectively no clipping).
+        apply_to_individual_models: If True, clip predictions from each
+            model before ensemble aggregation.
+        apply_after_ensemble: If True, clip predictions after ensemble
+            mean/median calculation. Default: True.
+    """
+
+    enabled: bool = False
+    clip_ranges: Dict[str, List[float]] = field(default_factory=dict)
+    apply_to_individual_models: bool = False
+    apply_after_ensemble: bool = True
+
+
+@dataclass
 class TaskOversamplingConfig:
     """Configuration for task-aware oversampling of sparse tasks.
 
@@ -865,6 +894,7 @@ class UnifiedModelConfig:
         mlflow: { ... }
         ensemble: { ... }  # Ensemble training mode
         joint_sampling: { ... }  # Training strategies
+        target_clipping: { ... }  # Per-target prediction clipping
         ray: { ... }
         logging: { ... }  # Ray logging configuration
 
@@ -877,6 +907,7 @@ class UnifiedModelConfig:
         joint_sampling: Unified sampling configuration.
         task_affinity: Task affinity grouping configuration.
         inter_task_affinity: Inter-task affinity configuration.
+        target_clipping: Per-target prediction clipping configuration.
         ray: Ray parallelization configuration.
         logging: Ray Tune and ensemble logging configuration.
     """
@@ -889,6 +920,7 @@ class UnifiedModelConfig:
     joint_sampling: JointSamplingConfig = field(default_factory=JointSamplingConfig)
     task_affinity: TaskAffinityConfig = field(default_factory=TaskAffinityConfig)
     inter_task_affinity: InterTaskAffinityConfig = field(default_factory=InterTaskAffinityConfig)
+    target_clipping: TargetClippingConfig = field(default_factory=TargetClippingConfig)
     ray: RayConfig = field(default_factory=RayConfig)
     logging: RayLoggingConfig = field(default_factory=RayLoggingConfig)
 
@@ -975,6 +1007,138 @@ def validate_model_config(config: DictConfig | UnifiedModelConfig) -> None:
             f"Task affinity grouping is not supported for {model_type} models. "
             f"Set task_affinity.enabled=false or use a neural model."
         )
+
+    # Validate target clipping configuration
+    target_clipping = _get_config_attr(config, "target_clipping", {})
+    clipping_enabled = _get_config_attr(target_clipping, "enabled", False)
+
+    if clipping_enabled:
+        clip_ranges = _get_config_attr(target_clipping, "clip_ranges", {})
+        data_config = _get_config_attr(config, "data", {})
+        target_cols = _get_config_attr(data_config, "target_cols", [])
+
+        if not target_cols:
+            raise ConfigValidationError(
+                "target_clipping.enabled=true but data.target_cols is empty. "
+                "Cannot validate clip_ranges without target columns."
+            )
+
+        if not clip_ranges:
+            raise ConfigValidationError(
+                "target_clipping.enabled=true but clip_ranges is empty. "
+                "Provide clip_ranges for each target column or disable target_clipping."
+            )
+
+        # Convert to set for efficient comparison
+        clip_keys = set(clip_ranges.keys())
+        target_set = set(target_cols)
+
+        # Check for missing targets in clip_ranges
+        missing = target_set - clip_keys
+        if missing:
+            raise ConfigValidationError(
+                f"target_clipping.clip_ranges is missing ranges for targets: {sorted(missing)}. "
+                f"All target_cols must have corresponding clip_ranges."
+            )
+
+        # Check for extra keys in clip_ranges
+        extra = clip_keys - target_set
+        if extra:
+            raise ConfigValidationError(
+                f"target_clipping.clip_ranges contains unknown targets: {sorted(extra)}. "
+                f"Valid targets are: {sorted(target_set)}"
+            )
+
+        # Validate each range has exactly 2 values and min <= max
+        for target, bounds in clip_ranges.items():
+            # OmegaConf uses ListConfig instead of list, so check both
+            is_sequence = isinstance(bounds, (list, tuple, ListConfig))
+            if not is_sequence or len(bounds) != 2:
+                raise ConfigValidationError(
+                    f"target_clipping.clip_ranges['{target}'] must be [min, max], " f"got: {bounds}"
+                )
+            clip_min, clip_max = bounds
+            if clip_min > clip_max:
+                raise ConfigValidationError(
+                    f"target_clipping.clip_ranges['{target}'] has min > max: " f"[{clip_min}, {clip_max}]"
+                )
+
+
+def validate_target_clipping(
+    clip_ranges: Dict[str, List[float]],
+    target_cols: List[str],
+) -> None:
+    """Validate target clipping configuration against target columns.
+
+    Standalone validation function for use outside of full config validation.
+
+    Parameters:
+        clip_ranges: Dict mapping target names to [min, max] bounds.
+        target_cols: List of target column names.
+
+    Raises:
+        ConfigValidationError: If clip_ranges doesn't match target_cols exactly.
+    """
+    if not target_cols:
+        raise ConfigValidationError("target_cols is empty")
+
+    if not clip_ranges:
+        raise ConfigValidationError("clip_ranges is empty")
+
+    clip_keys = set(clip_ranges.keys())
+    target_set = set(target_cols)
+
+    missing = target_set - clip_keys
+    if missing:
+        raise ConfigValidationError(f"clip_ranges missing targets: {sorted(missing)}")
+
+    extra = clip_keys - target_set
+    if extra:
+        raise ConfigValidationError(f"clip_ranges has unknown targets: {sorted(extra)}")
+
+    for target, bounds in clip_ranges.items():
+        # OmegaConf uses ListConfig instead of list, so check both
+        is_sequence = isinstance(bounds, (list, tuple, ListConfig))
+        if not is_sequence or len(bounds) != 2:
+            raise ConfigValidationError(f"clip_ranges['{target}'] must be [min, max], got: {bounds}")
+        if bounds[0] > bounds[1]:
+            raise ConfigValidationError(f"clip_ranges['{target}'] has min > max: [{bounds[0]}, {bounds[1]}]")
+
+
+def apply_target_clipping(
+    predictions: "DataFrame",
+    target_cols: List[str],
+    clip_ranges: Dict[str, List[float]],
+    column_suffix: str = "",
+) -> "DataFrame":
+    """Apply per-target clipping to prediction DataFrame.
+
+    Clips prediction values to [min, max] bounds specified in clip_ranges.
+    Modifies the DataFrame in-place and returns it.
+
+    Parameters:
+        predictions: DataFrame containing prediction columns.
+        target_cols: List of target column names.
+        clip_ranges: Dict mapping target names to [min, max] bounds.
+        column_suffix: Suffix added to target names in DataFrame columns.
+            Use "_mean" for ensemble aggregated predictions.
+
+    Returns:
+        The modified predictions DataFrame (same object, modified in-place).
+
+    Examples:
+        >>> clip_ranges = {"LogD": [-3.0, 5.0], "Log KSOL": [-7.0, 0.5]}
+        >>> pred_df = apply_target_clipping(pred_df, ["LogD", "Log KSOL"], clip_ranges)
+        >>> # For ensemble predictions:
+        >>> pred_df = apply_target_clipping(pred_df, targets, clip_ranges, "_mean")
+    """
+    for target in target_cols:
+        col_name = f"{target}{column_suffix}" if column_suffix else target
+        if col_name in predictions.columns and target in clip_ranges:
+            clip_min, clip_max = clip_ranges[target]
+            predictions[col_name] = predictions[col_name].clip(lower=clip_min, upper=clip_max)
+
+    return predictions
 
 
 def get_structured_config_for_model_type(model_type: str) -> DictConfig:

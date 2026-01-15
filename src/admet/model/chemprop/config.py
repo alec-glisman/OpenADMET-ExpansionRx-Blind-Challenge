@@ -33,8 +33,10 @@ from admet.model.config import (
     JointSamplingConfig,
     RayConfig,
     RayLoggingConfig,
+    TargetClippingConfig,
     TaskAffinityConfig,
     TaskOversamplingConfig,
+    apply_target_clipping,
 )
 
 # Re-export for backward compatibility
@@ -51,10 +53,12 @@ __all__ = [
     "JointSamplingConfig",
     "TaskAffinityConfig",
     "InterTaskAffinityConfig",
+    "TargetClippingConfig",
     "ChempropConfig",
     "EnsembleDataConfig",
     "RayConfig",
     "EnsembleConfig",
+    "apply_target_clipping",
 ]
 
 
