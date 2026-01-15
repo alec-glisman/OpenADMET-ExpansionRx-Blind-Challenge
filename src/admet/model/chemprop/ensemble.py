@@ -474,19 +474,80 @@ class ModelEnsemble:
     def _flatten_dict(
         self, d: Dict[str, Any], parent_key: str = "", sep: str = ".", max_depth: int = 3
     ) -> Dict[str, Any]:
-        """Flatten nested dictionary for MLflow params."""
+        """
+        Flatten nested dictionary for MLflow params.
+
+        Sanitizes keys to be MLflow-compatible by removing/replacing special characters
+        that MLflow doesn't allow in parameter names.
+        """
         items: List[Tuple[str, Any]] = []
         for k, v in d.items():
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, dict) and max_depth > 0:
                 items.extend(self._flatten_dict(v, new_key, sep, max_depth - 1).items())
             else:
+                # Sanitize key for MLflow compatibility
+                # MLflow only allows: alphanumerics, _, -, ., space, :, /
+                sanitized_key = self._sanitize_mlflow_param_name(new_key)
+
                 # Truncate long values
                 str_val = str(v)
                 if len(str_val) > 250:
                     str_val = str_val[:247] + "..."
-                items.append((new_key, str_val))
+                items.append((sanitized_key, str_val))
         return dict(items)
+
+    @staticmethod
+    def _sanitize_mlflow_param_name(name: str) -> str:
+        """
+        Sanitize a parameter name for MLflow compatibility.
+
+        MLflow only allows alphanumerics, underscores (_), dashes (-), periods (.),
+        spaces ( ), colons (:), and slashes (/) in parameter names.
+        This function replaces or removes disallowed characters.
+
+        Parameters
+        ----------
+        name : str
+            The parameter name to sanitize.
+
+        Returns
+        -------
+        str
+            The sanitized parameter name.
+        """
+        # Replace common problematic characters
+        replacements = {
+            ">": "",
+            "<": "",
+            "$": "",  # Remove LaTeX math markers
+            ";": "_",
+            "|": "_",
+            "\\": "_",
+            "?": "",
+            "*": "",
+            '"': "",
+            "'": "",
+            "[": "_",
+            "]": "_",
+            "(": "_",
+            ")": "_",
+            "{": "_",
+            "}": "_",
+            "#": "_",
+            "%": "pct",
+            "&": "and",
+            "@": "at",
+            "!": "",
+            "+": "plus",
+            "=": "eq",
+            "^": "",
+            "~": "",
+            "`": "",
+        }
+        for char, replacement in replacements.items():
+            name = name.replace(char, replacement)
+        return name
 
     def discover_splits_folds(self) -> List[SplitFoldInfo]:
         """
@@ -1791,7 +1852,8 @@ class ModelEnsemble:
                 s=16,
             )
 
-            plot_path = plot_dir / f"parity_{target.replace(' ', '_')}.png"
+            safe_filename = target.replace(" ", "_").replace(">", "gt").replace("<", "lt")
+            plot_path = plot_dir / f"parity_{safe_filename}.png"
             fig.savefig(plot_path, dpi=300, bbox_inches="tight")
             plt.close(fig)
 
@@ -1949,7 +2011,13 @@ class ModelEnsemble:
                 # Log individual target metrics to MLflow under test/ prefix
                 if self._mlflow_client and self.parent_run_id:
                     safe_metric = metric_name_map.get(metric_type, metric_type)
-                    safe_target = clean_target.replace(" ", "_").replace(">", "gt").replace("<", "lt").replace("-", "_")
+                    safe_target = (
+                        clean_target.replace(" ", "_")
+                        .replace(">", "gt")
+                        .replace("<", "lt")
+                        .replace("-", "_")
+                        .replace("$", "")
+                    )
                     try:
                         self._mlflow_client.log_metric(
                             self.parent_run_id,

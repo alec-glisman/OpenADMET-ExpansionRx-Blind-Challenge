@@ -1,5 +1,5 @@
 data:
-  data_dir: assets/dataset/split_train_val_local_test/v5/quality_high/bitbirch/multilabel_stratified_kfold/bitbirch/multilabel_stratified_kfold/data
+  data_dir: assets/dataset/split_train_val_local_test/v5/quality_high/bitbirch/multilabel_stratified_kfold/data
   splits: null
   folds: null
   test_file: null
@@ -56,7 +56,7 @@ performance_optimization:
 mlflow:
   tracking: true
   tracking_uri: http://127.0.0.1:8084
-  experiment_name: chemprop_hpo_ensemble_v2_production
+  experiment_name: chemprop_hpo_ensemble_v2_1_production
   run_name: rank_017
   nested: true
 post_training:

@@ -32,7 +32,7 @@ def latex_sanitize(text: str, use_math_mode: bool = False) -> str:
     """
     # Check if already sanitized (contains LaTeX math mode markers or escaped percent)
     # This makes the function idempotent and prevents double-sanitization
-    if "$^{" in text or "$\\rightarrow$" in text or "\\%" in text or " pct " in text:
+    if "$^{" in text or "$\\rightarrow$" in text or "$>$" in text or "$<$" in text or "\\%" in text or " pct " in text:
         return text
 
     # Replace percent sign - use simple text replacement to avoid LaTeX issues
@@ -40,10 +40,11 @@ def latex_sanitize(text: str, use_math_mode: bool = False) -> str:
     text = text.replace("% unbound", " pct unbound")
     text = text.replace("%", " pct")
 
-    # Handle arrows
-    text = text.replace("→", r"$\rightarrow$")
-    text = text.replace(">", r"$>$")
-    text = text.replace("<", r"$<$")
+    # Handle arrows - use simple text replacement instead of math mode
+    # to avoid rendering issues in plot labels
+    text = text.replace("→", "->")
+    text = text.replace(">", ">")  # Keep as-is, no math mode needed
+    text = text.replace("<", "<")  # Keep as-is, no math mode needed
 
     # Handle Unicode superscripts
     superscript_map = {

@@ -41,6 +41,7 @@ from admet.model.chemprop.hpo_search_space import build_search_space
 from admet.model.chemprop.hpo_trainable import train_chemprop_trial
 from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
 from admet.model.hpo_range_refinement import RefinementConfig, refine_search_space
+from admet.model.mlflow_mixin import MLflowMixin
 from admet.util.logging import configure_logging
 from admet.util.profiling import TrainingPhase, TrainingProfiler
 from admet.util.ray_logging import QuietProgressReporter, RayLogManager
@@ -681,7 +682,13 @@ class ChempropHPO:
                 # Log best config
                 best_config = best_result.config
                 if best_config is not None:
-                    mlflow.log_params({f"best.{k}": v for k, v in best_config.items() if not k.startswith("_")})
+                    # Sanitize parameter names for MLflow compatibility
+                    sanitized_params = {
+                        MLflowMixin._sanitize_mlflow_param_name(f"best.{k}"): v
+                        for k, v in best_config.items()
+                        if not k.startswith("_")
+                    }
+                    mlflow.log_params(sanitized_params)
 
                 # Log best metrics
                 if best_result.metrics:

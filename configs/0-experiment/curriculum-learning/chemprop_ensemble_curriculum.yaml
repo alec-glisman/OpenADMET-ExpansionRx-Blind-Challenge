@@ -115,14 +115,6 @@ mlflow:
   experiment_name: chemprop_ensemble_curriculum_learning
   run_name: rank_001
   nested: true
-post_training:
-  generate_plots: true
-  plot_dpi: 150
-  plot_formats:
-    - png
-  cache_predictions: true
-  compute_test_metrics: true
-  compute_train_metrics: false
 
 ray:
   max_parallel: 6

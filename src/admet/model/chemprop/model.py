@@ -192,6 +192,9 @@ def normalize_unified_config(config: Any) -> DictConfig:
     Handles both unified config structure (with model.type and model.chemprop)
     and legacy flat structure (model params directly under model).
 
+    Also removes fields that exist in UnifiedModelConfig but not in ChempropConfig,
+    such as 'target_clipping' which is handled separately by the ensemble/pipeline.
+
     Parameters
     ----------
     config : DictConfig
@@ -226,6 +229,20 @@ def normalize_unified_config(config: Any) -> DictConfig:
         new_model = OmegaConf.create(dict(chemprop_params) if chemprop_params else {})
         config.model = new_model
 
+    # Remove fields that exist in UnifiedModelConfig but not in ChempropConfig
+    # These fields are handled separately (e.g., by ensemble aggregation)
+    unified_only_fields = [
+        "target_clipping",  # Handled by ensemble aggregation
+        "ensemble",  # Not applicable to single model training
+        "ray",  # Ray config only for ensemble/HPO
+        "logging",  # Ray logging config
+    ]
+
+    for field_name in unified_only_fields:
+        if field_name in config:
+            logger.debug(f"Removing UnifiedModelConfig-only field: {field_name}")
+            del config[field_name]
+
     return config
 
 
@@ -250,6 +267,7 @@ def _sanitize_mlflow_metric_name(name: str) -> str:
     replacements = {
         ">": "",
         "<": "",
+        "$": "",  # Remove LaTeX math markers
         ":": "_",
         ";": "_",
         "|": "_",
@@ -1166,6 +1184,21 @@ class ChempropModel:
         datapoints = {}
         datasets = {}
 
+        # Warn if training data is too small for BatchNorm
+        train_df = self.dataframes.get("train")
+        if train_df is not None and self.hyperparams.batch_norm:
+            train_size = len(train_df)
+            batch_size = self.hyperparams.batch_size
+            min_safe_size = batch_size * 2
+            if train_size < min_safe_size:
+                logger.warning(
+                    "Training dataset has only %d samples with batch_size=%d and batch_norm=True. "
+                    "BatchNorm requires >1 sample per batch. Consider setting batch_norm=False "
+                    "or reducing batch_size to avoid training errors.",
+                    train_size,
+                    batch_size,
+                )
+
         # Store quality labels for curriculum sampling
         self._quality_labels: Dict[str, List[str] | None] = {
             "train": None,
@@ -1250,8 +1283,20 @@ class ChempropModel:
                         log_weight_stats=True,  # Always log for monitoring
                     )
                     self._joint_sampler = sampler  # Store for MLflow stats callback
-                    # Never drop last batch to preserve all samples for per-quality metrics
-                    drop_last = False
+                    # Drop last batch if BatchNorm is enabled and last batch would be size 1
+                    # BatchNorm requires >1 sample to compute statistics during training
+                    dataset_size = len(datasets[split])
+                    last_batch_size = dataset_size % self.hyperparams.batch_size
+                    drop_last = (
+                        self.hyperparams.batch_norm
+                        and last_batch_size == 1
+                        and dataset_size > self.hyperparams.batch_size
+                    )
+                    if drop_last:
+                        logger.info(
+                            "Dropping last batch (size=1) for split '%s' to avoid BatchNorm error",
+                            split,
+                        )
                     # OPTIMIZATION: Only force num_workers=0 when curriculum is actually enabled
                     # This allows parallel data loading when curriculum is disabled
                     if self.hyperparams.num_workers > 0 and curriculum_enabled:
@@ -1292,8 +1337,18 @@ class ChempropModel:
                     seed=seed,
                     increment_seed_per_epoch=True,  # Vary sampling across epochs
                 )
-                # Never drop last batch to preserve all samples for per-quality metrics
-                drop_last = False
+                # Drop last batch if BatchNorm is enabled and last batch would be size 1
+                # BatchNorm requires >1 sample to compute statistics during training
+                dataset_size = len(datasets[split])
+                last_batch_size = dataset_size % self.hyperparams.batch_size
+                drop_last = (
+                    self.hyperparams.batch_norm and last_batch_size == 1 and dataset_size > self.hyperparams.batch_size
+                )
+                if drop_last:
+                    logger.info(
+                        "Dropping last batch (size=1) for split '%s' to avoid BatchNorm error",
+                        split,
+                    )
                 # OPTIMIZATION: Force num_workers=0 for DynamicCurriculumSampler
                 # Curriculum is always enabled if using this sampler
                 if self.hyperparams.num_workers > 0:

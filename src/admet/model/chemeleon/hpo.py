@@ -52,6 +52,7 @@ from admet.model.chemeleon.hpo_config import ChemeleonHPOConfig
 from admet.model.chemeleon.hpo_search_space import build_chemeleon_search_space
 from admet.model.hpo_mlflow_callback import AsyncBatchedMLflowCallback
 from admet.model.hpo_range_refinement import RefinementConfig as BaseRefinementConfig, refine_chemeleon_search_space
+from admet.model.mlflow_mixin import MLflowMixin
 from admet.util.logging import configure_logging
 from admet.util.ray_logging import QuietProgressReporter, RayLogManager
 
@@ -1162,7 +1163,9 @@ class ChemeleonHPO:
                     for k, v in best_result.config.items():
                         if not k.startswith("_"):
                             str_v = str(v)
-                            best_params[f"best.{k}"] = str_v[:500] if len(str_v) > 500 else str_v
+                            # Sanitize parameter name for MLflow compatibility
+                            safe_key = MLflowMixin._sanitize_mlflow_param_name(f"best.{k}")
+                            best_params[safe_key] = str_v[:500] if len(str_v) > 500 else str_v
                     mlflow.log_params(best_params)
 
                 if best_result and best_result.metrics:

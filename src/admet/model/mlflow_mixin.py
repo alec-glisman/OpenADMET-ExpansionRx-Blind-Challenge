@@ -259,6 +259,54 @@ class MLflowMixin:
         return self._mlflow_client
 
     @staticmethod
+    def _sanitize_mlflow_param_name(name: str) -> str:
+        """
+        Sanitize a parameter name for MLflow compatibility.
+
+        MLflow only allows alphanumerics, underscores (_), dashes (-), periods (.),
+        spaces ( ), colons (:), and slashes (/) in parameter names.
+        This function replaces or removes disallowed characters.
+
+        Parameters:
+            name: The parameter name to sanitize.
+
+        Returns:
+            The sanitized parameter name.
+        """
+        # Replace common problematic characters
+        replacements = {
+            ">": "",
+            "<": "",
+            "$": "",  # Remove LaTeX math markers
+            ";": "_",
+            "|": "_",
+            "\\": "_",
+            "?": "",
+            "*": "",
+            '"': "",
+            "'": "",
+            "[": "_",
+            "]": "_",
+            "(": "_",
+            ")": "_",
+            "{": "_",
+            "}": "_",
+            "#": "_",
+            "%": "pct",
+            "&": "and",
+            "@": "at",
+            "!": "",
+            "+": "plus",
+            "=": "eq",
+            "^": "",
+            "~": "",
+            "`": "",
+        }
+        for char, replacement in replacements.items():
+            name = name.replace(char, replacement)
+        return name
+
+    @staticmethod
     def _flatten_dict(
         d: dict[str, Any],
         parent_key: str = "",
@@ -267,6 +315,9 @@ class MLflowMixin:
     ) -> dict[str, Any]:
         """Flatten nested dictionary for MLflow parameter logging.
 
+        Sanitizes keys to be MLflow-compatible by removing/replacing special
+        characters that MLflow doesn't allow in parameter names.
+
         Parameters:
             d: Dictionary to flatten.
             parent_key: Prefix for nested keys.
@@ -274,7 +325,7 @@ class MLflowMixin:
             max_depth: Maximum recursion depth.
 
         Returns:
-            Flattened dictionary with dot-separated keys.
+            Flattened dictionary with dot-separated, sanitized keys.
         """
         items: list[tuple[str, Any]] = []
         for key, value in d.items():
@@ -282,5 +333,7 @@ class MLflowMixin:
             if isinstance(value, dict) and max_depth > 0:
                 items.extend(MLflowMixin._flatten_dict(value, new_key, sep, max_depth - 1).items())
             else:
-                items.append((new_key, value))
+                # Sanitize key for MLflow compatibility
+                sanitized_key = MLflowMixin._sanitize_mlflow_param_name(new_key)
+                items.append((sanitized_key, value))
         return dict(items)

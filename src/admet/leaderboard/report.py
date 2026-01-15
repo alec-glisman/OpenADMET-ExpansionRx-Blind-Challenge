@@ -361,8 +361,8 @@ def save_csv_data(
 
     # Save individual endpoint tables
     for endpoint, df in results.tables.items():
-        # Sanitize filename
-        safe_name = endpoint.replace(" ", "_").replace("/", "_")
+        # Sanitize filename (handle special chars that are invalid in filenames)
+        safe_name = endpoint.replace(" ", "_").replace("/", "_").replace(">", "gt").replace("<", "lt")
         csv_path = output_dir / f"{safe_name}.csv"
         df.to_csv(csv_path, index=False)
         logger.info("Table '%s' saved to: %s", endpoint, csv_path)
