@@ -91,7 +91,7 @@ def plot_cluster_size_histogram(
     # Set ticks explicitly before setting labels to avoid warning
     tick_positions = [int(x) for x in ax.get_xticks()]
     ax.set_xticks(tick_positions)
-    ax.set_xticklabels(tick_positions, rotation=45)
+    ax.set_xticklabels([str(x) for x in tick_positions], rotation=45)
 
     ax.set_xlabel("Cluster rank (sorted)")
     ax.set_ylabel("Cluster size (number of molecules)")
@@ -136,7 +136,7 @@ def plot_train_cluster_size_boxplots(
 
     # Explicitly set integer tick labels to avoid categorical units warning
     ax.set_xticks(range(len(fold_ids)))
-    ax.set_xticklabels([int(fid) for fid in fold_ids])
+    ax.set_xticklabels([str(int(fid)) for fid in fold_ids])
     ax.set_xlabel("Fold")
     ax.set_ylabel("Cluster size (number of molecules)")
     ax.set_title(title)
@@ -187,7 +187,7 @@ def plot_train_val_dataset_sizes(
 
     # Cast to int to avoid categorical units warning
     ax.set_xticks(x)
-    ax.set_xticklabels([int(i) for i in fold_ids])
+    ax.set_xticklabels([str(int(i)) for i in fold_ids])
     ax.set_xlabel("Fold")
     ax.set_yscale("log")
     ax.set_ylabel("Number of Molecules")

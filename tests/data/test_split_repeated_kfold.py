@@ -19,7 +19,6 @@ from admet.data.split import (
     cluster_kfold,
     cluster_multilabel_stratified_kfold,
     cluster_stratified_kfold,
-    pipeline,
 )
 
 # ---------------------------------------------------------------------------

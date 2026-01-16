@@ -32,7 +32,7 @@ QUALITY_COL="Quality"
 LOG_LEVEL="INFO"
 DRY_RUN=false
 MAX_PARALLEL=1
-USE_PRESET=""  # Can be 'full' or 'held-out-test'
+USE_PRESET="" # Can be 'full' or 'held-out-test'
 
 # Preset paths for common use cases
 FULL_DATASET_INPUT="assets/dataset/set/v5/data/cleaned_combined_admet_full.csv"

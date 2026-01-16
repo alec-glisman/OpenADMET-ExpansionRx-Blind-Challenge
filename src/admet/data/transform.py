@@ -63,7 +63,15 @@ def sanitize_column_names_for_latex(df: pd.DataFrame, inplace: bool = False) -> 
         new_col = str(col)
 
         # Check if already sanitized (makes function idempotent)
-        if "$^{" in new_col or "$\\rightarrow$" in new_col or "\\%" in new_col or " pct " in new_col:
+        # Include $>$ and $<$ in the check to avoid double-sanitizing arrow replacements
+        if (
+            "$^{" in new_col
+            or "$\\rightarrow$" in new_col
+            or "\\%" in new_col
+            or " pct " in new_col
+            or "$>$" in new_col
+            or "$<$" in new_col
+        ):
             new_columns.append(new_col)
             continue
 

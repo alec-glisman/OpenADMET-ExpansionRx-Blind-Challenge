@@ -20,7 +20,7 @@ if [[ -f "${PROJECT_ROOT}/.venv/bin/activate" ]]; then
   source "${PROJECT_ROOT}/.venv/bin/activate"
   echo "Virtual environment activated"
   echo ""
-elif command -v admet &> /dev/null; then
+elif command -v admet &>/dev/null; then
   echo "Using admet from PATH: $(which admet)"
   echo ""
 else
