@@ -416,7 +416,7 @@ MODEL_SUBMISSIONS = {
     ),
     "jan09_weighted": ModelSubmission(
         name="Jan-09 Weighted",
-        date="2026-01-09.0",
+        date="2026-01-09",
         architecture="Chemprop MPNN + Task-Weighted Loss",
         run_id="2d072c086c974a47b029f295a546497f",
         experiment_id="15",
@@ -474,6 +474,134 @@ MODEL_SUBMISSIONS = {
             "Log Caco-2 Permeability Efflux": 0.60,
             "Log Caco-2 Permeability Papp A>B": 0.57,
             "Log MPPB": 0.66,
+            "Log MBPB": 0.71,
+            "Log MGMB": 0.68,
+        },
+    ),
+    # "jan10_baseline": ModelSubmission(
+    #     name="Jan-10 Baseline",
+    #     date="2026-01-10",
+    #     architecture="Chemprop MPNN Baseline (same as Jan-06)",
+    #     run_id="ca2760b28f5945ee9b387915db9da875",
+    #     experiment_id="6",
+    #     overall_rank=11,
+    #     overall_ma_rae=0.57,
+    #     per_task_ranks={
+    #         "LogD": 20,
+    #         "Log KSOL": 19,
+    #         "Log MLM CLint": 13,
+    #         "Log HLM CLint": 33,
+    #         "Log Caco-2 Permeability Efflux": 50,
+    #         "Log Caco-2 Permeability Papp A>B": 14,
+    #         "Log MPPB": 23,
+    #         "Log MBPB": 57,
+    #         "Log MGMB": 6,
+    #     },
+    #     per_task_mae={
+    #         "LogD": 0.31,
+    #         "Log KSOL": 0.34,
+    #         "Log MLM CLint": 0.34,
+    #         "Log HLM CLint": 0.30,
+    #         "Log Caco-2 Permeability Efflux": 0.33,
+    #         "Log Caco-2 Permeability Papp A>B": 0.22,
+    #         "Log MPPB": 0.17,
+    #         "Log MBPB": 0.15,
+    #         "Log MGMB": 0.15,
+    #     },
+    #     per_task_r2={
+    #         "LogD": 0.79,
+    #         "Log KSOL": 0.62,
+    #         "Log MLM CLint": 0.44,
+    #         "Log HLM CLint": 0.38,
+    #         "Log Caco-2 Permeability Efflux": 0.28,
+    #         "Log Caco-2 Permeability Papp A>B": 0.52,
+    #         "Log MPPB": 0.69,
+    #         "Log MBPB": 0.75,
+    #         "Log MGMB": 0.70,
+    #     },
+    #     per_task_spearman={
+    #         "LogD": 0.91,
+    #         "Log KSOL": 0.73,
+    #         "Log MLM CLint": 0.62,
+    #         "Log HLM CLint": 0.62,
+    #         "Log Caco-2 Permeability Efflux": 0.81,
+    #         "Log Caco-2 Permeability Papp A>B": 0.78,
+    #         "Log MPPB": 0.83,
+    #         "Log MBPB": 0.88,
+    #         "Log MGMB": 0.82,
+    #     },
+    #     per_task_kendall={
+    #         "LogD": 0.76,
+    #         "Log KSOL": 0.54,
+    #         "Log MLM CLint": 0.45,
+    #         "Log HLM CLint": 0.45,
+    #         "Log Caco-2 Permeability Efflux": 0.60,
+    #         "Log Caco-2 Permeability Papp A>B": 0.59,
+    #         "Log MPPB": 0.64,
+    #         "Log MBPB": 0.72,
+    #         "Log MGMB": 0.66,
+    #     },
+    # ),
+    "jan13_deep": ModelSubmission(
+        name="Jan-13 Deep MPNN",
+        date="2026-01-13",
+        architecture="Chemprop MPNN (depth=7, HPO rank_020)",
+        run_id="95bb7ad908ae4f76a64de09fc27023c4",
+        experiment_id="20",
+        overall_rank=15,
+        overall_ma_rae=0.58,
+        per_task_ranks={
+            "LogD": 53,
+            "Log KSOL": 33,
+            "Log MLM CLint": 34,
+            "Log HLM CLint": 85,
+            "Log Caco-2 Permeability Efflux": 16,
+            "Log Caco-2 Permeability Papp A>B": 7,
+            "Log MPPB": 80,
+            "Log MBPB": 50,
+            "Log MGMB": 18,
+        },
+        per_task_mae={
+            "LogD": 0.34,
+            "Log KSOL": 0.35,
+            "Log MLM CLint": 0.35,
+            "Log HLM CLint": 0.32,
+            "Log Caco-2 Permeability Efflux": 0.30,
+            "Log Caco-2 Permeability Papp A>B": 0.20,
+            "Log MPPB": 0.20,
+            "Log MBPB": 0.15,
+            "Log MGMB": 0.16,
+        },
+        per_task_r2={
+            "LogD": 0.73,
+            "Log KSOL": 0.60,
+            "Log MLM CLint": 0.40,
+            "Log HLM CLint": 0.30,
+            "Log Caco-2 Permeability Efflux": 0.40,
+            "Log Caco-2 Permeability Papp A>B": 0.57,
+            "Log MPPB": 0.64,
+            "Log MBPB": 0.76,
+            "Log MGMB": 0.70,
+        },
+        per_task_spearman={
+            "LogD": 0.88,
+            "Log KSOL": 0.71,
+            "Log MLM CLint": 0.60,
+            "Log HLM CLint": 0.59,
+            "Log Caco-2 Permeability Efflux": 0.82,
+            "Log Caco-2 Permeability Papp A>B": 0.79,
+            "Log MPPB": 0.83,
+            "Log MBPB": 0.87,
+            "Log MGMB": 0.83,
+        },
+        per_task_kendall={
+            "LogD": 0.74,
+            "Log KSOL": 0.52,
+            "Log MLM CLint": 0.43,
+            "Log HLM CLint": 0.43,
+            "Log Caco-2 Permeability Efflux": 0.62,
+            "Log Caco-2 Permeability Papp A>B": 0.60,
+            "Log MPPB": 0.64,
             "Log MBPB": 0.71,
             "Log MGMB": 0.68,
         },
@@ -1086,7 +1214,7 @@ def create_visualizations(
     model_util = analysis["model_utilization"]
     labels = [f"{m['model']}\n({m['tasks_count']}/9 tasks)" for m in model_util]
     sizes = [m["tasks_count"] for m in model_util]
-    colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B2", "#CCB974"]
+    colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B2", "#CCB974", "#DD8452", "#937860"]
 
     ax3.pie(  # type: ignore
         sizes,
@@ -1505,7 +1633,7 @@ def create_visualizations(
     # Figure 9: Per-Task MAE for All Models
     fig9, ax9 = plt.subplots(figsize=(14, 7))
     model_names = [m.name for m in MODEL_SUBMISSIONS.values()]
-    model_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B2", "#CCB974"]
+    model_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B2", "#CCB974", "#DD8452", "#937860"]
 
     x_pos = np.arange(len(tasks))
     bar_width = 0.15

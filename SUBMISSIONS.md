@@ -4,6 +4,329 @@
 
 ---
 
+## January 15, 2026
+
+### Model
+
+#### MLflow
+
+* **Experiment ID**: `21`
+* **Run ID**: `92f32cfe7f994e2f9a33c4d9304d056b`
+* **Run Name**: `rank_001`
+* **Experiment Name**: `chemprop_hpo_ensemble_v2_1_production`
+
+#### Architecture
+
+**Model Type:** Chemprop MPNN
+
+**Key Change:** New HPO run on v5 data split with different hyperparameters. This was an experimental submission testing new data splits.
+
+#### Hyperparameters
+
+```yaml
+# MPNN
+depth: 5
+message_hidden_dim: 700
+aggregation: norm
+# FFN
+ffn_type: regression
+num_layers: 2
+hidden_dim: 200
+# Regularization
+dropout: 0.144
+batch_norm: true
+# Training
+batch_size: 64
+criterion: MAE
+# Learning Rate Schedule
+init_lr: 0.000165
+max_lr: 0.00138
+final_lr: 3.73e-06
+# Early Stopping
+patience: 15
+max_epochs: 150
+# Sampling
+task_oversampling_alpha: 0.02
+# Reproducibility
+seed: 42
+```
+
+### Statistics
+
+#### Overall
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| 72/347 | aglisman | 0.64 ± 0.03 | 0.51 | 20.3% | 0.49 ± 0.04 | 0.76 ± 0.02 | 0.58 ± 0.02 | 2026-01-15 15:51:18+00:00 | ❌ Regression - Top 20.7% |
+
+#### By Task
+
+| Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 82 | LogD | 0.36 ± 0.01 | 0.24 | 33.3% | 0.74 ± 0.03 | 0.89 ± 0.01 | 0.74 ± 0.01 | Needs improvement - Top 23.6% |
+| 90 | KSOL | 0.38 ± 0.01 | 0.30 | 21.1% | 0.59 ± 0.02 | 0.72 ± 0.02 | 0.52 ± 0.01 | ❌ Major regression - Top 25.9% |
+| 83 | MLM CLint | 0.37 ± 0.01 | 0.31 | 16.2% | 0.36 ± 0.04 | 0.63 ± 0.02 | 0.45 ± 0.02 | Needs improvement - Top 23.9% |
+| 74 | HLM CLint | 0.32 ± 0.01 | 0.26 | 18.8% | 0.31 ± 0.05 | 0.63 ± 0.03 | 0.45 ± 0.03 | Needs improvement - Top 21.3% |
+| 126 | Caco-2 Permeability Efflux | 0.36 ± 0.01 | 0.25 | 30.6% | 0.18 ± 0.04 | 0.79 ± 0.02 | 0.59 ± 0.01 | ❌ Major regression - Top 36.3% |
+| 63 | Caco-2 Permeability Papp A>B | 0.24 ± 0.01 | 0.19 | 20.8% | 0.41 ± 0.04 | 0.74 ± 0.02 | 0.54 ± 0.02 | Needs improvement - Top 18.2% |
+| 147 | MPPB | 0.22 ± 0.01 | 0.14 | 36.4% | 0.56 ± 0.04 | 0.82 ± 0.02 | 0.62 ± 0.02 | ❌ Worst task - Top 42.4% |
+| 143 | MBPB | 0.18 ± 0.01 | 0.11 | 38.9% | 0.65 ± 0.04 | 0.85 ± 0.02 | 0.68 ± 0.02 | ❌ Major regression - Top 41.2% |
+| 75 | MGMB | 0.18 ± 0.01 | 0.14 | 22.2% | 0.65 ± 0.05 | 0.82 ± 0.03 | 0.66 ± 0.03 | ❌ Regression - Top 21.6% |
+
+### What Went Wrong
+
+**Root Cause Analysis:**
+
+1. **New Data Split (v5):** This submission used a new v5 data split instead of the proven v3 split. The new split may have different train/val distributions that don't generalize well.
+
+2. **HPO on New Split:** Running HPO on a new data split without validation against the leaderboard led to hyperparameters that don't transfer well.
+
+3. **Smaller FFN:** Reduced from 4 layers (200 hidden) to 2 layers (200 hidden), significantly reducing model capacity.
+
+4. **Lower Task Oversampling:** Alpha of 0.02 vs 0.2 in January 13 submission reduced focus on minority tasks.
+
+5. **Plasma Binding Catastrophe:** MPPB (rank 147), MBPB (rank 143), and MGMB (rank 75) all regressed dramatically, indicating the v5 split may have issues with these task distributions.
+
+**Comparison with January 13 (Best Recent):**
+
+| Task | Jan-13 Rank | Jan-15 Rank | Change | Jan-13 MAE | Jan-15 MAE | Notes |
+|------|-------------|-------------|--------|------------|------------|-------|
+| LogD | 53 | 82 | ❌ -29 | 0.34 | 0.36 | Regression |
+| KSOL | 33 | 90 | ❌ -57 | 0.35 | 0.38 | Major regression |
+| MLM CLint | 34 | 83 | ❌ -49 | 0.35 | 0.37 | Major regression |
+| HLM CLint | 85 | 74 | ✅ +11 | 0.32 | 0.32 | Slight improvement |
+| Caco-2 Efflux | 16 | 126 | ❌ -110 | 0.30 | 0.36 | **Catastrophic regression** |
+| Caco-2 Papp A>B | 7 | 63 | ❌ -56 | 0.20 | 0.24 | Major regression |
+| MPPB | 80 | 147 | ❌ -67 | 0.20 | 0.22 | Major regression |
+| MBPB | 50 | 143 | ❌ -93 | 0.15 | 0.18 | **Catastrophic regression** |
+| MGMB | 18 | 75 | ❌ -57 | 0.16 | 0.18 | Major regression |
+
+**Lessons Learned:**
+
+* **Don't change data splits without thorough validation** - The v5 split appears inferior to v3
+* **Validate HPO results before submission** - New HPO runs need leaderboard validation
+* **Model capacity matters** - Reducing FFN layers hurt generalization
+* **Task oversampling alpha is critical** - 0.02 is too low; 0.2 worked better
+
+---
+
+## January 14, 2026
+
+### Model
+
+#### MLflow
+
+* **Experiment ID**: `20`
+* **Run ID**: `5a44201787e64aa9a9761764237d1bf0`
+* **Run Name**: `rank_004`
+* **Experiment Name**: `chemprop_hpo_ensemble_v2_production`
+
+#### Architecture
+
+**Model Type:** Chemprop MPNN
+
+**Key Change:** Testing rank_004 configuration from HPO (deeper MPNN, larger FFN) instead of rank_001.
+
+#### Hyperparameters
+
+```yaml
+# MPNN
+depth: 6
+message_hidden_dim: 1000
+aggregation: norm
+# FFN
+ffn_type: regression
+num_layers: 3
+hidden_dim: 700
+# Regularization
+dropout: 0.20
+batch_norm: true
+# Training
+batch_size: 128
+criterion: MAE
+# Learning Rate Schedule
+init_lr: 0.00177
+max_lr: 0.00177
+final_lr: 3.54e-06
+# Early Stopping
+patience: 15
+max_epochs: 150
+# Sampling
+task_oversampling_alpha: 0.2
+# Reproducibility
+seed: 42
+```
+
+### Statistics
+
+#### Overall
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| 52/336 | aglisman | 0.62 ± 0.03 | 0.51 | 17.7% | 0.52 ± 0.04 | 0.76 ± 0.02 | 0.59 ± 0.02 | 2026-01-14 18:16:25+00:00 | ❌ Regression - Top 15.5% |
+
+#### By Task
+
+| Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 82 | LogD | 0.36 ± 0.01 | 0.24 | 33.3% | 0.72 ± 0.03 | 0.88 ± 0.01 | 0.73 ± 0.01 | Needs improvement - Top 24.4% |
+| 32 | KSOL | 0.35 ± 0.01 | 0.30 | 14.3% | 0.62 ± 0.02 | 0.72 ± 0.02 | 0.53 ± 0.01 | Okay - Top 9.5% |
+| 78 | MLM CLint | 0.36 ± 0.01 | 0.31 | 13.9% | 0.36 ± 0.04 | 0.59 ± 0.03 | 0.42 ± 0.02 | Needs improvement - Top 23.2% |
+| 55 | HLM CLint | 0.31 ± 0.01 | 0.26 | 16.1% | 0.33 ± 0.05 | 0.60 ± 0.04 | 0.44 ± 0.03 | Poor - Top 16.4% |
+| 106 | Caco-2 Permeability Efflux | 0.35 ± 0.01 | 0.25 | 28.6% | 0.22 ± 0.04 | 0.81 ± 0.01 | 0.61 ± 0.01 | ❌ Major regression - Top 31.5% |
+| 42 | Caco-2 Permeability Papp A>B | 0.23 ± 0.01 | 0.19 | 17.4% | 0.45 ± 0.03 | 0.77 ± 0.02 | 0.57 ± 0.02 | Poor - Top 12.5% |
+| 116 | MPPB | 0.21 ± 0.01 | 0.14 | 33.3% | 0.62 ± 0.03 | 0.83 ± 0.02 | 0.63 ± 0.02 | ❌ Major regression - Top 34.5% |
+| 122 | MBPB | 0.17 ± 0.01 | 0.11 | 35.3% | 0.70 ± 0.03 | 0.87 ± 0.02 | 0.71 ± 0.02 | ❌ Major regression - Top 36.3% |
+| 38 | MGMB | 0.17 ± 0.01 | 0.14 | 17.6% | 0.67 ± 0.05 | 0.83 ± 0.03 | 0.68 ± 0.03 | Okay - Top 11.3% |
+
+### What Went Wrong
+
+**Root Cause Analysis:**
+
+1. **Wrong HPO Rank Selection:** Chose rank_004 instead of rank_020 (which performed better on January 13). HPO rankings don't always correlate with leaderboard performance.
+
+2. **Flat Learning Rate Schedule:** init_lr ≈ max_lr (0.00177) is unusual and may prevent proper warmup.
+
+3. **Oversized Model:** depth=6 and hidden_dim=700 may be overfitting compared to the leaner configurations.
+
+4. **Plasma Binding Regression:** MPPB (rank 116) and MBPB (rank 122) regressed significantly from January 13 levels.
+
+5. **Caco-2 Efflux Collapse:** Rank dropped from 16 to 106 despite same task oversampling alpha.
+
+**Comparison with January 13:**
+
+| Task | Jan-13 Rank | Jan-14 Rank | Change | Notes |
+|------|-------------|-------------|--------|-------|
+| LogD | 53 | 82 | ❌ -29 | Regression |
+| KSOL | 33 | 32 | ✅ +1 | Maintained |
+| MLM CLint | 34 | 78 | ❌ -44 | Major regression |
+| HLM CLint | 85 | 55 | ✅ +30 | Improved |
+| Caco-2 Efflux | 16 | 106 | ❌ -90 | **Catastrophic regression** |
+| Caco-2 Papp A>B | 7 | 42 | ❌ -35 | Major regression |
+| MPPB | 80 | 116 | ❌ -36 | Regression |
+| MBPB | 50 | 122 | ❌ -72 | **Catastrophic regression** |
+| MGMB | 18 | 38 | ❌ -20 | Regression |
+
+**Lessons Learned:**
+
+* **Validate HPO configurations individually** - Don't assume lower-ranked HPO trials will perform better
+* **Learning rate schedule matters** - Flat LR prevents proper optimization dynamics
+* **Bigger isn't always better** - The rank_004 oversized model generalized worse
+
+---
+
+## January 13, 2026
+
+### Model
+
+#### MLflow
+
+* **Experiment ID**: `20`
+* **Run ID**: `95bb7ad908ae4f76a64de09fc27023c4`
+* **Run Name**: `rank_020`
+* **Experiment Name**: `chemprop_hpo_ensemble_v2_production`
+
+#### Architecture
+
+**Model Type:** Chemprop MPNN
+
+**Key Change:** HPO-optimized configuration from ensemble v2 production run. Deeper MPNN (depth=7) with moderate FFN.
+
+#### Hyperparameters
+
+```yaml
+# MPNN
+depth: 7
+message_hidden_dim: 1000
+aggregation: norm
+# FFN
+ffn_type: regression
+num_layers: 3
+hidden_dim: 200
+# Regularization
+dropout: 0.05
+batch_norm: true
+# Training
+batch_size: 128
+criterion: MAE
+# Learning Rate Schedule
+init_lr: 0.00113
+max_lr: 0.000227
+final_lr: 1.81e-05
+# Early Stopping
+patience: 15
+max_epochs: 150
+# Sampling
+task_oversampling_alpha: 0.2
+# Reproducibility
+seed: 42
+```
+
+### Statistics
+
+#### Overall
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| **15/331** | aglisman | **0.58 ± 0.03** | 0.52 | 10.3% | 0.57 ± 0.04 | 0.77 ± 0.02 | 0.60 ± 0.02 | 2026-01-13 20:06:04+00:00 | 🏆 **Top 4.5%** |
+
+#### By Task
+
+| Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 53 | LogD | 0.34 ± 0.01 | 0.24 | 29.4% | 0.73 ± 0.03 | 0.88 ± 0.01 | 0.74 ± 0.01 | Poor - Top 16.0% |
+| 33 | KSOL | 0.35 ± 0.01 | 0.30 | 14.3% | 0.60 ± 0.02 | 0.71 ± 0.02 | 0.52 ± 0.01 | Okay - Top 10.0% |
+| 34 | MLM CLint | 0.35 ± 0.01 | 0.31 | 11.4% | 0.40 ± 0.04 | 0.60 ± 0.03 | 0.43 ± 0.02 | Okay - Top 10.3% |
+| 85 | HLM CLint | 0.32 ± 0.01 | 0.27 | 15.6% | 0.30 ± 0.06 | 0.59 ± 0.04 | 0.43 ± 0.03 | Needs improvement - Top 25.7% |
+| 16 | Caco-2 Permeability Efflux | 0.30 ± 0.01 | 0.27 | 10.0% | 0.40 ± 0.03 | 0.82 ± 0.01 | 0.62 ± 0.01 | 🏆 Good - Top 4.8% |
+| 7 | Caco-2 Permeability Papp A>B | 0.20 ± 0.01 | 0.19 | 5.0% | 0.57 ± 0.03 | 0.79 ± 0.02 | 0.60 ± 0.01 | 🏆 **Excellent - Top 2.1%** |
+| 80 | MPPB | 0.20 ± 0.01 | 0.14 | 30.0% | 0.64 ± 0.04 | 0.83 ± 0.02 | 0.64 ± 0.02 | Needs improvement - Top 24.2% |
+| 50 | MBPB | 0.15 ± 0.01 | 0.11 | 26.7% | 0.76 ± 0.03 | 0.87 ± 0.02 | 0.71 ± 0.02 | Poor - Top 15.1% |
+| 18 | MGMB | 0.16 ± 0.01 | 0.14 | 12.5% | 0.70 ± 0.05 | 0.83 ± 0.03 | 0.68 ± 0.03 | 🏆 Good - Top 5.4% |
+
+### Key Achievements
+
+* **Best submission since January 10** - Rank 15/331 (Top 4.5%)
+* **Caco-2 Papp A>B excellence** - Rank 7 (Top 2.1%), only 5% gap to leader
+* **Caco-2 Efflux improvement** - Rank 16 (Top 4.8%), major improvement from previous attempts
+* **MGMB maintained** - Rank 18 (Top 5.4%), consistent strong performance
+
+### What Worked
+
+1. **Deep MPNN (depth=7):** Deeper message passing captured more complex molecular interactions for Caco-2 tasks.
+
+2. **Higher Task Oversampling (alpha=0.2):** Compared to alpha=0.02 in baseline, this balanced training across all tasks better.
+
+3. **Moderate FFN (3 layers, 200 hidden):** Not too large (overfitting) or too small (underfitting).
+
+4. **Proper LR Schedule:** init_lr > max_lr with decay to final_lr provides good optimization dynamics.
+
+5. **Low Dropout (0.05):** With deep MPNN, lower dropout prevents too much regularization.
+
+### Comparison with January 10
+
+| Task | Jan-10 Rank | Jan-13 Rank | Change | Notes |
+|------|-------------|-------------|--------|-------|
+| LogD | 20 | 53 | ❌ -33 | Regression (more competition) |
+| KSOL | 19 | 33 | ❌ -14 | Slight regression |
+| MLM CLint | 13 | 34 | ❌ -21 | Regression |
+| HLM CLint | 33 | 85 | ❌ -52 | Major regression |
+| Caco-2 Efflux | 50 | 16 | ✅ +34 | **Major improvement** |
+| Caco-2 Papp A>B | 14 | 7 | ✅ +7 | **Improvement to excellence** |
+| MPPB | 23 | 80 | ❌ -57 | Major regression |
+| MBPB | 57 | 50 | ✅ +7 | Slight improvement |
+| MGMB | 6 | 18 | ❌ -12 | Regression (still good) |
+
+**Overall:** Rank improved from 11/309 to 15/331, but percentile slightly worse (3.6% → 4.5%) due to increased competition. The model excels at Caco-2 tasks but struggles with plasma binding (MPPB, HLM CLint).
+
+### Next Steps
+
+1. **Ensemble rank_020 with baseline** - Combine Caco-2 strength with plasma binding stability
+2. **Task-specific weighting** - Increase weight on HLM CLint and MPPB
+3. **Hybrid predictions** - Use different models for different task groups
+
+---
+
 ## January 12, 2026
 
 ### Summary
