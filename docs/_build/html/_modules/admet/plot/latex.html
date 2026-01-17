@@ -237,6 +237,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -253,6 +254,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -324,6 +326,7 @@
 <span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndarray</span>
 
@@ -337,38 +340,78 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">latex_sanitize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">use_math_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Sanitize text for LaTeX rendering in plots.</span>
 
+<span class="sd">    Handles both Unicode and ASCII special characters that cause LaTeX errors.</span>
+<span class="sd">    This function is idempotent - calling it multiple times on the same text</span>
+<span class="sd">    produces the same result.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    text : str</span>
 <span class="sd">        Input text.</span>
 <span class="sd">    use_math_mode : bool, default=False</span>
-<span class="sd">        If True, wrap &lt; and &gt; in math mode ($&lt;$, $&gt;$).</span>
-<span class="sd">        If False, use Unicode arrows (→, ←) which render cleanly.</span>
+<span class="sd">        If True, use math mode for symbols.</span>
+<span class="sd">        If False, convert Unicode to LaTeX-compatible format.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    str</span>
-<span class="sd">        Sanitized text.</span>
+<span class="sd">        Sanitized text safe for LaTeX rendering.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">use_math_mode</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$&gt;$&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$&lt;$&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\_&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\%&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;10^-6&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;10$^{-6}$&quot;</span><span class="p">)</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># Use Unicode characters that render cleanly without LaTeX issues</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;A&gt;B&quot;</span><span class="p">,</span> <span class="s2">&quot;A→B&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;B&gt;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B→A&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;›&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;‹&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%%</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;10^-6&quot;</span><span class="p">,</span> <span class="s2">&quot;10⁻⁶&quot;</span><span class="p">)</span>
-        <span class="p">)</span></div>
+    <span class="c1"># Check if already sanitized (contains LaTeX math mode markers or escaped percent)</span>
+    <span class="c1"># This makes the function idempotent and prevents double-sanitization</span>
+    <span class="k">if</span> <span class="s2">&quot;$^{&quot;</span> <span class="ow">in</span> <span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">rightarrow$&quot;</span> <span class="ow">in</span> <span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot;$&gt;$&quot;</span> <span class="ow">in</span> <span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot;$&lt;$&quot;</span> <span class="ow">in</span> <span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">%&quot;</span> <span class="ow">in</span> <span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot; pct &quot;</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">text</span>
+
+    <span class="c1"># Replace percent sign - use simple text replacement to avoid LaTeX issues</span>
+    <span class="c1"># Don&#39;t use backslash escaping as it causes line-breaking problems</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">% u</span><span class="s2">nbound&quot;</span><span class="p">,</span> <span class="s2">&quot; pct unbound&quot;</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="s2">&quot; pct&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Handle arrows - use simple text replacement instead of math mode</span>
+    <span class="c1"># to avoid rendering issues in plot labels</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;→&quot;</span><span class="p">,</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">)</span>  <span class="c1"># Keep as-is, no math mode needed</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">)</span>  <span class="c1"># Keep as-is, no math mode needed</span>
+
+    <span class="c1"># Handle Unicode superscripts</span>
+    <span class="n">superscript_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;⁰&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;¹&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;²&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;³&quot;</span><span class="p">:</span> <span class="s2">&quot;3&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁴&quot;</span><span class="p">:</span> <span class="s2">&quot;4&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁵&quot;</span><span class="p">:</span> <span class="s2">&quot;5&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁶&quot;</span><span class="p">:</span> <span class="s2">&quot;6&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁷&quot;</span><span class="p">:</span> <span class="s2">&quot;7&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁸&quot;</span><span class="p">:</span> <span class="s2">&quot;8&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁹&quot;</span><span class="p">:</span> <span class="s2">&quot;9&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁻&quot;</span><span class="p">:</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;⁺&quot;</span><span class="p">:</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Replace sequences of Unicode superscripts</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">text</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">superscript_map</span><span class="p">:</span>
+            <span class="c1"># Start of superscript sequence</span>
+            <span class="n">superscript_text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="ow">and</span> <span class="n">text</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="ow">in</span> <span class="n">superscript_map</span><span class="p">:</span>
+                <span class="n">superscript_text</span> <span class="o">+=</span> <span class="n">superscript_map</span><span class="p">[</span><span class="n">text</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span>
+                <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$^</span><span class="se">{{</span><span class="si">{</span><span class="n">superscript_text</span><span class="si">}</span><span class="se">}}</span><span class="s2">$&quot;</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">j</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+    <span class="c1"># Handle ASCII caret notation (e.g., &quot;10^-6&quot; -&gt; &quot;10$^{-6}$&quot;)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(\d+)\^(-?\d+)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\1$^{\2}$&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">text</span></div>
 
 
 

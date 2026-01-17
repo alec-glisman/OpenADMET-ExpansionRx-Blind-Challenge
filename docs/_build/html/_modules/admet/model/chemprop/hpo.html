@@ -237,6 +237,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -253,6 +254,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -364,6 +366,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.hpo_trainable</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_chemprop_trial</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.hpo_mlflow_callback</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncBatchedMLflowCallback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.hpo_range_refinement</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefinementConfig</span><span class="p">,</span> <span class="n">refine_search_space</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.mlflow_mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLflowMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.profiling</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingPhase</span><span class="p">,</span> <span class="n">TrainingProfiler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.util.ray_logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuietProgressReporter</span><span class="p">,</span> <span class="n">RayLogManager</span>
@@ -1009,7 +1012,13 @@
                 <span class="c1"># Log best config</span>
                 <span class="n">best_config</span> <span class="o">=</span> <span class="n">best_result</span><span class="o">.</span><span class="n">config</span>
                 <span class="k">if</span> <span class="n">best_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;best.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">best_config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)})</span>
+                    <span class="c1"># Sanitize parameter names for MLflow compatibility</span>
+                    <span class="n">sanitized_params</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="n">MLflowMixin</span><span class="o">.</span><span class="n">_sanitize_mlflow_param_name</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;best.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span> <span class="n">v</span>
+                        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">best_config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                    <span class="p">}</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">sanitized_params</span><span class="p">)</span>
 
                 <span class="c1"># Log best metrics</span>
                 <span class="k">if</span> <span class="n">best_result</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>

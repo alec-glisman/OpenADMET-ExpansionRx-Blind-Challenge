@@ -237,6 +237,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -253,6 +254,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -356,8 +358,10 @@
     <span class="n">JointSamplingConfig</span><span class="p">,</span>
     <span class="n">RayConfig</span><span class="p">,</span>
     <span class="n">RayLoggingConfig</span><span class="p">,</span>
+    <span class="n">TargetClippingConfig</span><span class="p">,</span>
     <span class="n">TaskAffinityConfig</span><span class="p">,</span>
     <span class="n">TaskOversamplingConfig</span><span class="p">,</span>
+    <span class="n">apply_target_clipping</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Re-export for backward compatibility</span>
@@ -374,10 +378,12 @@
     <span class="s2">&quot;JointSamplingConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;TaskAffinityConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;InterTaskAffinityConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TargetClippingConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;ChempropConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;EnsembleDataConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;RayConfig&quot;</span><span class="p">,</span>
     <span class="s2">&quot;EnsembleConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;apply_target_clipping&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 

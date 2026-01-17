@@ -20,10 +20,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from gradio_client import Client
 
-plt: Any
-sns: Any
-np: Any
-
 # Import plotting configuration from project
 try:
     import colorcet as cc
@@ -52,6 +48,9 @@ try:
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
+    plt = None  # type: ignore
+    sns = None  # type: ignore
+    np = None  # type: ignore
 
 
 SPACE = "openadmet/OpenADMET-ExpansionRx-Challenge"

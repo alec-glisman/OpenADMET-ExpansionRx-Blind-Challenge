@@ -5,7 +5,7 @@ This guide covers setting up the development environment for the OpenADMET Chall
 ## Prerequisites
 
 - Python 3.11 (required, not 3.12+)
-- CUDA 13.0+ (for GPU acceleration)
+- CUDA 11.8+ (for GPU acceleration)
 - Linux or macOS (Windows may work but is untested)
 
 ## Important: Version Pinning
@@ -148,7 +148,7 @@ If PyTorch doesn't detect CUDA:
 ```bash
 # Reinstall PyTorch with CUDA support
 uv pip install --force-reinstall torch torchvision torchaudio \
-    --extra-index-url https://download.pytorch.org/whl/cu130
+    --extra-index-url https://download.pytorch.org/whl/cu118
 ```
 
 ### Import Errors

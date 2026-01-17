@@ -237,6 +237,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -253,6 +254,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -382,6 +384,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictConfig</span><span class="p">,</span> <span class="n">OmegaConf</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.column_mapping</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_dataframe_columns</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.smiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">parallel_canonicalize_smiles</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">correlation</span><span class="p">,</span> <span class="n">correlation_batch</span><span class="p">,</span> <span class="n">distribution</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -514,6 +517,9 @@
 <span class="sd">    Handles both unified config structure (with model.type and model.chemprop)</span>
 <span class="sd">    and legacy flat structure (model params directly under model).</span>
 
+<span class="sd">    Also removes fields that exist in UnifiedModelConfig but not in ChempropConfig,</span>
+<span class="sd">    such as &#39;target_clipping&#39; which is handled separately by the ensemble/pipeline.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    config : DictConfig</span>
@@ -548,6 +554,20 @@
         <span class="n">new_model</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">chemprop_params</span><span class="p">)</span> <span class="k">if</span> <span class="n">chemprop_params</span> <span class="k">else</span> <span class="p">{})</span>
         <span class="n">config</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">new_model</span>
 
+    <span class="c1"># Remove fields that exist in UnifiedModelConfig but not in ChempropConfig</span>
+    <span class="c1"># These fields are handled separately (e.g., by ensemble aggregation)</span>
+    <span class="n">unified_only_fields</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;target_clipping&quot;</span><span class="p">,</span>  <span class="c1"># Handled by ensemble aggregation</span>
+        <span class="s2">&quot;ensemble&quot;</span><span class="p">,</span>  <span class="c1"># Not applicable to single model training</span>
+        <span class="s2">&quot;ray&quot;</span><span class="p">,</span>  <span class="c1"># Ray config only for ensemble/HPO</span>
+        <span class="s2">&quot;logging&quot;</span><span class="p">,</span>  <span class="c1"># Ray logging config</span>
+    <span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">unified_only_fields</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing UnifiedModelConfig-only field: </span><span class="si">{</span><span class="n">field_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">config</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
+
     <span class="k">return</span> <span class="n">config</span>
 
 
@@ -572,6 +592,7 @@
     <span class="n">replacements</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
         <span class="s2">&quot;&lt;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;$&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>  <span class="c1"># Remove LaTeX math markers</span>
         <span class="s2">&quot;:&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
         <span class="s2">&quot;;&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
         <span class="s2">&quot;|&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
@@ -1161,9 +1182,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_joint_sampler</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">JointSampler</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Performance optimization configuration</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceOptimizationConfig</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceOptimizationConfig</span><span class="p">,</span> <span class="n">TargetClippingConfig</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_performance_optimization</span><span class="p">:</span> <span class="n">PerformanceOptimizationConfig</span> <span class="o">=</span> <span class="n">PerformanceOptimizationConfig</span><span class="p">()</span>
+
+        <span class="c1"># Target clipping configuration for bounding predictions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_target_clipping_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TargetClippingConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Post-training configuration for optimization</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_post_training_config</span><span class="p">:</span> <span class="n">PostTrainingConfig</span> <span class="o">=</span> <span class="n">PostTrainingConfig</span><span class="p">()</span>
@@ -1305,17 +1329,25 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Load dataframes if not provided</span>
         <span class="n">data_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
+        <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">df_train</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">df_train</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;train.csv&quot;</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">df_train</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="n">df_train</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="n">target_cols</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">df_validation</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">df_validation</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;validation.csv&quot;</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">df_validation</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="n">df_validation</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="n">target_cols</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">df_test</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">test_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">df_test</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">test_file</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># Test may not have all target columns (blind prediction)</span>
+            <span class="n">df_test</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="n">df_test</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">df_blind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">blind_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">df_blind</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">blind_file</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># Blind set does not have target columns</span>
+            <span class="n">df_blind</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="n">df_blind</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
         <span class="c1"># Canonicalize SMILES</span>
         <span class="n">df_train</span><span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">parallel_canonicalize_smiles</span><span class="p">(</span><span class="n">df_train</span><span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
@@ -1392,6 +1424,10 @@
         <span class="c1"># Apply performance optimization configuration if present</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;performance_optimization&quot;</span><span class="p">):</span>
             <span class="n">model</span><span class="o">.</span><span class="n">_performance_optimization</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">performance_optimization</span>
+
+        <span class="c1"># Apply target clipping configuration if present</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;target_clipping&quot;</span><span class="p">):</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">_target_clipping_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">target_clipping</span>
 
         <span class="c1"># Apply post-training configuration if present</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;post_training&quot;</span><span class="p">):</span>
@@ -1481,6 +1517,21 @@
         <span class="n">datapoints</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">datasets</span> <span class="o">=</span> <span class="p">{}</span>
 
+        <span class="c1"># Warn if training data is too small for BatchNorm</span>
+        <span class="n">train_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">train_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_norm</span><span class="p">:</span>
+            <span class="n">train_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span>
+            <span class="n">batch_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span>
+            <span class="n">min_safe_size</span> <span class="o">=</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="mi">2</span>
+            <span class="k">if</span> <span class="n">train_size</span> <span class="o">&lt;</span> <span class="n">min_safe_size</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Training dataset has only </span><span class="si">%d</span><span class="s2"> samples with batch_size=</span><span class="si">%d</span><span class="s2"> and batch_norm=True. &quot;</span>
+                    <span class="s2">&quot;BatchNorm requires &gt;1 sample per batch. Consider setting batch_norm=False &quot;</span>
+                    <span class="s2">&quot;or reducing batch_size to avoid training errors.&quot;</span><span class="p">,</span>
+                    <span class="n">train_size</span><span class="p">,</span>
+                    <span class="n">batch_size</span><span class="p">,</span>
+                <span class="p">)</span>
+
         <span class="c1"># Store quality labels for curriculum sampling</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_quality_labels</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
@@ -1565,8 +1616,20 @@
                         <span class="n">log_weight_stats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Always log for monitoring</span>
                     <span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_joint_sampler</span> <span class="o">=</span> <span class="n">sampler</span>  <span class="c1"># Store for MLflow stats callback</span>
-                    <span class="c1"># Never drop last batch to preserve all samples for per-quality metrics</span>
-                    <span class="n">drop_last</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="c1"># Drop last batch if BatchNorm is enabled and last batch would be size 1</span>
+                    <span class="c1"># BatchNorm requires &gt;1 sample to compute statistics during training</span>
+                    <span class="n">dataset_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">])</span>
+                    <span class="n">last_batch_size</span> <span class="o">=</span> <span class="n">dataset_size</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span>
+                    <span class="n">drop_last</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_norm</span>
+                        <span class="ow">and</span> <span class="n">last_batch_size</span> <span class="o">==</span> <span class="mi">1</span>
+                        <span class="ow">and</span> <span class="n">dataset_size</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">drop_last</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                            <span class="s2">&quot;Dropping last batch (size=1) for split &#39;</span><span class="si">%s</span><span class="s2">&#39; to avoid BatchNorm error&quot;</span><span class="p">,</span>
+                            <span class="n">split</span><span class="p">,</span>
+                        <span class="p">)</span>
                     <span class="c1"># OPTIMIZATION: Only force num_workers=0 when curriculum is actually enabled</span>
                     <span class="c1"># This allows parallel data loading when curriculum is disabled</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">curriculum_enabled</span><span class="p">:</span>
@@ -1607,8 +1670,18 @@
                     <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
                     <span class="n">increment_seed_per_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Vary sampling across epochs</span>
                 <span class="p">)</span>
-                <span class="c1"># Never drop last batch to preserve all samples for per-quality metrics</span>
-                <span class="n">drop_last</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="c1"># Drop last batch if BatchNorm is enabled and last batch would be size 1</span>
+                <span class="c1"># BatchNorm requires &gt;1 sample to compute statistics during training</span>
+                <span class="n">dataset_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="n">split</span><span class="p">])</span>
+                <span class="n">last_batch_size</span> <span class="o">=</span> <span class="n">dataset_size</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span>
+                <span class="n">drop_last</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_norm</span> <span class="ow">and</span> <span class="n">last_batch_size</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">dataset_size</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">batch_size</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">drop_last</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;Dropping last batch (size=1) for split &#39;</span><span class="si">%s</span><span class="s2">&#39; to avoid BatchNorm error&quot;</span><span class="p">,</span>
+                        <span class="n">split</span><span class="p">,</span>
+                    <span class="p">)</span>
                 <span class="c1"># OPTIMIZATION: Force num_workers=0 for DynamicCurriculumSampler</span>
                 <span class="c1"># Curriculum is always enabled if using this sampler</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyperparams</span><span class="o">.</span><span class="n">num_workers</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -3472,6 +3545,21 @@
 
         <span class="n">all_preds_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">all_preds</span><span class="p">)</span>
         <span class="n">pred_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">all_preds_arr</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">])</span>
+
+        <span class="c1"># Apply target clipping if configured for individual models</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_target_clipping_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_clipping_config</span><span class="o">.</span><span class="n">enabled</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_clipping_config</span><span class="o">.</span><span class="n">apply_to_individual_models</span>
+        <span class="p">):</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_target_clipping</span>
+
+            <span class="n">pred_df</span> <span class="o">=</span> <span class="n">apply_target_clipping</span><span class="p">(</span>
+                <span class="n">pred_df</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">target_cols</span><span class="p">,</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_target_clipping_config</span><span class="o">.</span><span class="n">clip_ranges</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Applied target clipping to individual model predictions&quot;</span><span class="p">)</span>
 
         <span class="c1"># Log prediction metrics if enabled, ground truth is available, and MLflow tracking is enabled</span>
         <span class="k">if</span> <span class="n">log_metrics</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlflow_tracking</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

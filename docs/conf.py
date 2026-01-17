@@ -34,8 +34,10 @@ extensions = [
     "sphinxext.opengraph",
 ]
 
-# Generate autosummary stubs automatically (disabled while resolving recursion)
-autosummary_generate = False
+# Autosummary generates API stub pages from :toctree: directives
+# Currently using manual automodule/autoclass directives, so stubs aren't needed
+autosummary_generate = True
+autosummary_imported_members = False
 
 # Napoleon settings (NumPy style primarily)
 napoleon_google_docstring = False

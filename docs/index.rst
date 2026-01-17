@@ -66,9 +66,9 @@
    .. grid-item-card:: 🏆 Competition Results
       :class-card: sd-border-0 sd-shadow-sm
 
-      Ranked **11th out of 321** participants (Top 3.4%) in the OpenADMET ExpansionRx
-      Blind Challenge with MA-RAE of 0.57 ± 0.02 — within error bar of 2nd place
-      (as of 2026-01-12).
+      Ranked **10th out of 356** participants (Top 2.8%) in the OpenADMET ExpansionRx
+      Blind Challenge with MA-RAE of 0.56 ± 0.02
+      (as of 2026-01-16).
 
    .. grid-item-card:: 🔬 Robust Methodology
       :class-card: sd-border-0 sd-shadow-sm
@@ -364,6 +364,7 @@ Documentation
    guide/cli
    guide/configuration
    guide/config_reference
+   guide/migration
    reference/scripts
    glossary
    api/admet
@@ -375,6 +376,7 @@ Documentation
 
    guide/leaderboard
    guide/development
+   guide/changelog
 
 .. toctree::
    :maxdepth: 1

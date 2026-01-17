@@ -19,6 +19,7 @@ validated for model-type compatibility.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -524,6 +525,10 @@ class TaskOversamplingConfig:
 class CurriculumConfig:
     """Configuration for quality-aware curriculum learning.
 
+    .. deprecated:: 1.3.0
+        Curriculum learning is deprecated and will be removed in v2.0.0.
+        Use ``JointSamplingConfig`` for unified task + curriculum sampling.
+
     Curriculum learning progressively adjusts sampling based on quality labels.
     Phases: warmup -> expand -> robust -> polish -> (optional) finetune.
 
@@ -581,6 +586,16 @@ class CurriculumConfig:
     adaptive_lookback_epochs: int = 5
     loss_weighting_enabled: bool = False
     loss_weights: Optional[Dict[str, float]] = None
+
+    def __post_init__(self) -> None:
+        """Emit deprecation warning when curriculum learning is enabled."""
+        if self.enabled:
+            warnings.warn(
+                "CurriculumConfig is deprecated and will be removed in v2.0.0. "
+                "Use JointSamplingConfig for unified task + curriculum sampling.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
 
 @dataclass

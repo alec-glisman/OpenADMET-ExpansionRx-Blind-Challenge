@@ -246,6 +246,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
@@ -262,6 +263,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -342,9 +344,237 @@ processing, and dataset splitting for ADMET property prediction.</p>
 <section id="data-subpackage">
 <h2>Data Subpackage<a class="headerlink" href="#data-subpackage" title="Link to this heading">¶</a></h2>
 <p>Dataset constants, chemistry utilities, and data loading functionality.</p>
-</section>
+<span class="target" id="module-admet.data"></span></section>
+<dl class="py exception">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">ColumnMappingError</span></span><a class="reference internal" href="../_modules/admet/data/column_mapping.html#ColumnMappingError"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a></p>
+<p>Raised when column mapping fails due to unresolvable columns.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">apply_endpoint_transformations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clint_endpoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">permeability_endpoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ppb_endpoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/transform.html#apply_endpoint_transformations"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Apply endpoint-specific log10 transformations to ADMET data.</p>
+<p>Different ADMET endpoints require different handling of zero values before
+log transformation:</p>
+<ul class="simple">
+<li><p><strong>CLint and permeability</strong>: Zeros replaced with half of smallest non-zero
+value before log10 transformation</p></li>
+<li><p><strong>PPB (Plasma Protein Binding)</strong>: Zeros set to 10^(-6) before log10,
+considering typical PPB detection limits</p></li>
+<li><p><strong>Other endpoints</strong>: Standard log10 transformation with zeros set to 10^(-6)</p></li>
+<li><p><strong>Excluded columns</strong>: No transformation applied (e.g., LogD)</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Input dataframe containing ADMET endpoint columns.</p></li>
+<li><p><strong>exclude_columns</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – Column names to exclude from transformation (e.g., SMILES, LogD, identifiers).
+Default: [“SMILES”, “Molecule Name (None)”, “LogD (None)”]</p></li>
+<li><p><strong>clint_endpoints</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – CLint endpoint column names. Default includes HLM and MLM CLint.</p></li>
+<li><p><strong>permeability_endpoints</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – Permeability endpoint column names. Default includes Caco-2 permeability.</p></li>
+<li><p><strong>ppb_endpoints</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – Plasma protein binding endpoint column names. Default includes MPPB, MBPB, MGMB.</p></li>
+<li><p><strong>inplace</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default False</em>) – If True, modify the dataframe in place and return None.
+If False, return a new dataframe with transformations applied.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Transformed dataframe, or None if inplace=True.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame or None</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;SMILES&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CCO&quot;</span><span class="p">,</span> <span class="s2">&quot;CCN&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;Log HLM CLint (ul/min/mg)&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">10.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;Log MPPB (%)&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">95.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df_transformed</span> <span class="o">=</span> <span class="n">apply_endpoint_transformations</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>The function logs the transformation strategy used for each column.
+Columns not in any endpoint category receive standard log10 transformation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">detect_csv_format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/column_mapping.html#detect_csv_format"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Detect the CSV format based on column names.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>df</strong> (<em>pd.DataFrame</em>) – DataFrame to analyze.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Format identifier: ‘canonical’, ‘format1_latex’, ‘format2_units’, or ‘unknown’.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;training_data.csv&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">format_type</span> <span class="o">=</span> <span class="n">detect_csv_format</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">format_type</span><span class="p">)</span>
+<span class="go">&#39;format1_latex&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">load_csv_with_normalized_columns</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">validate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">read_csv_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/column_mapping.html#load_csv_with_normalized_columns"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Load a CSV file and normalize column names to canonical format.</p>
+<p>Convenience function that combines pd.read_csv with column normalization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the CSV file.</p></li>
+<li><p><strong>target_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – Target columns to validate. If None, no validation is performed.</p></li>
+<li><p><strong>validate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – Whether to validate target columns are present.</p></li>
+<li><p><strong>**read_csv_kwargs</strong> – Additional arguments passed to pd.read_csv.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame with normalized column names.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ColumnMappingError</strong> – If validation fails and required columns are missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">normalize_column_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">column</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/column_mapping.html#normalize_column_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Normalize a single column name to its canonical form.</p>
+<p>Applies alias mapping and LaTeX normalization to convert alternative
+column names to their canonical equivalents.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>column</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Input column name (may contain LaTeX notation or unit annotations).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Canonical column name, or original if no mapping exists.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_column_name</span><span class="p">(</span><span class="s2">&quot;Log Caco-2 Permeability Papp A$&gt;$B&quot;</span><span class="p">)</span>
+<span class="go">&#39;Log Caco-2 Permeability Papp A&gt;B&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_column_name</span><span class="p">(</span><span class="s2">&quot;KSOL (uM)&quot;</span><span class="p">)</span>
+<span class="go">&#39;Log KSOL&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_column_name</span><span class="p">(</span><span class="s2">&quot;LogD&quot;</span><span class="p">)</span>
+<span class="go">&#39;LogD&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">normalize_dataframe_columns</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/column_mapping.html#normalize_dataframe_columns"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Normalize DataFrame column names to canonical format.</p>
+<p>Auto-detects the input format and applies appropriate column name mappings.
+Raises an error if required target columns cannot be resolved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Input DataFrame with potentially non-canonical column names.</p></li>
+<li><p><strong>target_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em><em>, </em><em>optional</em>) – List of canonical target column names that must be present after
+normalization. If None, uses CANONICAL_TARGET_COLUMNS.</p></li>
+<li><p><strong>inplace</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=False</em>) – If True, modifies the DataFrame in place. Otherwise returns a copy.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame with normalized column names.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ColumnMappingError</strong> – If required target columns cannot be resolved after normalization.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;test_data.csv&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df_normalized</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="s2">&quot;Log Caco-2 Permeability Papp A&gt;B&quot;</span> <span class="ow">in</span> <span class="n">df_normalized</span><span class="o">.</span><span class="n">columns</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">sanitize_column_names_for_latex</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/transform.html#sanitize_column_names_for_latex"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Sanitize column names to be LaTeX-compatible.</p>
+<p>Replaces Unicode and ASCII characters that LaTeX cannot process with
+LaTeX-compatible equivalents:
+- Percent (%) becomes %
+- ASCII caret notation (10^-6) becomes 10$^{-6}$</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Input dataframe with potentially Unicode column names.</p></li>
+<li><p><strong>inplace</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default False</em>) – If True, modify the dataframe in place.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame with sanitized column names, or None if inplace=True.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame or None</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Caco-2 Papp A→B (10⁻⁶ cm/s)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sanitized</span> <span class="o">=</span> <span class="n">sanitize_column_names_for_latex</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sanitized</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">&#39;Caco-2 Papp A$\rightarrow$B (10$^{-6}$ cm/s)&#39;</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">df2</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Caco-2 Papp A&gt;B (10^-6 cm/s)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sanitized2</span> <span class="o">=</span> <span class="n">sanitize_column_names_for_latex</span><span class="p">(</span><span class="n">df2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sanitized2</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">&#39;Caco-2 Papp A$&gt;$B (10$^{-6}$ cm/s)&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-prename descclassname"><span class="pre">admet.data.</span></span><span class="sig-name descname"><span class="pre">validate_target_columns</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/admet/data/column_mapping.html#validate_target_columns"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Validate that required target columns are present in DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – DataFrame to validate.</p></li>
+<li><p><strong>target_cols</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – List of canonical target column names that must be present.</p></li>
+<li><p><strong>strict</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>default=True</em>) – If True, raises an error if any target column is missing.
+If False, returns only the columns that are present.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of validated target columns that are present in the DataFrame.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ColumnMappingError</strong> – If strict=True and any target column is missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
 <section id="modules">
-<span id="module-admet.data"></span><h2>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h2>
+<h2>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h2>
 <section id="constant">
 <h3>constant<a class="headerlink" href="#constant" title="Link to this heading">¶</a></h3>
 <p>Dataset constants and transformation helpers.</p>
@@ -360,7 +590,9 @@ used during dataset harmonization and exploratory analysis.</p>
 <dt>Constants</dt><dd><p>DEFAULT_DATASET_DIR : Root path for downloaded raw datasets.
 DATASETS            : Mapping of lowercase dataset name -&gt; DatasetInfo.
 COLS_WITH_UNITS     : Mapping of column name -&gt; display units string.
-TRANSFORMATIONS     : Mapping of transformation label -&gt; callable.</p>
+TRANSFORMATIONS     : Mapping of transformation label -&gt; callable.
+CANONICAL_TARGET_COLUMNS : List of canonical target column names.
+COLUMN_ALIASES      : Mapping of alternative column names -&gt; canonical names.</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -369,14 +601,27 @@ All dynamically retrieved names are converted to lowercase for uniform CLI
 and API usage.</p>
 </section>
 <dl class="py data">
+<dt class="sig sig-object py" id="admet.data.constant.CANONICAL_TARGET_COLUMNS">
+<span class="sig-prename descclassname"><span class="pre">admet.data.constant.</span></span><span class="sig-name descname"><span class="pre">CANONICAL_TARGET_COLUMNS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['LogD',</span> <span class="pre">'Log</span> <span class="pre">KSOL',</span> <span class="pre">'Log</span> <span class="pre">HLM</span> <span class="pre">CLint',</span> <span class="pre">'Log</span> <span class="pre">MLM</span> <span class="pre">CLint',</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B',</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux',</span> <span class="pre">'Log</span> <span class="pre">MPPB',</span> <span class="pre">'Log</span> <span class="pre">MBPB',</span> <span class="pre">'Log</span> <span class="pre">MGMB']</span></em><a class="headerlink" href="#admet.data.constant.CANONICAL_TARGET_COLUMNS" title="Link to this definition">¶</a></dt>
+<dd><p>Canonical target column names used throughout the pipeline.</p>
+</dd></dl>
+
+<dl class="py data">
 <dt class="sig sig-object py" id="admet.data.constant.COLS_WITH_UNITS">
 <span class="sig-prename descclassname"><span class="pre">admet.data.constant.</span></span><span class="sig-name descname"><span class="pre">COLS_WITH_UNITS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux':</span> <span class="pre">'(None)',</span> <span class="pre">'Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B':</span> <span class="pre">'(10^-6</span> <span class="pre">cm/s)',</span> <span class="pre">'HLM</span> <span class="pre">CLint':</span> <span class="pre">'(mL/min/kg)',</span> <span class="pre">'KSOL':</span> <span class="pre">'(uM)',</span> <span class="pre">'LogD':</span> <span class="pre">'(None)',</span> <span class="pre">'MBPB':</span> <span class="pre">'(%</span> <span class="pre">unbound)',</span> <span class="pre">'MGMB':</span> <span class="pre">'(%</span> <span class="pre">unbound)',</span> <span class="pre">'MLM</span> <span class="pre">CLint':</span> <span class="pre">'(mL/min/kg)',</span> <span class="pre">'MPPB':</span> <span class="pre">'(%</span> <span class="pre">unbound)',</span> <span class="pre">'Molecule</span> <span class="pre">Name':</span> <span class="pre">'(None)'}</span></em><a class="headerlink" href="#admet.data.constant.COLS_WITH_UNITS" title="Link to this definition">¶</a></dt>
 <dd><p>Column names with units for ExpansionRX and related datasets.</p>
 </dd></dl>
 
 <dl class="py data">
+<dt class="sig sig-object py" id="admet.data.constant.COLUMN_ALIASES">
+<span class="sig-prename descclassname"><span class="pre">admet.data.constant.</span></span><span class="sig-name descname"><span class="pre">COLUMN_ALIASES</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux':</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux',</span> <span class="pre">'Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux</span> <span class="pre">(None)':</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Efflux',</span> <span class="pre">'Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A$&gt;$B':</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B',</span> <span class="pre">'Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A$&gt;$B</span> <span class="pre">(10$^{-6}$</span> <span class="pre">cm/s)':</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B',</span> <span class="pre">'HLM</span> <span class="pre">CLint':</span> <span class="pre">'Log</span> <span class="pre">HLM</span> <span class="pre">CLint',</span> <span class="pre">'HLM</span> <span class="pre">CLint</span> <span class="pre">(mL/min/kg)':</span> <span class="pre">'Log</span> <span class="pre">HLM</span> <span class="pre">CLint',</span> <span class="pre">'KSOL':</span> <span class="pre">'Log</span> <span class="pre">KSOL',</span> <span class="pre">'KSOL</span> <span class="pre">(uM)':</span> <span class="pre">'Log</span> <span class="pre">KSOL',</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A$&gt;$B':</span> <span class="pre">'Log</span> <span class="pre">Caco-2</span> <span class="pre">Permeability</span> <span class="pre">Papp</span> <span class="pre">A&gt;B',</span> <span class="pre">'LogD</span> <span class="pre">(None)':</span> <span class="pre">'LogD',</span> <span class="pre">'MBPB':</span> <span class="pre">'Log</span> <span class="pre">MBPB',</span> <span class="pre">'MBPB</span> <span class="pre">(</span> <span class="pre">pct</span> <span class="pre">unbound)':</span> <span class="pre">'Log</span> <span class="pre">MBPB',</span> <span class="pre">'MGMB':</span> <span class="pre">'Log</span> <span class="pre">MGMB',</span> <span class="pre">'MGMB</span> <span class="pre">(</span> <span class="pre">pct</span> <span class="pre">unbound)':</span> <span class="pre">'Log</span> <span class="pre">MGMB',</span> <span class="pre">'MLM</span> <span class="pre">CLint':</span> <span class="pre">'Log</span> <span class="pre">MLM</span> <span class="pre">CLint',</span> <span class="pre">'MLM</span> <span class="pre">CLint</span> <span class="pre">(mL/min/kg)':</span> <span class="pre">'Log</span> <span class="pre">MLM</span> <span class="pre">CLint',</span> <span class="pre">'MPPB':</span> <span class="pre">'Log</span> <span class="pre">MPPB',</span> <span class="pre">'MPPB</span> <span class="pre">(</span> <span class="pre">pct</span> <span class="pre">unbound)':</span> <span class="pre">'Log</span> <span class="pre">MPPB',</span> <span class="pre">'Molecule</span> <span class="pre">Name</span> <span class="pre">(None)':</span> <span class="pre">'Molecule</span> <span class="pre">Name'}</span></em><a class="headerlink" href="#admet.data.constant.COLUMN_ALIASES" title="Link to this definition">¶</a></dt>
+<dd><p>Mapping of alternative column names (from different CSV formats) to canonical names.
+Handles LaTeX notation ($&gt;$, $^{-6}$), unit annotations, and various header styles.</p>
+</dd></dl>
+
+<dl class="py data">
 <dt class="sig sig-object py" id="admet.data.constant.TRANSFORMATIONS">
-<span class="sig-prename descclassname"><span class="pre">admet.data.constant.</span></span><span class="sig-name descname"><span class="pre">TRANSFORMATIONS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'10^(x)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x);</span> <span class="pre">1/g</span> <span class="pre">to</span> <span class="pre">1/kg':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x);</span> <span class="pre">1/kg</span> <span class="pre">to</span> <span class="pre">1/g':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x+6)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'None':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'e^(x)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'g</span> <span class="pre">to</span> <span class="pre">kg':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'kg</span> <span class="pre">to</span> <span class="pre">g':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'log10(x)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'nM</span> <span class="pre">to</span> <span class="pre">uM':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'ug/mL</span> <span class="pre">to</span> <span class="pre">uM':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;}</span></em><a class="headerlink" href="#admet.data.constant.TRANSFORMATIONS" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">admet.data.constant.</span></span><span class="sig-name descname"><span class="pre">TRANSFORMATIONS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'10^(x)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x);</span> <span class="pre">1/g</span> <span class="pre">to</span> <span class="pre">1/kg':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x);</span> <span class="pre">1/kg</span> <span class="pre">to</span> <span class="pre">1/g':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x+2)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x+6)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'10^(x-2)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'None':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'e^(x)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'g</span> <span class="pre">to</span> <span class="pre">kg':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'kg</span> <span class="pre">to</span> <span class="pre">g':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'log10(x)':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'log10_clint_perm':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'log10_ppb':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'nM</span> <span class="pre">to</span> <span class="pre">uM':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'ug/mL</span> <span class="pre">to</span> <span class="pre">uM':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;}</span></em><a class="headerlink" href="#admet.data.constant.TRANSFORMATIONS" title="Link to this definition">¶</a></dt>
 <dd><p>Simple numeric transformations used during dataset harmonization.</p>
 </dd></dl>
 
@@ -1238,7 +1483,7 @@ where values are “train” or “validation”.</p>
 <dl class="py class" id="module-admet.data.stats">
 <dt class="sig sig-object py" id="admet.data.stats.CorrelationMetrics">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.data.stats.</span></span><span class="sig-name descname"><span class="pre">CorrelationMetrics</span></span><a class="reference internal" href="../_modules/admet/data/stats.html#CorrelationMetrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.stats.CorrelationMetrics" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.TypedDict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></a></p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="admet.data.stats.CorrelationMetrics.R2">
 <span class="sig-name descname"><span class="pre">R2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></em><a class="headerlink" href="#admet.data.stats.CorrelationMetrics.R2" title="Link to this definition">¶</a></dt>
@@ -1284,7 +1529,7 @@ where values are “train” or “validation”.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="admet.data.stats.DistributionStats">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">admet.data.stats.</span></span><span class="sig-name descname"><span class="pre">DistributionStats</span></span><a class="reference internal" href="../_modules/admet/data/stats.html#DistributionStats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#admet.data.stats.DistributionStats" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.TypedDict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></a></p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="admet.data.stats.DistributionStats.count">
 <span class="sig-name descname"><span class="pre">count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></em><a class="headerlink" href="#admet.data.stats.DistributionStats.count" title="Link to this definition">¶</a></dt>
@@ -1552,7 +1797,9 @@ Provides 2-5x speedup over numpy-based computation by avoiding CPU transfers.</p
 <li><a class="reference internal" href="#modules">Modules</a><ul>
 <li><a class="reference internal" href="#constant">constant</a><ul>
 <li><a class="reference internal" href="#contents">Contents</a></li>
+<li><a class="reference internal" href="#admet.data.constant.CANONICAL_TARGET_COLUMNS"><code class="docutils literal notranslate"><span class="pre">CANONICAL_TARGET_COLUMNS</span></code></a></li>
 <li><a class="reference internal" href="#admet.data.constant.COLS_WITH_UNITS"><code class="docutils literal notranslate"><span class="pre">COLS_WITH_UNITS</span></code></a></li>
+<li><a class="reference internal" href="#admet.data.constant.COLUMN_ALIASES"><code class="docutils literal notranslate"><span class="pre">COLUMN_ALIASES</span></code></a></li>
 <li><a class="reference internal" href="#admet.data.constant.TRANSFORMATIONS"><code class="docutils literal notranslate"><span class="pre">TRANSFORMATIONS</span></code></a></li>
 </ul>
 </li>

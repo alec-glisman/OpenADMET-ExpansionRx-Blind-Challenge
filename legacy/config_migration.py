@@ -147,6 +147,7 @@ def migrate_config_file(
             # Fall back to OmegaConf
             config = OmegaConf.load(config_path)
             config_dict = OmegaConf.to_container(config, resolve=True)
+            assert isinstance(config_dict, dict)
 
             if is_migrated(config_dict):
                 logger.info(f"Already migrated: {config_path}")

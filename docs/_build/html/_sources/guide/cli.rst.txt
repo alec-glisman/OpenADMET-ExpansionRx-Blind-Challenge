@@ -224,7 +224,24 @@ List all registered model types.
 admet model train-chemprop (deprecated)
 ----------------------------------------
 
-Legacy command for Chemprop training. Use ``admet model train`` instead.
+.. deprecated:: 1.3.0
+   Use ``admet model train`` instead.
+
+Legacy command for Chemprop training. This command is deprecated and will be
+removed in v2.0.0.
+
+**Migration:**
+
+.. code-block:: bash
+
+   # Old (deprecated):
+   admet model train-chemprop -c config.yaml
+
+   # New (recommended):
+   admet model train -c config.yaml
+
+The unified ``train`` command automatically detects the model type from the
+``model.type`` field in your configuration file.
 
 Data Commands
 =============

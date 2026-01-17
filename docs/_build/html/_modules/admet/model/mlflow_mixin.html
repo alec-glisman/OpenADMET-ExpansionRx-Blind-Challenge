@@ -237,6 +237,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -253,6 +254,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -611,6 +613,54 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span>
 
     <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_mlflow_param_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sanitize a parameter name for MLflow compatibility.</span>
+
+<span class="sd">        MLflow only allows alphanumerics, underscores (_), dashes (-), periods (.),</span>
+<span class="sd">        spaces ( ), colons (:), and slashes (/) in parameter names.</span>
+<span class="sd">        This function replaces or removes disallowed characters.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            name: The parameter name to sanitize.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The sanitized parameter name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Replace common problematic characters</span>
+        <span class="n">replacements</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&lt;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;$&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>  <span class="c1"># Remove LaTeX math markers</span>
+            <span class="s2">&quot;;&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;|&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;?&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;*&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;&quot;&#39;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&#39;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;[&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;]&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;(&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;)&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;{&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;}&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;#&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;%&quot;</span><span class="p">:</span> <span class="s2">&quot;pct&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&amp;&quot;</span><span class="p">:</span> <span class="s2">&quot;and&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;@&quot;</span><span class="p">:</span> <span class="s2">&quot;at&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;!&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="s2">&quot;plus&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;=&quot;</span><span class="p">:</span> <span class="s2">&quot;eq&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;^&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;~&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;`&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">char</span><span class="p">,</span> <span class="n">replacement</span> <span class="ow">in</span> <span class="n">replacements</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">char</span><span class="p">,</span> <span class="n">replacement</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">name</span>
+
+    <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_flatten_dict</span><span class="p">(</span>
         <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">parent_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
@@ -619,6 +669,9 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Flatten nested dictionary for MLflow parameter logging.</span>
 
+<span class="sd">        Sanitizes keys to be MLflow-compatible by removing/replacing special</span>
+<span class="sd">        characters that MLflow doesn&#39;t allow in parameter names.</span>
+
 <span class="sd">        Parameters:</span>
 <span class="sd">            d: Dictionary to flatten.</span>
 <span class="sd">            parent_key: Prefix for nested keys.</span>
@@ -626,7 +679,7 @@
 <span class="sd">            max_depth: Maximum recursion depth.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Flattened dictionary with dot-separated keys.</span>
+<span class="sd">            Flattened dictionary with dot-separated, sanitized keys.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -634,7 +687,9 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">max_depth</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">items</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">MLflowMixin</span><span class="o">.</span><span class="n">_flatten_dict</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">new_key</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">max_depth</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">new_key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+                <span class="c1"># Sanitize key for MLflow compatibility</span>
+                <span class="n">sanitized_key</span> <span class="o">=</span> <span class="n">MLflowMixin</span><span class="o">.</span><span class="n">_sanitize_mlflow_param_name</span><span class="p">(</span><span class="n">new_key</span><span class="p">)</span>
+                <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">sanitized_key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">items</span><span class="p">)</span></div>
 
 </pre></div>

@@ -4,6 +4,83 @@
 
 ---
 
+## January 16, 2026
+
+### Summary
+
+**Leaderboard Update:** Competition grew from 347 to 356 submissions. Improved position to **10th place (Top 2.8%)** with MA-RAE of 0.56 ± 0.02.
+
+### Statistics
+
+#### Overall
+
+| Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Submission Time | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| **10/356** | aglisman | **0.56 ± 0.02** | 0.48 | 14.3% | 0.59 ± 0.04 | 0.78 ± 0.02 | 0.61 ± 0.02 | 2026-01-16 17:36:10+00:00 | 🏆 **Top 2.8%** |
+
+#### By Task
+
+| Rank | Task | MAE | Min MAE | Δ MAE to min (%)[^2] | R² | Spearman R | Kendall's τ | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 26 | LogD | 0.31 ± 0.01 | 0.24 | 22.6% | 0.79 ± 0.02 | 0.91 ± 0.01 | 0.76 ± 0.01 | Okay - Top 7.3% |
+| 26 | KSOL | 0.34 ± 0.01 | 0.30 | 11.8% | 0.62 ± 0.02 | 0.73 ± 0.02 | 0.54 ± 0.01 | Okay - Top 7.3% |
+| 26 | MLM CLint | 0.34 ± 0.01 | 0.32 | 5.9% | 0.44 ± 0.04 | 0.62 ± 0.02 | 0.45 ± 0.02 | Okay - Top 7.3% |
+| 41 | HLM CLint | 0.30 ± 0.01 | 0.26 | 13.3% | 0.38 ± 0.05 | 0.62 ± 0.03 | 0.45 ± 0.03 | Poor - Top 11.5% |
+| 25 | Caco-2 Permeability Efflux | 0.30 ± 0.01 | 0.25 | 16.7% | 0.40 ± 0.03 | 0.82 ± 0.01 | 0.62 ± 0.01 | Okay - Top 7.0% |
+| 9 | Caco-2 Permeability Papp A>B | 0.20 ± 0.01 | 0.19 | 5.0% | 0.57 ± 0.03 | 0.79 ± 0.02 | 0.60 ± 0.01 | 🏆 **Excellent - Top 2.5%** |
+| 34 | MPPB | 0.17 ± 0.01 | 0.14 | 17.6% | 0.69 ± 0.04 | 0.83 ± 0.02 | 0.64 ± 0.02 | Okay - Top 9.6% |
+| 62 | MBPB | 0.15 ± 0.01 | 0.11 | 26.7% | 0.76 ± 0.03 | 0.87 ± 0.02 | 0.71 ± 0.02 | Needs improvement - Top 17.4% |
+| 9 | MGMB | 0.15 ± 0.01 | 0.14 | 6.7% | 0.70 ± 0.06 | 0.82 ± 0.03 | 0.66 ± 0.03 | 🏆 **Excellent - Top 2.5%** |
+
+### What Went Right
+
+**Recovery from January 15 Regression:**
+
+This submission reverted to the proven v3 data split and validated hyperparameters, recovering from the significant regression seen in the January 15 experimental submission.
+
+**Key Improvements:**
+
+1. **Reverted to v3 Data Split:** Returned to the proven data split that consistently performs well on the leaderboard.
+
+2. **Best Overall Rank:** Achieved 10th place (Top 2.8%), the best position in this competition to date.
+
+3. **Strong Task Performance:** Two tasks in Top 2.5% (Caco-2 Papp A>B rank 9, MGMB rank 9).
+
+4. **Consistent Mid-Tier Tasks:** Most tasks now in Top 7-10% range, showing balanced performance.
+
+5. **Correlation Metrics Improved:** R² improved to 0.59 (from 0.49), Kendall's τ to 0.61 (from 0.58).
+
+**Comparison with January 15 (Regression) and January 13 (Previous Best):**
+
+| Task | Jan-13 Rank | Jan-15 Rank | Jan-16 Rank | Recovery | Notes |
+|------|-------------|-------------|-------------|----------|-------|
+| LogD | 53 | 82 | 26 | ✅ +56 | Strong recovery |
+| KSOL | 33 | 90 | 26 | ✅ +64 | Strong recovery |
+| MLM CLint | 34 | 83 | 26 | ✅ +57 | Strong recovery |
+| HLM CLint | 85 | 74 | 41 | ✅ +33 | Improved from both |
+| Caco-2 Efflux | 16 | 126 | 25 | ✅ +101 | **Recovered from catastrophic drop** |
+| Caco-2 Papp A>B | 7 | 63 | 9 | ✅ +54 | Near-best performance |
+| MPPB | 80 | 147 | 34 | ✅ +113 | **Strong recovery** |
+| MBPB | 50 | 143 | 62 | ✅ +81 | Recovered, still weakest |
+| MGMB | 18 | 75 | 9 | ✅ +66 | **Best-ever rank** |
+
+### Lessons Learned
+
+* **Data split consistency is critical** - Returning to v3 split immediately recovered performance
+* **Validate before experimenting** - January 15's v5 split experiment should have been validated offline first
+* **MBPB remains challenging** - Still the weakest task (Top 17.4%), needs targeted improvements
+* **HLM CLint improved** - One task where the new approach actually helped (rank 85 → 41)
+* **Competition is growing** - 356 total submissions, maintaining top 3% requires continued iteration
+
+### Priority Tasks for Improvement
+
+1. **MBPB (rank 62, Top 17.4%)** - Largest gap to top performers, 26.7% Δ MAE to min
+2. **HLM CLint (rank 41, Top 11.5%)** - Metabolic clearance endpoint still lagging
+3. **MPPB (rank 34, Top 9.6%)** - Plasma binding task with room for improvement
+4. **LogD (rank 26, Top 7.3%)** - 22.6% Δ MAE to min, could move into Top 5%
+
+---
+
 ## January 15, 2026
 
 ### Model
@@ -331,13 +408,13 @@ seed: 42
 
 ### Summary
 
-**Leaderboard Update:** Competition grew from 309 to 321 submissions. Despite increased competition, maintained strong position at **11th place (Top 3.4%)** with MA-RAE of 0.57 ± 0.02, remaining within error bar of 2nd place.
+**Leaderboard Update:** Competition grew from 321 to 356 submissions. Despite increased competition, improved position to **10th place (Top 2.8%)** with MA-RAE of 0.56 ± 0.02.
 
 ### Statistics
 
 | Rank | User | MA-RAE | Min MA-RAE | Δ MA-RAE to min (%)[^1] | R² | Spearman R | Kendall's τ | Notes |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| **11/321** | aglisman | **0.57 ± 0.02** | 0.52 | 8.8% | 0.57 ± 0.04 | 0.78 ± 0.02 | 0.60 ± 0.02 | 🏆 **Top 3.4%** — Within MA-RAE error of 2nd place |
+| **10/356** | aglisman | **0.56 ± 0.02** | 0.52 | 7.7% | 0.57 ± 0.04 | 0.78 ± 0.02 | 0.60 ± 0.02 | 🏆 **Top 2.8%** |
 
 ---
 

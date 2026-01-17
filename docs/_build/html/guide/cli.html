@@ -246,6 +246,7 @@
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -262,6 +263,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -557,7 +559,21 @@ admet<span class="w"> </span>model<span class="w"> </span>hpo-list-studies<span 
 </section>
 <section id="admet-model-train-chemprop-deprecated">
 <h3>admet model train-chemprop (deprecated)<a class="headerlink" href="#admet-model-train-chemprop-deprecated" title="Link to this heading">¶</a></h3>
-<p>Legacy command for Chemprop training. Use <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">model</span> <span class="pre">train</span></code> instead.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version 1.3.0: </span>Use <code class="docutils literal notranslate"><span class="pre">admet</span> <span class="pre">model</span> <span class="pre">train</span></code> instead.</p>
+</div>
+<p>Legacy command for Chemprop training. This command is deprecated and will be
+removed in v2.0.0.</p>
+<p><strong>Migration:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Old (deprecated):</span>
+admet<span class="w"> </span>model<span class="w"> </span>train-chemprop<span class="w"> </span>-c<span class="w"> </span>config.yaml
+
+<span class="c1"># New (recommended):</span>
+admet<span class="w"> </span>model<span class="w"> </span>train<span class="w"> </span>-c<span class="w"> </span>config.yaml
+</pre></div>
+</div>
+<p>The unified <code class="docutils literal notranslate"><span class="pre">train</span></code> command automatically detects the model type from the
+<code class="docutils literal notranslate"><span class="pre">model.type</span></code> field in your configuration file.</p>
 </section>
 </section>
 <section id="data-commands">

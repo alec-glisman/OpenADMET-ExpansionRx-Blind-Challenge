@@ -246,6 +246,7 @@
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -262,6 +263,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -421,16 +423,18 @@ metric visualizations, and dataset exploration plots.</p></li>
 <section id="configuration-system">
 <h2>Configuration System<a class="headerlink" href="#configuration-system" title="Link to this heading">¶</a></h2>
 <p>The package uses OmegaConf dataclasses for configuration management:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChempropConfig</span><span class="p">,</span> <span class="n">EnsembleConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
 
 <span class="c1"># Load from YAML</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/ensemble_chemprop_production.yaml&quot;</span><span class="p">)</span>
-<span class="n">cfg</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">structured</span><span class="p">(</span><span class="n">EnsembleConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">))</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;configs/0-experiment/0-single-fold/chemprop.yaml&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create model using registry (dispatches by model.type field)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelRegistry</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
 <span class="c1"># Access nested configuration</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ffn_type</span><span class="p">)</span>  <span class="c1"># &quot;regression&quot;</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">)</span>  <span class="c1"># &quot;SMILES&quot;</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>  <span class="c1"># &quot;chemprop&quot;</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span><span class="p">)</span>  <span class="c1"># &quot;SMILES&quot;</span>
 </pre></div>
 </div>
 <p>Key configuration classes:</p>

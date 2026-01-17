@@ -15,7 +15,7 @@ Usage:
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -78,7 +78,7 @@ def has_logging_section(config: Dict[str, Any]) -> bool:
     return "logging" in config
 
 
-def add_logging_section(config: Dict[str, Any]) -> Dict[str, Any]:
+def add_logging_section(config: Dict[str, Any]) -> bool:
     """Add logging section to config if not present."""
     if not has_logging_section(config):
         config["logging"] = DEFAULT_LOGGING_CONFIG.copy()
@@ -113,7 +113,7 @@ def process_yaml_file(file_path: Path, dry_run: bool = False) -> bool:
 
 def find_yaml_files(config_dir: Path) -> List[Path]:
     """Find all YAML files in config directory."""
-    yaml_files = []
+    yaml_files: list[Path] = []
 
     for pattern in ["**/*.yaml", "**/*.yml"]:
         yaml_files.extend(config_dir.glob(pattern))
@@ -122,7 +122,7 @@ def find_yaml_files(config_dir: Path) -> List[Path]:
 
 
 def batch_update_configs(
-    config_dir: Path = None,
+    config_dir: Optional[Path] = None,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> Dict[str, int]:

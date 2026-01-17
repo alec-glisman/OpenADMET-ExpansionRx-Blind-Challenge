@@ -21,7 +21,7 @@ def should_aggregate_metric(metric_name: str) -> bool:
 
 def aggregate_child_metrics(client: MlflowClient, parent_run_id: str, child_run_ids: list) -> dict:
     """Fetch and aggregate metrics from child runs."""
-    all_metrics = {}
+    all_metrics: dict = {}
 
     for run_id in child_run_ids:
         try:

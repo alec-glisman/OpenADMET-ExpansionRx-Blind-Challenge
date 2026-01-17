@@ -91,16 +91,18 @@ The package uses OmegaConf dataclasses for configuration management:
 
 .. code-block:: python
 
-   from admet.model.chemprop import ChempropConfig, EnsembleConfig
+   from admet.model.registry import ModelRegistry
    from omegaconf import OmegaConf
 
    # Load from YAML
-   config = OmegaConf.load("configs/0-experiment/ensemble_chemprop_production.yaml")
-   cfg = OmegaConf.structured(EnsembleConfig(**config))
+   config = OmegaConf.load("configs/0-experiment/0-single-fold/chemprop.yaml")
+
+   # Create model using registry (dispatches by model.type field)
+   model = ModelRegistry.create(config)
 
    # Access nested configuration
-   print(cfg.model.ffn_type)  # "regression"
-   print(cfg.data.smiles_col)  # "SMILES"
+   print(config.model.type)  # "chemprop"
+   print(config.data.smiles_col)  # "SMILES"
 
 Key configuration classes:
 

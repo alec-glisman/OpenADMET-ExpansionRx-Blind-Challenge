@@ -237,6 +237,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/cli.html">CLI Command Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/config_reference.html">Configuration File Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/migration.html">Migration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/scripts.html">Shell Scripts Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../api/admet.html">ADMET Package API</a><input aria-label="Toggle navigation of ADMET Package API" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -253,6 +254,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/leaderboard.html">Leaderboard Analysis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guide/development.html">Development Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Development</span></p>
 <ul>
@@ -386,6 +388,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">admet.model.classical.catboost_model</span>  <span class="c1"># noqa: F401</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">admet.model.classical.lightgbm_model</span>  <span class="c1"># noqa: F401</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">admet.model.classical.xgboost_model</span>  <span class="c1"># noqa: F401</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.column_mapping</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_dataframe_columns</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.chemprop.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ChempropConfig</span><span class="p">,</span>
@@ -766,6 +769,7 @@
 <span class="sd">        - Only SMILES canonicalization is performed; MoleculeDataset creation</span>
 <span class="sd">          is deferred to individual models</span>
 <span class="sd">        - For ensembles without test/blind files, silently skips</span>
+<span class="sd">        - Column names are normalized to canonical format</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.smiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">parallel_canonicalize_smiles</span>
 
@@ -777,6 +781,8 @@
             <span class="k">if</span> <span class="n">test_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Precomputing shared test dataset from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">test_file</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">test_file</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="c1"># Normalize column names (test may not have all target columns)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">parallel_canonicalize_smiles</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_shared_test_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                 <span class="p">)</span>
@@ -788,6 +794,8 @@
             <span class="k">if</span> <span class="n">blind_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Precomputing shared blind dataset from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">blind_file</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">blind_file</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="c1"># Normalize column names (blind set does not have target columns)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span> <span class="o">=</span> <span class="n">normalize_dataframe_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">parallel_canonicalize_smiles</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_shared_blind_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                 <span class="p">)</span>
@@ -796,19 +804,80 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_flatten_dict</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">parent_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flatten nested dictionary for MLflow params.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flatten nested dictionary for MLflow params.</span>
+
+<span class="sd">        Sanitizes keys to be MLflow-compatible by removing/replacing special characters</span>
+<span class="sd">        that MLflow doesn&#39;t allow in parameter names.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">items</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">new_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parent_key</span><span class="si">}{</span><span class="n">sep</span><span class="si">}{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">parent_key</span> <span class="k">else</span> <span class="n">k</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">max_depth</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">items</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_flatten_dict</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">new_key</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">max_depth</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
             <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Sanitize key for MLflow compatibility</span>
+                <span class="c1"># MLflow only allows: alphanumerics, _, -, ., space, :, /</span>
+                <span class="n">sanitized_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sanitize_mlflow_param_name</span><span class="p">(</span><span class="n">new_key</span><span class="p">)</span>
+
                 <span class="c1"># Truncate long values</span>
                 <span class="n">str_val</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">str_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">250</span><span class="p">:</span>
                     <span class="n">str_val</span> <span class="o">=</span> <span class="n">str_val</span><span class="p">[:</span><span class="mi">247</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;...&quot;</span>
-                <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">new_key</span><span class="p">,</span> <span class="n">str_val</span><span class="p">))</span>
+                <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">sanitized_key</span><span class="p">,</span> <span class="n">str_val</span><span class="p">))</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_mlflow_param_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sanitize a parameter name for MLflow compatibility.</span>
+
+<span class="sd">        MLflow only allows alphanumerics, underscores (_), dashes (-), periods (.),</span>
+<span class="sd">        spaces ( ), colons (:), and slashes (/) in parameter names.</span>
+<span class="sd">        This function replaces or removes disallowed characters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The parameter name to sanitize.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            The sanitized parameter name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Replace common problematic characters</span>
+        <span class="n">replacements</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&lt;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;$&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>  <span class="c1"># Remove LaTeX math markers</span>
+            <span class="s2">&quot;;&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;|&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;?&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;*&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;&quot;&#39;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&#39;&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;[&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;]&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;(&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;)&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;{&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;}&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;#&quot;</span><span class="p">:</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;%&quot;</span><span class="p">:</span> <span class="s2">&quot;pct&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&amp;&quot;</span><span class="p">:</span> <span class="s2">&quot;and&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;@&quot;</span><span class="p">:</span> <span class="s2">&quot;at&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;!&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="s2">&quot;plus&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;=&quot;</span><span class="p">:</span> <span class="s2">&quot;eq&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;^&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;~&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;`&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">char</span><span class="p">,</span> <span class="n">replacement</span> <span class="ow">in</span> <span class="n">replacements</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">char</span><span class="p">,</span> <span class="n">replacement</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">name</span>
 
 <div class="viewcode-block" id="ModelEnsemble.discover_splits_folds">
 <a class="viewcode-back" href="../../../../api/admet.model.html#admet.model.chemprop.ModelEnsemble.discover_splits_folds">[docs]</a>
@@ -1387,17 +1456,21 @@
                     <span class="n">data_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
                     <span class="n">train_file</span> <span class="o">=</span> <span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;train.csv&quot;</span>
                     <span class="n">val_file</span> <span class="o">=</span> <span class="n">data_dir</span> <span class="o">/</span> <span class="s2">&quot;validation.csv&quot;</span>
-
-                    <span class="n">train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">train_file</span><span class="p">)</span>
                     <span class="n">smiles_col</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">smiles_col</span>
                     <span class="n">target_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">target_cols</span><span class="p">)</span>
 
+                    <span class="c1"># Import column normalization inside worker for Ray process isolation</span>
+                    <span class="kn">from</span><span class="w"> </span><span class="nn">admet.data.column_mapping</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_dataframe_columns</span> <span class="k">as</span> <span class="n">_normalize_cols</span>
+
+                    <span class="n">train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">train_file</span><span class="p">)</span>
+                    <span class="n">train_df</span> <span class="o">=</span> <span class="n">_normalize_cols</span><span class="p">(</span><span class="n">train_df</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="n">target_cols</span><span class="p">)</span>
                     <span class="n">train_smiles</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                     <span class="n">train_y</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="n">target_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 
                     <span class="n">val_smiles</span><span class="p">,</span> <span class="n">val_y</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
                     <span class="k">if</span> <span class="n">val_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                         <span class="n">val_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">val_file</span><span class="p">)</span>
+                        <span class="n">val_df</span> <span class="o">=</span> <span class="n">_normalize_cols</span><span class="p">(</span><span class="n">val_df</span><span class="p">,</span> <span class="n">target_cols</span><span class="o">=</span><span class="n">target_cols</span><span class="p">)</span>
                         <span class="n">val_smiles</span> <span class="o">=</span> <span class="n">val_df</span><span class="p">[</span><span class="n">smiles_col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                         <span class="n">val_y</span> <span class="o">=</span> <span class="n">val_df</span><span class="p">[</span><span class="n">target_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 
@@ -1777,14 +1850,37 @@
             <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_std&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">std_pred</span>
             <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stderr_pred</span>
 
+        <span class="c1"># Apply target clipping after ensemble aggregation if configured</span>
+        <span class="n">target_clipping</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;target_clipping&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">target_clipping</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">target_clipping</span><span class="p">,</span> <span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">target_clipping</span><span class="p">,</span> <span class="s2">&quot;apply_after_ensemble&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">admet.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_target_clipping</span>
+
+            <span class="n">clip_ranges</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">target_clipping</span><span class="p">,</span> <span class="s2">&quot;clip_ranges&quot;</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">if</span> <span class="n">clip_ranges</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">apply_target_clipping</span><span class="p">(</span>
+                    <span class="n">result</span><span class="p">,</span>
+                    <span class="n">target_cols</span><span class="p">,</span>
+                    <span class="nb">dict</span><span class="p">(</span><span class="n">clip_ranges</span><span class="p">),</span>
+                    <span class="n">column_suffix</span><span class="o">=</span><span class="s2">&quot;_mean&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Applied target clipping to ensemble mean predictions&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Compute transformed values after clipping</span>
+        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">target_cols</span><span class="p">:</span>
             <span class="c1"># For &quot;Log &quot; columns (with space), compute transformed values</span>
             <span class="c1"># Average first, then transform: 10^mean(x_i)</span>
             <span class="c1"># Note: &quot;Log&quot; (no space) columns are already in correct form, no transform needed</span>
             <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;Log &quot;</span><span class="p">):</span>
-                <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_transformed_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">mean_pred</span><span class="p">)</span>
+                <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_transformed_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_mean&quot;</span><span class="p">])</span>
                 <span class="c1"># Propagate uncertainty through log transform</span>
                 <span class="c1"># For y = 10^x, dy = ln(10) * 10^x * dx</span>
-                <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_transformed_stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">mean_pred</span><span class="p">)</span> <span class="o">*</span> <span class="n">stderr_pred</span>
+                <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_transformed_stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_mean&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">_stderr&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
 
         <span class="c1"># Cache aggregated result (performance optimization)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_enabled</span><span class="p">:</span>
@@ -2098,7 +2194,8 @@
                 <span class="n">s</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
             <span class="p">)</span>
 
-            <span class="n">plot_path</span> <span class="o">=</span> <span class="n">plot_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;parity_</span><span class="si">{</span><span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.png&quot;</span>
+            <span class="n">safe_filename</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;gt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;lt&quot;</span><span class="p">)</span>
+            <span class="n">plot_path</span> <span class="o">=</span> <span class="n">plot_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;parity_</span><span class="si">{</span><span class="n">safe_filename</span><span class="si">}</span><span class="s2">.png&quot;</span>
             <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">plot_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 
@@ -2256,7 +2353,13 @@
                 <span class="c1"># Log individual target metrics to MLflow under test/ prefix</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">:</span>
                     <span class="n">safe_metric</span> <span class="o">=</span> <span class="n">metric_name_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_type</span><span class="p">,</span> <span class="n">metric_type</span><span class="p">)</span>
-                    <span class="n">safe_target</span> <span class="o">=</span> <span class="n">clean_target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;gt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;lt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                    <span class="n">safe_target</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">clean_target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;gt&quot;</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;lt&quot;</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                    <span class="p">)</span>
                     <span class="k">try</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_mlflow_client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">parent_run_id</span><span class="p">,</span>
